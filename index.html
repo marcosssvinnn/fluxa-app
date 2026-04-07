@@ -503,6 +503,40 @@
     .prod-tabela tr:hover td{background:#fafafa}
     .prod-bar-bg{background:var(--gray-light);border-radius:50px;height:6px;margin-top:4px}
     .prod-bar{background:var(--c1);height:6px;border-radius:50px;transition:width .4s}
+
+    /* ── PORTAL DO CLIENTE ── */
+    .portal-wrap{max-width:680px;margin:0 auto;padding:20px 14px 60px;font-family:'Inter',sans-serif}
+    .portal-header{background:var(--c2);padding:20px;border-radius:16px;margin-bottom:20px;display:flex;align-items:center;gap:14px}
+    .portal-logo{width:52px;height:52px;border-radius:12px;object-fit:cover;display:none}
+    .portal-logo.has-logo{display:block}
+    .portal-nome-empresa{font-size:20px;font-weight:800;color:white;line-height:1.2}
+    .portal-sub-empresa{font-size:12px;color:rgba(255,255,255,.6);margin-top:2px}
+    .portal-cli-nome{font-size:22px;font-weight:800;color:var(--c2);margin-bottom:4px}
+    .portal-cli-sub{font-size:13px;color:var(--gray);margin-bottom:20px}
+    .portal-section{background:var(--white);border-radius:var(--r);padding:18px;margin-bottom:14px;box-shadow:var(--sh)}
+    .portal-section-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--c1);border-bottom:2px solid var(--c1-light);padding-bottom:8px;margin-bottom:14px}
+    .portal-visita{display:flex;align-items:center;gap:14px;padding:12px;background:var(--c1-light);border-radius:10px;border-left:4px solid var(--c1)}
+    .portal-visita-data{font-size:24px;font-weight:800;color:var(--c1);min-width:50px;text-align:center;line-height:1}
+    .portal-visita-info{flex:1}
+    .portal-visita-tipo{font-size:14px;font-weight:700;color:var(--c2)}
+    .portal-visita-tec{font-size:12px;color:var(--gray);margin-top:2px}
+    .portal-os-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--gray-light)}
+    .portal-os-item:last-child{border-bottom:none}
+    .portal-os-data{font-size:11px;color:var(--gray);min-width:70px}
+    .portal-os-desc{flex:1;font-size:13px;color:var(--c2);font-weight:500}
+    .portal-eq-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--gray-light)}
+    .portal-eq-item:last-child{border-bottom:none}
+    .portal-eq-tipo{font-size:22px;width:32px;text-align:center}
+    .portal-eq-info{flex:1}
+    .portal-eq-nome{font-size:13px;font-weight:600;color:var(--c2)}
+    .portal-eq-garantia{font-size:11px;color:var(--gray);margin-top:1px}
+    .portal-orc-item{padding:12px;border-radius:10px;border:1.5px solid var(--gray-mid);margin-bottom:8px}
+    .portal-orc-num{font-size:11px;font-weight:700;color:var(--c1)}
+    .portal-orc-svcs{font-size:13px;color:var(--c2);margin:4px 0}
+    .portal-orc-total{font-size:16px;font-weight:800;color:var(--c2)}
+    .portal-wa-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:14px;background:var(--wa);color:white;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;margin-top:8px}
+    .portal-loading{text-align:center;padding:60px 20px;color:var(--gray)}
+    .portal-erro{text-align:center;padding:60px 20px}
   </style>
 </head>
 <body>
@@ -1050,6 +1084,69 @@
   </div>
 </div>
 
+<!-- ══ PAGE: PORTAL DO CLIENTE ══ -->
+<div class="page" id="page-portal">
+  <div class="portal-wrap">
+    <div id="portal-loading" class="portal-loading">
+      <div class="spin" style="margin:0 auto 12px;width:28px;height:28px;border-width:3px"></div>
+      <p>Carregando seu portal…</p>
+    </div>
+    <div id="portal-content" style="display:none">
+      <!-- Header empresa -->
+      <div class="portal-header">
+        <img id="portal-logo" class="portal-logo" alt="logo">
+        <div>
+          <div class="portal-nome-empresa" id="portal-empresa-nome"></div>
+          <div class="portal-sub-empresa" id="portal-empresa-sub"></div>
+        </div>
+      </div>
+
+      <!-- Saudação -->
+      <div class="portal-cli-nome" id="portal-cli-nome"></div>
+      <div class="portal-cli-sub">Seu portal exclusivo de serviços</div>
+
+      <!-- Próxima visita -->
+      <div class="portal-section" id="portal-sec-visita" style="display:none">
+        <div class="portal-section-title">📅 Próxima Visita</div>
+        <div id="portal-proxima-visita"></div>
+      </div>
+
+      <!-- Orçamentos pendentes -->
+      <div class="portal-section" id="portal-sec-orc" style="display:none">
+        <div class="portal-section-title">📋 Orçamentos Pendentes</div>
+        <div id="portal-orcs"></div>
+      </div>
+
+      <!-- Histórico de OS -->
+      <div class="portal-section" id="portal-sec-os" style="display:none">
+        <div class="portal-section-title">🔧 Histórico de Serviços</div>
+        <div id="portal-os-lista"></div>
+      </div>
+
+      <!-- Equipamentos -->
+      <div class="portal-section" id="portal-sec-eq" style="display:none">
+        <div class="portal-section-title">⚙️ Seus Equipamentos</div>
+        <div id="portal-eq-lista"></div>
+      </div>
+
+      <!-- Contato -->
+      <div class="portal-section">
+        <div class="portal-section-title">💬 Fale Conosco</div>
+        <button class="portal-wa-btn" onclick="abrirWAPortal()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413z"/></svg>
+          Falar com a Equipe
+        </button>
+      </div>
+    </div>
+
+    <div id="portal-erro" class="portal-erro" style="display:none">
+      <div style="font-size:48px;margin-bottom:12px">🔒</div>
+      <div style="font-size:18px;font-weight:700;color:var(--c2);margin-bottom:8px">Portal não encontrado</div>
+      <div style="font-size:13px;color:var(--gray)">Este link pode ter expirado ou é inválido.</div>
+    </div>
+  </div>
+</div>
+
 <!-- ══ DOCUMENTO ORÇAMENTO (print) ══ -->
 <div class="pdoc" id="pdoc-orc">
   <!-- HEADER -->
@@ -1511,6 +1608,10 @@ function lsOrcProxNum(){ return lsOrcLer().reduce((a,o)=>Math.max(a,o.numero||0)
 ;(async () => {
   carregarCFGlocal();
   aplicarCFG();
+
+  const isPortal = await checkPortalHash();
+  if(isPortal) return; // para a execução do boot normal
+
   injetarPWA();
   atualizarSQL();
   initForm();
@@ -1676,7 +1777,9 @@ CREATE TABLE IF NOT EXISTS despesas (
   status text DEFAULT 'pendente',
   data_criacao timestamptz DEFAULT now()
 );
-ALTER PUBLICATION supabase_realtime ADD TABLE despesas;`;
+ALTER PUBLICATION supabase_realtime ADD TABLE despesas;
+ALTER TABLE clientes ADD COLUMN IF NOT EXISTS portal_token uuid DEFAULT gen_random_uuid();
+ALTER TABLE clientes ADD COLUMN IF NOT EXISTS portal_ativo boolean DEFAULT true;`;
 }
 
 // ──────────────────────────────────────────────────
@@ -1801,6 +1904,7 @@ function go(p){
   const nb=document.getElementById('nb-'+p); if(nb) nb.classList.add('on');
   document.querySelectorAll('.mob-nb').forEach(x=>x.classList.remove('on'));
   const mnb=document.getElementById('mnb-'+p); if(mnb) mnb.classList.add('on');
+  if(p==='portal') { /* página gerenciada por checkPortalHash */ }
   if(p==='history') loadHist();
   if(p==='os-history') loadOSHist();
   if(p==='clientes') renderClientes();
@@ -2716,7 +2820,7 @@ function mostrarFormCliente(){
 async function salvarNovoCliente(){
   const nome=gV('cli-new-nome').trim();
   if(!nome){ toast('⚠️ Informe o nome do cliente'); return; }
-  const novo={id:'cli_'+Date.now(), nome, tel:gV('cli-new-tel').trim(), end:gV('cli-new-end').trim()};
+  const novo={id:'cli_'+Date.now(), nome, tel:gV('cli-new-tel').trim(), end:gV('cli-new-end').trim(), portal_token:crypto.randomUUID()};
   const lista=lsCliLer(); lista.unshift(novo); lsCliSalvar(lista);
   if(dbOk&&db){
     try{ await db.from('clientes').insert([{nome:novo.nome,telefone:novo.tel,endereco:novo.end}]); }catch(e){}
@@ -2735,7 +2839,10 @@ function renderClientes(){
         <div class="cli-card-nome">${esc(c.nome)}</div>
         <div class="cli-card-det">${[c.tel,c.end].filter(Boolean).map(x=>esc(x)).join(' · ')}</div>
       </div>
-      <button class="tb d" onclick="excluirCliente('${c.id}')">🗑</button>
+      <div style="display:flex;gap:6px;flex-shrink:0">
+        <button class="tb" onclick="copiarLinkPortal('${c.id}')">🔗 Portal</button>
+        <button class="tb d" onclick="excluirCliente('${c.id}')">🗑</button>
+      </div>
     </div>`).join('');
 }
 
@@ -2876,6 +2983,190 @@ function ls(k){ try{return localStorage.getItem(k);}catch(e){return null;} }
 function lsSet(k,v){ try{localStorage.setItem(k,v);}catch(e){} }
 function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('on'); setTimeout(()=>t.classList.remove('on'),2800); }
 function hexA(hex,a){ try{ const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16); return `rgba(${r},${g},${b},${a})`; }catch(e){ return hex; } }
+
+// ══════════════════════════════════════════════════
+//  MÓDULO 5 — PORTAL DO CLIENTE
+// ══════════════════════════════════════════════════
+let portalCliente = null;
+
+async function checkPortalHash(){
+  const hash=window.location.hash;
+  if(!hash.startsWith('#portal/')) return false;
+  const token=hash.replace('#portal/','').trim();
+  if(!token) return false;
+
+  // Esconde tudo menos o portal
+  document.getElementById('pin-overlay').style.display='none';
+  document.querySelector('.hdr').style.display='none';
+  const mobNav=document.getElementById('mob-nav'); if(mobNav) mobNav.style.display='none';
+  document.body.style.background='#f0f2f5';
+  document.body.style.paddingTop='0';
+
+  go('portal');
+
+  // Conecta ao banco se não conectado
+  if(!dbOk||!db){
+    const sbUrl=ls('sb_url'), sbKey=ls('sb_key');
+    if(sbUrl&&sbKey) await conectarDB(sbUrl,sbKey,false);
+  }
+
+  // Busca cliente pelo token
+  try{
+    let cli=null;
+    if(dbOk&&db){
+      const {data}=await db.from('clientes').select('*').eq('portal_token',token).single();
+      cli=data;
+    } else {
+      const todos=JSON.parse(ls('fluxa_clientes_full')||'[]');
+      cli=todos.find(x=>x.portal_token===token)||null;
+    }
+    if(!cli){ mostrarErroPortal(); return true; }
+    portalCliente=cli;
+    await renderPortal(cli);
+  }catch(e){ mostrarErroPortal(); }
+  return true;
+}
+
+function mostrarErroPortal(){
+  document.getElementById('portal-loading').style.display='none';
+  document.getElementById('portal-erro').style.display='block';
+}
+
+async function renderPortal(cli){
+  document.getElementById('portal-loading').style.display='none';
+  document.getElementById('portal-content').style.display='block';
+
+  // Header empresa
+  document.getElementById('portal-empresa-nome').textContent=CFG.nome||'';
+  document.getElementById('portal-empresa-sub').textContent=CFG.sub||'';
+  const logo=document.getElementById('portal-logo');
+  if(CFG.logoB64){ logo.src=CFG.logoB64; logo.classList.add('has-logo'); }
+  document.getElementById('portal-cli-nome').textContent='Olá, '+cli.nome+' 👋';
+
+  // Próxima visita (busca OS agendadas do cliente)
+  const osLocal=JSON.parse(ls('fluxa_os_hist')||'[]');
+  let osCliente=osLocal.filter(o=>(o.cliente||'').toLowerCase()===cli.nome.toLowerCase());
+  if(dbOk&&db){
+    try{
+      const {data}=await db.from('ordens_servico').select('*').ilike('cliente',cli.nome).order('data_servico',{ascending:true});
+      if(data) osCliente=data;
+    }catch(e){}
+  }
+  const hoje=new Date(); hoje.setHours(0,0,0,0);
+  const futuras=osCliente.filter(o=>o.status==='agendado'&&o.data_servico&&new Date(o.data_servico+'T12:00:00')>=hoje).sort((a,b)=>new Date(a.data_servico)-new Date(b.data_servico));
+  const secVisita=document.getElementById('portal-sec-visita');
+  if(futuras.length){
+    secVisita.style.display='block';
+    const prox=futuras[0];
+    const d=new Date(prox.data_servico+'T12:00:00');
+    document.getElementById('portal-proxima-visita').innerHTML=`
+      <div class="portal-visita">
+        <div class="portal-visita-data">${d.getDate()}<div style="font-size:11px">${d.toLocaleDateString('pt-BR',{month:'short'})}</div></div>
+        <div class="portal-visita-info">
+          <div class="portal-visita-tipo">${esc((prox.servicos||[]).join(', ')||'Visita técnica')}</div>
+          <div class="portal-visita-tec">👤 ${esc(prox.tecnico||'')} ${prox.hora?' · ⏰ '+prox.hora:''}</div>
+        </div>
+      </div>`;
+  }
+
+  // Histórico de OS
+  const concluidas=osCliente.filter(o=>o.status==='concluido').sort((a,b)=>new Date(b.data_criacao)-new Date(a.data_criacao)).slice(0,5);
+  const secOS=document.getElementById('portal-sec-os');
+  if(concluidas.length){
+    secOS.style.display='block';
+    document.getElementById('portal-os-lista').innerHTML=concluidas.map(o=>`
+      <div class="portal-os-item">
+        <div class="portal-os-data">${o.data_servico?new Date(o.data_servico+'T12:00:00').toLocaleDateString('pt-BR'):'—'}</div>
+        <div class="portal-os-desc">${esc((o.servicos||[]).join(', ')||'Serviço')}</div>
+        <span class="os-badge os-concluido">✅</span>
+      </div>`).join('');
+  }
+
+  // Orçamentos pendentes
+  let orcsCliente=todosOrc.filter(o=>(o.cliente||'').toLowerCase()===cli.nome.toLowerCase()&&o.status==='pendente');
+  const secOrc=document.getElementById('portal-sec-orc');
+  if(orcsCliente.length){
+    secOrc.style.display='block';
+    document.getElementById('portal-orcs').innerHTML=orcsCliente.map(o=>`
+      <div class="portal-orc-item">
+        <div class="portal-orc-num">Orçamento #${String(o.numero||'').padStart(3,'0')}</div>
+        <div class="portal-orc-svcs">${esc((o.servicos||[]).map(s=>s.desc).join(', '))}</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;flex-wrap:wrap;gap:8px">
+          <div class="portal-orc-total">${brl(o.total||0)}</div>
+          <div style="display:flex;gap:6px">
+            <button class="ba" style="background:var(--green);color:white;padding:7px 14px;font-size:12px" onclick="aprovarOrcPortal('${o.id}')">✅ Aprovar</button>
+            <button class="ba" style="background:var(--red);color:white;padding:7px 14px;font-size:12px" onclick="recusarOrcPortal('${o.id}')">❌ Recusar</button>
+          </div>
+        </div>
+      </div>`).join('');
+  }
+
+  // Equipamentos
+  let eqCliente=todosEq.filter(e=>(e.cliente_nome||'').toLowerCase()===cli.nome.toLowerCase());
+  if(dbOk&&db&&!eqCliente.length){
+    try{
+      const {data}=await db.from('equipamentos').select('*').ilike('cliente_nome',cli.nome).eq('ativo',true);
+      if(data&&data.length) eqCliente.push(...data);
+    }catch(e){}
+  }
+  const secEq=document.getElementById('portal-sec-eq');
+  if(eqCliente.length){
+    secEq.style.display='block';
+    const hoje2=new Date(); hoje2.setHours(0,0,0,0);
+    const icons={Motobomba:'⚙️',Filtro:'🔵',Trocador:'🌡️','Gerador de Cloro':'🧪',Sauna:'♨️','Spa / Hidro':'🛁',Outro:'🔧'};
+    document.getElementById('portal-eq-lista').innerHTML=eqCliente.map(eq=>{
+      let gTxt='', gColor='var(--green)';
+      if(eq.garantia_vencimento){
+        const venc=new Date(eq.garantia_vencimento+'T12:00:00');
+        const diff=Math.ceil((venc-hoje2)/(1000*60*60*24));
+        if(diff<0){ gTxt='Garantia vencida'; gColor='var(--red)'; }
+        else if(diff<=30){ gTxt=`Garantia vence em ${diff} dias`; gColor='var(--yellow)'; }
+        else { gTxt=`Garantia até ${venc.toLocaleDateString('pt-BR')}`; }
+      }
+      return `<div class="portal-eq-item">
+        <div class="portal-eq-tipo">${icons[eq.tipo]||'🔧'}</div>
+        <div class="portal-eq-info">
+          <div class="portal-eq-nome">${esc(eq.marca||'')} ${esc(eq.modelo||'')} <span style="font-size:11px;color:var(--gray)">${esc(eq.tipo||'')}</span></div>
+          ${gTxt?`<div class="portal-eq-garantia" style="color:${gColor}">${gTxt}</div>`:''}
+        </div>
+      </div>`;
+    }).join('');
+  }
+}
+
+async function aprovarOrcPortal(id){
+  if(!confirm('Confirmar aprovação deste orçamento?')) return;
+  todosOrc=todosOrc.map(o=>o.id===id?{...o,status:'aprovado'}:o);
+  lsOrcAtualizar(id,{status:'aprovado'});
+  if(dbOk&&db) db.from('orcamentos').update({status:'aprovado'}).eq('id',id).then(()=>{}).catch(()=>{});
+  if(portalCliente) await renderPortal(portalCliente);
+  toast('✅ Orçamento aprovado!');
+}
+
+async function recusarOrcPortal(id){
+  if(!confirm('Recusar este orçamento?')) return;
+  todosOrc=todosOrc.map(o=>o.id===id?{...o,status:'recusado'}:o);
+  lsOrcAtualizar(id,{status:'recusado'});
+  if(dbOk&&db) db.from('orcamentos').update({status:'recusado'}).eq('id',id).then(()=>{}).catch(()=>{});
+  if(portalCliente) await renderPortal(portalCliente);
+  toast('❌ Orçamento recusado');
+}
+
+function abrirWAPortal(){
+  let tel=(CFG.tel||'').replace(/\D/g,'');
+  if(!tel){ toast('⚠️ Configure o telefone da empresa nas configurações'); return; }
+  if(!tel.startsWith('55')) tel='55'+tel;
+  const nome=portalCliente?portalCliente.nome:'Cliente';
+  window.open(`https://wa.me/${tel}?text=${encodeURIComponent('Olá! Sou '+nome+' e gostaria de falar com vocês.')}`, '_blank');
+}
+
+function copiarLinkPortal(id){
+  const lista=lsCliLer();
+  const cli=lista.find(x=>x.id===id); if(!cli||!cli.portal_token) return;
+  const url=window.location.origin+window.location.pathname+'#portal/'+cli.portal_token;
+  const msg=`Olá, ${cli.nome}! 👋\n\nAcesse seu portal exclusivo para acompanhar seus agendamentos, histórico de serviços e orçamentos:\n\n${url}\n\nQualquer dúvida estamos à disposição!\n*${CFG.nome}*`;
+  navigator.clipboard.writeText(msg).then(()=>toast('✅ Link do portal copiado!')).catch(()=>toast('✅ Copiado!'));
+}
 
 // ══════════════════════════════════════════════════
 //  MÓDULO 4 — PRODUTIVIDADE POR TÉCNICO
