@@ -31,10 +31,10 @@
       --r: 12px; --sh: 0 1px 4px rgba(0,0,0,.08);
     }
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:'Inter',sans-serif;background:#f0f2f5;color:var(--c2);min-height:100vh}
+    body{font-family:'Inter',sans-serif;background:#f0f2f5;color:var(--c2);min-height:100vh;padding-top:56px}
 
     /* ── HEADER ── */
-    .hdr{background:var(--c2);padding:0 16px;display:flex;align-items:stretch;position:sticky;top:0;z-index:200;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+    .hdr{background:var(--c2);padding:0 16px;display:flex;align-items:stretch;position:fixed;top:0;left:0;right:0;height:56px;z-index:200;box-shadow:0 2px 8px rgba(0,0,0,.25)}
     .hdr-logo{display:flex;align-items:center;gap:10px;padding:10px 14px 10px 0;border-right:1px solid rgba(255,255,255,.1);flex-shrink:0}
     .hdr-logo img{height:32px;width:32px;border-radius:6px;object-fit:cover;display:none}
     .hdr-logo img.has-logo{display:block}
