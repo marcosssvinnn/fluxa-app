@@ -397,6 +397,28 @@
     .cli-card-info .cli-card-det{font-size:12px;color:var(--gray);margin-top:3px}
     .cli-form-inline{background:var(--c1-light);border:2px dashed var(--c1);border-radius:var(--r);padding:20px;margin-bottom:16px}
 
+    /* ── AGENDAMENTO ── */
+    .cal-wrap{overflow-x:auto;margin-bottom:16px}
+    .cal{width:100%;border-collapse:collapse;min-width:600px}
+    .cal th{background:var(--c2);color:white;padding:8px 6px;font-size:11px;font-weight:700;text-align:center}
+    .cal td{border:1px solid var(--gray-mid);padding:4px;vertical-align:top;min-width:80px;height:70px;font-size:11px}
+    .cal td.hoje{background:var(--c1-light)}
+    .cal td.outro-mes{background:#fafafa;color:var(--gray)}
+    .cal-ev{background:var(--c1);color:white;border-radius:4px;padding:2px 5px;margin-bottom:2px;font-size:10px;font-weight:600;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .cal-ev.agendado{background:var(--blue)}
+    .cal-ev.concluido{background:var(--green)}
+    .cal-ev.cancelado{background:var(--red)}
+    .cal-nav{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+    .cal-nav button{background:none;border:1.5px solid var(--gray-mid);border-radius:8px;padding:6px 12px;cursor:pointer;font-family:'Inter',sans-serif;font-size:13px;font-weight:600}
+    .cal-nav span{font-size:15px;font-weight:800;color:var(--c2)}
+    .agenda-card{background:var(--white);border-radius:var(--r);padding:16px;box-shadow:var(--sh);border-left:4px solid var(--c1);margin-bottom:10px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+    .agenda-info{flex:1;min-width:0}
+    .agenda-titulo{font-size:14px;font-weight:700;color:var(--c2)}
+    .agenda-sub{font-size:12px;color:var(--gray);margin-top:2px}
+    .agenda-badge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:50px;white-space:nowrap}
+    .checkin-bar{background:var(--green-bg);border:1px solid var(--green);border-radius:10px;padding:12px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+    .checkin-timer{font-size:20px;font-weight:800;color:var(--green);font-variant-numeric:tabular-nums;min-width:70px}
+
     /* ── BOTTOM NAV (mobile) ── */
     .mob-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--c2);border-top:1px solid rgba(255,255,255,.12);z-index:300;padding-bottom:env(safe-area-inset-bottom)}
     .mob-nb{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:10px 4px 12px;background:none;border:none;border-top:2px solid transparent;color:rgba(255,255,255,.45);font-size:10px;font-weight:700;font-family:'Inter',sans-serif;cursor:pointer;transition:all .15s;letter-spacing:.3px}
@@ -481,6 +503,7 @@
     <button class="nb" onclick="go('os-history')" id="nb-os-history">📋 OS Hist.</button>
     <button class="nb" onclick="go('clientes')" id="nb-clientes">👥 Clientes</button>
     <button class="nb" onclick="go('equipamentos')" id="nb-equipamentos">🔧 Equipamentos</button>
+    <button class="nb" onclick="go('agendamentos')" id="nb-agendamentos">📅 Agenda</button>
   </nav>
   <div class="hdr-right">
     <span class="db-dot" id="db-dot" title="Status do banco de dados"></span>
@@ -493,6 +516,7 @@
         <button onclick="closeGear();go('clientes')">👥 Clientes</button>
         <button onclick="closeGear();go('equipamentos')">🔧 Equipamentos</button>
         <button onclick="closeGear();novoOrc()">🔄 Novo Orçamento</button>
+        <button onclick="closeGear();go('agendamentos')">📅 Agendamentos</button>
       </div>
     </div>
   </div>
@@ -507,10 +531,10 @@
     <span class="micon">📋</span><span>OS</span>
   </button>
   <button class="mob-nb" id="mnb-history" onclick="go('history')">
-    <span class="micon">📊</span><span>Hist.ORC</span>
+    <span class="micon">📊</span><span>Hist.</span>
   </button>
-  <button class="mob-nb" id="mnb-os-history" onclick="go('os-history')">
-    <span class="micon">🗂</span><span>Hist.OS</span>
+  <button class="mob-nb" id="mnb-agendamentos" onclick="go('agendamentos')">
+    <span class="micon">📅</span><span>Agenda</span>
   </button>
   <button class="mob-nb" id="mnb-equipamentos" onclick="go('equipamentos')">
     <span class="micon">🔧</span><span>Equip.</span>
@@ -597,6 +621,12 @@
       <div class="ct">Serviços Padrão</div>
       <p style="font-size:13px;color:var(--gray);margin-bottom:14px">Serviços que aparecem no botão de adicionar rápido em todos os orçamentos. Um por linha.</p>
       <div class="fl"><textarea id="cfg-servicos" rows="8" placeholder="Troca de Motobomba&#10;Troca de Filtro / Areia&#10;Instalação de Gerador de Cloro a Sal&#10;Troca de LED Subaquático&#10;Limpeza de Trocador de Calor&#10;Manutenção de Sauna e Spa"></textarea></div>
+    </div>
+
+    <div class="card">
+      <div class="ct">Técnicos</div>
+      <p style="font-size:13px;color:var(--gray);margin-bottom:14px">Um técnico por linha.</p>
+      <div class="fl"><textarea id="cfg-tecnicos" rows="4" placeholder="João&#10;Pedro&#10;Carlos"></textarea></div>
     </div>
 
     <div class="card">
@@ -775,6 +805,23 @@
       <div class="ct">Serviços a Executar</div>
       <div class="slist" id="os-slist"></div>
       <button class="btn-add" onclick="addOSSvc()">＋ Adicionar serviço</button>
+    </div>
+
+    <!-- Check-in / Check-out -->
+    <div class="card" id="os-checkin-card">
+      <div class="ct">⏱ Check-in / Check-out</div>
+      <div id="checkin-bar" style="display:none" class="checkin-bar">
+        <span>✅ Check-in realizado</span>
+        <span class="checkin-timer" id="checkin-timer">00:00</span>
+        <button class="ba" style="background:var(--red);color:white;padding:8px 14px;font-size:13px" onclick="fazerCheckout()">✔ Check-out</button>
+      </div>
+      <div id="checkin-form" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <select id="os-tec-checkin" style="padding:9px 12px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:14px;font-family:'Inter',sans-serif;outline:none;flex:1">
+          <option value="">Selecione o técnico…</option>
+        </select>
+        <button class="ba" style="background:var(--green);color:white;padding:10px 18px;font-size:13px" onclick="fazerCheckin()">📍 Check-in</button>
+      </div>
+      <div id="checkin-info" style="font-size:12px;color:var(--gray);margin-top:8px;min-height:16px"></div>
     </div>
 
     <div class="card">
@@ -1194,6 +1241,71 @@
   </div>
 </div>
 
+<!-- ══ PAGE: AGENDAMENTOS ══ -->
+<div class="page" id="page-agendamentos">
+  <div class="wrap">
+
+    <!-- Formulário novo contrato (oculto por padrão) -->
+    <div class="card" id="ag-form-card" style="display:none">
+      <div class="ct">Novo Agendamento Recorrente <button onclick="fecharFormAg()" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;line-height:1">×</button></div>
+      <div class="row">
+        <div class="fl"><label>Cliente</label><input type="text" id="ag-cli" placeholder="Nome do cliente" list="ag-cli-list" oninput="filtrarCliAg(this.value)"><datalist id="ag-cli-list"></datalist></div>
+        <div class="fl"><label>Local / Endereço</label><input type="text" id="ag-loc" placeholder="Endereço"></div>
+      </div>
+      <div class="row">
+        <div class="fl"><label>Técnico Responsável</label><select id="ag-tec"><option value="">Selecione…</option></select></div>
+        <div class="fl"><label>Tipo de Serviço</label><input type="text" id="ag-tipo" placeholder="Ex: Manutenção mensal de piscina"></div>
+      </div>
+      <div class="row f4">
+        <div class="fl"><label>Periodicidade</label>
+          <select id="ag-periodo" onchange="updAgForm()">
+            <option value="semanal">Semanal</option>
+            <option value="quinzenal">Quinzenal</option>
+            <option value="mensal" selected>Mensal</option>
+          </select>
+        </div>
+        <div class="fl"><label>Dia da semana / mês</label><select id="ag-dia"></select></div>
+        <div class="fl"><label>Horário</label><input type="time" id="ag-hora" value="08:00"></div>
+        <div class="fl"><label>Data Início</label><input type="date" id="ag-inicio"></div>
+      </div>
+      <div class="row">
+        <div class="fl"><label>Data Fim <span style="font-weight:400;color:var(--gray);text-transform:none">(deixe vazio = indeterminado)</span></label><input type="date" id="ag-fim"></div>
+        <div class="fl"><label>Observações fixas</label><input type="text" id="ag-obs" placeholder="Ex: Chave no portão, ligar antes"></div>
+      </div>
+      <button class="btn-primary" onclick="salvarAgendamento()">💾 Salvar Agendamento</button>
+    </div>
+
+    <!-- Header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+      <div style="font-size:18px;font-weight:800;color:var(--c2)">📅 Agendamentos</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="fb on" id="ag-tab-cal" onclick="agTab('cal')">📆 Calendário</button>
+        <button class="fb" id="ag-tab-lista" onclick="agTab('lista')">📋 Contratos</button>
+        <button class="btn-primary" style="padding:8px 16px;font-size:13px" onclick="abrirFormAg()">＋ Novo</button>
+      </div>
+    </div>
+
+    <!-- Aba Calendário -->
+    <div id="ag-view-cal">
+      <div class="cal-nav">
+        <button onclick="navCal(-1)">‹</button>
+        <span id="cal-titulo"></span>
+        <button onclick="navCal(1)">›</button>
+        <select id="cal-filtro-tec" onchange="renderCal()" style="margin-left:auto;padding:6px 10px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:12px;font-family:'Inter',sans-serif;outline:none">
+          <option value="">Todos os técnicos</option>
+        </select>
+      </div>
+      <div class="cal-wrap"><table class="cal" id="cal-tabela"></table></div>
+    </div>
+
+    <!-- Aba Lista de Contratos -->
+    <div id="ag-view-lista" style="display:none">
+      <div id="ag-lista-body"></div>
+    </div>
+
+  </div>
+</div>
+
 <!-- ══ MODAL: REGISTRAR PAGAMENTO ══ -->
 <div class="modal-bg" id="modal-pg">
   <div class="modal">
@@ -1216,7 +1328,8 @@
 const CFG_DEF = {
   nome:'Minha Empresa', sub:'Serviços', tel:'', whatsapp:'', cidades:'',
   tagline:'', cor:'#F07820', cor2:'#2B3244', logoB64:'', segmento:'geral',
-  svcs:['Serviço 1','Serviço 2','Serviço 3'], pin:'1234'
+  svcs:['Serviço 1','Serviço 2','Serviço 3'], pin:'1234',
+  tecnicos:['Técnico 1','Técnico 2']
 };
 let CFG = { ...CFG_DEF };
 let db = null, dbOk = false;
@@ -1364,6 +1477,27 @@ ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS fotos jsonb DEFAULT '[]';
 ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS video_link text;
 ALTER PUBLICATION supabase_realtime ADD TABLE clientes;
 
+CREATE TABLE IF NOT EXISTS agendamentos (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  cliente text,
+  local_servico text,
+  tecnico text,
+  tipo_servico text,
+  periodicidade text,
+  dia_semana integer,
+  horario text,
+  data_inicio text,
+  data_fim text,
+  obs text,
+  ativo boolean DEFAULT true,
+  data_criacao timestamptz DEFAULT now()
+);
+ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS agendamento_id uuid;
+ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS checkin_at timestamptz;
+ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS checkout_at timestamptz;
+ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS duracao_min integer;
+ALTER PUBLICATION supabase_realtime ADD TABLE agendamentos;
+
 CREATE TABLE IF NOT EXISTS equipamentos (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   cliente_id uuid,
@@ -1411,6 +1545,7 @@ function aplicarCFG(){
   renderPresets();
   preencherFormEmpresa();
   injetarPWA();
+  populaTecSelects(); populaTecCheckIn();
 }
 
 function preencherFormEmpresa(){
@@ -1420,6 +1555,7 @@ function preencherFormEmpresa(){
   setV('cfg-cor',CFG.cor); setV('cfg-cor-txt',CFG.cor);
   setV('cfg-cor2',CFG.cor2); setV('cfg-cor2-txt',CFG.cor2);
   setV('cfg-servicos', (CFG.svcs||[]).join('\n'));
+  setV('cfg-tecnicos', (CFG.tecnicos||[]).join('\n'));
   setV('cfg-pin', CFG.pin||'1234');
   const lp = document.getElementById('logo-preview');
   if(CFG.logoB64){ lp.src=CFG.logoB64; lp.style.display='block'; }
@@ -1450,6 +1586,7 @@ async function salvarEmpresa(){
   CFG.cor  = gV('cfg-cor');
   CFG.cor2 = gV('cfg-cor2');
   CFG.svcs = gV('cfg-servicos').split('\n').map(s=>s.trim()).filter(Boolean);
+  CFG.tecnicos = gV('cfg-tecnicos').split('\n').map(s=>s.trim()).filter(Boolean);
   const novoPin = gV('cfg-pin').trim();
   if(novoPin.length===4 && /^\d{4}$/.test(novoPin)) CFG.pin=novoPin;
   lsSet('empresa_cfg',JSON.stringify(CFG));
@@ -1507,6 +1644,7 @@ function go(p){
   if(p==='os-history') loadOSHist();
   if(p==='clientes') renderClientes();
   if(p==='equipamentos') loadEquipamentos();
+  if(p==='agendamentos'){ loadAgendamentos(); populaTecSelects(); initCal(); renderCal(); }
 }
 
 // Gear dropdown
@@ -2251,6 +2389,11 @@ function gerarOS_deOrc(id){
 }
 
 function novaOS(){
+  checkinAt=null; if(checkinTimer){clearInterval(checkinTimer);checkinTimer=null;}
+  const checkinBarEl=document.getElementById('checkin-bar'); if(checkinBarEl) checkinBarEl.style.display='none';
+  const checkinFormEl=document.getElementById('checkin-form'); if(checkinFormEl) checkinFormEl.style.display='flex';
+  const checkinInfoEl=document.getElementById('checkin-info'); if(checkinInfoEl) checkinInfoEl.textContent='';
+  populaTecCheckIn();
   osOrcId = null;
   osFotos=['','',''];
   [0,1,2].forEach(i=>{
@@ -2555,6 +2698,254 @@ function ls(k){ try{return localStorage.getItem(k);}catch(e){return null;} }
 function lsSet(k,v){ try{localStorage.setItem(k,v);}catch(e){} }
 function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('on'); setTimeout(()=>t.classList.remove('on'),2800); }
 function hexA(hex,a){ try{ const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16); return `rgba(${r},${g},${b},${a})`; }catch(e){ return hex; } }
+
+// ══════════════════════════════════════════════════
+//  MÓDULO 1 — AGENDAMENTO RECORRENTE + CHECK-IN/OUT
+// ══════════════════════════════════════════════════
+let todosAg = [], calAno, calMes, checkinAt = null, checkinTimer = null;
+
+function getTecnicos(){ return CFG.tecnicos||['Técnico 1']; }
+
+function populaTecSelects(){
+  const tecs=getTecnicos();
+  ['ag-tec','os-tec-checkin','cal-filtro-tec'].forEach(id=>{
+    const el=document.getElementById(id); if(!el) return;
+    const val=el.value;
+    const extra=id==='cal-filtro-tec'?'<option value="">Todos os técnicos</option>':'<option value="">Selecione…</option>';
+    el.innerHTML=extra+tecs.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join('');
+    el.value=val;
+  });
+}
+
+function updAgForm(){
+  const p=gV('ag-periodo'), sel=document.getElementById('ag-dia'); if(!sel) return;
+  sel.innerHTML='';
+  if(p==='mensal'){
+    for(let i=1;i<=28;i++){ const o=document.createElement('option'); o.value=i; o.textContent='Dia '+i; sel.appendChild(o); }
+  } else {
+    ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'].forEach((d,i)=>{ const o=document.createElement('option'); o.value=i; o.textContent=d; sel.appendChild(o); });
+  }
+}
+
+function filtrarCliAg(v){
+  const dl=document.getElementById('ag-cli-list'); dl.innerHTML='';
+  const clientes=JSON.parse(ls('fluxa_clientes_full')||'[]');
+  clientes.filter(c=>(c.nome||'').toLowerCase().includes(v.toLowerCase())).slice(0,8).forEach(c=>{
+    const opt=document.createElement('option'); opt.value=c.nome; dl.appendChild(opt);
+  });
+}
+
+function abrirFormAg(){
+  document.getElementById('ag-form-card').style.display='block';
+  document.getElementById('ag-inicio').valueAsDate=new Date();
+  populaTecSelects(); updAgForm();
+  document.getElementById('ag-form-card').scrollIntoView({behavior:'smooth'});
+}
+function fecharFormAg(){ document.getElementById('ag-form-card').style.display='none'; }
+
+async function salvarAgendamento(){
+  const cli=gV('ag-cli').trim(), tipo=gV('ag-tipo').trim();
+  if(!cli||!tipo){ toast('⚠️ Informe o cliente e o tipo de serviço'); return; }
+  const dados={
+    cliente:cli, local_servico:gV('ag-loc'), tecnico:gV('ag-tec'),
+    tipo_servico:tipo, periodicidade:gV('ag-periodo'),
+    dia_semana:parseInt(gV('ag-dia'))||1, horario:gV('ag-hora'),
+    data_inicio:gV('ag-inicio'), data_fim:gV('ag-fim')||null,
+    obs:gV('ag-obs'), ativo:true
+  };
+  const rec={...dados, id:'ag_'+Date.now(), data_criacao:new Date().toISOString()};
+  todosAg.unshift(rec);
+  lsAgSalvar(todosAg);
+  // Gera as OS futuras (próximas 6 ocorrências)
+  await gerarOSdoAgendamento(rec, rec.id);
+  if(dbOk&&db){
+    (async()=>{
+      try{
+        const {data:ins}=await db.from('agendamentos').insert([dados]).select('*').single();
+        if(ins){ todosAg=todosAg.filter(x=>x.id!==rec.id); todosAg.unshift(ins); lsAgSalvar(todosAg); }
+      }catch(e){ console.warn('ag sync:',e.message); }
+    })();
+  }
+  fecharFormAg(); renderAgLista(); renderCal();
+  toast('✅ Agendamento salvo! OS geradas automaticamente.');
+}
+
+function proximasOcorrencias(ag, qtd=6){
+  const datas=[];
+  const inicio=new Date(ag.data_inicio+'T12:00:00');
+  const fim=ag.data_fim?new Date(ag.data_fim+'T12:00:00'):null;
+  let cur=new Date(inicio);
+  while(datas.length<qtd){
+    if(fim&&cur>fim) break;
+    if(cur>=inicio) datas.push(new Date(cur));
+    if(ag.periodicidade==='semanal') cur.setDate(cur.getDate()+7);
+    else if(ag.periodicidade==='quinzenal') cur.setDate(cur.getDate()+14);
+    else { cur.setMonth(cur.getMonth()+1); }
+    if(datas.length>100) break;
+  }
+  return datas;
+}
+
+async function gerarOSdoAgendamento(ag, agId){
+  const datas=proximasOcorrencias(ag, 6);
+  for(const d of datas){
+    const dataStr=d.toISOString().split('T')[0];
+    const osDados={
+      cliente:ag.cliente, local_servico:ag.local_servico,
+      data_servico:dataStr, hora:ag.horario, tecnico:ag.tecnico,
+      servicos:[ag.tipo_servico], materiais:'', obs_tecnica:ag.obs||'',
+      total:0, status:'agendado', agendamento_id:agId
+    };
+    const num=(parseInt(ls('fluxa_os_num')||'0'))+1; lsSet('fluxa_os_num',num);
+    const rec={...osDados, id:'os_ag_'+Date.now()+Math.random(), numero:num, data_criacao:new Date().toISOString()};
+    const localOS=JSON.parse(ls('fluxa_os_hist')||'[]'); localOS.unshift(rec); lsSet('fluxa_os_hist',JSON.stringify(localOS.slice(0,200)));
+    if(dbOk&&db){
+      try{
+        const {data:rows}=await db.from('ordens_servico').select('numero').order('numero',{ascending:false}).limit(1);
+        const dbNum=rows&&rows.length?(rows[0].numero||0)+1:num;
+        await db.from('ordens_servico').insert([{...osDados,numero:dbNum}]);
+      }catch(e){ console.warn('OS ag sync:',e.message); }
+    }
+  }
+}
+
+async function cancelarSerie(agId){
+  if(!confirm('Cancelar TODAS as OS futuras deste agendamento?')) return;
+  todosAg=todosAg.map(a=>a.id===agId?{...a,ativo:false}:a); lsAgSalvar(todosAg);
+  if(dbOk&&db){
+    db.from('agendamentos').update({ativo:false}).eq('id',agId).then(()=>{}).catch(()=>{});
+    db.from('ordens_servico').update({status:'cancelado'}).eq('agendamento_id',agId).eq('status','agendado').then(()=>{}).catch(()=>{});
+  }
+  renderAgLista(); renderCal(); toast('🚫 Série cancelada');
+}
+
+function lsAgLer(){ try{ return JSON.parse(ls('fluxa_agendamentos')||'[]'); }catch(e){ return []; } }
+function lsAgSalvar(lista){ lsSet('fluxa_agendamentos', JSON.stringify(lista)); }
+
+async function loadAgendamentos(){
+  todosAg=lsAgLer(); renderAgLista(); renderCal();
+  if(dbOk&&db){
+    try{
+      const {data}=await db.from('agendamentos').select('*').eq('ativo',true).order('data_criacao',{ascending:false});
+      if(data){ todosAg=data; lsAgSalvar(todosAg); renderAgLista(); renderCal(); }
+    }catch(e){}
+  }
+}
+
+function agTab(t){
+  document.getElementById('ag-view-cal').style.display=t==='cal'?'block':'none';
+  document.getElementById('ag-view-lista').style.display=t==='lista'?'block':'none';
+  document.getElementById('ag-tab-cal').classList.toggle('on',t==='cal');
+  document.getElementById('ag-tab-lista').classList.toggle('on',t==='lista');
+}
+
+// ── CALENDÁRIO ──
+function initCal(){ const n=new Date(); calAno=n.getFullYear(); calMes=n.getMonth(); }
+function navCal(d){ calMes+=d; if(calMes>11){calMes=0;calAno++;} if(calMes<0){calMes=11;calAno--;} renderCal(); }
+
+function renderCal(){
+  const el=document.getElementById('cal-tabela'); if(!el) return;
+  const filtTec=gV('cal-filtro-tec');
+  const meses=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  document.getElementById('cal-titulo').textContent=meses[calMes]+' '+calAno;
+  const dias=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+  let h=`<thead><tr>${dias.map(d=>`<th>${d}</th>`).join('')}</tr></thead><tbody>`;
+  const primeiro=new Date(calAno,calMes,1);
+  const ultimo=new Date(calAno,calMes+1,0).getDate();
+  const hoje=new Date(); hoje.setHours(0,0,0,0);
+  let dia=1, inicioDia=primeiro.getDay();
+  // Buscar OS do mês nas OS locais
+  const osLocal=JSON.parse(ls('fluxa_os_hist')||'[]');
+  while(dia<=ultimo){
+    h+='<tr>';
+    for(let col=0;col<7;col++){
+      if((dia===1&&col<inicioDia)||dia>ultimo){ h+='<td class="outro-mes"></td>'; continue; }
+      const d=new Date(calAno,calMes,dia); d.setHours(0,0,0,0);
+      const isHoje=d.getTime()===hoje.getTime();
+      const dStr=`${calAno}-${String(calMes+1).padStart(2,'0')}-${String(dia).padStart(2,'0')}`;
+      const osNoDia=osLocal.filter(o=>o.data_servico===dStr&&(!filtTec||o.tecnico===filtTec));
+      h+=`<td class="${isHoje?'hoje':''}"><div style="font-size:10px;color:var(--gray);margin-bottom:2px">${dia}</div>`;
+      osNoDia.slice(0,3).forEach(o=>{
+        h+=`<div class="cal-ev ${o.status||'agendado'}" title="${esc(o.cliente||'')} — ${esc(o.tecnico||'')}">${esc((o.cliente||'').split(' ')[0])}</div>`;
+      });
+      if(osNoDia.length>3) h+=`<div style="font-size:9px;color:var(--gray)">+${osNoDia.length-3}</div>`;
+      h+='</td>';
+      if(dia>ultimo&&col<6) h+='<td class="outro-mes"></td>';
+      dia++;
+    }
+    h+='</tr>';
+  }
+  h+='</tbody>';
+  el.innerHTML=h;
+}
+
+function renderAgLista(){
+  const el=document.getElementById('ag-lista-body'); if(!el) return;
+  const ativos=todosAg.filter(a=>a.ativo!==false);
+  if(!ativos.length){ el.innerHTML='<div class="empty-st"><div class="ei">📅</div><p>Nenhum agendamento recorrente.</p></div>'; return; }
+  const periodos={semanal:'Semanal',quinzenal:'Quinzenal',mensal:'Mensal'};
+  el.innerHTML=ativos.map(a=>`
+    <div class="agenda-card">
+      <div class="agenda-info">
+        <div class="agenda-titulo">${esc(a.cliente||'—')} <span style="font-size:12px;font-weight:400;color:var(--gray)">— ${esc(a.tipo_servico||'')}</span></div>
+        <div class="agenda-sub">📍 ${esc(a.local_servico||'—')} &nbsp;·&nbsp; 👤 ${esc(a.tecnico||'—')} &nbsp;·&nbsp; ⏰ ${esc(a.horario||'')}</div>
+        <div class="agenda-sub" style="margin-top:2px">🔁 ${periodos[a.periodicidade]||a.periodicidade} &nbsp;·&nbsp; Início: ${a.data_inicio?new Date(a.data_inicio+'T12:00:00').toLocaleDateString('pt-BR'):'—'}</div>
+      </div>
+      <div style="display:flex;gap:6px;flex-shrink:0">
+        <button class="tb d" onclick="cancelarSerie('${a.id}')">🚫 Cancelar série</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ── CHECK-IN / CHECK-OUT ──
+function populaTecCheckIn(){
+  const sel=document.getElementById('os-tec-checkin'); if(!sel) return;
+  const tecs=getTecnicos();
+  sel.innerHTML='<option value="">Selecione o técnico…</option>'+tecs.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join('');
+  // Pré-seleciona o último técnico usado
+  const ult=ls('fluxa_ultimo_tec'); if(ult) sel.value=ult;
+}
+
+let osCheckinId=null;
+function fazerCheckin(){
+  const tec=gV('os-tec-checkin'); if(!tec){ toast('⚠️ Selecione o técnico'); return; }
+  checkinAt=new Date(); lsSet('fluxa_ultimo_tec',tec);
+  osCheckinId=editId;
+  document.getElementById('checkin-form').style.display='none';
+  document.getElementById('checkin-bar').style.display='flex';
+  document.getElementById('checkin-info').textContent='Check-in: '+checkinAt.toLocaleTimeString('pt-BR');
+  if(checkinTimer) clearInterval(checkinTimer);
+  checkinTimer=setInterval(()=>{
+    const diff=Math.floor((new Date()-checkinAt)/1000);
+    const h=String(Math.floor(diff/3600)).padStart(2,'0');
+    const m=String(Math.floor((diff%3600)/60)).padStart(2,'0');
+    const s=String(diff%60).padStart(2,'0');
+    const el=document.getElementById('checkin-timer'); if(el) el.textContent=h+':'+m+':'+s;
+  },1000);
+  toast('📍 Check-in realizado!');
+}
+
+function fazerCheckout(){
+  if(!checkinAt){ toast('⚠️ Faça o check-in primeiro'); return; }
+  const checkout=new Date();
+  const duracaoMin=Math.round((checkout-checkinAt)/60000);
+  if(checkinTimer){ clearInterval(checkinTimer); checkinTimer=null; }
+  document.getElementById('checkin-bar').style.display='none';
+  document.getElementById('checkin-form').style.display='flex';
+  document.getElementById('checkin-info').textContent=`✅ Duração: ${duracaoMin} min (${checkinAt.toLocaleTimeString('pt-BR')} → ${checkout.toLocaleTimeString('pt-BR')})`;
+  if(dbOk&&db&&osCheckinId&&!String(osCheckinId).startsWith('local_')){
+    db.from('ordens_servico').update({
+      checkin_at:checkinAt.toISOString(),
+      checkout_at:checkout.toISOString(),
+      duracao_min:duracaoMin,
+      status:'concluido',
+      tecnico:gV('os-tec-checkin')
+    }).eq('id',osCheckinId).then(()=>{}).catch(()=>{});
+  }
+  checkinAt=null; osCheckinId=null;
+  toast(`✅ Check-out! Duração: ${duracaoMin} min`);
+}
 
 // ══════════════════════════════════════════════════
 //  MÓDULO 2 — EQUIPAMENTOS + QR CODE
