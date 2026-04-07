@@ -345,6 +345,29 @@
       .pd-foot{padding:12px 28px;text-align:center;font-size:10.5px;color:rgba(255,255,255,.7);letter-spacing:.4px}
     }
 
+    /* ── EQUIPAMENTOS ── */
+    .eq-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;margin-top:4px}
+    .eq-card{background:var(--white);border-radius:var(--r);padding:18px;box-shadow:var(--sh);border-left:4px solid var(--c1);position:relative}
+    .eq-card.garantia-ok{border-left-color:var(--green)}
+    .eq-card.garantia-alerta{border-left-color:var(--yellow)}
+    .eq-card.garantia-vencida{border-left-color:var(--red)}
+    .eq-tipo{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--c1);margin-bottom:4px}
+    .eq-nome{font-size:15px;font-weight:700;color:var(--c2);margin-bottom:2px}
+    .eq-cli{font-size:12px;color:var(--gray);margin-bottom:10px}
+    .eq-info{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:12px}
+    .eq-inf{font-size:11px;color:var(--gray)}
+    .eq-inf strong{display:block;font-size:12px;color:var(--c2);font-weight:600}
+    .eq-acts{display:flex;gap:6px;flex-wrap:wrap}
+    .eq-alerta{background:var(--yellow-bg);color:var(--yellow);font-size:11px;font-weight:700;padding:3px 8px;border-radius:50px;margin-bottom:8px;display:inline-block}
+    .eq-alerta.vencida{background:var(--red-bg);color:var(--red)}
+    .qr-modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:600;display:none;align-items:center;justify-content:center}
+    .qr-modal-bg.on{display:flex}
+    .qr-modal{background:white;border-radius:16px;padding:28px;text-align:center;max-width:320px;width:100%}
+    .qr-modal h3{font-size:16px;font-weight:800;margin-bottom:4px}
+    .qr-modal p{font-size:12px;color:var(--gray);margin-bottom:16px}
+    .qr-modal img{width:200px;height:200px;border:1px solid var(--gray-mid);border-radius:8px}
+    .qr-modal .qr-acts{display:flex;gap:8px;margin-top:16px;justify-content:center}
+
     /* ── PIN OVERLAY ── */
     .pin-overlay{position:fixed;inset:0;background:var(--c2);z-index:9000;display:flex;align-items:center;justify-content:center}
     .pin-box{background:var(--white);border-radius:20px;padding:40px 32px;width:320px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.4)}
@@ -457,6 +480,7 @@
     <button class="nb" onclick="go('history')" id="nb-history">📊 Histórico</button>
     <button class="nb" onclick="go('os-history')" id="nb-os-history">📋 OS Hist.</button>
     <button class="nb" onclick="go('clientes')" id="nb-clientes">👥 Clientes</button>
+    <button class="nb" onclick="go('equipamentos')" id="nb-equipamentos">🔧 Equipamentos</button>
   </nav>
   <div class="hdr-right">
     <span class="db-dot" id="db-dot" title="Status do banco de dados"></span>
@@ -467,6 +491,7 @@
         <div class="gear-section">Configurações</div>
         <button onclick="closeGear();go('empresa')">🏢 Dados da Empresa</button>
         <button onclick="closeGear();go('clientes')">👥 Clientes</button>
+        <button onclick="closeGear();go('equipamentos')">🔧 Equipamentos</button>
         <button onclick="closeGear();novoOrc()">🔄 Novo Orçamento</button>
       </div>
     </div>
@@ -487,8 +512,8 @@
   <button class="mob-nb" id="mnb-os-history" onclick="go('os-history')">
     <span class="micon">🗂</span><span>Hist.OS</span>
   </button>
-  <button class="mob-nb" id="mnb-empresa" onclick="go('empresa')">
-    <span class="micon">⚙️</span><span>Config</span>
+  <button class="mob-nb" id="mnb-equipamentos" onclick="go('equipamentos')">
+    <span class="micon">🔧</span><span>Equip.</span>
   </button>
 </nav>
 
@@ -852,6 +877,96 @@
   </div>
 </div>
 
+<!-- ══ PAGE: EQUIPAMENTOS ══ -->
+<div class="page" id="page-equipamentos">
+  <div class="wrap">
+    <!-- Formulário novo equipamento (oculto por padrão) -->
+    <div class="card" id="eq-form-card" style="display:none">
+      <div class="ct">Novo Equipamento <button onclick="fecharFormEq()" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;line-height:1">×</button></div>
+      <div class="row">
+        <div class="fl"><label>Cliente</label>
+          <input type="text" id="eq-cli-nome" placeholder="Nome do cliente" list="eq-cli-list" oninput="filtrarClientesEq(this.value)">
+          <datalist id="eq-cli-list"></datalist>
+        </div>
+        <div class="fl"><label>Tipo de Equipamento</label>
+          <select id="eq-tipo">
+            <option value="">Selecione…</option>
+            <option>Motobomba</option><option>Filtro</option><option>Trocador de Calor</option>
+            <option>Gerador de Cloro</option><option>LED Subaquático</option>
+            <option>Spa / Hidro</option><option>Sauna</option><option>Automação</option><option>Outro</option>
+          </select>
+        </div>
+      </div>
+      <div class="row f3">
+        <div class="fl"><label>Marca</label><input type="text" id="eq-marca" placeholder="Ex: Dancor"></div>
+        <div class="fl"><label>Modelo</label><input type="text" id="eq-modelo" placeholder="Ex: CV 1/2"></div>
+        <div class="fl"><label>Potência / Capacidade</label><input type="text" id="eq-potencia" placeholder="Ex: 1/2 CV"></div>
+      </div>
+      <div class="row">
+        <div class="fl"><label>Número de Série</label><input type="text" id="eq-serie" placeholder="Ex: SN-12345"></div>
+        <div class="fl"><label>Data de Instalação</label><input type="date" id="eq-instalacao"></div>
+      </div>
+      <div class="row">
+        <div class="fl"><label>Garantia (meses)</label><input type="number" id="eq-garantia" value="12" min="0" max="120"></div>
+        <div class="fl"><label>Vencimento da Garantia</label><input type="date" id="eq-garantia-venc" readonly style="background:var(--gray-light)"></div>
+      </div>
+      <div class="row f1">
+        <div class="fl"><label>Observações Técnicas</label><textarea id="eq-obs" placeholder="Condições de instalação, recomendações…"></textarea></div>
+      </div>
+      <div class="fl" style="margin-bottom:14px">
+        <label>Foto do Equipamento</label>
+        <div class="foto-area" onclick="document.getElementById('eq-foto-input').click()">
+          <input type="file" id="eq-foto-input" accept="image/*" capture="environment" onchange="carregarFotoEq(this)" style="display:none">
+          <div class="foto-icon">📷</div>
+          <div class="foto-label" id="eq-foto-lbl">Tirar foto ou selecionar imagem</div>
+          <img id="eq-foto-prev" class="foto-preview" alt="foto">
+        </div>
+        <button id="eq-btn-rm-foto" style="display:none;margin-top:6px;font-size:12px;color:var(--red);background:none;border:none;cursor:pointer;font-family:'Inter',sans-serif" onclick="removerFotoEq()">✕ Remover foto</button>
+      </div>
+      <button class="btn-primary" onclick="salvarEquipamento()">💾 Salvar Equipamento</button>
+    </div>
+
+    <!-- Header da listagem -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+      <div>
+        <div style="font-size:18px;font-weight:800;color:var(--c2)">🔧 Equipamentos</div>
+        <div style="font-size:12px;color:var(--gray)" id="eq-count">Carregando…</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <input type="text" placeholder="🔍 Buscar…" oninput="buscarEq(this.value)" style="padding:7px 13px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:13px;font-family:'Inter',sans-serif;outline:none;width:160px">
+        <select onchange="filtrarTipoEq(this.value)" style="padding:7px 12px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Inter',sans-serif;outline:none">
+          <option value="">Todos os tipos</option>
+          <option>Motobomba</option><option>Filtro</option><option>Trocador de Calor</option>
+          <option>Gerador de Cloro</option><option>LED Subaquático</option>
+          <option>Spa / Hidro</option><option>Sauna</option><option>Automação</option><option>Outro</option>
+        </select>
+        <button class="btn-primary" style="padding:8px 16px;font-size:13px;white-space:nowrap" onclick="abrirFormEq()">＋ Equipamento</button>
+      </div>
+    </div>
+
+    <!-- Alertas de garantia -->
+    <div id="eq-alertas" style="margin-bottom:12px"></div>
+
+    <!-- Grid de equipamentos -->
+    <div id="eq-grid" class="eq-grid">
+      <div class="load"><div class="spin"></div> Carregando equipamentos…</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL QR CODE ══ -->
+<div class="qr-modal-bg" id="qr-modal-bg">
+  <div class="qr-modal">
+    <h3 id="qr-eq-nome">Equipamento</h3>
+    <p id="qr-eq-info">Cliente — Tipo</p>
+    <img id="qr-img" src="" alt="QR Code">
+    <div class="qr-acts">
+      <button class="btn-sec" style="flex:none;padding:9px 16px" onclick="fecharQR()">Fechar</button>
+      <button class="btn-pri" style="flex:none;padding:9px 16px" onclick="imprimirQR()">🖨️ Imprimir</button>
+    </div>
+  </div>
+</div>
+
 <!-- ══ DOCUMENTO ORÇAMENTO (print) ══ -->
 <div class="pdoc" id="pdoc-orc">
   <!-- HEADER -->
@@ -1167,6 +1282,7 @@ function lsOrcProxNum(){ return lsOrcLer().reduce((a,o)=>Math.max(a,o.numero||0)
     }
   }
   tentarConectar(1);
+  checkQRHash();
 })();
 
 // ── PIN functions ──
@@ -1246,7 +1362,26 @@ CREATE TABLE IF NOT EXISTS clientes (
 ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS nota_interna text;
 ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS fotos jsonb DEFAULT '[]';
 ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS video_link text;
-ALTER PUBLICATION supabase_realtime ADD TABLE clientes;`;
+ALTER PUBLICATION supabase_realtime ADD TABLE clientes;
+
+CREATE TABLE IF NOT EXISTS equipamentos (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  cliente_id uuid,
+  cliente_nome text,
+  tipo text,
+  marca text,
+  modelo text,
+  potencia text,
+  numero_serie text,
+  data_instalacao text,
+  garantia_meses integer DEFAULT 12,
+  garantia_vencimento text,
+  obs text,
+  foto_base64 text,
+  ativo boolean DEFAULT true,
+  data_criacao timestamptz DEFAULT now()
+);
+ALTER PUBLICATION supabase_realtime ADD TABLE equipamentos;`;
 }
 
 // ──────────────────────────────────────────────────
@@ -1371,6 +1506,7 @@ function go(p){
   if(p==='history') loadHist();
   if(p==='os-history') loadOSHist();
   if(p==='clientes') renderClientes();
+  if(p==='equipamentos') loadEquipamentos();
 }
 
 // Gear dropdown
@@ -2385,6 +2521,21 @@ function iniciarRealtimeSync(){
       atualizarDash();
       if(document.getElementById('page-history').classList.contains('on')) renderTabela();
     })
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'equipamentos'}, p=>{
+      if(todosEq.find(x=>x.id===p.new.id)) return;
+      todosEq.unshift(p.new); lsEqSalvar(todosEq);
+      if(document.getElementById('page-equipamentos').classList.contains('on')) renderEqGrid();
+    })
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'equipamentos'}, p=>{
+      const idx=todosEq.findIndex(x=>x.id===p.new.id);
+      if(idx>=0) todosEq[idx]={...todosEq[idx],...p.new}; else todosEq.unshift(p.new);
+      lsEqSalvar(todosEq);
+      if(document.getElementById('page-equipamentos').classList.contains('on')) renderEqGrid();
+    })
+    .on('postgres_changes',{event:'DELETE',schema:'public',table:'equipamentos'}, p=>{
+      todosEq=todosEq.filter(x=>x.id!==p.old.id); lsEqSalvar(todosEq);
+      if(document.getElementById('page-equipamentos').classList.contains('on')) renderEqGrid();
+    })
     .subscribe(status=>{
       if(status==='SUBSCRIBED') console.log('Realtime sync ativo');
     });
@@ -2404,6 +2555,235 @@ function ls(k){ try{return localStorage.getItem(k);}catch(e){return null;} }
 function lsSet(k,v){ try{localStorage.setItem(k,v);}catch(e){} }
 function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('on'); setTimeout(()=>t.classList.remove('on'),2800); }
 function hexA(hex,a){ try{ const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16); return `rgba(${r},${g},${b},${a})`; }catch(e){ return hex; } }
+
+// ══════════════════════════════════════════════════
+//  MÓDULO 2 — EQUIPAMENTOS + QR CODE
+// ══════════════════════════════════════════════════
+let todosEq = [], eqFotoB64 = '', eqEditId = null;
+let eqBusca = '', eqFiltroTipo = '';
+
+function abrirFormEq(id){
+  eqEditId = id || null;
+  const card = document.getElementById('eq-form-card');
+  card.style.display = 'block';
+  if(id){
+    const eq = todosEq.find(x=>x.id===id); if(!eq) return;
+    setV('eq-cli-nome', eq.cliente_nome||'');
+    setV('eq-tipo', eq.tipo||'');
+    setV('eq-marca', eq.marca||'');
+    setV('eq-modelo', eq.modelo||'');
+    setV('eq-potencia', eq.potencia||'');
+    setV('eq-serie', eq.numero_serie||'');
+    setV('eq-instalacao', eq.data_instalacao||'');
+    setV('eq-garantia', eq.garantia_meses||12);
+    setV('eq-garantia-venc', eq.garantia_vencimento||'');
+    setV('eq-obs', eq.obs||'');
+    eqFotoB64 = eq.foto_base64||'';
+    const prev = document.getElementById('eq-foto-prev');
+    if(eqFotoB64){ prev.src=eqFotoB64; prev.style.display='block'; document.getElementById('eq-btn-rm-foto').style.display='block'; }
+  } else {
+    ['eq-cli-nome','eq-tipo','eq-marca','eq-modelo','eq-potencia','eq-serie','eq-instalacao','eq-obs'].forEach(id=>setV(id,''));
+    setV('eq-garantia','12'); setV('eq-garantia-venc','');
+    eqFotoB64='';
+    const prev=document.getElementById('eq-foto-prev'); prev.style.display='none';
+    document.getElementById('eq-btn-rm-foto').style.display='none';
+    document.getElementById('eq-foto-lbl').textContent='Tirar foto ou selecionar imagem';
+  }
+  card.scrollIntoView({behavior:'smooth'});
+}
+function fecharFormEq(){ document.getElementById('eq-form-card').style.display='none'; eqEditId=null; eqFotoB64=''; }
+
+function calcVencGarantia(){
+  const inst=gV('eq-instalacao'), meses=parseInt(gV('eq-garantia'))||12;
+  if(!inst) return '';
+  const d=new Date(inst+'T12:00:00'); d.setMonth(d.getMonth()+meses);
+  return d.toISOString().split('T')[0];
+}
+
+// Atualiza vencimento ao mudar instalação ou meses
+document.addEventListener('input', e=>{
+  if(e.target.id==='eq-instalacao'||e.target.id==='eq-garantia'){
+    setV('eq-garantia-venc', calcVencGarantia());
+  }
+});
+
+function carregarFotoEq(inp){
+  const f=inp.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=e=>{ eqFotoB64=e.target.result;
+    const prev=document.getElementById('eq-foto-prev'); prev.src=e.target.result; prev.style.display='block';
+    document.getElementById('eq-foto-lbl').textContent=f.name;
+    document.getElementById('eq-btn-rm-foto').style.display='block';
+  };
+  r.readAsDataURL(f);
+}
+function removerFotoEq(){ eqFotoB64=''; document.getElementById('eq-foto-prev').style.display='none'; document.getElementById('eq-foto-lbl').textContent='Tirar foto ou selecionar imagem'; document.getElementById('eq-btn-rm-foto').style.display='none'; document.getElementById('eq-foto-input').value=''; }
+
+function filtrarClientesEq(v){
+  const dl=document.getElementById('eq-cli-list'); dl.innerHTML='';
+  const clientes=JSON.parse(ls('fluxa_clientes_full')||'[]');
+  clientes.filter(c=>(c.nome||'').toLowerCase().includes(v.toLowerCase())).slice(0,8).forEach(c=>{
+    const opt=document.createElement('option'); opt.value=c.nome; dl.appendChild(opt);
+  });
+}
+
+async function salvarEquipamento(){
+  const nome=gV('eq-cli-nome').trim(), tipo=gV('eq-tipo');
+  if(!nome||!tipo){ toast('⚠️ Informe o cliente e o tipo'); return; }
+  const venc=calcVencGarantia();
+  const dados={
+    cliente_nome:nome, tipo, marca:gV('eq-marca'), modelo:gV('eq-modelo'),
+    potencia:gV('eq-potencia'), numero_serie:gV('eq-serie'),
+    data_instalacao:gV('eq-instalacao'), garantia_meses:parseInt(gV('eq-garantia'))||12,
+    garantia_vencimento:venc, obs:gV('eq-obs'), foto_base64:eqFotoB64||null, ativo:true
+  };
+  if(eqEditId){
+    const idx=todosEq.findIndex(x=>x.id===eqEditId);
+    if(idx>=0) todosEq[idx]={...todosEq[idx],...dados};
+    lsEqSalvar(todosEq);
+    if(dbOk&&db) db.from('equipamentos').update(dados).eq('id',eqEditId).then(()=>{}).catch(()=>{});
+    toast('✅ Equipamento atualizado!');
+  } else {
+    const tempId='eq_'+Date.now();
+    const rec={...dados, id:tempId, data_criacao:new Date().toISOString()};
+    todosEq.unshift(rec);
+    lsEqSalvar(todosEq);
+    if(dbOk&&db){
+      (async()=>{
+        try{
+          const {data:ins}=await db.from('equipamentos').insert([dados]).select('*').single();
+          if(ins){ todosEq=todosEq.filter(x=>x.id!==tempId); todosEq.unshift(ins); lsEqSalvar(todosEq); renderEqGrid(); }
+        }catch(e){ console.warn('eq sync falhou:',e.message); }
+      })();
+    }
+    toast('✅ Equipamento salvo!');
+  }
+  fecharFormEq(); renderEqGrid(); verificarAlertasGarantia();
+}
+
+async function excluirEq(id){
+  if(!confirm('Excluir este equipamento?')) return;
+  todosEq=todosEq.filter(x=>x.id!==id); lsEqSalvar(todosEq);
+  if(dbOk&&db) db.from('equipamentos').delete().eq('id',id).then(()=>{}).catch(()=>{});
+  renderEqGrid(); toast('🗑 Equipamento excluído');
+}
+
+// localStorage para equipamentos
+function lsEqLer(){ try{ return JSON.parse(ls('fluxa_equipamentos')||'[]'); }catch(e){ return []; } }
+function lsEqSalvar(lista){ lsSet('fluxa_equipamentos', JSON.stringify(lista)); }
+
+async function loadEquipamentos(){
+  todosEq = lsEqLer();
+  renderEqGrid(); verificarAlertasGarantia();
+  if(dbOk&&db){
+    try{
+      const {data,error}=await db.from('equipamentos').select('*').eq('ativo',true).order('data_criacao',{ascending:false});
+      if(error) throw error;
+      todosEq=data; lsEqSalvar(todosEq); renderEqGrid(); verificarAlertasGarantia();
+    }catch(e){ console.warn('loadEquipamentos falhou:',e.message); }
+  }
+}
+
+function buscarEq(v){ eqBusca=v.toLowerCase(); renderEqGrid(); }
+function filtrarTipoEq(v){ eqFiltroTipo=v; renderEqGrid(); }
+
+function renderEqGrid(){
+  let lista=[...todosEq];
+  if(eqFiltroTipo) lista=lista.filter(x=>x.tipo===eqFiltroTipo);
+  if(eqBusca) lista=lista.filter(x=>(x.cliente_nome||'').toLowerCase().includes(eqBusca)||(x.marca||'').toLowerCase().includes(eqBusca)||(x.modelo||'').toLowerCase().includes(eqBusca)||(x.tipo||'').toLowerCase().includes(eqBusca));
+  const el=document.getElementById('eq-grid');
+  const count=document.getElementById('eq-count');
+  if(count) count.textContent=lista.length+' equipamento'+(lista.length!==1?'s':'');
+  if(!lista.length){ el.innerHTML='<div class="empty-st"><div class="ei">🔧</div><p>Nenhum equipamento encontrado.</p></div>'; return; }
+  const hoje=new Date(); hoje.setHours(0,0,0,0);
+  el.innerHTML='';
+  lista.forEach(eq=>{
+    let gClass='garantia-ok', gTxt='';
+    if(eq.garantia_vencimento){
+      const venc=new Date(eq.garantia_vencimento+'T12:00:00');
+      const diff=Math.ceil((venc-hoje)/(1000*60*60*24));
+      if(diff<0){ gClass='garantia-vencida'; gTxt='<span class="eq-alerta vencida">⚠️ Garantia vencida</span>'; }
+      else if(diff<=30){ gClass='garantia-alerta'; gTxt=`<span class="eq-alerta">⚠️ Garantia vence em ${diff} dias</span>`; }
+    }
+    const card=document.createElement('div');
+    card.className='eq-card '+gClass;
+    card.innerHTML=`
+      <div class="eq-tipo">${esc(eq.tipo||'')}</div>
+      <div class="eq-nome">${esc(eq.marca||'')} ${esc(eq.modelo||'')}</div>
+      <div class="eq-cli">👤 ${esc(eq.cliente_nome||'—')}</div>
+      ${gTxt}
+      <div class="eq-info">
+        ${eq.potencia?`<div class="eq-inf"><span>Potência</span><strong>${esc(eq.potencia)}</strong></div>`:''}
+        ${eq.numero_serie?`<div class="eq-inf"><span>Série</span><strong>${esc(eq.numero_serie)}</strong></div>`:''}
+        ${eq.data_instalacao?`<div class="eq-inf"><span>Instalação</span><strong>${new Date(eq.data_instalacao+'T12:00:00').toLocaleDateString('pt-BR')}</strong></div>`:''}
+        ${eq.garantia_vencimento?`<div class="eq-inf"><span>Garantia até</span><strong>${new Date(eq.garantia_vencimento+'T12:00:00').toLocaleDateString('pt-BR')}</strong></div>`:''}
+      </div>
+      <div class="eq-acts">
+        <button class="tb" onclick="verQR('${eq.id}')">🔳 QR Code</button>
+        <button class="tb" onclick="abrirFormEq('${eq.id}')">✎ Editar</button>
+        <button class="tb d" onclick="excluirEq('${eq.id}')">🗑</button>
+      </div>`;
+    el.appendChild(card);
+  });
+}
+
+function verificarAlertasGarantia(){
+  const hoje=new Date(); hoje.setHours(0,0,0,0);
+  const alertas=todosEq.filter(eq=>{
+    if(!eq.garantia_vencimento) return false;
+    const venc=new Date(eq.garantia_vencimento+'T12:00:00');
+    return Math.ceil((venc-hoje)/(1000*60*60*24))<=30;
+  });
+  const el=document.getElementById('eq-alertas'); if(!el) return;
+  if(!alertas.length){ el.innerHTML=''; return; }
+  el.innerHTML=`<div style="background:var(--yellow-bg);border:1px solid var(--yellow);border-radius:10px;padding:12px 16px;font-size:13px;color:var(--yellow);font-weight:600">
+    ⚠️ ${alertas.length} equipamento${alertas.length!==1?'s':''} com garantia vencendo em breve: ${alertas.map(e=>esc(e.marca+' '+e.modelo)).join(', ')}
+  </div>`;
+}
+
+// QR Code
+let qrEqAtual = null;
+function verQR(id){
+  const eq=todosEq.find(x=>x.id===id); if(!eq) return;
+  qrEqAtual=eq;
+  const url=window.location.origin+window.location.pathname+'#eq/'+id;
+  document.getElementById('qr-eq-nome').textContent=(eq.marca||'')+' '+(eq.modelo||'');
+  document.getElementById('qr-eq-info').textContent=(eq.cliente_nome||'')+(eq.tipo?' — '+eq.tipo:'');
+  document.getElementById('qr-img').src='https://api.qrserver.com/v1/create-qr-code/?size=200x200&data='+encodeURIComponent(url);
+  document.getElementById('qr-modal-bg').classList.add('on');
+}
+function fecharQR(){ document.getElementById('qr-modal-bg').classList.remove('on'); qrEqAtual=null; }
+function imprimirQR(){
+  if(!qrEqAtual) return;
+  const eq=qrEqAtual;
+  const url=window.location.origin+window.location.pathname+'#eq/'+eq.id;
+  const w=window.open('','_blank');
+  w.document.write(`<!DOCTYPE html><html><head><title>QR Code — ${eq.marca} ${eq.modelo}</title>
+  <style>body{font-family:Inter,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:#f0f2f5}
+  .box{background:white;border-radius:16px;padding:32px;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,.1);max-width:300px}
+  h2{font-size:18px;margin:0 0 4px}p{font-size:13px;color:#6b7280;margin:0 0 16px}
+  img{width:200px;height:200px;border:1px solid #e5e7eb;border-radius:8px}
+  small{display:block;font-size:10px;color:#9ca3af;margin-top:12px;word-break:break-all}</style></head>
+  <body><div class="box"><h2>${eq.marca||''} ${eq.modelo||''}</h2><p>${eq.cliente_nome||''} — ${eq.tipo||''}</p>
+  <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}">
+  <small>${url}</small></div><script>window.onload=()=>{window.print();setTimeout(()=>window.close(),1000)}<\/script></body></html>`);
+  w.document.close();
+}
+
+// Leitura de QR Code ao abrir o app — redireciona para ficha do equipamento
+function checkQRHash(){
+  const hash=window.location.hash;
+  if(hash.startsWith('#eq/')){
+    const id=hash.replace('#eq/','');
+    window.location.hash='';
+    go('equipamentos');
+    setTimeout(()=>{
+      const eq=todosEq.find(x=>x.id===id);
+      if(eq) abrirFormEq(id);
+      else toast('⚠️ Equipamento não encontrado');
+    },500);
+  }
+}
 
 // Init OS page
 initOS();
