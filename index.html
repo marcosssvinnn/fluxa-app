@@ -537,6 +537,14 @@
     .portal-wa-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:14px;background:var(--wa);color:white;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;margin-top:8px}
     .portal-loading{text-align:center;padding:60px 20px;color:var(--gray)}
     .portal-erro{text-align:center;padding:60px 20px}
+
+    /* ── NOTIFICAÇÕES ── */
+    .notif-template{background:var(--gray-light);border:1.5px solid var(--gray-mid);border-radius:10px;padding:14px;margin-bottom:12px}
+    .notif-template-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--gray);margin-bottom:8px}
+    .notif-template textarea{width:100%;border:1.5px solid var(--gray-mid);border-radius:8px;padding:10px;font-size:13px;font-family:'Inter',sans-serif;color:var(--c2);background:white;resize:vertical;min-height:100px;outline:none}
+    .notif-template textarea:focus{border-color:var(--c1)}
+    .notif-vars{font-size:11px;color:var(--gray);margin-top:6px}
+    .notif-vars code{background:white;border:1px solid var(--gray-mid);border-radius:4px;padding:1px 5px;font-size:11px;color:var(--c1)}
   </style>
 </head>
 <body>
@@ -703,6 +711,30 @@
       <div class="ct">Segurança</div>
       <div class="row f1">
         <div class="fl"><label>PIN de Acesso <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--gray)">(4 dígitos — padrão: 1234)</span></label><input type="password" id="cfg-pin" placeholder="••••" maxlength="4" inputmode="numeric"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="ct">💬 Templates de Notificação WhatsApp</div>
+      <p style="font-size:13px;color:var(--gray);margin-bottom:14px">Use as variáveis abaixo nos templates. Elas serão substituídas automaticamente.</p>
+      <div class="notif-vars" style="margin-bottom:14px">
+        Variáveis: <code>{nome}</code> <code>{hora}</code> <code>{tecnico}</code> <code>{servico}</code> <code>{valor}</code> <code>{link_portal}</code> <code>{empresa}</code> <code>{tel_empresa}</code>
+      </div>
+      <div class="notif-template">
+        <div class="notif-template-label">📅 Lembrete de Visita (24h antes)</div>
+        <textarea id="cfg-notif-visita" rows="5"></textarea>
+      </div>
+      <div class="notif-template">
+        <div class="notif-template-label">✅ OS Concluída</div>
+        <textarea id="cfg-notif-concluida" rows="5"></textarea>
+      </div>
+      <div class="notif-template">
+        <div class="notif-template-label">📋 Orçamento Enviado</div>
+        <textarea id="cfg-notif-orcamento" rows="5"></textarea>
+      </div>
+      <div class="notif-template">
+        <div class="notif-template-label">⚠️ Garantia Vencendo</div>
+        <textarea id="cfg-notif-garantia" rows="4"></textarea>
       </div>
     </div>
 
@@ -1528,6 +1560,9 @@
       </div>
     </div>
 
+    <!-- Alertas de visitas amanhã -->
+    <div id="ag-alertas-amanha"></div>
+
     <!-- Aba Calendário -->
     <div id="ag-view-cal">
       <div class="cal-nav">
@@ -1572,7 +1607,11 @@ const CFG_DEF = {
   nome:'Minha Empresa', sub:'Serviços', tel:'', whatsapp:'', cidades:'',
   tagline:'', cor:'#F07820', cor2:'#2B3244', logoB64:'', segmento:'geral',
   svcs:['Serviço 1','Serviço 2','Serviço 3'], pin:'1234',
-  tecnicos:['Técnico 1','Técnico 2']
+  tecnicos:['Técnico 1','Técnico 2'],
+  notif_visita: 'Olá, {nome}! 👋\n\nLembramos que amanhã teremos nossa visita técnica agendada.\n\n⏰ Horário: {hora}\n👤 Técnico: {tecnico}\n🔧 Serviço: {servico}\n\nQualquer dúvida estamos à disposição!\n\n*{empresa}*\n📞 {tel_empresa}',
+  notif_concluida: 'Olá, {nome}! ✅\n\nO serviço foi concluído com sucesso!\n\n🔧 Serviço: {servico}\n👤 Técnico: {tecnico}\n\nAcesse seu portal para ver o histórico completo:\n{link_portal}\n\n*{empresa}*\n📞 {tel_empresa}',
+  notif_orcamento: 'Olá, {nome}! 📋\n\nPreparamos um orçamento especial para você:\n\n🔧 Serviços: {servico}\n💰 Valor Total: {valor}\n\nAcesse seu portal para aprovar ou recusar:\n{link_portal}\n\nO orçamento é válido por 5 dias. Qualquer dúvida é só falar!\n\n*{empresa}*\n📞 {tel_empresa}',
+  notif_garantia: 'Olá, {nome}! ⚠️\n\nA garantia do seu equipamento está vencendo em breve.\n\n🔧 Equipamento: {servico}\n\nEntre em contato para verificarmos a situação!\n\n*{empresa}*\n📞 {tel_empresa}'
 };
 let CFG = { ...CFG_DEF };
 let db = null, dbOk = false;
@@ -1821,6 +1860,10 @@ function preencherFormEmpresa(){
   setV('cfg-servicos', (CFG.svcs||[]).join('\n'));
   setV('cfg-tecnicos', (CFG.tecnicos||[]).join('\n'));
   setV('cfg-pin', CFG.pin||'1234');
+  setV('cfg-notif-visita', CFG.notif_visita || CFG_DEF.notif_visita);
+  setV('cfg-notif-concluida', CFG.notif_concluida || CFG_DEF.notif_concluida);
+  setV('cfg-notif-orcamento', CFG.notif_orcamento || CFG_DEF.notif_orcamento);
+  setV('cfg-notif-garantia', CFG.notif_garantia || CFG_DEF.notif_garantia);
   const lp = document.getElementById('logo-preview');
   if(CFG.logoB64){ lp.src=CFG.logoB64; lp.style.display='block'; }
 }
@@ -1853,6 +1896,10 @@ async function salvarEmpresa(){
   CFG.tecnicos = gV('cfg-tecnicos').split('\n').map(s=>s.trim()).filter(Boolean);
   const novoPin = gV('cfg-pin').trim();
   if(novoPin.length===4 && /^\d{4}$/.test(novoPin)) CFG.pin=novoPin;
+  CFG.notif_visita = gV('cfg-notif-visita') || CFG_DEF.notif_visita;
+  CFG.notif_concluida = gV('cfg-notif-concluida') || CFG_DEF.notif_concluida;
+  CFG.notif_orcamento = gV('cfg-notif-orcamento') || CFG_DEF.notif_orcamento;
+  CFG.notif_garantia = gV('cfg-notif-garantia') || CFG_DEF.notif_garantia;
   lsSet('empresa_cfg',JSON.stringify(CFG));
   if(dbOk&&db){
     try{ await db.from('empresa_config').upsert([{id:1,dados:CFG,updated_at:new Date().toISOString()}]); }catch(e){}
@@ -2577,6 +2624,7 @@ function renderTabela(){
         <button class="tb" title="Duplicar" onclick="duplicarOrc('${o.id}')">⧉</button>
         <button class="tb" onclick="gerarOS_deOrc('${o.id}')">📋 OS</button>
         <button class="tb g" onclick="abrirModalPg('${o.id}',${ttl})">💰</button>
+        <button class="tb" title="Notificação WhatsApp" onclick='copiarNotif(notifOrcamento(${JSON.stringify(o)}))'>💬</button>
         <button class="tb d" onclick="excluirOrc('${o.id}')">🗑</button>
       </div></td>
     </tr>`;
@@ -2736,6 +2784,8 @@ function renderOSTabela(){
       <td><span class="os-badge ${stCl}">${stTx}</span></td>
       <td><div class="ta">
         <button class="tb" onclick="editarOS('${o.id}')">✎ Editar</button>
+        ${o.status==='concluido'?`<button class="tb" title="Notif. OS concluída" onclick='copiarNotif(notifConcluida(${JSON.stringify(o)}))'>✅💬</button>`:''}
+        ${o.status==='agendado'?`<button class="tb" title="Lembrete de visita" onclick='copiarNotif(notifVisita(${JSON.stringify(o)}))'>📅💬</button>`:''}
         <button class="tb d" onclick="excluirOS('${o.id}')">🗑</button>
       </div></td>
     </tr>`;
@@ -2983,6 +3033,88 @@ function ls(k){ try{return localStorage.getItem(k);}catch(e){return null;} }
 function lsSet(k,v){ try{localStorage.setItem(k,v);}catch(e){} }
 function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('on'); setTimeout(()=>t.classList.remove('on'),2800); }
 function hexA(hex,a){ try{ const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16); return `rgba(${r},${g},${b},${a})`; }catch(e){ return hex; } }
+
+// ══════════════════════════════════════════════════
+//  MÓDULO 6 — NOTIFICAÇÕES WHATSAPP
+// ══════════════════════════════════════════════════
+function getPortalLinkCliente(nomeCliente){
+  const clientes=JSON.parse(ls('fluxa_clientes_full')||'[]');
+  const cli=clientes.find(c=>(c.nome||'').toLowerCase()===nomeCliente.toLowerCase());
+  if(!cli||!cli.portal_token) return '';
+  return window.location.origin+window.location.pathname+'#portal/'+cli.portal_token;
+}
+
+function aplicarVars(template, vars){
+  return template
+    .replace(/\{nome\}/g, vars.nome||'')
+    .replace(/\{hora\}/g, vars.hora||'')
+    .replace(/\{tecnico\}/g, vars.tecnico||'')
+    .replace(/\{servico\}/g, vars.servico||'')
+    .replace(/\{valor\}/g, vars.valor||'')
+    .replace(/\{link_portal\}/g, vars.link_portal||'')
+    .replace(/\{empresa\}/g, CFG.nome||'')
+    .replace(/\{tel_empresa\}/g, CFG.tel||'');
+}
+
+function notifVisita(os){
+  const template=CFG.notif_visita||CFG_DEF.notif_visita;
+  const vars={
+    nome:(os.cliente||'').split(' ')[0],
+    hora:os.hora||'',
+    tecnico:os.tecnico||'',
+    servico:(os.servicos||[]).join(', '),
+    link_portal:getPortalLinkCliente(os.cliente||'')
+  };
+  return aplicarVars(template, vars);
+}
+
+function notifConcluida(os){
+  const template=CFG.notif_concluida||CFG_DEF.notif_concluida;
+  const vars={
+    nome:(os.cliente||'').split(' ')[0],
+    tecnico:os.tecnico||'',
+    servico:(os.servicos||[]).join(', '),
+    link_portal:getPortalLinkCliente(os.cliente||'')
+  };
+  return aplicarVars(template, vars);
+}
+
+function notifOrcamento(orc){
+  const template=CFG.notif_orcamento||CFG_DEF.notif_orcamento;
+  const svcs=(orc.servicos||[]).map(s=>s.desc||s).join(', ');
+  const vars={
+    nome:(orc.cliente||'').split(' ')[0],
+    servico:svcs,
+    valor:brl(orc.total||0),
+    link_portal:getPortalLinkCliente(orc.cliente||'')
+  };
+  return aplicarVars(template, vars);
+}
+
+function notifGarantia(eq){
+  const template=CFG.notif_garantia||CFG_DEF.notif_garantia;
+  const vars={
+    nome:(eq.cliente_nome||'').split(' ')[0],
+    servico:(eq.marca||'')+' '+(eq.modelo||'')+' ('+eq.tipo+')'
+  };
+  return aplicarVars(template, vars);
+}
+
+function copiarNotif(msg){
+  navigator.clipboard.writeText(msg).then(()=>toast('✅ Mensagem copiada!')).catch(()=>toast('✅ Copiado!'));
+}
+
+function enviarNotifWA(msg, telCliente){
+  let tel=(telCliente||'').replace(/\D/g,'');
+  if(!tel){ toast('⚠️ Cliente sem telefone cadastrado'); return; }
+  if(!tel.startsWith('55')) tel='55'+tel;
+  window.open(`https://wa.me/${tel}?text=${encodeURIComponent(msg)}`, '_blank');
+}
+
+function btnNotif(msg, tel){
+  return `<button class="tb" title="Copiar mensagem" onclick='copiarNotif(${JSON.stringify(msg)})'>📋 Copiar</button>
+          <button class="tb" style="background:var(--wa);color:white;border-color:var(--wa)" title="Enviar WhatsApp" onclick='enviarNotifWA(${JSON.stringify(msg)}, ${JSON.stringify(tel||'')})'>💬 WA</button>`;
+}
 
 // ══════════════════════════════════════════════════
 //  MÓDULO 5 — PORTAL DO CLIENTE
@@ -3564,6 +3696,26 @@ async function loadAgendamentos(){
       if(data){ todosAg=data; lsAgSalvar(todosAg); renderAgLista(); renderCal(); }
     }catch(e){}
   }
+  // Verifica visitas de amanhã para lembrete
+  const amanha=new Date(); amanha.setDate(amanha.getDate()+1);
+  const amanhaStr=amanha.toISOString().split('T')[0];
+  const osLocal=JSON.parse(ls('fluxa_os_hist')||'[]');
+  const visitasAmanha=osLocal.filter(o=>o.data_servico===amanhaStr&&o.status==='agendado');
+  if(visitasAmanha.length){
+    const el=document.getElementById('ag-alertas-amanha');
+    if(el){
+      el.innerHTML=`<div style="background:var(--blue-bg);border:1px solid var(--blue);border-radius:10px;padding:12px 16px;margin-bottom:12px">
+        <div style="font-size:13px;font-weight:700;color:var(--blue);margin-bottom:8px">📅 ${visitasAmanha.length} visita(s) amanhã — envie o lembrete:</div>
+        ${visitasAmanha.map(o=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">
+          <span style="font-size:13px;flex:1">${esc(o.cliente||'')} · ${o.hora||''} · ${esc(o.tecnico||'')}</span>
+          <button class="tb" onclick='copiarNotif(notifVisita(${JSON.stringify(o)}))'>📋 Copiar</button>
+        </div>`).join('')}
+      </div>`;
+    }
+  } else {
+    const el=document.getElementById('ag-alertas-amanha');
+    if(el) el.innerHTML='';
+  }
 }
 
 function agTab(t){
@@ -3846,6 +3998,7 @@ function renderEqGrid(){
       <div class="eq-acts">
         <button class="tb" onclick="verQR('${eq.id}')">🔳 QR Code</button>
         <button class="tb" onclick="abrirFormEq('${eq.id}')">✎ Editar</button>
+        <button class="tb" title="Notif. garantia" onclick='copiarNotif(notifGarantia(${JSON.stringify(eq)}))'>⚠️💬</button>
         <button class="tb d" onclick="excluirEq('${eq.id}')">🗑</button>
       </div>`;
     el.appendChild(card);
