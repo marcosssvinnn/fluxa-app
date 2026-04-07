@@ -487,6 +487,22 @@
     .desp-st.reembolsado{background:var(--green-bg);color:var(--green)}
     .desp-dash{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
     @media(max-width:680px){.desp-dash{grid-template-columns:1fr 1fr}}
+
+    /* ── PRODUTIVIDADE ── */
+    .prod-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:20px}
+    .prod-card{background:var(--white);border-radius:var(--r);padding:16px;box-shadow:var(--sh);text-align:center}
+    .prod-tec-nome{font-size:13px;font-weight:700;color:var(--c2);margin-bottom:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .prod-num{font-size:28px;font-weight:800;color:var(--c1)}
+    .prod-label{font-size:11px;color:var(--gray);font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+    .prod-vs{font-size:11px;margin-top:4px}
+    .prod-up{color:var(--green)}.prod-down{color:var(--red)}.prod-eq{color:var(--gray)}
+    .prod-tabela-wrap{overflow-x:auto}
+    .prod-tabela{width:100%;border-collapse:collapse;min-width:500px}
+    .prod-tabela th{text-align:left;font-size:10px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;padding:9px 12px;border-bottom:2px solid var(--gray-mid)}
+    .prod-tabela td{padding:11px 12px;font-size:13px;color:var(--c2);border-bottom:1px solid var(--gray-light)}
+    .prod-tabela tr:hover td{background:#fafafa}
+    .prod-bar-bg{background:var(--gray-light);border-radius:50px;height:6px;margin-top:4px}
+    .prod-bar{background:var(--c1);height:6px;border-radius:50px;transition:width .4s}
   </style>
 </head>
 <body>
@@ -521,6 +537,7 @@
     <button class="nb" onclick="go('equipamentos')" id="nb-equipamentos">🔧 Equipamentos</button>
     <button class="nb" onclick="go('agendamentos')" id="nb-agendamentos">📅 Agenda</button>
     <button class="nb" onclick="go('despesas')" id="nb-despesas">💸 Despesas</button>
+    <button class="nb" onclick="go('produtividade')" id="nb-produtividade">📈 Prod.</button>
   </nav>
   <div class="hdr-right">
     <span class="db-dot" id="db-dot" title="Status do banco de dados"></span>
@@ -535,6 +552,7 @@
         <button onclick="closeGear();novoOrc()">🔄 Novo Orçamento</button>
         <button onclick="closeGear();go('agendamentos')">📅 Agendamentos</button>
         <button onclick="closeGear();go('despesas')">💸 Despesas</button>
+        <button onclick="closeGear();go('produtividade')">📈 Produtividade</button>
       </div>
     </div>
   </div>
@@ -1259,6 +1277,50 @@
   </div>
 </div>
 
+<!-- ══ PAGE: PRODUTIVIDADE ══ -->
+<div class="page" id="page-produtividade">
+  <div class="wrap">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+      <div style="font-size:18px;font-weight:800;color:var(--c2)">📈 Produtividade</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <select id="prod-filtro-tec" onchange="renderProd()" style="padding:7px 12px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Inter',sans-serif;outline:none">
+          <option value="">Todos os técnicos</option>
+        </select>
+        <select id="prod-periodo" onchange="renderProd()" style="padding:7px 12px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Inter',sans-serif;outline:none">
+          <option value="mes">Este mês</option>
+          <option value="mes-ant">Mês anterior</option>
+          <option value="30d">Últimos 30 dias</option>
+          <option value="90d">Últimos 90 dias</option>
+          <option value="ano">Este ano</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Cards por técnico -->
+    <div class="ct" style="margin-bottom:12px">Resumo por Técnico</div>
+    <div id="prod-cards" class="prod-grid"></div>
+
+    <!-- Tabela comparativa -->
+    <div class="card">
+      <div class="ct">Tabela Comparativa</div>
+      <div class="prod-tabela-wrap">
+        <table class="prod-tabela" id="prod-tabela">
+          <thead><tr>
+            <th>Técnico</th>
+            <th>OS Concluídas</th>
+            <th>OS Canceladas</th>
+            <th>Taxa Conclusão</th>
+            <th>Tempo Médio</th>
+            <th>Despesas (R$)</th>
+            <th>Clientes</th>
+          </tr></thead>
+          <tbody id="prod-tabela-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ══ PAGE: DESPESAS ══ -->
 <div class="page" id="page-despesas">
   <div class="wrap">
@@ -1745,6 +1807,7 @@ function go(p){
   if(p==='equipamentos') loadEquipamentos();
   if(p==='agendamentos'){ loadAgendamentos(); populaTecSelects(); initCal(); renderCal(); }
   if(p==='despesas') loadDespesas();
+  if(p==='produtividade') loadProdutividade();
 }
 
 // Gear dropdown
@@ -2813,6 +2876,128 @@ function ls(k){ try{return localStorage.getItem(k);}catch(e){return null;} }
 function lsSet(k,v){ try{localStorage.setItem(k,v);}catch(e){} }
 function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('on'); setTimeout(()=>t.classList.remove('on'),2800); }
 function hexA(hex,a){ try{ const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16); return `rgba(${r},${g},${b},${a})`; }catch(e){ return hex; } }
+
+// ══════════════════════════════════════════════════
+//  MÓDULO 4 — PRODUTIVIDADE POR TÉCNICO
+// ══════════════════════════════════════════════════
+function getPeriodoProd(){
+  const p=gV('prod-periodo'), hoje=new Date(); hoje.setHours(23,59,59,999);
+  let inicio=new Date();
+  if(p==='mes'){ inicio=new Date(hoje.getFullYear(),hoje.getMonth(),1); }
+  else if(p==='mes-ant'){ inicio=new Date(hoje.getFullYear(),hoje.getMonth()-1,1); hoje.setDate(0); }
+  else if(p==='30d'){ inicio=new Date(); inicio.setDate(inicio.getDate()-30); }
+  else if(p==='90d'){ inicio=new Date(); inicio.setDate(inicio.getDate()-90); }
+  else if(p==='ano'){ inicio=new Date(hoje.getFullYear(),0,1); }
+  inicio.setHours(0,0,0,0);
+  return {inicio, fim:hoje};
+}
+
+function getPeriodoAntProd(){
+  const p=gV('prod-periodo'), hoje=new Date();
+  let inicio=new Date(), fim=new Date();
+  if(p==='mes'){ inicio=new Date(hoje.getFullYear(),hoje.getMonth()-1,1); fim=new Date(hoje.getFullYear(),hoje.getMonth(),0); }
+  else if(p==='30d'){ inicio=new Date(); inicio.setDate(inicio.getDate()-60); fim=new Date(); fim.setDate(fim.getDate()-30); }
+  else if(p==='90d'){ inicio=new Date(); inicio.setDate(inicio.getDate()-180); fim=new Date(); fim.setDate(fim.getDate()-90); }
+  else { return null; }
+  inicio.setHours(0,0,0,0); fim.setHours(23,59,59,999);
+  return {inicio, fim};
+}
+
+function osNoPeriodo(tec, ini, fim){
+  const osLocal=JSON.parse(ls('fluxa_os_hist')||'[]');
+  return osLocal.filter(o=>{
+    if(tec&&o.tecnico!==tec) return false;
+    if(!o.data_criacao) return false;
+    const d=new Date(o.data_criacao);
+    return d>=ini&&d<=fim;
+  });
+}
+
+function despNoPeriodo(tec, ini, fim){
+  return todasDesp.filter(d=>{
+    if(tec&&d.tecnico!==tec) return false;
+    if(!d.data) return false;
+    const dd=new Date(d.data+'T12:00:00');
+    return dd>=ini&&dd<=fim;
+  });
+}
+
+function metricasTec(tec, ini, fim){
+  const os=osNoPeriodo(tec, ini, fim);
+  const conc=os.filter(o=>o.status==='concluido');
+  const canc=os.filter(o=>o.status==='cancelado');
+  const taxa=os.length>0?Math.round(conc.length/os.length*100):0;
+  const comTempo=conc.filter(o=>o.duracao_min>0);
+  const tempoMed=comTempo.length>0?Math.round(comTempo.reduce((a,o)=>a+(o.duracao_min||0),0)/comTempo.length):0;
+  const desp=despNoPeriodo(tec, ini, fim).reduce((a,d)=>a+(d.valor||0),0);
+  const clientes=new Set(os.map(o=>o.cliente).filter(Boolean)).size;
+  return { total:os.length, conc:conc.length, canc:canc.length, taxa, tempoMed, desp, clientes };
+}
+
+async function loadProdutividade(){
+  // Popula select de técnicos
+  const el=document.getElementById('prod-filtro-tec'); if(!el) return;
+  const tecs=CFG.tecnicos||[];
+  el.innerHTML='<option value="">Todos os técnicos</option>'+tecs.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join('');
+  // Carrega OS do Supabase se disponível
+  if(dbOk&&db){
+    try{
+      const {data}=await db.from('ordens_servico').select('*').order('data_criacao',{ascending:false}).limit(500);
+      if(data){ lsSet('fluxa_os_hist',JSON.stringify(data)); }
+    }catch(e){}
+  }
+  renderProd();
+}
+
+function renderProd(){
+  const {inicio, fim}=getPeriodoProd();
+  const ant=getPeriodoAntProd();
+  const filtTec=gV('prod-filtro-tec');
+  const tecs=filtTec?[filtTec]:(CFG.tecnicos||[]);
+
+  // Cards
+  const cardsEl=document.getElementById('prod-cards');
+  if(!tecs.length){ cardsEl.innerHTML='<div class="empty-st"><div class="ei">👥</div><p>Nenhum técnico configurado em Dados da Empresa.</p></div>'; return; }
+
+  const maxConc=Math.max(...tecs.map(t=>metricasTec(t,inicio,fim).conc),1);
+
+  cardsEl.innerHTML=tecs.map(tec=>{
+    const m=metricasTec(tec,inicio,fim);
+    const mAnt=ant?metricasTec(tec,ant.inicio,ant.fim):null;
+    let vs=''; if(mAnt){
+      const diff=m.conc-mAnt.conc;
+      if(diff>0) vs=`<div class="prod-vs prod-up">▲ ${diff} vs período ant.</div>`;
+      else if(diff<0) vs=`<div class="prod-vs prod-down">▼ ${Math.abs(diff)} vs período ant.</div>`;
+      else vs=`<div class="prod-vs prod-eq">= igual ao período ant.</div>`;
+    }
+    const pct=maxConc>0?Math.round(m.conc/maxConc*100):0;
+    return `<div class="prod-card">
+      <div class="prod-tec-nome">👤 ${esc(tec)}</div>
+      <div class="prod-num">${m.conc}</div>
+      <div class="prod-label">OS Concluídas</div>
+      <div class="prod-bar-bg"><div class="prod-bar" style="width:${pct}%"></div></div>
+      ${vs}
+      <div style="margin-top:10px;font-size:12px;color:var(--gray)">Taxa: <strong style="color:${m.taxa>=70?'var(--green)':m.taxa>=40?'var(--yellow)':'var(--red)'}">${m.taxa}%</strong></div>
+      <div style="font-size:12px;color:var(--gray)">Despesas: <strong>${brl(m.desp)}</strong></div>
+    </div>`;
+  }).join('');
+
+  // Tabela
+  const tbody=document.getElementById('prod-tabela-body');
+  tbody.innerHTML=tecs.map(tec=>{
+    const m=metricasTec(tec,inicio,fim);
+    const tempoStr=m.tempoMed>0?(m.tempoMed>=60?Math.floor(m.tempoMed/60)+'h '+(m.tempoMed%60)+'min':m.tempoMed+' min'):'—';
+    return `<tr>
+      <td><strong>${esc(tec)}</strong></td>
+      <td><span style="color:var(--green);font-weight:700">${m.conc}</span></td>
+      <td><span style="color:var(--red)">${m.canc}</span></td>
+      <td><span style="font-weight:700;color:${m.taxa>=70?'var(--green)':m.taxa>=40?'var(--yellow)':'var(--red)'}">${m.taxa}%</span></td>
+      <td>${tempoStr}</td>
+      <td>${brl(m.desp)}</td>
+      <td>${m.clientes}</td>
+    </tr>`;
+  }).join('');
+}
 
 // ══════════════════════════════════════════════════
 //  MÓDULO 3 — DESPESAS DE CAMPO
