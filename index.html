@@ -179,7 +179,7 @@
     .ht{width:100%;border-collapse:collapse}
     .ht th{text-align:left;font-size:10px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;padding:9px 12px;border-bottom:2px solid var(--gray-mid);white-space:nowrap}
     .ht td{padding:11px 12px;font-size:13px;color:var(--c2);border-bottom:1px solid var(--gray-light);vertical-align:middle}
-    .ht th:last-child,.ht td:last-child{min-width:230px}
+    .ht th:last-child,.ht td:last-child{width:1%;white-space:nowrap}
     .ht tr:hover td{background:#fafafa}
     .ht tr:last-child td{border-bottom:none}
     .on{font-weight:700;color:var(--c1)}
@@ -2654,12 +2654,12 @@ function renderTabela(){
       <td><span class="odt">${dt}</span></td>
       <td><select class="ss ${o.status||'pendente'}" onchange="mudarSt('${o.id}',this)">${sopts(o.status||'pendente')}</select></td>
       <td><div class="ta">
-        <button class="tb" onclick="abrirOrc('${o.id}')">✎</button>
+        <button class="tb" title="Editar" onclick="abrirOrc('${o.id}')">✎</button>
         <button class="tb" title="Duplicar" onclick="duplicarOrc('${o.id}')">⧉</button>
-        <button class="tb" onclick="gerarOS_deOrc('${o.id}')">📋 OS</button>
-        <button class="tb g" onclick="abrirModalPg('${o.id}',${ttl})">💰</button>
-        <button class="tb" title="Notificação WhatsApp" onclick='copiarNotif(notifOrcamento(${JSON.stringify(o)}))'>💬</button>
-        <button class="tb d" onclick="excluirOrc('${o.id}')">🗑</button>
+        <button class="tb" title="Gerar OS" onclick="gerarOS_deOrc('${o.id}')">📋</button>
+        <button class="tb g" title="Registrar pagamento" onclick="abrirModalPg('${o.id}',${ttl})">💰</button>
+        <button class="tb" title="WhatsApp" onclick='copiarNotif(notifOrcamento(${JSON.stringify(o)}))'>💬</button>
+        <button class="tb d" title="Excluir" onclick="excluirOrc('${o.id}')">🗑</button>
       </div></td>
     </tr>`;
   });
