@@ -575,6 +575,27 @@
     .hdr-user-nome{font-size:12px;font-weight:600;color:rgba(255,255,255,.7);white-space:nowrap}
     @media(max-width:680px){.hdr-user-nome{display:none}}
 
+    /* ── SELETOR DE LOJA (header) ── */
+    .loja-select{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:white;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;outline:none;max-width:160px}
+    .loja-select option{background:var(--c2);color:white}
+    @media(max-width:680px){.loja-select{max-width:110px;font-size:11px;padding:4px 6px}}
+
+    /* ── BADGE DE EMPRESA nas listas ── */
+    .loja-badge{display:inline-block;padding:2px 7px;border-radius:50px;font-size:10px;font-weight:700;white-space:nowrap}
+    .loja-badge.loja-0{background:#fde8d0;color:#c2550a}
+    .loja-badge.loja-1{background:#dbeafe;color:#1d4ed8}
+    .loja-badge.loja-2{background:#dcfce7;color:#166534}
+
+    /* ── VISTA DO TÉCNICO ── */
+    .tec-os-card{background:var(--white);border-radius:var(--r);padding:16px 18px;box-shadow:var(--sh);margin-bottom:10px;border-left:4px solid var(--c1)}
+    .tec-os-card.concluido{border-left-color:var(--green)}
+    .tec-os-card.cancelado{border-left-color:var(--red)}
+    .tec-os-num{font-size:11px;font-weight:700;color:var(--c1);margin-bottom:4px}
+    .tec-os-cli{font-size:15px;font-weight:700;color:var(--c2)}
+    .tec-os-det{font-size:12px;color:var(--gray);margin-top:3px}
+    .tec-os-svcs{font-size:12px;color:var(--gray);margin-top:4px;font-style:italic}
+    .tec-os-acts{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+
     /* ── GESTÃO DE USUÁRIOS ── */
     .usr-card{background:var(--white);border-radius:var(--r);padding:14px 16px;box-shadow:var(--sh);margin-bottom:8px;display:flex;align-items:center;gap:12px}
     .usr-avatar{width:40px;height:40px;border-radius:50%;background:var(--c2);color:white;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;flex-shrink:0}
@@ -652,6 +673,9 @@
   </nav>
   <div class="hdr-right">
     <span class="db-dot" id="db-dot" title="Status do banco de dados"></span>
+    <select class="loja-select" id="hdr-loja-select" onchange="trocarLojaAtiva(this.value)" title="Empresa ativa" style="display:none">
+      <option value="">Todas as empresas</option>
+    </select>
     <div class="hdr-user" id="hdr-user" onclick="toggleGear()" title="Usuário logado">
       <div class="hdr-user-avatar" id="hdr-user-avatar">G</div>
       <span class="hdr-user-nome" id="hdr-user-nome">Gestor</span>
@@ -681,7 +705,10 @@
     <span class="micon">＋</span><span>Orçam.</span>
   </button>
   <button class="mob-nb" id="mnb-os" onclick="novaOS();go('os')">
-    <span class="micon">📋</span><span>OS</span>
+    <span class="micon">📋</span><span>Nova OS</span>
+  </button>
+  <button class="mob-nb" id="mnb-minhas-os" onclick="go('minhas-os')" style="display:none">
+    <span class="micon">📋</span><span>Minhas OS</span>
   </button>
   <button class="mob-nb" id="mnb-history" onclick="go('history')">
     <span class="micon">📊</span><span>Hist.</span>
@@ -919,7 +946,15 @@
         <div class="fl"><label>Telefone do Cliente</label><input type="tel" id="tel-cli" placeholder="(47) 99999-9999" oninput="upd()"></div>
         <div class="fl"><label>CNPJ (opcional)</label><input type="text" id="cnpj-cli" placeholder="00.000.000/0001-00" oninput="upd()"></div>
       </div>
-      <div class="row f3">
+      <div class="row f4">
+        <div class="fl">
+          <label>Empresa</label>
+          <select id="orc-loja" onchange="upd()">
+            <option value="fortemp-camboriu">Fortemp Camboriú</option>
+            <option value="fortemp-itapema">Fortemp Itapema</option>
+            <option value="aquamotor">Aquamotor</option>
+          </select>
+        </div>
         <div class="fl"><label>Pagamento</label>
           <select id="pag" onchange="upd()">
             <option>A combinar</option><option>Pix</option><option>Dinheiro</option>
@@ -1042,6 +1077,21 @@
   </div>
 </div>
 
+<!-- ══ PAGE: MINHAS OS (técnico) ══ -->
+<div class="page" id="page-minhas-os">
+  <div class="wrap">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding-top:8px;flex-wrap:wrap;gap:10px">
+      <div style="font-size:18px;font-weight:800;color:var(--c2)">📋 Minhas OS</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <button class="fb on" data-tec-st="pendente" onclick="filtTecOS(this)">⏳ Agendadas</button>
+        <button class="fb" data-tec-st="concluido" onclick="filtTecOS(this)">✅ Concluídas</button>
+        <button class="fb" data-tec-st="todos" onclick="filtTecOS(this)">Todas</button>
+      </div>
+    </div>
+    <div id="tec-os-lista"><div class="load"><div class="spin"></div> Carregando…</div></div>
+  </div>
+</div>
+
 <!-- ══ PAGE: ORDEM DE SERVIÇO ══ -->
 <div class="page" id="page-os">
   <div class="wrap">
@@ -1057,8 +1107,15 @@
         <div class="fl"><label>Local / Endereço</label><input type="text" id="os-loc" placeholder="Endereço do serviço"></div>
       </div>
       <div class="row">
+        <div class="fl">
+          <label>Empresa</label>
+          <select id="os-loja">
+            <option value="fortemp-camboriu">Fortemp Camboriú</option>
+            <option value="fortemp-itapema">Fortemp Itapema</option>
+            <option value="aquamotor">Aquamotor</option>
+          </select>
+        </div>
         <div class="fl"><label>CNPJ (opcional)</label><input type="text" id="os-cnpj" placeholder="00.000.000/0001-00"></div>
-        <div class="fl"></div>
       </div>
       <div class="row f4">
         <div class="fl"><label>Data do Serviço</label><input type="date" id="os-data"></div>
@@ -1865,12 +1922,37 @@ function getLojaFiltro(){ const s=getSessao(); return s?.loja_id||null; }
 // Oculta/exibe nav conforme perfil
 function aplicarPermissoesPerfil(){
   const gestor=eGestor();
-  // itens só para gestor
+
+  // nav desktop — itens só para gestor
   ['nb-form','nb-history','nb-produtividade','gear-btn-empresa','gear-btn-usuarios','gear-btn-prod'].forEach(id=>{
     const el=document.getElementById(id); if(el) el.style.display=gestor?'':'none';
   });
-  // mobile nav: gestor vê tudo, técnico vê só OS, Hist OS, Agenda, Equip
-  ['mnb-form'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display=gestor?'':'none'; });
+
+  // seletor de loja no header — só gestor vê
+  const lojaSelEl=document.getElementById('hdr-loja-select');
+  if(lojaSelEl){
+    lojaSelEl.style.display=gestor?'':'none';
+    if(gestor){ populaLojaSelect(); }
+  }
+
+  // nav mobile: técnico vê "Minhas OS" em vez de "+ Orçam."
+  const mnbForm=document.getElementById('mnb-form');
+  const mnbOs=document.getElementById('mnb-os');
+  const mnbMinhasOs=document.getElementById('mnb-minhas-os');
+  if(mnbForm) mnbForm.style.display=gestor?'':'none';
+  if(mnbOs)   mnbOs.style.display=gestor?'':'none';
+  if(mnbMinhasOs) mnbMinhasOs.style.display=gestor?'none':'';
+
+  // Se técnico estava numa página restrita, redireciona para suas OS
+  if(!gestor){
+    const pAtiva=document.querySelector('.page.on');
+    if(pAtiva){
+      const pid=pAtiva.id.replace('page-','');
+      if(['form','history','empresa','usuarios','produtividade'].includes(pid)){
+        go('minhas-os');
+      }
+    }
+  }
 }
 
 // Atualiza badge de usuário no header
@@ -1888,6 +1970,58 @@ function fazerLogout(){
   clearSessao();
   document.getElementById('login-overlay').style.display='flex';
   renderLoginUsers();
+}
+
+// ══════════════════════════════════════════════════
+//  LOJAS — 3 empresas do grupo
+// ══════════════════════════════════════════════════
+const LOJAS = [
+  { id:'fortemp-camboriu', nome:'Fortemp Camboriú',  cor:'loja-0', tecs:['Marcos','Josimar','Eldecir','Bruno'] },
+  { id:'fortemp-itapema',  nome:'Fortemp Itapema',   cor:'loja-1', tecs:['Marcos','Josimar','Eldecir','Bruno'] },
+  { id:'aquamotor',        nome:'Aquamotor',          cor:'loja-2', tecs:['Marcos','Bruno'] }
+];
+
+let lojaAtiva = ''; // '' = todas (gestor); string = filtrada
+
+function getLoja(id){ return LOJAS.find(l=>l.id===id)||null; }
+function getLojaNome(id){ return getLoja(id)?.nome || id || '—'; }
+function getLojaBadge(id){
+  const l=getLoja(id); if(!l) return '';
+  return `<span class="loja-badge ${l.cor}">${l.nome}</span>`;
+}
+
+// Preenche o <select> do header com as 3 lojas
+function populaLojaSelect(){
+  const sel=document.getElementById('hdr-loja-select'); if(!sel) return;
+  sel.innerHTML='<option value="">Todas as empresas</option>'+
+    LOJAS.map(l=>`<option value="${l.id}">${l.nome}</option>`).join('');
+  sel.value=lojaAtiva;
+}
+
+function trocarLojaAtiva(id){
+  lojaAtiva=id;
+  // Re-renderiza a página atual
+  const paginaAtiva=document.querySelector('.page.on');
+  if(!paginaAtiva) return;
+  const pid=paginaAtiva.id.replace('page-','');
+  if(pid==='history') { atualizarDash(); renderTabela(); }
+  else if(pid==='os-history') renderOSTabela();
+  else if(pid==='clientes') renderClientes();
+  else if(pid==='despesas') renderDespesas();
+  else if(pid==='produtividade') loadProdutividade();
+  else if(pid==='agendamentos') renderAgLista(); renderCal();
+}
+
+// Atualiza o select de técnicos de acordo com a loja selecionada no form
+function atualizarTecsPorLoja(lojaId, selectId){
+  const sel=document.getElementById(selectId); if(!sel) return;
+  const loja=getLoja(lojaId);
+  const tecs=loja?loja.tecs:(CFG.tecnicos||LOJAS.flatMap(l=>l.tecs).filter((v,i,a)=>a.indexOf(v)===i));
+  const atual=sel.value;
+  const opts=tecs.map(t=>`<option value="${t}"${t===atual?' selected':''}>${t}</option>`).join('');
+  // mantém opção vazia se não houver seleção
+  sel.innerHTML='<option value="">Selecione…</option>'+opts;
+  if(tecs.includes(atual)) sel.value=atual;
 }
 
 // ══════════════════════════════════════════════════
@@ -2466,6 +2600,9 @@ function go(p){
   if(p==='despesas') loadDespesas();
   if(p==='produtividade') loadProdutividade();
   if(p==='usuarios') loadUsuarios();
+  if(p==='minhas-os') loadMinhasOS();
+  // Atualiza técnicos disponíveis quando abre form de OS
+  if(p==='os'){ const l=gV('os-loja')||'fortemp-camboriu'; atualizarTecsPorLoja(l,'os-tec'); atualizarTecsPorLoja(l,'os-tec-checkin'); }
 }
 
 // Gear dropdown
@@ -2517,6 +2654,7 @@ function novoOrc(){
   svcs=[{id:Date.now(),d:'',p:''}];
   ['cli','loc','tel-cli','obs','escopo','data-svc','data-orc','nota-interna'].forEach(id=>setV(id,''));
   setV('pag','A combinar'); setV('val','5'); setV('desc','0'); setV('disc-tp','R$');
+  setV('orc-loja','fortemp-camboriu');
   renderSvcs(); upd();
   const fp=document.getElementById('foto-prev'); if(fp){fp.style.display='none';}
   document.getElementById('btn-rm-foto').style.display='none';
@@ -2702,6 +2840,7 @@ async function salvarApenas(){
     const now=new Date().toISOString();
     const camposBase={
       cliente:dados.cli, local_servico:dados.loc, tel_cliente:dados.tel, cnpj:dados.cnpj||null,
+      loja_id:dados.loja_id||'fortemp-camboriu',
       servicos:dados.svcs, subtotal:dados.sub, desconto:dados.desc, total:dados.tot,
       pagamento:dados.pag, validade_dias:dados.dias, validade_data:dados.vData,
       data_servico:dados.dataSvc, escopo:dados.escopo, obs:dados.obs,
@@ -2780,7 +2919,8 @@ async function gerarPDF(){
   const dados=coletarForm();
   const now=new Date().toISOString();
   const camposBase={
-    cliente:dados.cli, local_servico:dados.loc, tel_cliente:dados.tel,
+    cliente:dados.cli, local_servico:dados.loc, tel_cliente:dados.tel, cnpj:dados.cnpj||null,
+    loja_id:dados.loja_id||'fortemp-camboriu',
     servicos:dados.svcs, subtotal:dados.sub, desconto:dados.desc, total:dados.tot,
     pagamento:dados.pag, validade_dias:dados.dias, validade_data:dados.vData,
     data_servico:dados.dataSvc, escopo:dados.escopo, obs:dados.obs,
@@ -2840,7 +2980,9 @@ function coletarForm(){
   const base=gV('data-orc'), dias=parseInt(gV('val'))||5;
   let dataStr=new Date().toLocaleDateString('pt-BR'), vData='';
   if(base){ dataStr=new Date(base+'T12:00:00').toLocaleDateString('pt-BR'); const dv=new Date(base+'T12:00:00'); dv.setDate(dv.getDate()+dias); vData=dv.toLocaleDateString('pt-BR'); }
-  return { cli:gV('cli')||'—', loc:gV('loc'), tel:gV('tel-cli'), cnpj:gV('cnpj-cli'), pag:gV('pag'), dias, obs:gV('obs'),
+  return { cli:gV('cli')||'—', loc:gV('loc'), tel:gV('tel-cli'), cnpj:gV('cnpj-cli'),
+    loja_id:gV('orc-loja')||'fortemp-camboriu',
+    pag:gV('pag'), dias, obs:gV('obs'),
     escopo:gV('escopo'), dataSvc:gV('data-svc'), dataStr, vData, sub:sub(), desc:disc(sub()), tot:tot(),
     svcs:svcs.filter(s=>s.d.trim()).map(s=>({desc:s.d.trim(),preco:gP(s)})) };
 }
@@ -2944,7 +3086,8 @@ async function gerarOSPDF(modo='os'){
       const {data:rows}=await db.from('ordens_servico').select('numero').order('numero',{ascending:false}).limit(1);
       const num=rows&&rows.length?(rows[0].numero||0)+1:1;
       const orcId=osOrcId||null;
-      await db.from('ordens_servico').insert([{numero:num,orcamento_id:orcId,cliente:dados.cli,local_servico:dados.loc,cnpj:dados.cnpj||null,data_servico:dados.data,hora:dados.hora,tecnico:dados.tec,servicos:dados.svcs,materiais:dados.mat,obs_tecnica:dados.obs,total:dados.tot,status:'agendado',fotos:dados.fotos,video_link:dados.videoLink||null}]);
+      const lojaIdOS=gV('os-loja')||'fortemp-camboriu';
+      await db.from('ordens_servico').insert([{numero:num,orcamento_id:orcId,loja_id:lojaIdOS,cliente:dados.cli,local_servico:dados.loc,cnpj:dados.cnpj||null,data_servico:dados.data,hora:dados.hora,tecnico:dados.tec,servicos:dados.svcs,materiais:dados.mat,obs_tecnica:dados.obs,total:dados.tot,status:'agendado',fotos:dados.fotos,video_link:dados.videoLink||null}]);
       numStr=String(num).padStart(3,'0');
     }catch(e){ numStr='???'; }
   } else { const n=(parseInt(ls('fluxa_os_num')||'0'))+1; lsSet('fluxa_os_num',n); numStr=String(n).padStart(3,'0'); }
@@ -3089,6 +3232,8 @@ function filtrarPorPeriodo(val){ filtroPeriodo=val; renderTabela(); }
 
 function renderTabela(){
   let lista=todosOrc;
+  // filtro loja ativa
+  if(lojaAtiva) lista=lista.filter(o=>o.loja_id===lojaAtiva);
   // filtro período
   if(filtroPeriodo){
     const agora=new Date(); agora.setHours(0,0,0,0);
@@ -3121,7 +3266,7 @@ function renderTabela(){
     const notaIcon=o.nota_interna?` <span title="${esc(o.nota_interna)}" style="cursor:help">📝</span>`:'';
     h+=`<tr>
       <td><span class="on">#${num}</span></td>
-      <td><div class="ocl">${esc(o.cliente||'—')}${notaIcon}</div><div class="oloc">${esc(o.local_servico||'')}</div><div class="osvc" title="${esc(svs)}">${esc(svs)}</div></td>
+      <td><div class="ocl">${esc(o.cliente||'—')}${notaIcon}</div><div class="oloc">${esc(o.local_servico||'')}</div><div class="osvc" title="${esc(svs)}">${esc(svs)}</div><div style="margin-top:3px">${getLojaBadge(o.loja_id)}</div></td>
       <td><span class="otot">${brl(ttl)}</span><br><span class="${recCl}" style="font-size:11px">${recTxt}</span></td>
       <td><span class="odt">${dt}</span></td>
       <td><select class="ss ${o.status||'pendente'}" onchange="mudarSt('${o.id}',this)">${sopts(o.status||'pendente')}</select></td>
@@ -3163,6 +3308,7 @@ function abrirOrc(id){
   const o=todosOrc.find(x=>x.id===id); if(!o) return;
   editId=id;
   setV('cli',o.cliente||''); setV('loc',o.local_servico||''); setV('tel-cli',o.tel_cliente||''); setV('cnpj-cli',o.cnpj||'');
+  setV('orc-loja',o.loja_id||'fortemp-camboriu');
   setV('pag',o.pagamento||'A combinar'); setV('val',String(o.validade_dias||5));
   setV('obs',o.obs||''); setV('escopo',o.escopo||''); setV('data-svc',o.data_servico||'');
   setV('nota-interna',o.nota_interna||'');
@@ -3183,6 +3329,7 @@ function duplicarOrc(id){
   setV('obs',o.obs||''); setV('escopo',o.escopo||'');
   setV('nota-interna',''); // não copia nota interna
   setV('data-svc','');
+  setV('orc-loja',o.loja_id||'fortemp-camboriu');
   document.getElementById('data-orc').valueAsDate=new Date();
   setV('disc-v',String(o.desconto||0)); setV('disc-t','R$');
   svcs=(o.servicos||[]).map(s=>({id:Date.now()+Math.random(),d:s.desc,p:String(s.preco||'')}));
@@ -3199,6 +3346,7 @@ function gerarOS_deOrc(id){
   const o=todosOrc.find(x=>x.id===id); if(!o) return;
   osOrcId = id; // guarda o vínculo
   setV('os-cli',o.cliente||''); setV('os-loc',o.local_servico||''); setV('os-cnpj',o.cnpj||'');
+  setV('os-loja',o.loja_id||'fortemp-camboriu');
   setV('os-data',o.data_servico||''); setV('os-total',String(o.total||0));
   osSvcs=(o.servicos||[]).map(s=>({id:Date.now()+Math.random(),d:s.desc}));
   if(!osSvcs.length) osSvcs=[{id:Date.now(),d:''}];
@@ -3229,6 +3377,7 @@ function novaOS(){
     if(inp) inp.value='';
   });
   setV('os-video-link','');
+  setV('os-loja', lojaAtiva||'fortemp-camboriu');
   document.getElementById('os-src-badge').textContent='';
   document.getElementById('btn-os-both').style.display='none';
   document.getElementById('btn-os-pdf').style.gridColumn='1/-1';
@@ -3270,6 +3419,7 @@ function buscarOS(v){ buscaOS=v.toLowerCase(); renderOSTabela(); }
 
 function renderOSTabela(){
   let lista=todosOS;
+  if(lojaAtiva) lista=lista.filter(o=>o.loja_id===lojaAtiva);
   if(filtroOSSt!=='todos') lista=lista.filter(o=>o.status===filtroOSSt);
   if(buscaOS) lista=lista.filter(o=>
     (o.cliente||'').toLowerCase().includes(buscaOS)||
@@ -3284,7 +3434,8 @@ function renderOSTabela(){
     const stTx=o.status==='concluido'?'Concluído':o.status==='cancelado'?'Cancelado':'Agendado';
     h+=`<tr>
       <td><span class="on">#${num}</span></td>
-      <td><div class="ocl">${esc(o.cliente||'—')}</div></td>
+      <td><div class="ocl">${esc(o.cliente||'—')}</div>
+        <div style="margin-top:3px">${getLojaBadge(o.loja_id)}</div></td>
       <td><div class="oloc">${esc(o.local_servico||'')}</div></td>
       <td><span class="odt">${dt}</span></td>
       <td><span style="font-size:12px">${esc(o.tecnico||'—')}</span></td>
@@ -3309,6 +3460,7 @@ function editarOS(id){
   setV('os-tec',o.tecnico||''); setV('os-total',String(o.total||0));
   setV('os-mat',o.materiais||''); setV('os-obs',o.obs_tecnica||'');
   setV('os-video-link',o.video_link||'');
+  setV('os-loja',o.loja_id||'fortemp-camboriu');
   osSvcs=(o.servicos||[]).map(s=>({id:Date.now()+Math.random(),d:typeof s==='string'?s:s.desc||''}));
   if(!osSvcs.length) osSvcs=[{id:Date.now(),d:''}];
   osFotos=(o.fotos||[]).concat(['','','']).slice(0,3);
@@ -3331,6 +3483,67 @@ async function excluirOS(id){
   todosOS=todosOS.filter(x=>x.id!==id);
   if(dbOk&&db) db.from('ordens_servico').delete().eq('id',id).then(()=>{}).catch(()=>{});
   renderOSTabela(); toast('🗑 OS excluída');
+}
+
+// ──────────────────────────────────────────────────
+//  MINHAS OS — vista consolidada do técnico
+// ──────────────────────────────────────────────────
+let tecOSFiltro = 'pendente';
+async function loadMinhasOS(){
+  const sess = getSessao();
+  if(!sess || sess.perfil !== 'tecnico'){ go('home'); return; }
+  let lista = [];
+  if(dbOk && db){
+    try{
+      const {data} = await db.from('ordens_servico')
+        .select('*')
+        .eq('tecnico', sess.nome)
+        .order('data_servico', {ascending:true});
+      if(data) lista = data;
+    }catch(e){}
+  }
+  // fallback: filtrar todosOS em memória
+  if(!lista.length){
+    lista = todosOS.filter(o => (o.tecnico||'').toLowerCase() === (sess.nome||'').toLowerCase());
+  }
+  window._minhasOSAll = lista;
+  renderMinhasOS();
+}
+function renderMinhasOS(){
+  const lista = (window._minhasOSAll || []).filter(o => {
+    if(tecOSFiltro === 'pendente') return o.status !== 'concluido' && o.status !== 'cancelado';
+    if(tecOSFiltro === 'concluido') return o.status === 'concluido';
+    return true;
+  });
+  const el = document.getElementById('tec-os-lista');
+  if(!el) return;
+  if(!lista.length){
+    el.innerHTML = `<div class="empty-st"><div class="ei">📋</div><p>Nenhuma OS encontrada.</p></div>`;
+    return;
+  }
+  el.innerHTML = lista.map(o => {
+    const num = String(o.numero||'?').padStart(3,'0');
+    const dt = o.data_servico ? new Date(o.data_servico+'T12:00:00').toLocaleDateString('pt-BR') : '—';
+    const stCl = o.status==='concluido'?'os-concluido':o.status==='cancelado'?'os-cancelado':'os-agendado';
+    const stTx = o.status==='concluido'?'Concluído':o.status==='cancelado'?'Cancelado':'Agendado';
+    const svcs = (o.servicos||[]).join(', ');
+    return `<div class="tec-os-card" onclick="editarOS('${o.id}')">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+        <span class="on">#${num}</span>
+        <span class="os-badge ${stCl}">${stTx}</span>
+      </div>
+      <div class="tec-os-cli">${esc(o.cliente||'—')}</div>
+      <div class="tec-os-det">${esc(o.local_servico||'')}${o.local_servico&&dt!=='—'?' · ':''}${dt!=='—'?dt:''}</div>
+      ${svcs?`<div class="tec-os-det" style="margin-top:2px;color:var(--gray)">${esc(svcs)}</div>`:''}
+      <div style="margin-top:6px">${getLojaBadge(o.loja_id)}</div>
+    </div>`;
+  }).join('');
+}
+function filtTecOS(btn){
+  document.querySelectorAll('[data-tec-st]').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  tecOSFiltro = btn.dataset.tecSt;
+  renderMinhasOS();
 }
 
 // ──────────────────────────────────────────────────
