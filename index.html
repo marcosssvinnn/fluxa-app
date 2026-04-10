@@ -1895,6 +1895,36 @@ function fazerLogout(){
 // ══════════════════════════════════════════════════
 let todosUsuarios = [];
 
+// Pré-cadastra os 4 técnicos na primeira vez que o app abre
+function seedTecnicosIniciais(){
+  const TECNICOS_PADRAO = ['Marcos','Josimar','Eldecir','Bruno'];
+  try{ todosUsuarios=JSON.parse(ls('fluxa_usuarios')||'[]'); }catch(e){ todosUsuarios=[]; }
+  if(todosUsuarios.length > 0) return; // já tem usuários, não faz nada
+  const seed = TECNICOS_PADRAO.map(nome=>({
+    id: 'tec_'+nome.toLowerCase(),
+    nome, perfil:'tecnico', loja_id:null, loja_nome:null,
+    pin:null, ativo:true, data_criacao:new Date().toISOString()
+  }));
+  todosUsuarios = seed;
+  lsSet('fluxa_usuarios', JSON.stringify(seed));
+  // Sincroniza com Supabase em background quando o banco conectar
+  lsSet('fluxa_usuarios_seed_pendente','1');
+}
+
+async function sincronizarSeedUsuarios(){
+  if(!ls('fluxa_usuarios_seed_pendente')) return;
+  if(!dbOk||!db) return;
+  try{
+    const {data:existentes}=await db.from('usuarios').select('id').limit(1);
+    if(existentes&&existentes.length>0){ lsSet('fluxa_usuarios_seed_pendente',''); return; }
+    const TECNICOS_PADRAO=['Marcos','Josimar','Eldecir','Bruno'];
+    const payload=TECNICOS_PADRAO.map(nome=>({nome,perfil:'tecnico',loja_id:null,loja_nome:null,pin:null,ativo:true}));
+    const {data:ins}=await db.from('usuarios').insert(payload).select('*');
+    if(ins){ todosUsuarios=ins; lsSet('fluxa_usuarios',JSON.stringify(ins)); }
+    lsSet('fluxa_usuarios_seed_pendente','');
+  }catch(e){ console.warn('seed técnicos BD falhou:',e.message); }
+}
+
 async function carregarUsuarios(){
   // Tenta carregar do Supabase, fallback para localStorage
   try{
@@ -1997,7 +2027,7 @@ const CFG_DEF = {
   nome:'Minha Empresa', sub:'Serviços', tel:'', whatsapp:'', cidades:'',
   tagline:'', cor:'#F07820', cor2:'#2B3244', logoB64:'', segmento:'geral',
   svcs:['Serviço 1','Serviço 2','Serviço 3'], pin:'1234',
-  tecnicos:['Técnico 1','Técnico 2'],
+  tecnicos:['Marcos','Josimar','Eldecir','Bruno'],
   notif_visita: 'Olá, {nome}! 👋\n\nLembramos que amanhã teremos nossa visita técnica agendada.\n\n⏰ Horário: {hora}\n👤 Técnico: {tecnico}\n🔧 Serviço: {servico}\n\nQualquer dúvida estamos à disposição!\n\n*{empresa}*\n📞 {tel_empresa}',
   notif_concluida: 'Olá, {nome}! ✅\n\nO serviço foi concluído com sucesso!\n\n🔧 Serviço: {servico}\n👤 Técnico: {tecnico}\n\nAcesse seu portal para ver o histórico completo:\n{link_portal}\n\n*{empresa}*\n📞 {tel_empresa}',
   notif_orcamento: 'Olá, {nome}! 📋\n\nPreparamos um orçamento especial para você:\n\n🔧 Serviços: {servico}\n💰 Valor Total: {valor}\n\nAcesse seu portal para aprovar ou recusar:\n{link_portal}\n\nO orçamento é válido por 5 dias. Qualquer dúvida é só falar!\n\n*{empresa}*\n📞 {tel_empresa}',
@@ -2046,6 +2076,9 @@ function lsOrcProxNum(){ return lsOrcLer().reduce((a,o)=>Math.max(a,o.numero||0)
   initForm();
   todosOrc = lsOrcLer();
 
+  // ── Seed técnicos iniciais (roda 1x se não houver usuários) ──
+  seedTecnicosIniciais();
+
   // ── Login check ──
   const sessaoExistente = getSessao();
   if(sessaoExistente){
@@ -2053,7 +2086,6 @@ function lsOrcProxNum(){ return lsOrcLer().reduce((a,o)=>Math.max(a,o.numero||0)
     atualizarBadgeUsuario();
     aplicarPermissoesPerfil();
   } else {
-    // Carrega usuários locais para montar a lista de login
     try{ todosUsuarios=JSON.parse(ls('fluxa_usuarios')||'[]'); }catch(e){ todosUsuarios=[]; }
     renderLoginUsers();
     document.getElementById('login-overlay').style.display='flex';
@@ -2071,8 +2103,8 @@ function lsOrcProxNum(){ return lsOrcLer().reduce((a,o)=>Math.max(a,o.numero||0)
       if(ok){
         await carregarCFGremoto(); aplicarCFG();
         await carregarClientesRemoto();
+        await sincronizarSeedUsuarios();
         await carregarUsuarios();
-        // Atualiza lista de login com usuários do banco (se ainda na tela de login)
         if(document.getElementById('login-overlay').style.display!=='none') renderLoginUsers();
       }
       else if(tentativa < 3) setTimeout(()=>tentarConectar(tentativa+1), tentativa===1?3000:15000);
