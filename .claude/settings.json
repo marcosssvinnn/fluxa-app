@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.command' | grep -q 'git push' && echo '{\"systemMessage\": \"⚠️  Lembrete: atualize o CLAUDE.md com o que foi feito nesta sessão antes de encerrar.\\n  git add CLAUDE.md && git commit -m \\\"docs: atualiza CLAUDE.md\\\" && git push\"}' || true"
+          }
+        ]
+      }
+    ]
+  }
+}
