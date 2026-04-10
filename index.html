@@ -460,10 +460,8 @@
       .hf{gap:6px}
       .fb{padding:7px 12px;font-size:12px}
 
-      /* Tabela histórico: esconde colunas menos importantes */
-      .ht th:nth-child(3),.ht td:nth-child(3),
-      .ht th:nth-child(5),.ht td:nth-child(5),
-      .ht th:nth-child(6),.ht td:nth-child(6){display:none}
+      /* Tabela histórico: esconde colunas menos importantes no mobile */
+      .ht th:nth-child(4),.ht td:nth-child(4){display:none}
 
       /* Botões de ação na tabela */
       .ta{gap:4px;flex-wrap:wrap}
@@ -2636,7 +2634,7 @@ function renderTabela(){
   );
   if(!lista.length){ document.getElementById('hist-body').innerHTML=`<div class="empty-st"><div class="ei">📭</div><p>Nenhum orçamento encontrado.</p></div>`; return; }
   const sopts=s=>['pendente','aprovado','recusado','vencido'].map(x=>`<option value="${x}" ${x===s?'selected':''}>${x.charAt(0).toUpperCase()+x.slice(1)}</option>`).join('');
-  let h=`<div class="htw"><table class="ht"><thead><tr><th>#</th><th>Cliente</th><th>Serviços</th><th>Total</th><th>Recebido</th><th>Data</th><th>Status</th><th>Ações</th></tr></thead><tbody>`;
+  let h=`<div class="htw"><table class="ht"><thead><tr><th>#</th><th>Cliente</th><th>Total / Recebido</th><th>Data</th><th>Status</th><th>Ações</th></tr></thead><tbody>`;
   lista.forEach(o=>{
     const num=String(o.numero||'—').padStart(3,'0');
     const svs=(o.servicos||[]).map(s=>s.desc).join(', ')||'—';
@@ -2647,10 +2645,8 @@ function renderTabela(){
     const notaIcon=o.nota_interna?` <span title="${esc(o.nota_interna)}" style="cursor:help">📝</span>`:'';
     h+=`<tr>
       <td><span class="on">#${num}</span></td>
-      <td><div class="ocl">${esc(o.cliente||'—')}${notaIcon}</div><div class="oloc">${esc(o.local_servico||'')}</div></td>
-      <td><div class="osvc" title="${esc(svs)}">${esc(svs)}</div></td>
-      <td><span class="otot">${brl(ttl)}</span></td>
-      <td><span class="${recCl}">${recTxt}</span></td>
+      <td><div class="ocl">${esc(o.cliente||'—')}${notaIcon}</div><div class="oloc">${esc(o.local_servico||'')}</div><div class="osvc" title="${esc(svs)}">${esc(svs)}</div></td>
+      <td><span class="otot">${brl(ttl)}</span><br><span class="${recCl}" style="font-size:11px">${recTxt}</span></td>
       <td><span class="odt">${dt}</span></td>
       <td><select class="ss ${o.status||'pendente'}" onchange="mudarSt('${o.id}',this)">${sopts(o.status||'pendente')}</select></td>
       <td><div class="ta">
