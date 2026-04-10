@@ -1,4 +1,4 @@
-const CACHE = 'fluxa-v1';
+const CACHE = 'fluxa-v2';
 const URLS = [
   'index.html',
   'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',

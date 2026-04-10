@@ -151,11 +151,13 @@ CREATE TABLE IF NOT EXISTS notas_fiscais (
 8. **Notificações WhatsApp** — templates editáveis com variáveis, botão copiar mensagem
 9. **Cadastro de Clientes** — com busca por nome/CNPJ, auto-save ao criar orçamento
 10. **Cadastro de Técnicos** — via tela Gestão de Usuários (substituiu campo de config)
-11. **Multi-loja (3 empresas)** — loja_id em todos os registros, filtro no header, badges coloridos
-12. **Login por usuário** — seleção de nome + PIN, gestor usa PIN da empresa
+11. **Multi-loja (3 empresas)** — loja_id em todos os 10 módulos (ORC, OS, Ag, Eq, Desp, Prod, Cli, Usuários, Portal, NF), filtro no header, badges coloridos
+12. **Login por usuário** — seleção de nome + PIN (SHA-256 + salt), lockout 3 tentativas/30s, gestor escolhe loja no login
 13. **Vista do Técnico (Minhas OS)** — OS consolidadas de todas as lojas onde está alocado
 14. **Gestão de Usuários** — gestor cria/desativa técnicos com PIN
 15. **Focus NFe (Módulo 7)** — modal de emissão NF-e/NFS-e via Focus NFe API (estrutura pronta)
+16. **Segurança** — PIN hasheado (SHA-256), lockout login, validação de foto (2 MB), dados sensíveis fora do DOM (cache `_nc`)
+17. **Busca de clientes** — modal 🔍 no form de ORC e OS; importação batch de clientes de orçamentos existentes
 
 ---
 
@@ -194,6 +196,7 @@ let lojaAtiva = ''; // '' = todas as empresas
 // Ao mudar: trocarLojaAtiva(id) re-renderiza a página ativa
 // renderTabela() e renderOSTabela() filtram por lojaAtiva quando != ''
 // novoOrc() e novaOS() pré-selecionam lojaAtiva no campo Empresa
+// Módulos com filtro lojaAtiva completo: ORC, OS, Ag, Eq, Desp, Prod (osNoPeriodo+despNoPeriodo), Cli
 ```
 
 ---
@@ -206,10 +209,36 @@ let lojaAtiva = ''; // '' = todas as empresas
 - Municípios confirmados: Camboriú-SC (IBGE 4203204, AtendeNet) e Itapema-SC (IBGE 4208450, MeuISS)
 - Apenas gestor emite notas
 
-### SQL no Supabase — ainda não executado
-O SQL da seção "Banco de dados" acima precisa ser executado no painel do Supabase.
-Atualmente o app funciona via localStorage; as colunas `loja_id` nas tabelas existentes
-**precisam ser adicionadas** para que o Supabase persista corretamente.
+### SQL no Supabase — EXECUTAR
+O SQL abaixo precisa ser rodado no painel do Supabase (em ordem):
+1. SQL de schema da seção "Banco de dados" (ADD COLUMN loja_id + CREATE TABLE lojas/usuarios/notas_fiscais)
+2. SQL de RLS abaixo
+
+### RLS — SQL pronto para executar
+```sql
+ALTER TABLE orcamentos        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ordens_servico    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE clientes          ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agendamentos      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE equipamentos      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE despesas          ENABLE ROW LEVEL SECURITY;
+ALTER TABLE empresa_config    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE lojas             ENABLE ROW LEVEL SECURITY;
+ALTER TABLE usuarios          ENABLE ROW LEVEL SECURITY;
+ALTER TABLE notas_fiscais     ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "anon full access" ON orcamentos     FOR ALL TO anon USING (true) WITH CHECK (true);
+CREATE POLICY "anon full access" ON ordens_servico FOR ALL TO anon USING (true) WITH CHECK (true);
+CREATE POLICY "anon full access" ON clientes       FOR ALL TO anon USING (true) WITH CHECK (true);
+CREATE POLICY "anon full access" ON agendamentos   FOR ALL TO anon USING (true) WITH CHECK (true);
+CREATE POLICY "anon full access" ON equipamentos   FOR ALL TO anon USING (true) WITH CHECK (true);
+CREATE POLICY "anon full access" ON despesas       FOR ALL TO anon USING (true) WITH CHECK (true);
+CREATE POLICY "anon full access" ON empresa_config FOR ALL TO anon USING (true) WITH CHECK (true);
+CREATE POLICY "anon full access" ON lojas          FOR ALL TO anon USING (true) WITH CHECK (true);
+CREATE POLICY "anon full access" ON usuarios       FOR ALL TO anon USING (true) WITH CHECK (true);
+CREATE POLICY "anon full access" ON notas_fiscais  FOR ALL TO anon USING (true) WITH CHECK (true);
+```
+> Permissivo porque o app usa anon key sem Supabase Auth. **O repositório GitHub DEVE ser privado** pois a anon key está hardcoded no index.html.
 
 ---
 
