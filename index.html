@@ -2155,36 +2155,84 @@ function selecionarUserLogin(btn, id, perfil, nome, lojaId){
   setTimeout(()=>inp.focus(),100);
 }
 
-function fazerLogin(){
-  if(!loginUserSelecionado){ document.getElementById('login-err').textContent='Selecione um usuário.'; return; }
-  const pin=document.getElementById('pin-input').value;
-  const err=document.getElementById('login-err');
+// ── Segurança: hash + lockout ──────────────────────
+const PIN_SALT = 'fluxa2025';
+// Cache de objetos para botões de notificação (evita JSON no DOM)
+const _nc = {};
+function getNC(id){ return _nc[id]||{}; }
+let loginAttempts = 0;
+let loginLockedUntil = 0;
+let lockoutTimer = null;
 
-  let pinCorreto=false;
-  if(loginUserSelecionado.id==='__gestor__'){
-    pinCorreto=(pin===(CFG.pin||'1234'));
+async function hashPIN(pin){
+  if(!pin) return null;
+  try{
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pin + PIN_SALT));
+    return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  }catch(e){ return pin; }
+}
+
+async function pinValido(input, stored){
+  if(!stored) return false;
+  if(stored.length === 64){ const h = await hashPIN(input); return h === stored; }
+  return input === stored; // legado: plain text
+}
+
+function iniciarCountdownLockout(){
+  if(lockoutTimer) clearInterval(lockoutTimer);
+  lockoutTimer = setInterval(()=>{
+    const resto = loginLockedUntil - Date.now();
+    if(resto <= 0){
+      clearInterval(lockoutTimer); lockoutTimer = null;
+      const e = document.getElementById('login-err'); if(e) e.textContent='';
+    } else {
+      const e = document.getElementById('login-err');
+      if(e) e.textContent = `Muitas tentativas. Aguarde ${Math.ceil(resto/1000)}s.`;
+    }
+  }, 500);
+}
+
+async function fazerLogin(){
+  const err = document.getElementById('login-err');
+  if(Date.now() < loginLockedUntil){ return; }
+  if(!loginUserSelecionado){ err.textContent='Selecione um usuário.'; return; }
+  const pin = document.getElementById('pin-input').value;
+  if(!pin){ err.textContent='Digite o PIN.'; return; }
+
+  let pinCorreto = false;
+  if(loginUserSelecionado.id === '__gestor__'){
+    pinCorreto = await pinValido(pin, CFG.pin||'1234');
   } else {
-    const u=todosUsuarios.find(x=>x.id===loginUserSelecionado.id);
-    pinCorreto=u&&u.pin===pin;
-    if(!pinCorreto&&u&&!u.pin) pinCorreto=(pin===(CFG.pin||'1234'));
+    const u = todosUsuarios.find(x=>x.id===loginUserSelecionado.id);
+    if(u){
+      pinCorreto = await pinValido(pin, u.pin);
+      if(!pinCorreto && !u.pin) pinCorreto = await pinValido(pin, CFG.pin||'1234');
+    }
   }
 
   if(pinCorreto){
-    err.textContent='';
-    if(loginUserSelecionado.id==='__gestor__'){
-      // Gestor: mostra seleção de empresa antes de entrar
+    loginAttempts = 0; loginLockedUntil = 0;
+    err.textContent = '';
+    if(loginUserSelecionado.id === '__gestor__'){
       document.getElementById('login-pin-wrap').classList.remove('show');
       mostrarSelecaoLojaGestor();
     } else {
-      const sessao={perfil:loginUserSelecionado.perfil,loja_id:loginUserSelecionado.loja_id,nome:loginUserSelecionado.nome};
+      const sessao = {perfil:loginUserSelecionado.perfil, loja_id:loginUserSelecionado.loja_id, nome:loginUserSelecionado.nome};
       setSessao(sessao);
-      document.getElementById('login-overlay').style.display='none';
+      document.getElementById('login-overlay').style.display = 'none';
       atualizarBadgeUsuario();
       aplicarPermissoesPerfil();
     }
   } else {
-    err.textContent='PIN incorreto. Tente novamente.';
-    document.getElementById('pin-input').value='';
+    loginAttempts++;
+    if(loginAttempts >= 3){
+      loginLockedUntil = Date.now() + 30000;
+      loginAttempts = 0;
+      iniciarCountdownLockout();
+    } else {
+      err.textContent = `PIN incorreto. ${3 - loginAttempts} tentativa(s) restante(s).`;
+    }
+    document.getElementById('pin-input').value = '';
     document.getElementById('pin-input').focus();
   }
 }
@@ -2526,7 +2574,9 @@ async function carregarCFGremoto(){
 async function carregarClientesRemoto(){
   if(!dbOk||!db) return;
   try{
-    const {data} = await db.from('clientes').select('*').order('data_criacao',{ascending:false});
+    let qCli=db.from('clientes').select('*').order('data_criacao',{ascending:false});
+    if(lojaAtiva) qCli=qCli.eq('loja_id',lojaAtiva);
+    const {data} = await qCli;
     if(data&&data.length){
       // merge: mantém locais e adiciona/atualiza remotos
       const local = lsCliLer();
@@ -2564,7 +2614,7 @@ function preencherFormEmpresa(){
   setV('cfg-cor2',CFG.cor2); setV('cfg-cor2-txt',CFG.cor2);
   setV('cfg-servicos', (CFG.svcs||[]).join('\n'));
   setV('cfg-tecnicos', (CFG.tecnicos||[]).join('\n'));
-  setV('cfg-pin', CFG.pin||'1234');
+  setV('cfg-pin', ''); // não exibir hash; usuário digita novo PIN para alterar
   setV('cfg-notif-visita', CFG.notif_visita || CFG_DEF.notif_visita);
   setV('cfg-notif-concluida', CFG.notif_concluida || CFG_DEF.notif_concluida);
   setV('cfg-notif-orcamento', CFG.notif_orcamento || CFG_DEF.notif_orcamento);
@@ -2606,7 +2656,9 @@ async function salvarEmpresa(){
   CFG.svcs = gV('cfg-servicos').split('\n').map(s=>s.trim()).filter(Boolean);
   CFG.tecnicos = gV('cfg-tecnicos').split('\n').map(s=>s.trim()).filter(Boolean);
   const novoPin = gV('cfg-pin').trim();
-  if(novoPin.length===4 && /^\d{4}$/.test(novoPin)) CFG.pin=novoPin;
+  if(novoPin.length===4 && /^\d{4}$/.test(novoPin)){
+    hashPIN(novoPin).then(h=>{ CFG.pin=h; lsSet('empresa_cfg',JSON.stringify(CFG)); });
+  }
   CFG.notif_visita = gV('cfg-notif-visita') || CFG_DEF.notif_visita;
   CFG.notif_concluida = gV('cfg-notif-concluida') || CFG_DEF.notif_concluida;
   CFG.notif_orcamento = gV('cfg-notif-orcamento') || CFG_DEF.notif_orcamento;
@@ -2619,7 +2671,7 @@ async function salvarEmpresa(){
   CFG.nfe_cod_svc    = gV('cfg-nfe-cod-svc')||'7.10';
   lsSet('empresa_cfg',JSON.stringify(CFG));
   if(dbOk&&db){
-    try{ await db.from('empresa_config').upsert([{id:1,dados:CFG,updated_at:new Date().toISOString()}]); }catch(e){}
+    try{ await db.from('empresa_config').upsert([{id:1,dados:CFG,updated_at:new Date().toISOString()}]); }catch(e){ console.warn('cfg sync:',e.message); toast('✅ Configurações salvas localmente (sync falhou)'); aplicarCFG(); return; }
   }
   aplicarCFG();
   toast('✅ Configurações salvas!');
@@ -2824,8 +2876,10 @@ function gP(s){ return parseFloat(s.p)||0; }
 // ──────────────────────────────────────────────────
 //  FOTO
 // ──────────────────────────────────────────────────
+const FOTO_MAX_BYTES = 2 * 1024 * 1024; // 2 MB
 function carregarFoto(inp){
   const f=inp.files[0]; if(!f) return;
+  if(f.size > FOTO_MAX_BYTES){ toast('⚠️ Foto muito grande (máx 2 MB). Reduza a resolução.'); inp.value=''; return; }
   const r=new FileReader();
   r.onload=e=>{ fotoB64=e.target.result;
     const prev=document.getElementById('foto-prev'); prev.src=e.target.result; prev.style.display='block';
@@ -3340,6 +3394,7 @@ function renderTabela(){
   const sopts=s=>['pendente','aprovado','recusado','vencido'].map(x=>`<option value="${x}" ${x===s?'selected':''}>${x.charAt(0).toUpperCase()+x.slice(1)}</option>`).join('');
   let h=`<div class="htw"><table class="ht"><thead><tr><th>#</th><th>Cliente</th><th>Total / Recebido</th><th>Data</th><th>Status</th><th>Ações</th></tr></thead><tbody>`;
   lista.forEach(o=>{
+    _nc[o.id]=o;
     const num=String(o.numero||'—').padStart(3,'0');
     const svs=(o.servicos||[]).map(s=>s.desc).join(', ')||'—';
     const dt=o.data_criacao?new Date(o.data_criacao).toLocaleDateString('pt-BR'):'—';
@@ -3359,7 +3414,7 @@ function renderTabela(){
         <button class="tb" title="Gerar OS" onclick="gerarOS_deOrc('${o.id}')">📋</button>
         <button class="tb g" title="Registrar pagamento" onclick="abrirModalPg('${o.id}',${ttl})">💰</button>
         ${o.status==='aprovado'?`<button class="tb" title="Emitir Nota Fiscal" onclick="abrirModalNFe('${o.id}')" style="background:#7c3aed;color:white;border-radius:6px;padding:4px 7px;font-size:11px;font-weight:700;border:none;cursor:pointer">NF</button>`:''}
-        <button class="tb" title="WhatsApp" onclick='copiarNotif(notifOrcamento(${JSON.stringify(o)}))'>💬</button>
+        <button class="tb" title="WhatsApp" onclick="copiarNotif(notifOrcamento(getNC('${o.id}')))">💬</button>
         <button class="tb d" title="Excluir" onclick="excluirOrc('${o.id}')">🗑</button>
       </div></td>
     </tr>`;
@@ -3511,6 +3566,7 @@ function renderOSTabela(){
   if(!lista.length){ document.getElementById('osh-body').innerHTML=`<div class="empty-st"><div class="ei">📋</div><p>Nenhuma OS encontrada.</p></div>`; return; }
   let h=`<div class="htw"><table class="ht"><thead><tr><th>#</th><th>Cliente</th><th>Local</th><th>Data</th><th>Técnico</th><th>Status</th><th>Ações</th></tr></thead><tbody>`;
   lista.forEach(o=>{
+    _nc[o.id]=o;
     const num=String(o.numero||'—').padStart(3,'0');
     const dt=o.data_servico?new Date(o.data_servico+'T12:00:00').toLocaleDateString('pt-BR'):(o.data_criacao?new Date(o.data_criacao).toLocaleDateString('pt-BR'):'—');
     const stCl=o.status==='concluido'?'os-concluido':o.status==='cancelado'?'os-cancelado':'os-agendado';
@@ -3525,8 +3581,8 @@ function renderOSTabela(){
       <td><span class="os-badge ${stCl}">${stTx}</span></td>
       <td><div class="ta">
         <button class="tb" onclick="editarOS('${o.id}')">✎ Editar</button>
-        ${o.status==='concluido'?`<button class="tb" title="Notif. OS concluída" onclick='copiarNotif(notifConcluida(${JSON.stringify(o)}))'>✅💬</button>`:''}
-        ${o.status==='agendado'?`<button class="tb" title="Lembrete de visita" onclick='copiarNotif(notifVisita(${JSON.stringify(o)}))'>📅💬</button>`:''}
+        ${o.status==='concluido'?`<button class="tb" title="Notif. OS concluída" onclick="copiarNotif(notifConcluida(getNC('${o.id}')))">✅💬</button>`:''}
+        ${o.status==='agendado'?`<button class="tb" title="Lembrete de visita" onclick="copiarNotif(notifVisita(getNC('${o.id}')))">📅💬</button>`:''}
         <button class="tb d" onclick="excluirOS('${o.id}')">🗑</button>
       </div></td>
     </tr>`;
@@ -3634,6 +3690,7 @@ function filtTecOS(btn){
 // ──────────────────────────────────────────────────
 function carregarOSFoto(inp, idx){
   const f=inp.files[0]; if(!f) return;
+  if(f.size > FOTO_MAX_BYTES){ toast('⚠️ Foto muito grande (máx 2 MB). Reduza a resolução.'); inp.value=''; return; }
   const r=new FileReader();
   r.onload=e=>{
     osFotos[idx]=e.target.result;
@@ -3673,17 +3730,18 @@ function mostrarFormCliente(){
 async function salvarNovoCliente(){
   const nome=gV('cli-new-nome').trim();
   if(!nome){ toast('⚠️ Informe o nome do cliente'); return; }
-  const novo={id:'cli_'+Date.now(), nome, tel:gV('cli-new-tel').trim(), end:gV('cli-new-end').trim(), cnpj:gV('cli-new-cnpj').trim(), portal_token:crypto.randomUUID()};
+  const novo={id:'cli_'+Date.now(), nome, tel:gV('cli-new-tel').trim(), end:gV('cli-new-end').trim(), cnpj:gV('cli-new-cnpj').trim(), portal_token:crypto.randomUUID(), loja_id:lojaAtiva||'fortemp-camboriu'};
   const lista=lsCliLer(); lista.unshift(novo); lsCliSalvar(lista);
   if(dbOk&&db){
-    try{ await db.from('clientes').insert([{nome:novo.nome,telefone:novo.tel,endereco:novo.end,cnpj:novo.cnpj||null}]); }catch(e){}
+    try{ await db.from('clientes').insert([{nome:novo.nome,telefone:novo.tel,endereco:novo.end,cnpj:novo.cnpj||null,loja_id:novo.loja_id}]); }catch(e){ console.warn('cli sync:',e.message); }
   }
   document.getElementById('cli-form-wrap').style.display='none';
   renderClientes(); toast('✅ Cliente salvo!');
 }
 
 function renderClientes(){
-  const lista=lsCliLer();
+  let lista=lsCliLer();
+  if(lojaAtiva) lista=lista.filter(c=>!c.loja_id||c.loja_id===lojaAtiva);
   const el=document.getElementById('clientes-lista');
   if(!lista.length){ el.innerHTML='<div class="empty-st"><div class="ei">👥</div><p>Nenhum cliente cadastrado.</p></div>'; return; }
   el.innerHTML=lista.map(c=>`
@@ -4244,6 +4302,7 @@ function osNoPeriodo(tec, ini, fim){
   const osLocal=JSON.parse(ls('fluxa_os_hist')||'[]');
   return osLocal.filter(o=>{
     if(tec&&o.tecnico!==tec) return false;
+    if(lojaAtiva&&o.loja_id&&o.loja_id!==lojaAtiva) return false;
     if(!o.data_criacao) return false;
     const d=new Date(o.data_criacao);
     return d>=ini&&d<=fim;
@@ -4253,6 +4312,7 @@ function osNoPeriodo(tec, ini, fim){
 function despNoPeriodo(tec, ini, fim){
   return todasDesp.filter(d=>{
     if(tec&&d.tecnico!==tec) return false;
+    if(lojaAtiva&&d.loja_id&&d.loja_id!==lojaAtiva) return false;
     if(!d.data) return false;
     const dd=new Date(d.data+'T12:00:00');
     return dd>=ini&&dd<=fim;
@@ -4279,7 +4339,9 @@ async function loadProdutividade(){
   // Carrega OS do Supabase se disponível
   if(dbOk&&db){
     try{
-      const {data}=await db.from('ordens_servico').select('*').order('data_criacao',{ascending:false}).limit(500);
+      let qProd=db.from('ordens_servico').select('*').order('data_criacao',{ascending:false}).limit(500);
+      if(lojaAtiva) qProd=qProd.eq('loja_id',lojaAtiva);
+      const {data}=await qProd;
       if(data){ lsSet('fluxa_os_hist',JSON.stringify(data)); }
     }catch(e){}
   }
@@ -4378,6 +4440,7 @@ function filtrarOSDesp(v){
 
 function carregarFotoDesp(inp){
   const f=inp.files[0]; if(!f) return;
+  if(f.size > FOTO_MAX_BYTES){ toast('⚠️ Foto muito grande (máx 2 MB). Reduza a resolução.'); inp.value=''; return; }
   const r=new FileReader();
   r.onload=e=>{ despFotoB64=e.target.result;
     const prev=document.getElementById('desp-foto-prev'); prev.src=e.target.result; prev.style.display='block';
@@ -4394,7 +4457,7 @@ async function salvarDespesa(){
   lsSet('fluxa_ultimo_tec',tec);
   const osInput=gV('desp-os-num');
   let osNum=null; const m=osInput.match(/\d+/); if(m) osNum=parseInt(m[0]);
-  const dados={ tecnico:tec, data:gV('desp-data'), tipo, valor, descricao:gV('desp-desc'), os_numero:osNum||null, foto_base64:despFotoB64||null, status:'pendente' };
+  const dados={ tecnico:tec, data:gV('desp-data'), tipo, valor, descricao:gV('desp-desc'), os_numero:osNum||null, foto_base64:despFotoB64||null, status:'pendente', loja_id:lojaAtiva||'fortemp-camboriu' };
   const rec={...dados, id:'desp_'+Date.now(), data_criacao:new Date().toISOString()};
   todasDesp.unshift(rec); lsDespSalvar(todasDesp);
   if(dbOk&&db){
@@ -4428,7 +4491,9 @@ async function loadDespesas(){
   todasDesp=lsDespLer(); renderDespesas(); populaDespTecSelect();
   if(dbOk&&db){
     try{
-      const {data}=await db.from('despesas').select('*').order('data_criacao',{ascending:false});
+      let q=db.from('despesas').select('*').order('data_criacao',{ascending:false});
+      if(lojaAtiva) q=q.eq('loja_id',lojaAtiva);
+      const {data}=await q;
       if(data){ todasDesp=data; lsDespSalvar(todasDesp); renderDespesas(); }
     }catch(e){}
   }
@@ -4437,6 +4502,7 @@ async function loadDespesas(){
 function renderDespesas(){
   const filtTec=gV('desp-filtro-tec'), filtSt=gV('desp-filtro-st');
   let lista=[...todasDesp];
+  if(lojaAtiva) lista=lista.filter(d=>d.loja_id===lojaAtiva);
   if(filtTec) lista=lista.filter(d=>d.tecnico===filtTec);
   if(filtSt) lista=lista.filter(d=>d.status===filtSt);
   const agora=new Date(), mesAtual=agora.getMonth(), anoAtual=agora.getFullYear();
@@ -4531,7 +4597,8 @@ async function salvarAgendamento(){
     tipo_servico:tipo, periodicidade:gV('ag-periodo'),
     dia_semana:parseInt(gV('ag-dia'))||1, horario:gV('ag-hora'),
     data_inicio:gV('ag-inicio'), data_fim:gV('ag-fim')||null,
-    obs:gV('ag-obs'), ativo:true
+    obs:gV('ag-obs'), ativo:true,
+    loja_id:lojaAtiva||'fortemp-camboriu'
   };
   const rec={...dados, id:'ag_'+Date.now(), data_criacao:new Date().toISOString()};
   todosAg.unshift(rec);
@@ -4606,7 +4673,9 @@ async function loadAgendamentos(){
   todosAg=lsAgLer(); renderAgLista(); renderCal();
   if(dbOk&&db){
     try{
-      const {data}=await db.from('agendamentos').select('*').eq('ativo',true).order('data_criacao',{ascending:false});
+      let qAg=db.from('agendamentos').select('*').eq('ativo',true).order('data_criacao',{ascending:false});
+      if(lojaAtiva) qAg=qAg.eq('loja_id',lojaAtiva);
+      const {data}=await qAg;
       if(data){ todosAg=data; lsAgSalvar(todosAg); renderAgLista(); renderCal(); }
     }catch(e){}
   }
@@ -4620,10 +4689,10 @@ async function loadAgendamentos(){
     if(el){
       el.innerHTML=`<div style="background:var(--blue-bg);border:1px solid var(--blue);border-radius:10px;padding:12px 16px;margin-bottom:12px">
         <div style="font-size:13px;font-weight:700;color:var(--blue);margin-bottom:8px">📅 ${visitasAmanha.length} visita(s) amanhã — envie o lembrete:</div>
-        ${visitasAmanha.map(o=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">
+        ${visitasAmanha.map(o=>{ _nc[o.id]=o; return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">
           <span style="font-size:13px;flex:1">${esc(o.cliente||'')} · ${o.hora||''} · ${esc(o.tecnico||'')}</span>
-          <button class="tb" onclick='copiarNotif(notifVisita(${JSON.stringify(o)}))'>📋 Copiar</button>
-        </div>`).join('')}
+          <button class="tb" onclick="copiarNotif(notifVisita(getNC('${o.id}')))">📋 Copiar</button>
+        </div>`; }).join('')}
       </div>`;
     }
   } else {
@@ -4681,7 +4750,8 @@ function renderCal(){
 
 function renderAgLista(){
   const el=document.getElementById('ag-lista-body'); if(!el) return;
-  const ativos=todosAg.filter(a=>a.ativo!==false);
+  let ativos=todosAg.filter(a=>a.ativo!==false);
+  if(lojaAtiva) ativos=ativos.filter(a=>a.loja_id===lojaAtiva);
   if(!ativos.length){ el.innerHTML='<div class="empty-st"><div class="ei">📅</div><p>Nenhum agendamento recorrente.</p></div>'; return; }
   const periodos={semanal:'Semanal',quinzenal:'Quinzenal',mensal:'Mensal'};
   el.innerHTML=ativos.map(a=>`
@@ -4800,6 +4870,7 @@ document.addEventListener('input', e=>{
 
 function carregarFotoEq(inp){
   const f=inp.files[0]; if(!f) return;
+  if(f.size > FOTO_MAX_BYTES){ toast('⚠️ Foto muito grande (máx 2 MB). Reduza a resolução.'); inp.value=''; return; }
   const r=new FileReader();
   r.onload=e=>{ eqFotoB64=e.target.result;
     const prev=document.getElementById('eq-foto-prev'); prev.src=e.target.result; prev.style.display='block';
@@ -4826,7 +4897,8 @@ async function salvarEquipamento(){
     cliente_nome:nome, tipo, marca:gV('eq-marca'), modelo:gV('eq-modelo'),
     potencia:gV('eq-potencia'), numero_serie:gV('eq-serie'),
     data_instalacao:gV('eq-instalacao'), garantia_meses:parseInt(gV('eq-garantia'))||12,
-    garantia_vencimento:venc, obs:gV('eq-obs'), foto_base64:eqFotoB64||null, ativo:true
+    garantia_vencimento:venc, obs:gV('eq-obs'), foto_base64:eqFotoB64||null, ativo:true,
+    loja_id:lojaAtiva||'fortemp-camboriu'
   };
   if(eqEditId){
     const idx=todosEq.findIndex(x=>x.id===eqEditId);
@@ -4868,7 +4940,9 @@ async function loadEquipamentos(){
   renderEqGrid(); verificarAlertasGarantia();
   if(dbOk&&db){
     try{
-      const {data,error}=await db.from('equipamentos').select('*').eq('ativo',true).order('data_criacao',{ascending:false});
+      let qEq=db.from('equipamentos').select('*').eq('ativo',true).order('data_criacao',{ascending:false});
+      if(lojaAtiva) qEq=qEq.eq('loja_id',lojaAtiva);
+      const {data,error}=await qEq;
       if(error) throw error;
       todosEq=data; lsEqSalvar(todosEq); renderEqGrid(); verificarAlertasGarantia();
     }catch(e){ console.warn('loadEquipamentos falhou:',e.message); }
@@ -4880,6 +4954,7 @@ function filtrarTipoEq(v){ eqFiltroTipo=v; renderEqGrid(); }
 
 function renderEqGrid(){
   let lista=[...todosEq];
+  if(lojaAtiva) lista=lista.filter(x=>x.loja_id===lojaAtiva);
   if(eqFiltroTipo) lista=lista.filter(x=>x.tipo===eqFiltroTipo);
   if(eqBusca) lista=lista.filter(x=>(x.cliente_nome||'').toLowerCase().includes(eqBusca)||(x.marca||'').toLowerCase().includes(eqBusca)||(x.modelo||'').toLowerCase().includes(eqBusca)||(x.tipo||'').toLowerCase().includes(eqBusca));
   const el=document.getElementById('eq-grid');
@@ -5026,12 +5101,13 @@ function updUsrForm(){ /* placeholder para expansão futura */ }
 async function salvarUsuario(){
   const nome=gV('usr-nome').trim();
   if(!nome){ toast('⚠️ Informe o nome'); return; }
-  const pin=gV('usr-pin').trim();
-  if(pin&&(pin.length!==4||!/^\d{4}$/.test(pin))){ toast('⚠️ PIN deve ter exatamente 4 dígitos'); return; }
+  const pinRaw=gV('usr-pin').trim();
+  if(pinRaw&&(pinRaw.length!==4||!/^\d{4}$/.test(pinRaw))){ toast('⚠️ PIN deve ter exatamente 4 dígitos'); return; }
+  const pinHash = pinRaw ? await hashPIN(pinRaw) : null;
   const dados={
     nome, perfil:gV('usr-perfil')||'tecnico',
     loja_nome:gV('usr-loja').trim()||null,
-    pin:pin||null, ativo:true
+    pin:pinHash, ativo:true
   };
   const tempId='usr_'+Date.now();
   const rec={...dados,id:tempId,data_criacao:new Date().toISOString()};
@@ -5057,7 +5133,7 @@ async function excluirUsuario(id){
   todosUsuarios=todosUsuarios.filter(x=>x.id!==id);
   lsSet('fluxa_usuarios',JSON.stringify(todosUsuarios));
   if(dbOk&&db){
-    try{ await db.from('usuarios').update({ativo:false}).eq('id',id); }catch(e){}
+    try{ await db.from('usuarios').update({ativo:false}).eq('id',id); }catch(e){ console.warn('usr delete sync:',e.message); }
   }
   renderUsuarios();
   toast('🗑 Usuário removido');
