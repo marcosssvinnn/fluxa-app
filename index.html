@@ -390,7 +390,21 @@
     .cli-suggestion-item:hover{background:var(--c1-light);color:var(--c1)}
     .cli-suggestion-item .cli-sug-name{font-weight:600}
     .cli-suggestion-item .cli-sug-tel{font-size:11px;color:var(--gray)}
-    .cli-input-wrap{position:relative}
+    .cli-input-wrap{position:relative;display:flex;align-items:center;gap:6px}
+    .cli-input-wrap input{flex:1;min-width:0}
+    .cli-search-btn{flex-shrink:0;background:var(--gray-light);border:1.5px solid var(--gray-mid);border-radius:8px;padding:0 10px;height:38px;font-size:15px;cursor:pointer;color:var(--gray);transition:all .15s;line-height:1}
+    .cli-search-btn:hover{background:var(--c1-light);border-color:var(--c1);color:var(--c1)}
+    /* ── MODAL BUSCA CLIENTE ── */
+    .modal-cli-bg{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:800;display:flex;align-items:center;justify-content:center;padding:16px}
+    .modal-cli-box{background:white;border-radius:16px;padding:22px;width:100%;max-width:480px;max-height:80vh;display:flex;flex-direction:column;gap:14px;box-shadow:0 12px 40px rgba(0,0,0,.25)}
+    .modal-cli-inp{width:100%;padding:10px 14px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:14px;font-family:'Inter',sans-serif;outline:none;color:var(--c2)}
+    .modal-cli-inp:focus{border-color:var(--c1)}
+    .modal-cli-lista{flex:1;overflow-y:auto;border:1.5px solid var(--gray-mid);border-radius:8px;min-height:80px;max-height:340px}
+    .modal-cli-item{padding:11px 14px;cursor:pointer;border-bottom:1px solid var(--gray-light)}
+    .modal-cli-item:last-child{border-bottom:none}
+    .modal-cli-item:hover{background:var(--c1-light)}
+    .modal-cli-item .mcn{font-weight:600;font-size:14px;color:var(--c2)}
+    .modal-cli-item .mcd{font-size:11px;color:var(--gray);margin-top:2px}
 
     /* ── CLIENTES PAGE ── */
     .cli-card{background:var(--white);border-radius:var(--r);padding:16px 18px;box-shadow:var(--sh);margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:12px}
@@ -933,6 +947,7 @@
           <label>Nome do Cliente</label>
           <div class="cli-input-wrap">
             <input type="text" id="cli" placeholder="Ex: João Silva" oninput="upd();mostrarSugestoesCli(this.value)" autocomplete="off" onblur="setTimeout(()=>hideSugCli(),200)">
+            <button type="button" class="cli-search-btn" onclick="abrirBuscaCli('orc')" title="Buscar cliente na base">🔍</button>
             <div class="cli-suggestions" id="cli-suggestions" style="display:none"></div>
           </div>
           <div id="chips-wrap" style="display:none">
@@ -1101,6 +1116,7 @@
         <div class="fl"><label>Cliente</label>
           <div class="cli-input-wrap">
             <input type="text" id="os-cli" placeholder="Nome do cliente" oninput="mostrarSugestoesCliOS(this.value)" autocomplete="off" onblur="setTimeout(()=>hideSugCliOS(),200)">
+            <button type="button" class="cli-search-btn" onclick="abrirBuscaCli('os')" title="Buscar cliente na base">🔍</button>
             <div class="cli-suggestions" id="os-cli-suggestions" style="display:none"></div>
           </div>
         </div>
@@ -1808,6 +1824,18 @@
 </div>
 
 <!-- ══ MODAL: REGISTRAR PAGAMENTO ══ -->
+<!-- ══ MODAL: BUSCA CLIENTE ══ -->
+<div class="modal-cli-bg" id="modal-busca-cli" style="display:none" onclick="if(event.target===this)fecharBuscaCli()">
+  <div class="modal-cli-box">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div style="font-size:15px;font-weight:700;color:var(--c2)">Buscar Cliente</div>
+      <button onclick="fecharBuscaCli()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--gray);line-height:1">×</button>
+    </div>
+    <input class="modal-cli-inp" id="modal-cli-inp" type="text" placeholder="Nome, telefone ou CNPJ..." oninput="filtrarListaCli(this.value)" autocomplete="off">
+    <div class="modal-cli-lista" id="modal-cli-lista"></div>
+  </div>
+</div>
+
 <div class="modal-bg" id="modal-pg">
   <div class="modal">
     <h3>💰 Registrar Pagamento</h3>
@@ -3112,6 +3140,7 @@ async function gerarOSPDF(modo='os'){
     }
   }
 
+  autoSalvarClienteDoOrc({cli:dados.cli, loc:dados.loc, tel:'', cnpj:dados.cnpj||''});
   preencherDocOS({...dados, fotos:dados.fotos, videoLink:dados.videoLink}, numStr);
   printMode=modo; window.print();
 }
@@ -3655,6 +3684,55 @@ function selecionarSugestaoCliOS(nome,end,cnpj){
   document.getElementById('os-cli-suggestions').style.display='none';
 }
 function hideSugCliOS(){ const b=document.getElementById('os-cli-suggestions'); if(b) b.style.display='none'; }
+
+// ──────────────────────────────────────────────────
+//  MODAL BUSCA CLIENTE
+// ──────────────────────────────────────────────────
+let _buscaCliCtx = 'orc';
+function abrirBuscaCli(ctx){
+  _buscaCliCtx = ctx || 'orc';
+  document.getElementById('modal-cli-inp').value = '';
+  filtrarListaCli('');
+  document.getElementById('modal-busca-cli').style.display = 'flex';
+  setTimeout(()=>document.getElementById('modal-cli-inp').focus(), 80);
+}
+function fecharBuscaCli(){ document.getElementById('modal-busca-cli').style.display='none'; }
+function filtrarListaCli(val){
+  const q = (val||'').toLowerCase().trim();
+  let lista = lsCliLer();
+  if(q){
+    lista = lista.filter(c=>
+      (c.nome||'').toLowerCase().includes(q) ||
+      (c.tel||'').replace(/\D/g,'').includes(q.replace(/\D/g,'')) ||
+      (c.cnpj||'').replace(/\D/g,'').includes(q.replace(/\D/g,'')) ||
+      (c.end||'').toLowerCase().includes(q)
+    );
+  }
+  const el = document.getElementById('modal-cli-lista');
+  if(!lista.length){
+    el.innerHTML=`<div style="padding:20px;text-align:center;color:var(--gray);font-size:13px">Nenhum cliente encontrado</div>`;
+    return;
+  }
+  el.innerHTML = lista.slice(0,60).map(c=>`
+    <div class="modal-cli-item" onmousedown="selecionarCliModal('${esc(c.nome)}','${esc(c.end||'')}','${esc(c.tel||'')}','${esc(c.cnpj||'')}')">
+      <div class="mcn">${esc(c.nome)}</div>
+      <div class="mcd">${[c.end,c.tel,c.cnpj].filter(Boolean).map(x=>esc(x)).join('  ·  ')}</div>
+    </div>`).join('');
+}
+function selecionarCliModal(nome, end, tel, cnpj){
+  if(_buscaCliCtx === 'os'){
+    setV('os-cli', nome);
+    if(end) setV('os-loc', end);
+    if(cnpj) setV('os-cnpj', cnpj);
+  } else {
+    setV('cli', nome);
+    if(end) setV('loc', end);
+    if(tel) setV('tel-cli', tel);
+    if(cnpj) setV('cnpj-cli', cnpj);
+    upd();
+  }
+  fecharBuscaCli();
+}
 
 async function autoSalvarClienteDoOrc(dados){
   if(!dados.cli||dados.cli==='—') return;
