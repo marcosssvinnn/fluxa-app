@@ -544,19 +544,89 @@
     .notif-template textarea:focus{border-color:var(--c1)}
     .notif-vars{font-size:11px;color:var(--gray);margin-top:6px}
     .notif-vars code{background:white;border:1px solid var(--gray-mid);border-radius:4px;padding:1px 5px;font-size:11px;color:var(--c1)}
+
+    /* ── NOVO LOGIN ── */
+    .login-overlay{position:fixed;inset:0;background:var(--c2);z-index:9000;display:flex;align-items:center;justify-content:center;padding:16px}
+    .login-box{background:var(--white);border-radius:20px;padding:36px 28px;width:100%;max-width:380px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+    .login-title{font-size:20px;font-weight:800;color:var(--c2);margin-bottom:4px}
+    .login-sub{font-size:13px;color:var(--gray);margin-bottom:22px}
+    .login-users{display:flex;flex-direction:column;gap:8px;margin-bottom:20px;text-align:left}
+    .login-user-btn{display:flex;align-items:center;gap:12px;padding:11px 14px;border:2px solid var(--gray-mid);border-radius:12px;background:var(--white);cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s;width:100%}
+    .login-user-btn:hover{border-color:var(--c1);background:var(--c1-light)}
+    .login-user-btn.selected{border-color:var(--c1);background:var(--c1-light)}
+    .login-user-avatar{width:38px;height:38px;border-radius:50%;background:var(--c2);color:white;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;flex-shrink:0}
+    .login-user-avatar.gestor{background:var(--c1)}
+    .login-user-info{flex:1;text-align:left}
+    .login-user-nome{font-size:14px;font-weight:700;color:var(--c2)}
+    .login-user-perfil{font-size:11px;color:var(--gray);font-weight:600;margin-top:1px}
+    .login-pin-wrap{display:none;margin-top:0}
+    .login-pin-wrap.show{display:block}
+    .login-pin-label{font-size:12px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
+    .login-user-btn .login-check{margin-left:auto;color:var(--c1);font-size:18px;display:none}
+    .login-user-btn.selected .login-check{display:block}
+    .login-err{font-size:13px;color:var(--red);font-weight:600;min-height:18px;margin-bottom:8px}
+    .login-btn{width:100%;padding:14px;background:var(--c1);color:white;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;margin-top:4px}
+    .login-btn:hover{opacity:.9}
+    .login-btn:disabled{opacity:.5;cursor:default}
+
+    /* ── HEADER USER BADGE ── */
+    .hdr-user{display:flex;align-items:center;gap:6px;padding:0 10px;border-left:1px solid rgba(255,255,255,.1);cursor:pointer}
+    .hdr-user-avatar{width:28px;height:28px;border-radius:50%;background:var(--c1);color:white;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0}
+    .hdr-user-nome{font-size:12px;font-weight:600;color:rgba(255,255,255,.7);white-space:nowrap}
+    @media(max-width:680px){.hdr-user-nome{display:none}}
+
+    /* ── GESTÃO DE USUÁRIOS ── */
+    .usr-card{background:var(--white);border-radius:var(--r);padding:14px 16px;box-shadow:var(--sh);margin-bottom:8px;display:flex;align-items:center;gap:12px}
+    .usr-avatar{width:40px;height:40px;border-radius:50%;background:var(--c2);color:white;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;flex-shrink:0}
+    .usr-avatar.gestor{background:var(--c1)}
+    .usr-info{flex:1;min-width:0}
+    .usr-nome{font-size:14px;font-weight:700;color:var(--c2)}
+    .usr-det{font-size:11px;color:var(--gray);margin-top:2px}
+    .usr-badge{display:inline-block;padding:2px 8px;border-radius:50px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+    .usr-badge.gestor{background:var(--c1-light);color:var(--c1)}
+    .usr-badge.tecnico{background:var(--blue-bg);color:var(--blue)}
+
+    /* ── NF-e MODAL ── */
+    .nfe-modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:800;display:none;align-items:center;justify-content:center;padding:16px}
+    .nfe-modal-bg.on{display:flex}
+    .nfe-modal{background:var(--white);border-radius:16px;padding:28px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+    .nfe-modal h3{font-size:18px;font-weight:800;color:var(--c2);margin-bottom:4px}
+    .nfe-modal-sub{font-size:12px;color:var(--gray);margin-bottom:20px}
+    .nfe-tipo-tabs{display:flex;gap:8px;margin-bottom:16px}
+    .nfe-tab{flex:1;padding:10px;border:2px solid var(--gray-mid);border-radius:10px;background:var(--white);font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;color:var(--gray);transition:all .15s}
+    .nfe-tab.on{border-color:var(--c1);background:var(--c1-light);color:var(--c1)}
+    .nfe-status-badge{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:50px;font-size:12px;font-weight:700;margin-bottom:14px}
+    .nfe-status-badge.pendente{background:var(--yellow-bg);color:var(--yellow)}
+    .nfe-status-badge.autorizada{background:var(--green-bg);color:var(--green)}
+    .nfe-status-badge.rejeitada{background:var(--red-bg);color:var(--red)}
+    .nfe-status-badge.processando{background:var(--blue-bg);color:var(--blue)}
+    .nfe-acts{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
+    .nfe-acts button{flex:1;min-width:120px}
+    .nfe-info-row{display:flex;gap:8px;margin-bottom:8px;font-size:13px}
+    .nfe-info-row .lbl{font-weight:600;color:var(--gray);min-width:100px;flex-shrink:0}
+    .nfe-info-row .val{color:var(--c2)}
+    .nfe-hist-item{padding:10px 0;border-bottom:1px solid var(--gray-light);display:flex;align-items:center;gap:10px}
+    .nfe-hist-item:last-child{border-bottom:none}
   </style>
 </head>
 <body>
 
-<!-- ══ PIN OVERLAY ══ -->
-<div class="pin-overlay" id="pin-overlay">
-  <div class="pin-box">
-    <div style="font-size:36px;margin-bottom:10px">🔒</div>
-    <div class="pin-title">Acesso Restrito</div>
-    <div class="pin-sub">Digite o PIN para continuar</div>
-    <input class="pin-input" type="password" id="pin-input" maxlength="4" inputmode="numeric" placeholder="••••" onkeydown="if(event.key==='Enter')verificarPIN()">
-    <div class="pin-err" id="pin-err"></div>
-    <button class="pin-btn" onclick="verificarPIN()">Entrar</button>
+<!-- ══ LOGIN OVERLAY ══ -->
+<div class="login-overlay" id="login-overlay">
+  <div class="login-box">
+    <div style="font-size:36px;margin-bottom:8px">🔐</div>
+    <div class="login-title" id="login-title">Quem está acessando?</div>
+    <div class="login-sub" id="login-sub">Selecione seu perfil e insira o PIN</div>
+    <div class="login-users" id="login-users">
+      <!-- preenchido por JS -->
+    </div>
+    <div class="login-pin-wrap" id="login-pin-wrap">
+      <div class="login-pin-label">PIN de acesso</div>
+      <input class="pin-input" type="password" id="pin-input" maxlength="4" inputmode="numeric" placeholder="••••" onkeydown="if(event.key==='Enter')fazerLogin()" style="margin-bottom:8px">
+      <div class="login-err" id="login-err"></div>
+      <button class="login-btn" onclick="fazerLogin()">Entrar →</button>
+      <button onclick="deselecionarUser()" style="width:100%;padding:10px;background:none;border:none;color:var(--gray);font-size:13px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;margin-top:8px">← Voltar</button>
+    </div>
   </div>
 </div>
 
@@ -582,18 +652,24 @@
   </nav>
   <div class="hdr-right">
     <span class="db-dot" id="db-dot" title="Status do banco de dados"></span>
+    <div class="hdr-user" id="hdr-user" onclick="toggleGear()" title="Usuário logado">
+      <div class="hdr-user-avatar" id="hdr-user-avatar">G</div>
+      <span class="hdr-user-nome" id="hdr-user-nome">Gestor</span>
+    </div>
     <div class="gear-wrap">
       <button class="btn-sm btn-gear" id="btn-gear" onclick="toggleGear()" title="Configurações">⚙️</button>
       <div class="gear-menu" id="gear-menu" style="display:none">
         <div class="gear-status"><span class="db-dot" id="db-dot2"></span><span id="db-txt2" style="font-size:12px;color:#6b7280">…</span></div>
         <div class="gear-section">Configurações</div>
-        <button onclick="closeGear();go('empresa')">🏢 Dados da Empresa</button>
+        <button id="gear-btn-empresa" onclick="closeGear();go('empresa')">🏢 Dados da Empresa</button>
+        <button id="gear-btn-usuarios" onclick="closeGear();go('usuarios')">👥 Usuários</button>
         <button onclick="closeGear();go('clientes')">👥 Clientes</button>
         <button onclick="closeGear();go('equipamentos')">🔧 Equipamentos</button>
         <button onclick="closeGear();novoOrc()">🔄 Novo Orçamento</button>
         <button onclick="closeGear();go('agendamentos')">📅 Agendamentos</button>
         <button onclick="closeGear();go('despesas')">💸 Despesas</button>
-        <button onclick="closeGear();go('produtividade')">📈 Produtividade</button>
+        <button id="gear-btn-prod" onclick="closeGear();go('produtividade')">📈 Produtividade</button>
+        <button onclick="closeGear();fazerLogout()" style="color:var(--red)">🔓 Sair / Trocar usuário</button>
       </div>
     </div>
   </div>
@@ -738,6 +814,84 @@
     </div>
 
     <button class="btn-primary" onclick="salvarEmpresa()" style="margin-bottom:20px">💾 Salvar Configurações</button>
+
+    <!-- NOTA FISCAL -->
+    <div class="card">
+      <div class="ct">📄 Nota Fiscal — Focus NFe</div>
+      <p style="font-size:13px;color:var(--gray);margin-bottom:14px">Configure o token da API Focus NFe para emitir NF-e (produtos) e NFS-e (serviços). Obtenha o token em <strong>focusnfe.com.br</strong> → Conta → API Tokens.</p>
+      <div class="row">
+        <div class="fl">
+          <label>Token Focus NFe (Produção)</label>
+          <input type="text" id="cfg-nfe-token-prod" placeholder="token_producao_…">
+        </div>
+        <div class="fl">
+          <label>Token Focus NFe (Homologação)</label>
+          <input type="text" id="cfg-nfe-token-hom" placeholder="token_homologacao_…">
+        </div>
+      </div>
+      <div class="row f3">
+        <div class="fl">
+          <label>CNPJ da Empresa (para NF)</label>
+          <input type="text" id="cfg-nfe-cnpj" placeholder="00.000.000/0001-00">
+        </div>
+        <div class="fl">
+          <label>Alíquota ISS (%)</label>
+          <input type="number" id="cfg-nfe-iss" placeholder="2.0" step="0.01" min="0" max="5" value="2.0">
+        </div>
+        <div class="fl">
+          <label>Código Serviço (LC 116)</label>
+          <input type="text" id="cfg-nfe-cod-svc" placeholder="7.10">
+        </div>
+      </div>
+      <button class="btn-primary" onclick="salvarEmpresa()" style="margin-bottom:0">💾 Salvar Configurações</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PAGE: USUÁRIOS ══ -->
+<div class="page" id="page-usuarios">
+  <div class="wrap" style="max-width:700px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding-top:8px;flex-wrap:wrap;gap:10px">
+      <div>
+        <button onclick="go('empresa')" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:13px;font-weight:600;font-family:'Inter',sans-serif">← Voltar</button>
+        <span style="font-size:18px;font-weight:800;color:var(--c2);margin-left:8px">👥 Usuários do Sistema</span>
+      </div>
+      <button class="btn-primary" style="padding:8px 16px;font-size:13px" onclick="abrirFormUsuario()">＋ Novo Usuário</button>
+    </div>
+
+    <!-- Form novo usuário -->
+    <div class="card" id="usr-form-card" style="display:none">
+      <div class="ct">Novo Usuário <button onclick="fecharFormUsuario()" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;line-height:1">×</button></div>
+      <div class="row">
+        <div class="fl"><label>Nome</label><input type="text" id="usr-nome" placeholder="Ex: João Silva"></div>
+        <div class="fl">
+          <label>Perfil</label>
+          <select id="usr-perfil" onchange="updUsrForm()">
+            <option value="tecnico">Técnico</option>
+            <option value="gestor">Gestor</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div class="fl">
+          <label>Loja <span style="font-weight:400;color:var(--gray);text-transform:none">(deixe vazio = acessa tudo)</span></label>
+          <input type="text" id="usr-loja" placeholder="Ex: Loja Camboriú">
+        </div>
+        <div class="fl">
+          <label>PIN (4 dígitos)</label>
+          <input type="password" id="usr-pin" maxlength="4" inputmode="numeric" placeholder="••••">
+        </div>
+      </div>
+      <button class="btn-primary" onclick="salvarUsuario()">💾 Salvar Usuário</button>
+    </div>
+
+    <!-- Lista de usuários -->
+    <div class="card">
+      <div class="ct">Usuários Cadastrados</div>
+      <div id="usr-lista">
+        <div class="load"><div class="spin"></div> Carregando…</div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -1609,9 +1763,233 @@
   </div>
 </div>
 
+<!-- ══ MODAL: NF-e / NFS-e ══ -->
+<div class="nfe-modal-bg" id="nfe-modal-bg">
+  <div class="nfe-modal">
+    <h3>📄 Emitir Nota Fiscal</h3>
+    <div class="nfe-modal-sub" id="nfe-modal-sub">Orçamento #000 — Cliente</div>
+
+    <!-- Tipo -->
+    <div class="nfe-tipo-tabs">
+      <button class="nfe-tab on" id="nfe-tab-nfse" onclick="selecionarTipoNF('nfse')">NFS-e<br><span style="font-size:10px;font-weight:400">Serviços (prestação)</span></button>
+      <button class="nfe-tab" id="nfe-tab-nfe" onclick="selecionarTipoNF('nfe')">NF-e<br><span style="font-size:10px;font-weight:400">Produtos/mercadorias</span></button>
+    </div>
+
+    <!-- Dados do orçamento (readonly) -->
+    <div style="background:var(--gray-light);border-radius:10px;padding:14px;margin-bottom:16px">
+      <div class="nfe-info-row"><span class="lbl">Cliente</span><span class="val" id="nfe-cli">—</span></div>
+      <div class="nfe-info-row"><span class="lbl">CNPJ/CPF</span><span class="val" id="nfe-cnpj">—</span></div>
+      <div class="nfe-info-row"><span class="lbl">Valor Total</span><span class="val" id="nfe-total">—</span></div>
+      <div class="nfe-info-row"><span class="lbl">Serviços</span><span class="val" id="nfe-svcs" style="word-break:break-word">—</span></div>
+    </div>
+
+    <!-- Token Focus NFe (se não configurado na loja) -->
+    <div id="nfe-token-wrap" style="margin-bottom:14px">
+      <div class="fl" style="margin-bottom:10px">
+        <label>Token Focus NFe <span style="font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0">(configure em Empresa → Nota Fiscal)</span></label>
+        <input type="text" id="nfe-token-input" placeholder="token_producao_ou_homologacao" style="font-size:13px">
+      </div>
+      <div class="row">
+        <div class="fl">
+          <label>Ambiente</label>
+          <select id="nfe-ambiente">
+            <option value="homologacao">Homologação (testes)</option>
+            <option value="producao">Produção (notas reais)</option>
+          </select>
+        </div>
+        <div class="fl">
+          <label>Referência (automática)</label>
+          <input type="text" id="nfe-ref" readonly style="background:var(--gray-light);font-size:13px">
+        </div>
+      </div>
+    </div>
+
+    <!-- NFS-e específico -->
+    <div id="nfe-nfse-fields">
+      <div class="row">
+        <div class="fl">
+          <label>Código do Serviço (LC 116)</label>
+          <input type="text" id="nfe-cod-servico" placeholder="Ex: 7.10" value="7.10">
+        </div>
+        <div class="fl">
+          <label>Alíquota ISS (%)</label>
+          <input type="number" id="nfe-iss-aliq" placeholder="Ex: 2.0" value="2.0" step="0.01" min="0" max="5">
+        </div>
+      </div>
+      <div class="fl" style="margin-bottom:14px">
+        <label>Descrição do Serviço</label>
+        <textarea id="nfe-desc-servico" rows="2" placeholder="Ex: Manutenção de piscina — limpeza, troca de filtro e ajuste de pH"></textarea>
+      </div>
+    </div>
+
+    <!-- NF-e específico -->
+    <div id="nfe-nfe-fields" style="display:none">
+      <div class="row">
+        <div class="fl">
+          <label>NCM (código do produto)</label>
+          <input type="text" id="nfe-ncm" placeholder="Ex: 84218900">
+        </div>
+        <div class="fl">
+          <label>CFOP</label>
+          <input type="text" id="nfe-cfop" placeholder="Ex: 5102" value="5102">
+        </div>
+      </div>
+    </div>
+
+    <!-- Status da emissão -->
+    <div id="nfe-status-wrap" style="display:none">
+      <div id="nfe-status-badge" class="nfe-status-badge processando">⏳ Processando…</div>
+      <div id="nfe-status-msg" style="font-size:12px;color:var(--gray);margin-top:4px"></div>
+      <div id="nfe-download-wrap" style="display:none;margin-top:12px;display:flex;gap:8px;flex-wrap:wrap"></div>
+    </div>
+
+    <div class="nfe-acts">
+      <button class="btn-sec" onclick="fecharModalNFe()">Cancelar</button>
+      <button class="btn-primary" id="nfe-btn-emitir" onclick="emitirNota()">⚡ Emitir Nota Fiscal</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
+// ══════════════════════════════════════════════════
+//  SESSÃO — login multi-usuário
+// ══════════════════════════════════════════════════
+function getSessao(){ try{ return JSON.parse(sessionStorage.getItem('fluxa_user')||'null'); }catch(e){ return null; } }
+function setSessao(u){ sessionStorage.setItem('fluxa_user',JSON.stringify(u)); }
+function clearSessao(){ sessionStorage.removeItem('fluxa_user'); }
+function eGestor(){ const s=getSessao(); return !s || s.perfil==='gestor'; }
+function getLojaFiltro(){ const s=getSessao(); return s?.loja_id||null; }
+
+// Oculta/exibe nav conforme perfil
+function aplicarPermissoesPerfil(){
+  const gestor=eGestor();
+  // itens só para gestor
+  ['nb-form','nb-history','nb-produtividade','gear-btn-empresa','gear-btn-usuarios','gear-btn-prod'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.style.display=gestor?'':'none';
+  });
+  // mobile nav: gestor vê tudo, técnico vê só OS, Hist OS, Agenda, Equip
+  ['mnb-form'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display=gestor?'':'none'; });
+}
+
+// Atualiza badge de usuário no header
+function atualizarBadgeUsuario(){
+  const s=getSessao();
+  const nome=s?.nome||'Gestor';
+  const inicial=nome.charAt(0).toUpperCase();
+  const el=document.getElementById('hdr-user-avatar');
+  const elNome=document.getElementById('hdr-user-nome');
+  if(el){ el.textContent=inicial; el.className='hdr-user-avatar'+(s?.perfil==='gestor'?' gestor':''); }
+  if(elNome) elNome.textContent=nome;
+}
+
+function fazerLogout(){
+  clearSessao();
+  document.getElementById('login-overlay').style.display='flex';
+  renderLoginUsers();
+}
+
+// ══════════════════════════════════════════════════
+//  USUÁRIOS — tabela `usuarios` no Supabase
+// ══════════════════════════════════════════════════
+let todosUsuarios = [];
+
+async function carregarUsuarios(){
+  // Tenta carregar do Supabase, fallback para localStorage
+  try{
+    if(dbOk&&db){
+      const {data}=await db.from('usuarios').select('*').eq('ativo',true).order('nome');
+      if(data){ todosUsuarios=data; lsSet('fluxa_usuarios',JSON.stringify(data)); return; }
+    }
+  }catch(e){}
+  try{ todosUsuarios=JSON.parse(ls('fluxa_usuarios')||'[]'); }catch(e){ todosUsuarios=[]; }
+}
+
+// ── Renderiza lista de usuários no login ──
+function renderLoginUsers(){
+  const wrap=document.getElementById('login-users');
+  if(!wrap) return;
+
+  // Usuário Gestor (sempre disponível via PIN da empresa)
+  const gestorBtn=`<button class="login-user-btn" data-id="__gestor__" onclick="selecionarUserLogin(this,'__gestor__','gestor','Gestor',null)">
+    <div class="login-user-avatar gestor">G</div>
+    <div class="login-user-info">
+      <div class="login-user-nome">Gestor</div>
+      <div class="login-user-perfil">Acesso total ao sistema</div>
+    </div>
+    <span class="login-check">✓</span>
+  </button>`;
+
+  // Técnicos do banco
+  const tecsBtns=todosUsuarios.filter(u=>u.perfil!=='gestor').map(u=>{
+    const inicial=u.nome.charAt(0).toUpperCase();
+    return `<button class="login-user-btn" data-id="${u.id}" onclick="selecionarUserLogin(this,'${u.id}','${u.perfil||'tecnico'}',${JSON.stringify(u.nome)},${u.loja_id?JSON.stringify(u.loja_id):'null'})">
+      <div class="login-user-avatar">${inicial}</div>
+      <div class="login-user-info">
+        <div class="login-user-nome">${esc(u.nome)}</div>
+        <div class="login-user-perfil">Técnico${u.loja_nome?' — '+esc(u.loja_nome):''}</div>
+      </div>
+      <span class="login-check">✓</span>
+    </button>`;
+  }).join('');
+
+  wrap.innerHTML = gestorBtn + tecsBtns;
+}
+
+let loginUserSelecionado = null; // {id, perfil, nome, loja_id}
+
+function selecionarUserLogin(btn, id, perfil, nome, lojaId){
+  document.querySelectorAll('.login-user-btn').forEach(b=>b.classList.remove('selected'));
+  btn.classList.add('selected');
+  loginUserSelecionado={id,perfil,nome,loja_id:lojaId};
+  // Mostra campo PIN
+  const pw=document.getElementById('login-pin-wrap');
+  pw.classList.add('show');
+  const inp=document.getElementById('pin-input');
+  inp.value='';
+  document.getElementById('login-err').textContent='';
+  setTimeout(()=>inp.focus(),100);
+}
+
+function deselecionarUser(){
+  loginUserSelecionado=null;
+  document.querySelectorAll('.login-user-btn').forEach(b=>b.classList.remove('selected'));
+  document.getElementById('login-pin-wrap').classList.remove('show');
+  document.getElementById('pin-input').value='';
+  document.getElementById('login-err').textContent='';
+}
+
+function fazerLogin(){
+  if(!loginUserSelecionado){ document.getElementById('login-err').textContent='Selecione um usuário.'; return; }
+  const pin=document.getElementById('pin-input').value;
+  const err=document.getElementById('login-err');
+
+  let pinCorreto=false;
+  if(loginUserSelecionado.id==='__gestor__'){
+    pinCorreto=(pin===(CFG.pin||'1234'));
+  } else {
+    // Busca PIN do técnico
+    const u=todosUsuarios.find(x=>x.id===loginUserSelecionado.id);
+    pinCorreto=u&&u.pin===pin;
+    // Fallback: usa PIN da empresa se técnico não tem PIN configurado
+    if(!pinCorreto&&u&&!u.pin) pinCorreto=(pin===(CFG.pin||'1234'));
+  }
+
+  if(pinCorreto){
+    const sessao={perfil:loginUserSelecionado.perfil,loja_id:loginUserSelecionado.loja_id,nome:loginUserSelecionado.nome};
+    setSessao(sessao);
+    document.getElementById('login-overlay').style.display='none';
+    atualizarBadgeUsuario();
+    aplicarPermissoesPerfil();
+    err.textContent='';
+  } else {
+    err.textContent='PIN incorreto. Tente novamente.';
+    document.getElementById('pin-input').value='';
+    document.getElementById('pin-input').focus();
+  }
+}
+
 // ══════════════════════════════════════════════════
 //  CFG — configurações da empresa (white-label)
 // ══════════════════════════════════════════════════
@@ -1661,22 +2039,27 @@ function lsOrcProxNum(){ return lsOrcLer().reduce((a,o)=>Math.max(a,o.numero||0)
   aplicarCFG();
 
   const isPortal = await checkPortalHash();
-  if(isPortal) return; // para a execução do boot normal
+  if(isPortal) return;
 
   injetarPWA();
   atualizarSQL();
   initForm();
-  todosOrc = lsOrcLer(); // carrega dados locais imediatamente
+  todosOrc = lsOrcLer();
 
-  // ── PIN check ──
-  if(sessionStorage.getItem('fluxa_auth')==='1'){
-    document.getElementById('pin-overlay').style.display='none';
+  // ── Login check ──
+  const sessaoExistente = getSessao();
+  if(sessaoExistente){
+    document.getElementById('login-overlay').style.display='none';
+    atualizarBadgeUsuario();
+    aplicarPermissoesPerfil();
   } else {
-    document.getElementById('pin-overlay').style.display='flex';
-    setTimeout(()=>document.getElementById('pin-input').focus(),100);
+    // Carrega usuários locais para montar a lista de login
+    try{ todosUsuarios=JSON.parse(ls('fluxa_usuarios')||'[]'); }catch(e){ todosUsuarios=[]; }
+    renderLoginUsers();
+    document.getElementById('login-overlay').style.display='flex';
   }
 
-  // ── Credenciais fixas — banco único da empresa ──
+  // ── Credenciais fixas ──
   const sbUrl = 'https://lbxwclwzeqqtnwvlxsxs.supabase.co';
   const sbKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxieHdjbHd6ZXFxdG53dmx4c3hzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDc3MTUsImV4cCI6MjA5MTA4MzcxNX0.M1ET8Ho-AFJP9Fh-EtYHt4tdQMZj9zdIayYddrwIlhk';
   lsSet('sb_url', sbUrl); lsSet('sb_key', sbKey);
@@ -1685,7 +2068,13 @@ function lsOrcProxNum(){ return lsOrcLer().reduce((a,o)=>Math.max(a,o.numero||0)
   async function tentarConectar(tentativa){
     try {
       const ok = await conectarDB(sbUrl, sbKey, false);
-      if(ok){ await carregarCFGremoto(); aplicarCFG(); await carregarClientesRemoto(); }
+      if(ok){
+        await carregarCFGremoto(); aplicarCFG();
+        await carregarClientesRemoto();
+        await carregarUsuarios();
+        // Atualiza lista de login com usuários do banco (se ainda na tela de login)
+        if(document.getElementById('login-overlay').style.display!=='none') renderLoginUsers();
+      }
       else if(tentativa < 3) setTimeout(()=>tentarConectar(tentativa+1), tentativa===1?3000:15000);
     } catch(e) {
       console.warn('BD offline (tentativa '+tentativa+'):', e.message);
@@ -1695,21 +2084,6 @@ function lsOrcProxNum(){ return lsOrcLer().reduce((a,o)=>Math.max(a,o.numero||0)
   tentarConectar(1);
   checkQRHash();
 })();
-
-// ── PIN functions ──
-function verificarPIN(){
-  const input=document.getElementById('pin-input');
-  const err=document.getElementById('pin-err');
-  if(input.value===(CFG.pin||'1234')){
-    sessionStorage.setItem('fluxa_auth','1');
-    document.getElementById('pin-overlay').style.display='none';
-    err.textContent='';
-  } else {
-    err.textContent='PIN incorreto. Tente novamente.';
-    input.value='';
-    input.focus();
-  }
-}
 
 // ──────────────────────────────────────────────────
 //  PWA
@@ -1833,7 +2207,58 @@ ALTER TABLE clientes ADD COLUMN IF NOT EXISTS portal_token uuid DEFAULT gen_rand
 ALTER TABLE clientes ADD COLUMN IF NOT EXISTS portal_ativo boolean DEFAULT true;
 ALTER TABLE clientes ADD COLUMN IF NOT EXISTS cnpj text;
 ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS cnpj text;
-ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS cnpj text;`;
+ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS cnpj text;
+
+-- ══ MULTI-LOJA ══
+CREATE TABLE IF NOT EXISTS lojas (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  nome text, cnpj text, razao_social text,
+  inscricao_estadual text, inscricao_municipal text,
+  regime_tributario text,
+  endereco text, tel text, cidade text,
+  logo_base64 text, cor_primaria text,
+  focusnfe_token text,
+  focusnfe_ambiente text DEFAULT 'homologacao',
+  iss_aliquota numeric(5,2) DEFAULT 2.0,
+  codigo_servico_municipal text DEFAULT '7.10',
+  ativo boolean DEFAULT true,
+  data_criacao timestamptz DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS usuarios (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  nome text NOT NULL,
+  pin text,
+  perfil text DEFAULT 'tecnico',
+  loja_id uuid REFERENCES lojas(id),
+  loja_nome text,
+  ativo boolean DEFAULT true,
+  data_criacao timestamptz DEFAULT now()
+);
+
+ALTER TABLE orcamentos     ADD COLUMN IF NOT EXISTS loja_id uuid;
+ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS loja_id uuid;
+ALTER TABLE clientes       ADD COLUMN IF NOT EXISTS loja_id uuid;
+ALTER TABLE agendamentos   ADD COLUMN IF NOT EXISTS loja_id uuid;
+ALTER TABLE equipamentos   ADD COLUMN IF NOT EXISTS loja_id uuid;
+ALTER TABLE despesas       ADD COLUMN IF NOT EXISTS loja_id uuid;
+
+-- ══ NOTA FISCAL ══
+CREATE TABLE IF NOT EXISTS notas_fiscais (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  loja_id uuid,
+  orcamento_id uuid,
+  tipo text,
+  referencia text UNIQUE,
+  numero integer, serie text, chave_acesso text,
+  status text DEFAULT 'pendente',
+  xml_autorizado text,
+  pdf_danfe_url text,
+  protocolo text, motivo_rejeicao text,
+  dados_envio jsonb,
+  data_emissao timestamptz DEFAULT now(),
+  data_criacao timestamptz DEFAULT now()
+);`;
 }
 
 // ──────────────────────────────────────────────────
@@ -1879,6 +2304,8 @@ function aplicarCFG(){
   preencherFormEmpresa();
   injetarPWA();
   populaTecSelects(); populaTecCheckIn();
+  atualizarBadgeUsuario();
+  aplicarPermissoesPerfil();
 }
 
 function preencherFormEmpresa(){
@@ -1894,6 +2321,12 @@ function preencherFormEmpresa(){
   setV('cfg-notif-concluida', CFG.notif_concluida || CFG_DEF.notif_concluida);
   setV('cfg-notif-orcamento', CFG.notif_orcamento || CFG_DEF.notif_orcamento);
   setV('cfg-notif-garantia', CFG.notif_garantia || CFG_DEF.notif_garantia);
+  // Nota Fiscal
+  setV('cfg-nfe-token-prod', CFG.nfe_token_prod||'');
+  setV('cfg-nfe-token-hom', CFG.nfe_token_hom||'');
+  setV('cfg-nfe-cnpj', CFG.nfe_cnpj||'');
+  setV('cfg-nfe-iss', CFG.nfe_iss||'2.0');
+  setV('cfg-nfe-cod-svc', CFG.nfe_cod_svc||'7.10');
   const lp = document.getElementById('logo-preview');
   if(CFG.logoB64){ lp.src=CFG.logoB64; lp.style.display='block'; }
 }
@@ -1930,6 +2363,12 @@ async function salvarEmpresa(){
   CFG.notif_concluida = gV('cfg-notif-concluida') || CFG_DEF.notif_concluida;
   CFG.notif_orcamento = gV('cfg-notif-orcamento') || CFG_DEF.notif_orcamento;
   CFG.notif_garantia = gV('cfg-notif-garantia') || CFG_DEF.notif_garantia;
+  // Nota Fiscal
+  CFG.nfe_token_prod = gV('cfg-nfe-token-prod').trim();
+  CFG.nfe_token_hom  = gV('cfg-nfe-token-hom').trim();
+  CFG.nfe_cnpj       = gV('cfg-nfe-cnpj').trim();
+  CFG.nfe_iss        = gV('cfg-nfe-iss')||'2.0';
+  CFG.nfe_cod_svc    = gV('cfg-nfe-cod-svc')||'7.10';
   lsSet('empresa_cfg',JSON.stringify(CFG));
   if(dbOk&&db){
     try{ await db.from('empresa_config').upsert([{id:1,dados:CFG,updated_at:new Date().toISOString()}]); }catch(e){}
@@ -1975,6 +2414,10 @@ async function salvarBD(){
 //  NAVEGAÇÃO
 // ──────────────────────────────────────────────────
 function go(p){
+  // Controle de acesso: técnico não acessa orçamentos, empresa, produtividade, usuários
+  if(!eGestor() && ['form','history','empresa','usuarios','produtividade'].includes(p)){
+    toast('⚠️ Acesso restrito ao Gestor'); return;
+  }
   document.querySelectorAll('.page').forEach(x=>x.classList.remove('on'));
   document.getElementById('page-'+p).classList.add('on');
   document.querySelectorAll('.nb').forEach(x=>x.classList.remove('on'));
@@ -1990,6 +2433,7 @@ function go(p){
   if(p==='agendamentos'){ loadAgendamentos(); populaTecSelects(); initCal(); renderCal(); }
   if(p==='despesas') loadDespesas();
   if(p==='produtividade') loadProdutividade();
+  if(p==='usuarios') loadUsuarios();
 }
 
 // Gear dropdown
@@ -2654,6 +3098,7 @@ function renderTabela(){
         <button class="tb" title="Duplicar" onclick="duplicarOrc('${o.id}')">⧉</button>
         <button class="tb" title="Gerar OS" onclick="gerarOS_deOrc('${o.id}')">📋</button>
         <button class="tb g" title="Registrar pagamento" onclick="abrirModalPg('${o.id}',${ttl})">💰</button>
+        ${o.status==='aprovado'?`<button class="tb" title="Emitir Nota Fiscal" onclick="abrirModalNFe('${o.id}')" style="background:#7c3aed;color:white;border-radius:6px;padding:4px 7px;font-size:11px;font-weight:700;border:none;cursor:pointer">NF</button>`:''}
         <button class="tb" title="WhatsApp" onclick='copiarNotif(notifOrcamento(${JSON.stringify(o)}))'>💬</button>
         <button class="tb d" title="Excluir" onclick="excluirOrc('${o.id}')">🗑</button>
       </div></td>
@@ -3195,7 +3640,7 @@ async function checkPortalHash(){
   if(!token) return false;
 
   // Esconde tudo menos o portal
-  document.getElementById('pin-overlay').style.display='none';
+  document.getElementById('login-overlay').style.display='none';
   document.querySelector('.hdr').style.display='none';
   const mobNav=document.getElementById('mob-nav'); if(mobNav) mobNav.style.display='none';
   document.body.style.background='#f0f2f5';
@@ -4128,6 +4573,321 @@ function checkQRHash(){
       else toast('⚠️ Equipamento não encontrado');
     },500);
   }
+}
+
+// ══════════════════════════════════════════════════
+//  GESTÃO DE USUÁRIOS
+// ══════════════════════════════════════════════════
+async function loadUsuarios(){
+  await carregarUsuarios();
+  renderUsuarios();
+}
+
+function renderUsuarios(){
+  const el=document.getElementById('usr-lista'); if(!el) return;
+  // Gestor fixo (sempre existe)
+  const gestorHtml=`<div class="usr-card">
+    <div class="usr-avatar gestor">G</div>
+    <div class="usr-info">
+      <div class="usr-nome">Gestor</div>
+      <div class="usr-det">PIN: configurado em Segurança · Acesso total</div>
+    </div>
+    <span class="usr-badge gestor">Gestor</span>
+  </div>`;
+
+  const tecsHtml=todosUsuarios.filter(u=>u.ativo!==false).map(u=>`
+    <div class="usr-card">
+      <div class="usr-avatar">${u.nome.charAt(0).toUpperCase()}</div>
+      <div class="usr-info">
+        <div class="usr-nome">${esc(u.nome)}</div>
+        <div class="usr-det">${u.loja_nome?'Loja: '+esc(u.loja_nome)+' · ':''} PIN: ${u.pin?'configurado':'não definido (usa PIN da empresa)'}</div>
+      </div>
+      <span class="usr-badge tecnico">Técnico</span>
+      <button class="tb d" style="margin-left:8px;flex-shrink:0" onclick="excluirUsuario('${u.id}')">🗑</button>
+    </div>`).join('');
+
+  const vazio=todosUsuarios.filter(u=>u.ativo!==false).length===0
+    ?'<div class="empty-st" style="padding:20px 0"><div class="ei">👤</div><p>Nenhum técnico cadastrado.<br>Clique em "+ Novo Usuário" para adicionar.</p></div>':'';
+
+  el.innerHTML=gestorHtml+tecsHtml+vazio;
+}
+
+function abrirFormUsuario(){
+  document.getElementById('usr-form-card').style.display='block';
+  ['usr-nome','usr-loja','usr-pin'].forEach(id=>setV(id,''));
+  setV('usr-perfil','tecnico');
+  document.getElementById('usr-form-card').scrollIntoView({behavior:'smooth'});
+}
+function fecharFormUsuario(){ document.getElementById('usr-form-card').style.display='none'; }
+function updUsrForm(){ /* placeholder para expansão futura */ }
+
+async function salvarUsuario(){
+  const nome=gV('usr-nome').trim();
+  if(!nome){ toast('⚠️ Informe o nome'); return; }
+  const pin=gV('usr-pin').trim();
+  if(pin&&(pin.length!==4||!/^\d{4}$/.test(pin))){ toast('⚠️ PIN deve ter exatamente 4 dígitos'); return; }
+  const dados={
+    nome, perfil:gV('usr-perfil')||'tecnico',
+    loja_nome:gV('usr-loja').trim()||null,
+    pin:pin||null, ativo:true
+  };
+  const tempId='usr_'+Date.now();
+  const rec={...dados,id:tempId,data_criacao:new Date().toISOString()};
+  todosUsuarios.push(rec);
+  lsSet('fluxa_usuarios',JSON.stringify(todosUsuarios));
+  if(dbOk&&db){
+    try{
+      const {data:ins}=await db.from('usuarios').insert([dados]).select('*').single();
+      if(ins){
+        todosUsuarios=todosUsuarios.filter(x=>x.id!==tempId);
+        todosUsuarios.push(ins);
+        lsSet('fluxa_usuarios',JSON.stringify(todosUsuarios));
+      }
+    }catch(e){ console.warn('salvarUsuario BD falhou:',e.message); }
+  }
+  fecharFormUsuario();
+  renderUsuarios();
+  toast('✅ Usuário salvo!');
+}
+
+async function excluirUsuario(id){
+  if(!confirm('Desativar este usuário?')) return;
+  todosUsuarios=todosUsuarios.filter(x=>x.id!==id);
+  lsSet('fluxa_usuarios',JSON.stringify(todosUsuarios));
+  if(dbOk&&db){
+    try{ await db.from('usuarios').update({ativo:false}).eq('id',id); }catch(e){}
+  }
+  renderUsuarios();
+  toast('🗑 Usuário removido');
+}
+
+// ══════════════════════════════════════════════════
+//  MÓDULO 7 — NOTA FISCAL (Focus NFe)
+// ══════════════════════════════════════════════════
+let nfeOrcAtual = null; // orçamento sendo emitido
+let nfeTipoAtual = 'nfse'; // 'nfse' | 'nfe'
+let nfePollingTimer = null;
+
+function abrirModalNFe(orcId){
+  const o=todosOrc.find(x=>x.id===orcId); if(!o) return;
+  nfeOrcAtual=o; nfeTipoAtual='nfse';
+
+  // Preenche dados do orçamento
+  document.getElementById('nfe-modal-sub').textContent=`Orçamento #${String(o.numero||0).padStart(3,'0')} — ${o.cliente||'—'}`;
+  document.getElementById('nfe-cli').textContent=o.cliente||'—';
+  document.getElementById('nfe-cnpj').textContent=o.cnpj||'Não informado';
+  document.getElementById('nfe-total').textContent=brl(o.total||0);
+  const svcsTexto=(o.servicos||[]).map(s=>s.desc).join(', ')||'—';
+  document.getElementById('nfe-svcs').textContent=svcsTexto;
+
+  // Preenche campos com configurações salvas
+  const refAuto='ORC-'+new Date().getFullYear()+'-'+String(o.numero||0).padStart(4,'0')+'-'+Date.now().toString().slice(-4);
+  setV('nfe-ref', refAuto);
+  const token=CFG.nfe_token_prod||CFG.nfe_token_hom||'';
+  setV('nfe-token-input', token);
+  setV('nfe-ambiente', CFG.nfe_token_prod?'producao':'homologacao');
+  setV('nfe-iss-aliq', CFG.nfe_iss||'2.0');
+  setV('nfe-cod-servico', CFG.nfe_cod_svc||'7.10');
+  setV('nfe-desc-servico', svcsTexto);
+
+  // Verifica se já tem nota emitida
+  document.getElementById('nfe-status-wrap').style.display='none';
+  document.getElementById('nfe-btn-emitir').disabled=false;
+  document.getElementById('nfe-btn-emitir').textContent='⚡ Emitir Nota Fiscal';
+  verificarNFExistente(orcId);
+
+  selecionarTipoNF('nfse');
+  document.getElementById('nfe-modal-bg').classList.add('on');
+}
+
+function fecharModalNFe(){
+  document.getElementById('nfe-modal-bg').classList.remove('on');
+  if(nfePollingTimer){ clearInterval(nfePollingTimer); nfePollingTimer=null; }
+  nfeOrcAtual=null;
+}
+
+function selecionarTipoNF(tipo){
+  nfeTipoAtual=tipo;
+  document.getElementById('nfe-tab-nfse').className='nfe-tab'+(tipo==='nfse'?' on':'');
+  document.getElementById('nfe-tab-nfe').className='nfe-tab'+(tipo==='nfe'?' on':'');
+  document.getElementById('nfe-nfse-fields').style.display=tipo==='nfse'?'block':'none';
+  document.getElementById('nfe-nfe-fields').style.display=tipo==='nfe'?'block':'none';
+}
+
+async function verificarNFExistente(orcId){
+  if(!dbOk||!db) return;
+  try{
+    const {data}=await db.from('notas_fiscais').select('*').eq('orcamento_id',orcId).order('data_criacao',{ascending:false}).limit(1);
+    if(data&&data.length){
+      const nf=data[0];
+      mostrarStatusNF(nf.status, nf);
+    }
+  }catch(e){}
+}
+
+function mostrarStatusNF(status, nf){
+  const wrap=document.getElementById('nfe-status-wrap');
+  const badge=document.getElementById('nfe-status-badge');
+  const msg=document.getElementById('nfe-status-msg');
+  wrap.style.display='block';
+  const mapa={autorizada:'✅ Nota Autorizada',pendente:'⏳ Processando…',rejeitada:'❌ Rejeitada',cancelada:'🚫 Cancelada',processando:'⏳ Processando…'};
+  badge.className='nfe-status-badge '+(status||'pendente');
+  badge.textContent=mapa[status]||status;
+  if(nf?.numero) msg.textContent=`Número: ${nf.numero} · Série: ${nf.serie||'1'} · Ref: ${nf.referencia||'—'}`;
+  if(nf?.motivo_rejeicao) msg.textContent+=' · '+nf.motivo_rejeicao;
+
+  // Botões de download se autorizada
+  const dlWrap=document.getElementById('nfe-download-wrap');
+  if(dlWrap){
+    if(status==='autorizada'&&nf){
+      dlWrap.style.display='flex';
+      dlWrap.innerHTML='';
+      if(nf.pdf_danfe_url) dlWrap.innerHTML+=`<a href="${esc(nf.pdf_danfe_url)}" target="_blank" class="btn-primary" style="text-decoration:none;font-size:12px;padding:8px 14px">📄 PDF DANFE</a>`;
+      if(nf.xml_autorizado) {
+        const blob=new Blob([nf.xml_autorizado],{type:'text/xml'});
+        const url=URL.createObjectURL(blob);
+        dlWrap.innerHTML+=`<a href="${url}" download="nota_${nf.numero||'nf'}.xml" class="btn-sec" style="text-decoration:none;font-size:12px;padding:8px 14px">📋 XML</a>`;
+      }
+    } else { dlWrap.style.display='none'; }
+  }
+
+  if(status==='autorizada'||status==='rejeitada'||status==='cancelada'){
+    document.getElementById('nfe-btn-emitir').disabled=true;
+    document.getElementById('nfe-btn-emitir').textContent=status==='autorizada'?'✅ Já emitida':'Nota '+status;
+  }
+}
+
+async function emitirNota(){
+  if(!nfeOrcAtual){ toast('⚠️ Nenhum orçamento selecionado'); return; }
+  const token=gV('nfe-token-input').trim();
+  if(!token){ toast('⚠️ Configure o token Focus NFe (Empresa → Nota Fiscal)'); return; }
+  const ref=gV('nfe-ref');
+  const ambiente=gV('nfe-ambiente');
+  const btn=document.getElementById('nfe-btn-emitir');
+  btn.disabled=true; btn.textContent='⏳ Emitindo…';
+  document.getElementById('nfe-status-wrap').style.display='block';
+  mostrarStatusNF('processando',null);
+
+  const o=nfeOrcAtual;
+  const baseUrl=ambiente==='producao'
+    ?'https://api.focusnfe.com.br'
+    :'https://homologacao.focusnfe.com.br';
+  const auth='Basic '+btoa(token+':');
+
+  try{
+    let payload, endpoint;
+    if(nfeTipoAtual==='nfse'){
+      endpoint='/v2/nfsen?ref='+encodeURIComponent(ref);
+      payload={
+        data_emissao: new Date().toISOString().split('T')[0],
+        prestador_codigo_municipio:'4208450', // Itapema padrão; muda via loja futuramente
+        tomador_cpf_cnpj: (o.cnpj||'').replace(/\D/g,'') || '00000000000',
+        tomador_razao_social: o.cliente||'Cliente',
+        tomador_email:'',
+        servico_valor_servicos: o.total||0,
+        servico_iss_retido: false,
+        servico_aliquota: parseFloat(gV('nfe-iss-aliq'))||2.0,
+        servico_discriminacao: gV('nfe-desc-servico')||'Serviços de manutenção',
+        servico_codigo_cnae:'4322302',
+        servico_item_lista_servico: gV('nfe-cod-servico')||'7.10'
+      };
+    } else {
+      endpoint='/v2/nfe?ref='+encodeURIComponent(ref);
+      payload={
+        natureza_operacao:'Venda de mercadoria',
+        data_emissao: new Date().toISOString(),
+        tipo_documento:'1',
+        finalidade_emissao:'1',
+        consumidor_final:'1',
+        presenca_comprador:'1',
+        cliente:{
+          cpf_cnpj:(o.cnpj||'').replace(/\D/g,'')||'00000000000',
+          nome:o.cliente||'Consumidor',
+          logradouro:o.local_servico||'',
+          numero:'S/N', municipio:'Itapema', uf:'SC', cep:'88220000', pais:'1058'
+        },
+        itens:[{
+          numero:'1', codigo:'001', descricao:(o.servicos||[]).map(s=>s.desc).join(', ')||'Serviço',
+          ncm:gV('nfe-ncm')||'84218900', cfop:gV('nfe-cfop')||'5102',
+          unidade_comercial:'SV', quantidade_comercial:'1',
+          valor_unitario_comercial:o.total||0, valor_total_bruto:o.total||0,
+          inclui_no_total:'1', icms_situacao_tributaria:'400', pis_situacao_tributaria:'07',
+          cofins_situacao_tributaria:'07'
+        }],
+        forma_pagamento:[{forma_pagamento:'01',valor:o.total||0}]
+      };
+    }
+
+    // Salva no banco antes de enviar (status processando)
+    let nfId=null;
+    if(dbOk&&db){
+      try{
+        const {data:nfRec}=await db.from('notas_fiscais').insert([{
+          orcamento_id:o.id, tipo:nfeTipoAtual, referencia:ref,
+          status:'pendente', dados_envio:payload
+        }]).select('id').single();
+        if(nfRec) nfId=nfRec.id;
+      }catch(e){}
+    }
+
+    // Chama a API Focus NFe
+    const resp=await fetch(baseUrl+endpoint,{
+      method:'POST',
+      headers:{'Authorization':auth,'Content-Type':'application/json'},
+      body:JSON.stringify(payload)
+    });
+    const result=await resp.json();
+
+    if(resp.status===201||resp.status===200){
+      // Síncrono: nota já autorizada
+      const nfAtualizada={status:'autorizada',numero:result.numero,serie:result.serie,chave_acesso:result.chave_acesso,pdf_danfe_url:result.caminho_danfe,xml_autorizado:result.caminho_xml_nota_fiscal,protocolo:result.protocolo_autorizacao};
+      if(dbOk&&db&&nfId) db.from('notas_fiscais').update(nfAtualizada).eq('id',nfId).then(()=>{}).catch(()=>{});
+      mostrarStatusNF('autorizada',{...nfAtualizada,referencia:ref});
+      toast('✅ Nota Fiscal emitida com sucesso!');
+    } else if(resp.status===202){
+      // Assíncrono: aguardando processamento, iniciar polling
+      toast('⏳ Nota em processamento, aguardando autorização…');
+      iniciarPollingNF(baseUrl, auth, ref, nfId);
+    } else {
+      const erroMsg=result.mensagem||result.erros?.[0]?.mensagem||JSON.stringify(result);
+      if(dbOk&&db&&nfId) db.from('notas_fiscais').update({status:'rejeitada',motivo_rejeicao:erroMsg}).eq('id',nfId).then(()=>{}).catch(()=>{});
+      mostrarStatusNF('rejeitada',{motivo_rejeicao:erroMsg,referencia:ref});
+      btn.disabled=false; btn.textContent='⚡ Tentar novamente';
+      toast('❌ Nota rejeitada: '+erroMsg);
+    }
+  }catch(e){
+    console.error('emitirNota erro:',e);
+    toast('❌ Erro ao emitir: '+e.message);
+    document.getElementById('nfe-status-badge').textContent='❌ Erro de conexão';
+    btn.disabled=false; btn.textContent='⚡ Tentar novamente';
+  }
+}
+
+function iniciarPollingNF(baseUrl, auth, ref, nfId){
+  let tentativas=0;
+  nfePollingTimer=setInterval(async()=>{
+    tentativas++;
+    if(tentativas>20){ clearInterval(nfePollingTimer); nfePollingTimer=null; return; }
+    try{
+      const endpointConsulta=nfeTipoAtual==='nfse'?'/v2/nfse/':'/v2/nfe/';
+      const resp=await fetch(baseUrl+endpointConsulta+encodeURIComponent(ref),{headers:{'Authorization':auth}});
+      const r=await resp.json();
+      if(r.status==='autorizada'){
+        clearInterval(nfePollingTimer); nfePollingTimer=null;
+        const nfAtualizada={status:'autorizada',numero:r.numero,serie:r.serie,chave_acesso:r.chave_acesso,pdf_danfe_url:r.caminho_danfe,xml_autorizado:r.caminho_xml_nota_fiscal,protocolo:r.protocolo_autorizacao};
+        if(dbOk&&db&&nfId) db.from('notas_fiscais').update(nfAtualizada).eq('id',nfId).then(()=>{}).catch(()=>{});
+        mostrarStatusNF('autorizada',{...nfAtualizada,referencia:ref});
+        toast('✅ Nota Fiscal autorizada!');
+      } else if(r.status==='rejeitada'||r.status==='cancelada'){
+        clearInterval(nfePollingTimer); nfePollingTimer=null;
+        const erroMsg=r.mensagem_sefaz||r.status;
+        if(dbOk&&db&&nfId) db.from('notas_fiscais').update({status:r.status,motivo_rejeicao:erroMsg}).eq('id',nfId).then(()=>{}).catch(()=>{});
+        mostrarStatusNF(r.status,{motivo_rejeicao:erroMsg,referencia:ref});
+        toast('❌ Nota '+r.status+': '+erroMsg);
+        const btn=document.getElementById('nfe-btn-emitir'); if(btn){btn.disabled=false;btn.textContent='⚡ Tentar novamente';}
+      }
+    }catch(e){ console.warn('polling NF erro:',e.message); }
+  },5000); // verifica a cada 5s
 }
 
 // Init OS page
