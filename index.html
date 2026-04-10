@@ -662,6 +662,11 @@
       <button class="login-btn" onclick="fazerLogin()">Entrar →</button>
       <button onclick="deselecionarUser()" style="width:100%;padding:10px;background:none;border:none;color:var(--gray);font-size:13px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;margin-top:8px">← Voltar</button>
     </div>
+    <div id="login-loja-wrap" style="display:none">
+      <div class="login-pin-label" style="margin-bottom:12px;text-align:left">Qual empresa você vai gerenciar?</div>
+      <div id="login-loja-list" style="display:flex;flex-direction:column;gap:8px"></div>
+      <button onclick="voltarParaPin()" style="width:100%;padding:10px;background:none;border:none;color:var(--gray);font-size:13px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;margin-top:12px">← Voltar</button>
+    </div>
   </div>
 </div>
 
@@ -2121,7 +2126,8 @@ function renderLoginUsers(){
   // Técnicos do banco
   const tecsBtns=todosUsuarios.filter(u=>u.perfil!=='gestor').map(u=>{
     const inicial=u.nome.charAt(0).toUpperCase();
-    return `<button class="login-user-btn" data-id="${u.id}" onclick="selecionarUserLogin(this,'${u.id}','${u.perfil||'tecnico'}',${JSON.stringify(u.nome)},${u.loja_id?JSON.stringify(u.loja_id):'null'})">
+    const lojaParam=u.loja_id?`'${u.loja_id}'`:'null';
+    return `<button class="login-user-btn" data-id="${u.id}" onclick="selecionarUserLogin(this,'${u.id}','${u.perfil||'tecnico'}','${esc(u.nome)}',${lojaParam})">
       <div class="login-user-avatar">${inicial}</div>
       <div class="login-user-info">
         <div class="login-user-nome">${esc(u.nome)}</div>
@@ -2149,14 +2155,6 @@ function selecionarUserLogin(btn, id, perfil, nome, lojaId){
   setTimeout(()=>inp.focus(),100);
 }
 
-function deselecionarUser(){
-  loginUserSelecionado=null;
-  document.querySelectorAll('.login-user-btn').forEach(b=>b.classList.remove('selected'));
-  document.getElementById('login-pin-wrap').classList.remove('show');
-  document.getElementById('pin-input').value='';
-  document.getElementById('login-err').textContent='';
-}
-
 function fazerLogin(){
   if(!loginUserSelecionado){ document.getElementById('login-err').textContent='Selecione um usuário.'; return; }
   const pin=document.getElementById('pin-input').value;
@@ -2166,25 +2164,76 @@ function fazerLogin(){
   if(loginUserSelecionado.id==='__gestor__'){
     pinCorreto=(pin===(CFG.pin||'1234'));
   } else {
-    // Busca PIN do técnico
     const u=todosUsuarios.find(x=>x.id===loginUserSelecionado.id);
     pinCorreto=u&&u.pin===pin;
-    // Fallback: usa PIN da empresa se técnico não tem PIN configurado
     if(!pinCorreto&&u&&!u.pin) pinCorreto=(pin===(CFG.pin||'1234'));
   }
 
   if(pinCorreto){
-    const sessao={perfil:loginUserSelecionado.perfil,loja_id:loginUserSelecionado.loja_id,nome:loginUserSelecionado.nome};
-    setSessao(sessao);
-    document.getElementById('login-overlay').style.display='none';
-    atualizarBadgeUsuario();
-    aplicarPermissoesPerfil();
     err.textContent='';
+    if(loginUserSelecionado.id==='__gestor__'){
+      // Gestor: mostra seleção de empresa antes de entrar
+      document.getElementById('login-pin-wrap').classList.remove('show');
+      mostrarSelecaoLojaGestor();
+    } else {
+      const sessao={perfil:loginUserSelecionado.perfil,loja_id:loginUserSelecionado.loja_id,nome:loginUserSelecionado.nome};
+      setSessao(sessao);
+      document.getElementById('login-overlay').style.display='none';
+      atualizarBadgeUsuario();
+      aplicarPermissoesPerfil();
+    }
   } else {
     err.textContent='PIN incorreto. Tente novamente.';
     document.getElementById('pin-input').value='';
     document.getElementById('pin-input').focus();
   }
+}
+
+function mostrarSelecaoLojaGestor(){
+  const list=document.getElementById('login-loja-list');
+  list.innerHTML=`
+    <button class="login-user-btn" onclick="confirmarLojaGestor('')">
+      <div class="login-user-avatar" style="background:var(--gray);font-size:13px">📊</div>
+      <div class="login-user-info">
+        <div class="login-user-nome">Todas as empresas</div>
+        <div class="login-user-perfil">Visão consolidada</div>
+      </div>
+    </button>
+    ${LOJAS.map(l=>`
+      <button class="login-user-btn" onclick="confirmarLojaGestor('${l.id}')">
+        <div class="login-user-avatar loja-avatar-${l.cor}" style="font-size:13px;font-weight:800;background:var(--c2)">${l.nome.charAt(0)}</div>
+        <div class="login-user-info">
+          <div class="login-user-nome">${esc(l.nome)}</div>
+          <div class="login-user-perfil">Gerenciar esta empresa</div>
+        </div>
+      </button>`).join('')}`;
+  document.getElementById('login-loja-wrap').style.display='block';
+}
+
+function confirmarLojaGestor(lojaId){
+  lojaAtiva=lojaId;
+  const sessao={perfil:'gestor',loja_id:null,nome:'Gestor'};
+  setSessao(sessao);
+  document.getElementById('login-overlay').style.display='none';
+  document.getElementById('login-loja-wrap').style.display='none';
+  atualizarBadgeUsuario();
+  aplicarPermissoesPerfil();
+}
+
+function voltarParaPin(){
+  document.getElementById('login-loja-wrap').style.display='none';
+  document.getElementById('login-pin-wrap').classList.add('show');
+  document.getElementById('pin-input').value='';
+  document.getElementById('pin-input').focus();
+}
+
+function deselecionarUser(){
+  loginUserSelecionado=null;
+  document.querySelectorAll('.login-user-btn').forEach(b=>b.classList.remove('selected'));
+  document.getElementById('login-pin-wrap').classList.remove('show');
+  document.getElementById('login-loja-wrap').style.display='none';
+  document.getElementById('pin-input').value='';
+  document.getElementById('login-err').textContent='';
 }
 
 // ══════════════════════════════════════════════════
