@@ -1,5 +1,34 @@
 # Fluxa App — Contexto do Projeto
 
+---
+
+## ⚠️ PROTOCOLO OBRIGATÓRIO — LEIA ANTES DE QUALQUER COISA
+
+Este arquivo é o **canal de comunicação entre todos os devs e instâncias do Claude** que trabalham neste projeto. Pode haver mais de um dev trabalhando simultaneamente. Para que todos falem a mesma língua, siga estas regras:
+
+### Toda sessão de trabalho deve:
+1. **Começar lendo este arquivo** para entender o estado atual do projeto
+2. **Terminar atualizando este arquivo** com tudo que foi feito ou decidido na sessão
+
+### O que sempre atualizar ao final de cada sessão:
+- Módulos ou funcionalidades implementadas → mover para a lista de "já implementados"
+- Decisões tomadas com o Marcos → registrar em "Decisões" e remover das "Perguntas em aberto"
+- Planejamento novo → adicionar na seção correspondente
+- SQL novo rodado no Supabase → atualizar a lista de tabelas/colunas
+- Bugs corrigidos ou comportamentos alterados → atualizar "Observações importantes"
+- Perguntas que surgiram → adicionar em "Perguntas em aberto"
+
+### Como atualizar:
+```bash
+git add CLAUDE.md
+git commit -m "docs: atualiza CLAUDE.md — [resumo do que foi feito]"
+git push
+```
+
+> **Regra de ouro:** se você implementou algo e não atualizou o CLAUDE.md, o próximo dev vai partir de um estado desatualizado e pode duplicar trabalho ou tomar decisões erradas. Sempre atualize.
+
+---
+
 ## O que é
 Sistema de gestão para empresa de manutenção de piscinas. Single-file HTML app (`index.html`) com todo CSS, HTML e JS em um único arquivo (~5000+ linhas). Deployed no Netlify com auto-deploy via GitHub.
 
