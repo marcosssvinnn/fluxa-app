@@ -1639,7 +1639,12 @@
       </div>
     </div>
     <div class="card">
-      <div class="ct">Cadastro <button class="btn-add" style="font-size:12px;padding:5px 11px;border-width:1.5px" onclick="mostrarFormCliente()">＋ Novo Cliente</button></div>
+      <div class="ct">Cadastro
+        <div style="display:flex;gap:8px">
+          <button class="btn-add" style="font-size:12px;padding:5px 11px;border-width:1.5px" onclick="mostrarFormCliente()">＋ Novo Cliente</button>
+          <button class="btn-add" style="font-size:12px;padding:5px 11px;border-width:1.5px;border-color:var(--blue);color:var(--blue)" onclick="importarClientesDeOrcamentos()" title="Importa clientes de todos os orçamentos existentes">📥 Importar dos orçamentos</button>
+        </div>
+      </div>
       <div id="clientes-lista"></div>
     </div>
   </div>
@@ -3732,6 +3737,31 @@ function selecionarCliModal(nome, end, tel, cnpj){
     upd();
   }
   fecharBuscaCli();
+}
+
+async function importarClientesDeOrcamentos(){
+  const orcs = todosOrc.length ? todosOrc : lsOrcLer();
+  if(!orcs.length){ toast('Nenhum orçamento encontrado.'); return; }
+  let novos=0, atualizados=0;
+  for(const o of orcs){
+    if(!o.cliente||o.cliente==='—') continue;
+    const lista=lsCliLer();
+    const existe=lista.find(c=>(c.nome||'').toLowerCase()===o.cliente.toLowerCase());
+    if(existe){
+      let mudou=false;
+      if(!existe.tel&&o.tel_cliente){ existe.tel=o.tel_cliente; mudou=true; }
+      if(!existe.end&&o.local_servico){ existe.end=o.local_servico; mudou=true; }
+      if(!existe.cnpj&&o.cnpj){ existe.cnpj=o.cnpj; mudou=true; }
+      if(mudou){ lsCliSalvar(lista); atualizados++; }
+    } else {
+      const novo={id:'cli_'+Date.now()+Math.random(),nome:o.cliente,tel:o.tel_cliente||'',end:o.local_servico||'',cnpj:o.cnpj||'',portal_token:crypto.randomUUID()};
+      lista.unshift(novo); lsCliSalvar(lista);
+      if(dbOk&&db){ try{ await db.from('clientes').insert([{nome:novo.nome,telefone:novo.tel,endereco:novo.end,cnpj:novo.cnpj||null}]); }catch(e){} }
+      novos++;
+    }
+  }
+  renderClientes();
+  toast(`✅ Importação concluída: ${novos} novo(s), ${atualizados} atualizado(s)`);
 }
 
 async function autoSalvarClienteDoOrc(dados){
