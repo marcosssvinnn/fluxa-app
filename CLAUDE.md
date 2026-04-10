@@ -30,7 +30,7 @@ git push
 ---
 
 ## O que é
-Sistema de gestão para empresa de manutenção de piscinas. Single-file HTML app (`index.html`) com todo CSS, HTML e JS em um único arquivo (~5000+ linhas). Deployed no Netlify com auto-deploy via GitHub.
+Sistema de gestão para empresa de manutenção de piscinas. Single-file HTML app (`index.html`) com todo CSS, HTML e JS em um único arquivo (~5500+ linhas). Deployed no Netlify com auto-deploy via GitHub.
 
 ## URLs
 - **Produção:** https://sistemaorcamentopiscina.netlify.app
@@ -58,24 +58,91 @@ git push
 
 ---
 
+## As 3 empresas (DECISÃO FINAL — não mudar sem consultar Marcos)
+
+| ID (loja_id) | Nome | CNPJ | Técnicos |
+|---|---|---|---|
+| `fortemp-camboriu` | Fortemp Camboriú | mesmo CNPJ que Itapema | Marcos, Josimar, Eldecir, Bruno |
+| `fortemp-itapema` | Fortemp Itapema | mesmo CNPJ que Camboriú | Marcos, Josimar, Eldecir, Bruno |
+| `aquamotor` | Aquamotor | CNPJ diferente (a informar) | Marcos, Bruno |
+
+**Regras importantes:**
+- Fortemp Camboriú e Itapema compartilham o mesmo CNPJ (gestão separada, CNPJ único)
+- Josimar e Eldecir **não aparecem** como técnicos em OS/agendamentos da Aquamotor
+- O gestor define datas e atribuições; técnico apenas executa (check-in/out, fotos, materiais)
+- Técnico vê **todas as suas OS** consolidadas (sem filtro de empresa), pois Marcos e Bruno trabalham nas 3
+- CNPJs reais ainda não informados pelo Marcos — usar string IDs por enquanto
+
+**Constante `LOJAS` no código:**
+```js
+const LOJAS = [
+  { id:'fortemp-camboriu', nome:'Fortemp Camboriú',  cor:'loja-0', tecs:['Marcos','Josimar','Eldecir','Bruno'] },
+  { id:'fortemp-itapema',  nome:'Fortemp Itapema',   cor:'loja-1', tecs:['Marcos','Josimar','Eldecir','Bruno'] },
+  { id:'aquamotor',        nome:'Aquamotor',          cor:'loja-2', tecs:['Marcos','Bruno'] }
+];
+```
+
+---
+
 ## Banco de dados — tabelas existentes no Supabase
 
 | Tabela | O que armazena |
 |--------|----------------|
-| `orcamentos` | Orçamentos com status, serviços, pagamento, cnpj, nota_interna |
-| `ordens_servico` | OS com check-in/check-out, fotos, técnico, cnpj, agendamento_id |
+| `orcamentos` | Orçamentos com status, serviços, pagamento, cnpj, nota_interna, loja_id |
+| `ordens_servico` | OS com check-in/check-out, fotos, técnico, cnpj, agendamento_id, loja_id |
 | `empresa_config` | Config da empresa: cores, nome, PIN, templates WhatsApp |
-| `clientes` | Clientes com portal_token, cnpj, portal_ativo |
-| `agendamentos` | Agendamentos recorrentes com periodicidade |
-| `equipamentos` | Equipamentos com QR Code, garantia, foto |
-| `despesas` | Despesas de campo dos técnicos com comprovante |
+| `clientes` | Clientes com portal_token, cnpj, portal_ativo, loja_id |
+| `agendamentos` | Agendamentos recorrentes com periodicidade, loja_id |
+| `equipamentos` | Equipamentos com QR Code, garantia, foto, loja_id |
+| `despesas` | Despesas de campo dos técnicos com comprovante, loja_id |
+| `lojas` | Config por empresa: focusnfe_token, focusnfe_ambiente, iss_aliquota, etc. |
+| `usuarios` | Técnicos com PIN, perfil, loja_id |
+| `notas_fiscais` | NF-e/NFS-e emitidas via Focus NFe |
+
+**SQL já executado (ou planejado para executar no Supabase):**
+```sql
+ALTER TABLE orcamentos     ADD COLUMN IF NOT EXISTS loja_id text;
+ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS loja_id text;
+ALTER TABLE clientes       ADD COLUMN IF NOT EXISTS loja_id text;
+ALTER TABLE agendamentos   ADD COLUMN IF NOT EXISTS loja_id text;
+ALTER TABLE equipamentos   ADD COLUMN IF NOT EXISTS loja_id text;
+ALTER TABLE despesas       ADD COLUMN IF NOT EXISTS loja_id text;
+
+CREATE TABLE IF NOT EXISTS lojas (
+  id text PRIMARY KEY,
+  nome text, cnpj text, razao_social text,
+  focusnfe_token text, focusnfe_ambiente text,
+  iss_aliquota numeric(5,2), codigo_servico_municipal text,
+  cor_primaria text, logo_base64 text,
+  ativo boolean DEFAULT true, data_criacao timestamptz DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS usuarios (
+  id text PRIMARY KEY,
+  nome text, pin text, perfil text DEFAULT 'tecnico',
+  loja_id text, loja_nome text,
+  ativo boolean DEFAULT true, data_criacao timestamptz DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS notas_fiscais (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  loja_id text, orcamento_id uuid,
+  tipo text, referencia text,
+  numero integer, serie text, chave_acesso text,
+  status text DEFAULT 'pendente',
+  xml_autorizado text, pdf_danfe_base64 text,
+  protocolo text, motivo_rejeicao text,
+  data_emissao timestamptz DEFAULT now(),
+  data_criacao timestamptz DEFAULT now()
+);
+```
 
 ---
 
 ## Módulos já implementados e funcionando
 
-1. **Orçamentos** — criação, edição, duplicar, histórico, filtros, PDF, status
-2. **Ordens de Serviço** — criação, histórico, PDF, fotos, vídeo
+1. **Orçamentos** — criação, edição, duplicar, histórico, filtros, PDF, status, campo Empresa
+2. **Ordens de Serviço** — criação, histórico, PDF, fotos, vídeo, campo Empresa
 3. **Agendamento Recorrente** — visitas recorrentes, check-in/check-out com GPS, calendário
 4. **Equipamentos + QR Code** — ficha do equipamento, QR abre via hash `#eq/ID`
 5. **Despesas de Campo** — técnico registra no celular com foto, gestor aprova
@@ -83,166 +150,74 @@ git push
 7. **Portal do Cliente** — link único `#portal/TOKEN`, sem login, cliente aprova orçamentos
 8. **Notificações WhatsApp** — templates editáveis com variáveis, botão copiar mensagem
 9. **Cadastro de Clientes** — com busca por nome/CNPJ, auto-save ao criar orçamento
-10. **Cadastro de Técnicos** — via campo de configurações da empresa
+10. **Cadastro de Técnicos** — via tela Gestão de Usuários (substituiu campo de config)
+11. **Multi-loja (3 empresas)** — loja_id em todos os registros, filtro no header, badges coloridos
+12. **Login por usuário** — seleção de nome + PIN, gestor usa PIN da empresa
+13. **Vista do Técnico (Minhas OS)** — OS consolidadas de todas as lojas onde está alocado
+14. **Gestão de Usuários** — gestor cria/desativa técnicos com PIN
+15. **Focus NFe (Módulo 7)** — modal de emissão NF-e/NFS-e via Focus NFe API (estrutura pronta)
 
 ---
 
-## Melhorias recentes implementadas (contexto das últimas sessões)
+## Sessão e perfis
 
-- **CNPJ** adicionado em: orçamentos, OS e cadastro de clientes
-- **Busca de clientes** na OS agora tem autocomplete igual ao orçamento (busca por nome ou CNPJ)
-- **Auto-save de cliente**: ao salvar orçamento, cliente é criado/atualizado automaticamente em Clientes
-- **CFG fix**: ao conectar no Supabase, carrega clientes remotos e atualiza form da empresa
-- **Tabela histórico**: redesenhada de 8 para 6 colunas — Serviços virou subtítulo do Cliente, Total+Recebido mesclados
-- **Largura global**: `.wrap` ampliado de 900px para 1200px em todas as páginas
-
----
-
-## Próxima fase — aguardando alinhamento do cliente (Marcos)
-
-### FUNDAÇÃO — implementar antes de tudo
-
-#### Estrutura Multi-Loja
-Duas unidades: **Loja Camboriú** e **Loja Itapema** com CNPJs diferentes.
-
-**SQL planejado:**
-```sql
-CREATE TABLE lojas (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  nome text, cnpj text, razao_social text,
-  inscricao_estadual text, inscricao_municipal text,
-  regime_tributario text,  -- 'simples' | 'lucro_presumido'
-  endereco text, tel text, cidade text,
-  logo_base64 text, cor_primaria text,
-  -- campos fiscais para Módulo 7 (Focus NFe):
-  focusnfe_token text,          -- token da API por loja/CNPJ
-  focusnfe_ambiente text,       -- 'homologacao' | 'producao'
-  iss_aliquota numeric(5,2),
-  codigo_servico_municipal text,
-  ativo boolean DEFAULT true,
-  data_criacao timestamptz DEFAULT now()
-);
-
-CREATE TABLE usuarios (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  nome text,
-  pin text,                        -- 4 dígitos
-  perfil text DEFAULT 'tecnico',   -- 'gestor' | 'tecnico'
-  loja_id uuid REFERENCES lojas(id), -- null = gestor (acessa tudo)
-  ativo boolean DEFAULT true,
-  data_criacao timestamptz DEFAULT now()
-);
-
--- Adicionar loja_id em todas as tabelas existentes:
-ALTER TABLE orcamentos     ADD COLUMN loja_id uuid;
-ALTER TABLE ordens_servico ADD COLUMN loja_id uuid;
-ALTER TABLE clientes       ADD COLUMN loja_id uuid;
-ALTER TABLE agendamentos   ADD COLUMN loja_id uuid;
-ALTER TABLE equipamentos   ADD COLUMN loja_id uuid;
-ALTER TABLE despesas       ADD COLUMN loja_id uuid;
-```
-
-#### Perfis de usuário
-- **Gestor:** acesso total às duas lojas, cria técnicos, vê financeiro, emite notas
-- **Técnico:** só vê sua loja e suas OS, sem orçamentos/config/financeiro
-- **Cliente:** acesso via token URL (já funciona via `#portal/TOKEN`) — não muda
-
-**Lógica de sessão:**
 ```js
 // sessionStorage após login:
-{ perfil: 'gestor'|'tecnico', loja_id: 'uuid'|null, nome: 'João' }
+{ perfil: 'gestor'|'tecnico', loja_id: null, nome: 'Marcos' }
 
-// Gestor: loja_id = null → busca todas as lojas
-// Técnico: loja_id = 'uuid' → todas queries filtram .eq('loja_id', loja_id)
-//          → queries de OS também filtram .eq('tecnico', nome)
-//          → não renderiza: orçamentos, financeiro, config, produtividade global
+// Gestor:
+// - perfil: 'gestor', loja_id: null
+// - Acesso total, pode filtrar por empresa via dropdown no header
+// - PIN = CFG.pin (PIN único da empresa, configurado em Empresa)
+// - Não tem registro no banco de usuários
+
+// Técnico:
+// - perfil: 'tecnico', loja_id: null (vê OS de todas as lojas onde está)
+// - Só vê: Minhas OS, Agenda, Equipamentos
+// - Não vê: Orçamentos, Financeiro, Config, Produtividade global
+// - PIN = usuario.pin (cadastrado pelo gestor)
 ```
 
-**Login:** substitui o PIN único atual. Usuário seleciona nome na lista + digita PIN.
-
-#### Telas a criar
-- Login com seleção de usuário + PIN
-- Dashboard consolidado gestor (cards Camboriú vs Itapema lado a lado)
-- Gestão de usuários (gestor cria/desativa técnicos)
-- Configurações por loja (substituir "Empresa" atual)
-
-#### Telas existentes a modificar
-Orçamento, OS, Históricos, Clientes, Equipamentos, Agendamentos, Despesas, Produtividade — todas ganham filtro por loja e respeitam permissões do perfil logado.
+**Seed de técnicos:** ao primeiro boot sem usuários no localStorage, cria automaticamente
+Marcos, Josimar, Eldecir, Bruno sem PIN (gestor define PIN depois em Gestão de Usuários).
 
 ---
 
-### Módulo 7 — Nota Fiscal (planejado, aguardando perguntas em aberto)
+## Filtro de loja no gestor
 
-**Tipos:** NF-e modelo 55 (venda de produtos) e NFS-e (serviços).
+```js
+let lojaAtiva = ''; // '' = todas as empresas
 
-**Integração:** Focus NFe (focusnfe.com.br) — API REST paga, sem biblioteca local.
-- Certificado digital fica no painel da Focus NFe por CNPJ — não armazenamos no sistema
-- Autenticação: HTTP Basic Auth com token por empresa (`Authorization: Basic BASE64(token:)`)
-- Dois tokens por loja: um para homologação, um para produção
-- Múltiplos CNPJs suportados — as duas lojas ficam no mesmo plano
+// Header do gestor tem dropdown:
+// "Todas as empresas" | "Fortemp Camboriú" | "Fortemp Itapema" | "Aquamotor"
 
-**Suporte confirmado para nossos municípios (pesquisado):**
-- NF-e modelo 55 SC ✅ — confirmado via SEFAZ Virtual RS (SVRS), padrão nacional
-- NFS-e Camboriú-SC (IBGE 4203204) ✅ — provider AtendeNet, portal nfse-camboriu.atende.net
-- NFS-e Itapema-SC (IBGE 4208450) ✅ — provider Prefeitura Moderna (MeuISS)
-- ⚠️ **Atenção IBGE:** Camboriú-SC é IBGE **4203204** (não 4203303 — esse é Campo Alegre-SC)
-
-**Fluxo de emissão:**
+// Ao mudar: trocarLojaAtiva(id) re-renderiza a página ativa
+// renderTabela() e renderOSTabela() filtram por lojaAtiva quando != ''
+// novoOrc() e novaOS() pré-selecionam lojaAtiva no campo Empresa
 ```
-Orçamento aprovado
-  → botão "Emitir nota" (NF-e ou NFS-e)
-  → tela de confirmação com dados preenchidos automaticamente
-  → POST https://api.focusnfe.com.br/v2/nfe?ref=REF  (ou /v2/nfse)
-  → Focus NFe comunica com SEFAZ/prefeitura
-  → polling ou webhook até status "autorizada"
-  → download XML + PDF DANFE
-  → envio ao cliente via WhatsApp
-```
-
-**Endpoints principais:**
-```
-# NF-e
-POST /v2/nfe?ref=REFERENCIA          # emitir
-GET  /v2/nfe/REFERENCIA              # consultar status
-DELETE /v2/nfe/REFERENCIA            # cancelar
-
-# NFS-e
-POST /v2/nfse?ref=REFERENCIA         # emitir (sistemas proprietários)
-POST /v2/nfsen?ref=REFERENCIA        # emitir (padrão nacional)
-GET  /v2/nfse/REFERENCIA             # consultar status
-```
-
-**Retorno:** assíncrono por padrão (HTTP 202 + polling). Modo síncrono disponível (HTTP 201 com nota pronta). Quando autorizada: `caminho_xml_nota_fiscal` + `caminho_danfe` na resposta.
-
-**SQL planejado:**
-```sql
-CREATE TABLE notas_fiscais (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  loja_id uuid REFERENCES lojas(id),
-  orcamento_id uuid,
-  tipo text,             -- 'nfe' | 'nfse'
-  referencia text,       -- ref única enviada à Focus NFe
-  numero integer, serie text, chave_acesso text,
-  status text DEFAULT 'pendente', -- 'autorizada'|'cancelada'|'rejeitada'
-  xml_autorizado text,
-  pdf_danfe_base64 text,
-  protocolo text, motivo_rejeicao text,
-  data_emissao timestamptz DEFAULT now(),
-  data_criacao timestamptz DEFAULT now()
-);
-```
-
-**Apenas gestor emite notas. Técnico não tem acesso a este módulo.**
 
 ---
 
-## Perguntas em aberto (aguardando Marcos responder antes de codar)
+## Próxima fase — ainda pendente
 
-1. **Camboriú ou Balneário Camboriú?** — afeta suporte NFS-e
-2. **Opção A, B ou C** para integração fiscal?
-3. **Gestor é usuário fixo** (hardcoded) ou cadastrado no banco junto com técnicos?
-4. **Dados das duas lojas:** nome, CNPJ, cidade — já pré-cadastrar no código ou via tela?
-5. **Quantos técnicos** e a qual loja pertence cada um?
+### Focus NFe — Módulo 7 (estrutura pronta, aguardando CNPJs e tokens)
+- Modal de emissão já existe no HTML/JS
+- Falta configurar `focusnfe_token` por loja (gestor insere em Configurações)
+- Municípios confirmados: Camboriú-SC (IBGE 4203204, AtendeNet) e Itapema-SC (IBGE 4208450, MeuISS)
+- Apenas gestor emite notas
+
+### SQL no Supabase — ainda não executado
+O SQL da seção "Banco de dados" acima precisa ser executado no painel do Supabase.
+Atualmente o app funciona via localStorage; as colunas `loja_id` nas tabelas existentes
+**precisam ser adicionadas** para que o Supabase persista corretamente.
+
+---
+
+## Perguntas em aberto (aguardando Marcos responder)
+
+1. **CNPJs reais** das 3 empresas — para preencher tabela `lojas` e para emissão de NF
+2. **Tokens Focus NFe** — um por CNPJ (homologação e produção)
+3. **SQL no Supabase** — confirmar se as colunas `loja_id` e tabelas novas já foram criadas
 
 ---
 
@@ -253,8 +228,10 @@ CREATE TABLE notas_fiscais (
 let db, dbOk=false;          // conexão Supabase
 let CFG = {...CFG_DEF};      // configurações da empresa
 let todosOrc = [];           // orçamentos em memória
+let todosOS = [];            // OS em memória
 let todosEq = [];            // equipamentos em memória
 let todasDesp = [];          // despesas em memória
+let lojaAtiva = '';          // empresa ativa no filtro do gestor ('' = todas)
 ```
 
 ### Funções utilitárias
@@ -267,6 +244,16 @@ toast('msg')      // notificação temporária
 go('pagina')      // navegação entre páginas
 brl(valor)        // formata em R$ (ex: brl(150) → "R$ 150,00")
 esc(str)          // escapa HTML (sempre usar ao renderizar dados do usuário)
+
+// Multi-loja:
+getLoja(id)       // retorna objeto da LOJAS por id
+getLojaNome(id)   // retorna nome legível da loja
+getLojaBadge(id)  // retorna <span class="loja-badge loja-0/1/2">Nome</span>
+
+// Sessão:
+getSessao()       // retorna objeto { perfil, loja_id, nome } ou null
+eGestor()         // true se perfil === 'gestor'
+fazerLogout()     // limpa sessão e mostra tela de login
 ```
 
 ### Navegação entre páginas
@@ -275,12 +262,14 @@ go('form')         // novo orçamento
 go('history')      // histórico orçamentos
 go('os')           // nova OS
 go('os-history')   // histórico OS
+go('minhas-os')    // OS consolidada do técnico (só técnico)
 go('clientes')     // cadastro clientes
 go('equipamentos') // equipamentos + QR
 go('agendamentos') // agendamentos recorrentes
 go('despesas')     // despesas de campo
 go('produtividade')// relatório de produtividade
 go('empresa')      // configurações da empresa
+go('usuarios')     // gestão de usuários (só gestor)
 go('portal')       // portal do cliente (via hash #portal/TOKEN)
 ```
 
@@ -289,15 +278,18 @@ go('portal')       // portal do cliente (via hash #portal/TOKEN)
 - `fluxa_clientes_full` — cache de clientes
 - `fluxa_eq` — cache de equipamentos
 - `fluxa_desp` — cache de despesas
+- `fluxa_os` — cache de OS (se usado)
+- `fluxa_usuarios` — cache de usuários/técnicos
+- `fluxa_usuarios_seed_pendente` — flag para sincronizar seed com Supabase
 - `empresa_cfg` — configurações da empresa
 
-### Autenticação atual
+### Autenticação
 ```js
-// hoje: PIN único
-sessionStorage.getItem('fluxa_auth') === '1'
-
-// após multi-loja (planejado):
-sessionStorage.fluxa_user = JSON.stringify({ perfil, loja_id, nome })
+// Login: usuário seleciona nome na lista → digita PIN
+// Gestor: PIN = CFG.pin (campo na tela Empresa)
+// Técnico: PIN = usuario.pin (cadastrado em Gestão de Usuários)
+// Sessão: sessionStorage.fluxa_user = JSON.stringify({ perfil, loja_id, nome })
+sessionStorage.getItem('fluxa_user') // null = não logado
 ```
 
 ### Salvamento de dados — padrão
@@ -328,6 +320,17 @@ db.from('tabela')...       // 3. sincroniza com BD sem bloquear UI
 .ht             /* tabela de histórico */
 .htw            /* wrapper com overflow-x:auto */
 .mob-nav        /* bottom nav mobile (<680px) */
+
+/* Multi-loja */
+.loja-badge     /* badge colorido de empresa */
+.loja-0         /* laranja — Fortemp Camboriú */
+.loja-1         /* azul — Fortemp Itapema */
+.loja-2         /* verde — Aquamotor */
+.loja-select    /* dropdown de seleção de empresa no header */
+.hdr-user       /* badge do usuário logado no header */
+
+/* Vista do técnico */
+.tec-os-card    /* card de OS na lista do técnico */
 ```
 
 ---
@@ -341,6 +344,7 @@ orcamentos, equipamentos, despesas
 clientes (via carregarClientesRemoto())
 agendamentos (via loadAgendamentos())
 empresa_config (via carregarCFGremoto())
+usuarios (via loadUsuarios())
 ```
 
 ---
@@ -352,3 +356,5 @@ empresa_config (via carregarCFGremoto())
 - QR Code gerado via `api.qrserver.com` — sem biblioteca local
 - Hash routing: `#portal/TOKEN` abre portal do cliente, `#eq/ID` abre ficha do equipamento
 - Service Worker cacheia o app shell para funcionar offline
+- Técnico ao fazer login vai direto para `minhas-os`; gestor vai para `history`
+- `lojaAtiva` é volátil (não persiste entre sessões) — gestor sempre começa com "Todas"
