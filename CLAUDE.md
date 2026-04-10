@@ -114,9 +114,9 @@ CREATE TABLE lojas (
   regime_tributario text,  -- 'simples' | 'lucro_presumido'
   endereco text, tel text, cidade text,
   logo_base64 text, cor_primaria text,
-  -- campos fiscais para Módulo 7:
-  certificado_pfx_base64 text,
-  certificado_senha text,
+  -- campos fiscais para Módulo 7 (Focus NFe):
+  focusnfe_token text,          -- token da API por loja/CNPJ
+  focusnfe_ambiente text,       -- 'homologacao' | 'producao'
   iss_aliquota numeric(5,2),
   codigo_servico_municipal text,
   ativo boolean DEFAULT true,
@@ -171,26 +171,48 @@ Orçamento, OS, Históricos, Clientes, Equipamentos, Agendamentos, Despesas, Pro
 
 ---
 
-### Módulo 7 — Nota Fiscal (planejado, aguardando decisão)
+### Módulo 7 — Nota Fiscal (planejado, aguardando perguntas em aberto)
 
 **Tipos:** NF-e modelo 55 (venda de produtos) e NFS-e (serviços).
 
-**Biblioteca escolhida:** NFeWizard-io (open source, GPL-3.0, sem custo por nota).
-- npm: `nfewizard-io` (NF-e) + `@nfewizard/nfse` (NFS-e)
-- Certificado A1 (.pfx) obrigatório — A3/token não suportado
+**Integração:** Focus NFe (focusnfe.com.br) — API REST paga, sem biblioteca local.
+- Certificado digital fica no painel da Focus NFe por CNPJ — não armazenamos no sistema
+- Autenticação: HTTP Basic Auth com token por empresa (`Authorization: Basic BASE64(token:)`)
+- Dois tokens por loja: um para homologação, um para produção
+- Múltiplos CNPJs suportados — as duas lojas ficam no mesmo plano
 
-**Status de suporte por município (pesquisado):**
-- NFS-e Itapema/SC ✅ — migrou para padrão nacional em jan/2026
-- NFS-e Balneário Camboriú/SC ✅ — migrou para padrão nacional em jan/2026
-- NFS-e Camboriú/SC (município do interior) ⚠️ — pode usar sistema proprietário, não confirmado
-- NF-e modelo 55 em SC ⚠️ — **não está oficialmente homologada** na biblioteca (só SP está homologado). Pode funcionar mas sem garantia
+**Suporte confirmado para nossos municípios (pesquisado):**
+- NF-e modelo 55 SC ✅ — confirmado via SEFAZ Virtual RS (SVRS), padrão nacional
+- NFS-e Camboriú-SC (IBGE 4203204) ✅ — provider AtendeNet, portal nfse-camboriu.atende.net
+- NFS-e Itapema-SC (IBGE 4208450) ✅ — provider Prefeitura Moderna (MeuISS)
+- ⚠️ **Atenção IBGE:** Camboriú-SC é IBGE **4203204** (não 4203303 — esse é Campo Alegre-SC)
 
-**❓ Pendente:** Marcos precisa confirmar se é Camboriú ou Balneário Camboriú.
+**Fluxo de emissão:**
+```
+Orçamento aprovado
+  → botão "Emitir nota" (NF-e ou NFS-e)
+  → tela de confirmação com dados preenchidos automaticamente
+  → POST https://api.focusnfe.com.br/v2/nfe?ref=REF  (ou /v2/nfse)
+  → Focus NFe comunica com SEFAZ/prefeitura
+  → polling ou webhook até status "autorizada"
+  → download XML + PDF DANFE
+  → envio ao cliente via WhatsApp
+```
 
-**Opções de implementação (aguardando escolha do Marcos):**
-- **Opção A:** usar NFeWizard-io para tudo, aceitar risco SC não homologado
-- **Opção B:** NFeWizard-io para NFS-e + biblioteca alternativa para NF-e em SC
-- **Opção C:** implementar telas e banco agora, plugar biblioteca depois (mais seguro)
+**Endpoints principais:**
+```
+# NF-e
+POST /v2/nfe?ref=REFERENCIA          # emitir
+GET  /v2/nfe/REFERENCIA              # consultar status
+DELETE /v2/nfe/REFERENCIA            # cancelar
+
+# NFS-e
+POST /v2/nfse?ref=REFERENCIA         # emitir (sistemas proprietários)
+POST /v2/nfsen?ref=REFERENCIA        # emitir (padrão nacional)
+GET  /v2/nfse/REFERENCIA             # consultar status
+```
+
+**Retorno:** assíncrono por padrão (HTTP 202 + polling). Modo síncrono disponível (HTTP 201 com nota pronta). Quando autorizada: `caminho_xml_nota_fiscal` + `caminho_danfe` na resposta.
 
 **SQL planejado:**
 ```sql
@@ -198,7 +220,8 @@ CREATE TABLE notas_fiscais (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   loja_id uuid REFERENCES lojas(id),
   orcamento_id uuid,
-  tipo text,       -- 'nfe' | 'nfse'
+  tipo text,             -- 'nfe' | 'nfse'
+  referencia text,       -- ref única enviada à Focus NFe
   numero integer, serie text, chave_acesso text,
   status text DEFAULT 'pendente', -- 'autorizada'|'cancelada'|'rejeitada'
   xml_autorizado text,
@@ -209,7 +232,7 @@ CREATE TABLE notas_fiscais (
 );
 ```
 
-**Fluxo:** orçamento aprovado → botão "Emitir nota" → seletor NF-e/NFS-e → tela de confirmação com dados preenchidos → envia SEFAZ/prefeitura → PDF DANFE gerado → envia ao cliente via WhatsApp.
+**Apenas gestor emite notas. Técnico não tem acesso a este módulo.**
 
 ---
 
