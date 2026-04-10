@@ -2090,7 +2090,7 @@ async function sincronizarSeedUsuarios(){
     const {data:existentes}=await db.from('usuarios').select('id').limit(1);
     if(existentes&&existentes.length>0){ lsSet('fluxa_usuarios_seed_pendente',''); return; }
     const TECNICOS_PADRAO=['Marcos','Josimar','Eldecir','Bruno'];
-    const payload=TECNICOS_PADRAO.map(nome=>({nome,perfil:'tecnico',loja_id:null,loja_nome:null,pin:null,ativo:true}));
+    const payload=TECNICOS_PADRAO.map(nome=>({id:'tec_'+nome.toLowerCase(),nome,perfil:'tecnico',loja_id:null,loja_nome:null,pin:null,ativo:true}));
     const {data:ins}=await db.from('usuarios').insert(payload).select('*');
     if(ins){ todosUsuarios=ins; lsSet('fluxa_usuarios',JSON.stringify(ins)); }
     lsSet('fluxa_usuarios_seed_pendente','');
