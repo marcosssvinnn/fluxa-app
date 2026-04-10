@@ -179,6 +179,7 @@
     .ht{width:100%;border-collapse:collapse}
     .ht th{text-align:left;font-size:10px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;padding:9px 12px;border-bottom:2px solid var(--gray-mid);white-space:nowrap}
     .ht td{padding:11px 12px;font-size:13px;color:var(--c2);border-bottom:1px solid var(--gray-light);vertical-align:middle}
+    .ht th:last-child,.ht td:last-child{min-width:230px}
     .ht tr:hover td{background:#fafafa}
     .ht tr:last-child td{border-bottom:none}
     .on{font-weight:700;color:var(--c1)}
@@ -195,7 +196,7 @@
     .ss.aprovado{border-color:var(--green);color:var(--green);background:var(--green-bg)}
     .ss.recusado{border-color:var(--red);color:var(--red);background:var(--red-bg)}
 
-    .ta{display:flex;gap:5px;align-items:center;flex-wrap:wrap}
+    .ta{display:flex;gap:4px;align-items:center;flex-wrap:nowrap}
     .tb{padding:4px 9px;border-radius:7px;border:1.5px solid var(--gray-mid);background:var(--white);font-size:12px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s;white-space:nowrap}
     .tb:hover{border-color:var(--c1);color:var(--c1)}
     .tb.d:hover{border-color:var(--red);color:var(--red)}
@@ -466,7 +467,7 @@
 
       /* Botões de ação na tabela */
       .ta{gap:4px;flex-wrap:wrap}
-      .tb{padding:7px 10px;font-size:12px}
+      .tb{padding:6px 8px;font-size:11px}
 
       /* Select de status na tabela */
       .ss{font-size:12px;padding:4px 6px}
@@ -762,8 +763,11 @@
         </div>
         <div class="fl"><label>Local / Endereço</label><input type="text" id="loc" placeholder="Rua das Flores, 123 — Camboriú" oninput="upd()"></div>
       </div>
-      <div class="row f4">
+      <div class="row">
         <div class="fl"><label>Telefone do Cliente</label><input type="tel" id="tel-cli" placeholder="(47) 99999-9999" oninput="upd()"></div>
+        <div class="fl"><label>CNPJ (opcional)</label><input type="text" id="cnpj-cli" placeholder="00.000.000/0001-00" oninput="upd()"></div>
+      </div>
+      <div class="row f3">
         <div class="fl"><label>Pagamento</label>
           <select id="pag" onchange="upd()">
             <option>A combinar</option><option>Pix</option><option>Dinheiro</option>
@@ -892,8 +896,17 @@
     <div class="card">
       <div class="ct">Nova Ordem de Serviço <span id="os-src-badge" style="font-size:11px;color:var(--gray);font-weight:400;text-transform:none;letter-spacing:0"></span></div>
       <div class="row">
-        <div class="fl"><label>Cliente</label><input type="text" id="os-cli" placeholder="Nome do cliente"></div>
+        <div class="fl"><label>Cliente</label>
+          <div class="cli-input-wrap">
+            <input type="text" id="os-cli" placeholder="Nome do cliente" oninput="mostrarSugestoesCliOS(this.value)" autocomplete="off" onblur="setTimeout(()=>hideSugCliOS(),200)">
+            <div class="cli-suggestions" id="os-cli-suggestions" style="display:none"></div>
+          </div>
+        </div>
         <div class="fl"><label>Local / Endereço</label><input type="text" id="os-loc" placeholder="Endereço do serviço"></div>
+      </div>
+      <div class="row">
+        <div class="fl"><label>CNPJ (opcional)</label><input type="text" id="os-cnpj" placeholder="00.000.000/0001-00"></div>
+        <div class="fl"></div>
       </div>
       <div class="row f4">
         <div class="fl"><label>Data do Serviço</label><input type="date" id="os-data"></div>
@@ -1390,8 +1403,9 @@
           <div class="fl"><label>Nome</label><input type="text" id="cli-new-nome" placeholder="Nome completo"></div>
           <div class="fl"><label>Telefone</label><input type="tel" id="cli-new-tel" placeholder="(47) 99999-9999"></div>
         </div>
-        <div class="row f1" style="margin-bottom:14px">
+        <div class="row" style="margin-bottom:12px">
           <div class="fl"><label>Endereço</label><input type="text" id="cli-new-end" placeholder="Rua, número, bairro, cidade"></div>
+          <div class="fl"><label>CNPJ (opcional)</label><input type="text" id="cli-new-cnpj" placeholder="00.000.000/0001-00"></div>
         </div>
         <div style="display:flex;gap:10px">
           <button class="btn-primary" style="flex:1" onclick="salvarNovoCliente()">💾 Salvar Cliente</button>
@@ -1673,7 +1687,7 @@ function lsOrcProxNum(){ return lsOrcLer().reduce((a,o)=>Math.max(a,o.numero||0)
   async function tentarConectar(tentativa){
     try {
       const ok = await conectarDB(sbUrl, sbKey, false);
-      if(ok){ await carregarCFGremoto(); aplicarCFG(); }
+      if(ok){ await carregarCFGremoto(); aplicarCFG(); await carregarClientesRemoto(); }
       else if(tentativa < 3) setTimeout(()=>tentarConectar(tentativa+1), tentativa===1?3000:15000);
     } catch(e) {
       console.warn('BD offline (tentativa '+tentativa+'):', e.message);
@@ -1818,7 +1832,10 @@ CREATE TABLE IF NOT EXISTS despesas (
 );
 ALTER PUBLICATION supabase_realtime ADD TABLE despesas;
 ALTER TABLE clientes ADD COLUMN IF NOT EXISTS portal_token uuid DEFAULT gen_random_uuid();
-ALTER TABLE clientes ADD COLUMN IF NOT EXISTS portal_ativo boolean DEFAULT true;`;
+ALTER TABLE clientes ADD COLUMN IF NOT EXISTS portal_ativo boolean DEFAULT true;
+ALTER TABLE clientes ADD COLUMN IF NOT EXISTS cnpj text;
+ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS cnpj text;
+ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS cnpj text;`;
 }
 
 // ──────────────────────────────────────────────────
@@ -1832,6 +1849,21 @@ async function carregarCFGremoto(){
   try{
     const {data} = await db.from('empresa_config').select('dados').eq('id',1).single();
     if(data?.dados){ CFG={...CFG_DEF,...data.dados}; lsSet('empresa_cfg',JSON.stringify(CFG)); }
+  }catch(e){}
+}
+
+async function carregarClientesRemoto(){
+  if(!dbOk||!db) return;
+  try{
+    const {data} = await db.from('clientes').select('*').order('data_criacao',{ascending:false});
+    if(data&&data.length){
+      // merge: mantém locais e adiciona/atualiza remotos
+      const local = lsCliLer();
+      const merged = [...data];
+      local.forEach(l=>{ if(!merged.find(r=>r.id===l.id)) merged.push(l); });
+      lsCliSalvar(merged);
+      if(document.getElementById('page-clientes').classList.contains('on')) renderClientes();
+    }
   }catch(e){}
 }
 function aplicarCFG(){
@@ -1955,6 +1987,7 @@ function go(p){
   if(p==='history') loadHist();
   if(p==='os-history') loadOSHist();
   if(p==='clientes') renderClientes();
+  if(p==='empresa') preencherFormEmpresa();
   if(p==='equipamentos') loadEquipamentos();
   if(p==='agendamentos'){ loadAgendamentos(); populaTecSelects(); initCal(); renderCal(); }
   if(p==='despesas') loadDespesas();
@@ -2194,7 +2227,7 @@ async function salvarApenas(){
   try{
     const now=new Date().toISOString();
     const camposBase={
-      cliente:dados.cli, local_servico:dados.loc, tel_cliente:dados.tel,
+      cliente:dados.cli, local_servico:dados.loc, tel_cliente:dados.tel, cnpj:dados.cnpj||null,
       servicos:dados.svcs, subtotal:dados.sub, desconto:dados.desc, total:dados.tot,
       pagamento:dados.pag, validade_dias:dados.dias, validade_data:dados.vData,
       data_servico:dados.dataSvc, escopo:dados.escopo, obs:dados.obs,
@@ -2244,6 +2277,7 @@ async function salvarApenas(){
       }
     }
     salvarChip();
+    autoSalvarClienteDoOrc(dados);
     atualizarDash(); renderTabela();
     if(document.getElementById('toggle-os')?.checked) await criarOSjunto(dados, savedNum);
     setTimeout(()=>{ mostrarBannerNovo(savedNum); },600);
@@ -2332,7 +2366,7 @@ function coletarForm(){
   const base=gV('data-orc'), dias=parseInt(gV('val'))||5;
   let dataStr=new Date().toLocaleDateString('pt-BR'), vData='';
   if(base){ dataStr=new Date(base+'T12:00:00').toLocaleDateString('pt-BR'); const dv=new Date(base+'T12:00:00'); dv.setDate(dv.getDate()+dias); vData=dv.toLocaleDateString('pt-BR'); }
-  return { cli:gV('cli')||'—', loc:gV('loc'), tel:gV('tel-cli'), pag:gV('pag'), dias, obs:gV('obs'),
+  return { cli:gV('cli')||'—', loc:gV('loc'), tel:gV('tel-cli'), cnpj:gV('cnpj-cli'), pag:gV('pag'), dias, obs:gV('obs'),
     escopo:gV('escopo'), dataSvc:gV('data-svc'), dataStr, vData, sub:sub(), desc:disc(sub()), tot:tot(),
     svcs:svcs.filter(s=>s.d.trim()).map(s=>({desc:s.d.trim(),preco:gP(s)})) };
 }
@@ -2424,7 +2458,7 @@ function rmOSSvc(id){ if(osSvcs.length===1){toast('⚠️ Mín. 1');return;} osS
 
 async function gerarOSPDF(modo='os'){
   const dados={
-    cli:gV('os-cli')||'—', loc:gV('os-loc'), data:gV('os-data'), hora:gV('os-hora'),
+    cli:gV('os-cli')||'—', loc:gV('os-loc'), cnpj:gV('os-cnpj')||null, data:gV('os-data'), hora:gV('os-hora'),
     tec:gV('os-tec'), tot:parseFloat(gV('os-total'))||0,
     mat:gV('os-mat'), obs:gV('os-obs'),
     svcs:osSvcs.filter(s=>s.d.trim()).map(s=>s.d.trim()),
@@ -2436,7 +2470,7 @@ async function gerarOSPDF(modo='os'){
       const {data:rows}=await db.from('ordens_servico').select('numero').order('numero',{ascending:false}).limit(1);
       const num=rows&&rows.length?(rows[0].numero||0)+1:1;
       const orcId=osOrcId||null;
-      await db.from('ordens_servico').insert([{numero:num,orcamento_id:orcId,cliente:dados.cli,local_servico:dados.loc,data_servico:dados.data,hora:dados.hora,tecnico:dados.tec,servicos:dados.svcs,materiais:dados.mat,obs_tecnica:dados.obs,total:dados.tot,status:'agendado',fotos:dados.fotos,video_link:dados.videoLink||null}]);
+      await db.from('ordens_servico').insert([{numero:num,orcamento_id:orcId,cliente:dados.cli,local_servico:dados.loc,cnpj:dados.cnpj||null,data_servico:dados.data,hora:dados.hora,tecnico:dados.tec,servicos:dados.svcs,materiais:dados.mat,obs_tecnica:dados.obs,total:dados.tot,status:'agendado',fotos:dados.fotos,video_link:dados.videoLink||null}]);
       numStr=String(num).padStart(3,'0');
     }catch(e){ numStr='???'; }
   } else { const n=(parseInt(ls('fluxa_os_num')||'0'))+1; lsSet('fluxa_os_num',n); numStr=String(n).padStart(3,'0'); }
@@ -2655,7 +2689,7 @@ async function excluirOrc(id){
 function abrirOrc(id){
   const o=todosOrc.find(x=>x.id===id); if(!o) return;
   editId=id;
-  setV('cli',o.cliente||''); setV('loc',o.local_servico||''); setV('tel-cli',o.tel_cliente||'');
+  setV('cli',o.cliente||''); setV('loc',o.local_servico||''); setV('tel-cli',o.tel_cliente||''); setV('cnpj-cli',o.cnpj||'');
   setV('pag',o.pagamento||'A combinar'); setV('val',String(o.validade_dias||5));
   setV('obs',o.obs||''); setV('escopo',o.escopo||''); setV('data-svc',o.data_servico||'');
   setV('nota-interna',o.nota_interna||'');
@@ -2671,7 +2705,7 @@ function abrirOrc(id){
 function duplicarOrc(id){
   const o=todosOrc.find(x=>x.id===id); if(!o) return;
   editId=null; fotoB64='';
-  setV('cli',o.cliente||''); setV('loc',o.local_servico||''); setV('tel-cli',o.tel_cliente||'');
+  setV('cli',o.cliente||''); setV('loc',o.local_servico||''); setV('tel-cli',o.tel_cliente||''); setV('cnpj-cli',o.cnpj||'');
   setV('pag',o.pagamento||'A combinar'); setV('val',String(o.validade_dias||5));
   setV('obs',o.obs||''); setV('escopo',o.escopo||'');
   setV('nota-interna',''); // não copia nota interna
@@ -2691,7 +2725,7 @@ function duplicarOrc(id){
 function gerarOS_deOrc(id){
   const o=todosOrc.find(x=>x.id===id); if(!o) return;
   osOrcId = id; // guarda o vínculo
-  setV('os-cli',o.cliente||''); setV('os-loc',o.local_servico||'');
+  setV('os-cli',o.cliente||''); setV('os-loc',o.local_servico||''); setV('os-cnpj',o.cnpj||'');
   setV('os-data',o.data_servico||''); setV('os-total',String(o.total||0));
   osSvcs=(o.servicos||[]).map(s=>({id:Date.now()+Math.random(),d:s.desc}));
   if(!osSvcs.length) osSvcs=[{id:Date.now(),d:''}];
@@ -2864,16 +2898,16 @@ function lsCliSalvar(l){ lsSet(LS_CLI_FULL,JSON.stringify(l)); }
 
 function mostrarFormCliente(){
   document.getElementById('cli-form-wrap').style.display='block';
-  ['cli-new-nome','cli-new-tel','cli-new-end'].forEach(id=>setV(id,''));
+  ['cli-new-nome','cli-new-tel','cli-new-end','cli-new-cnpj'].forEach(id=>setV(id,''));
 }
 
 async function salvarNovoCliente(){
   const nome=gV('cli-new-nome').trim();
   if(!nome){ toast('⚠️ Informe o nome do cliente'); return; }
-  const novo={id:'cli_'+Date.now(), nome, tel:gV('cli-new-tel').trim(), end:gV('cli-new-end').trim(), portal_token:crypto.randomUUID()};
+  const novo={id:'cli_'+Date.now(), nome, tel:gV('cli-new-tel').trim(), end:gV('cli-new-end').trim(), cnpj:gV('cli-new-cnpj').trim(), portal_token:crypto.randomUUID()};
   const lista=lsCliLer(); lista.unshift(novo); lsCliSalvar(lista);
   if(dbOk&&db){
-    try{ await db.from('clientes').insert([{nome:novo.nome,telefone:novo.tel,endereco:novo.end}]); }catch(e){}
+    try{ await db.from('clientes').insert([{nome:novo.nome,telefone:novo.tel,endereco:novo.end,cnpj:novo.cnpj||null}]); }catch(e){}
   }
   document.getElementById('cli-form-wrap').style.display='none';
   renderClientes(); toast('✅ Cliente salvo!');
@@ -2887,7 +2921,7 @@ function renderClientes(){
     <div class="cli-card">
       <div class="cli-card-info">
         <div class="cli-card-nome">${esc(c.nome)}</div>
-        <div class="cli-card-det">${[c.tel,c.end].filter(Boolean).map(x=>esc(x)).join(' · ')}</div>
+        <div class="cli-card-det">${[c.tel,c.cnpj,c.end].filter(Boolean).map(x=>esc(x)).join(' · ')}</div>
       </div>
       <div style="display:flex;gap:6px;flex-shrink:0">
         <button class="tb" onclick="copiarLinkPortal('${c.id}')">🔗 Portal</button>
@@ -2906,16 +2940,53 @@ function mostrarSugestoesCli(val){
   const box=document.getElementById('cli-suggestions'); if(!box) return;
   if(!val||val.length<2){ box.style.display='none'; return; }
   const q=val.toLowerCase();
-  const lista=lsCliLer().filter(c=>(c.nome||'').toLowerCase().includes(q)).slice(0,6);
+  const lista=lsCliLer().filter(c=>
+    (c.nome||'').toLowerCase().includes(q)||(c.cnpj||'').replace(/\D/g,'').includes(q.replace(/\D/g,''))
+  ).slice(0,6);
   if(!lista.length){ box.style.display='none'; return; }
-  box.innerHTML=lista.map(c=>`<div class="cli-suggestion-item" onmousedown="selecionarSugestaoCli('${esc(c.nome)}','${esc(c.end||'')}','${esc(c.tel||'')}')"><div class="cli-sug-name">${esc(c.nome)}</div>${c.tel?`<div class="cli-sug-tel">${esc(c.tel)}</div>`:''}</div>`).join('');
+  box.innerHTML=lista.map(c=>`<div class="cli-suggestion-item" onmousedown="selecionarSugestaoCli('${esc(c.nome)}','${esc(c.end||'')}','${esc(c.tel||'')}','${esc(c.cnpj||'')}')"><div class="cli-sug-name">${esc(c.nome)}</div><div class="cli-sug-tel">${[c.tel,c.cnpj].filter(Boolean).map(x=>esc(x)).join(' · ')}</div></div>`).join('');
   box.style.display='block';
 }
-function selecionarSugestaoCli(nome,end,tel){
-  setV('cli',nome); if(end) setV('loc',end); if(tel) setV('tel-cli',tel);
+function selecionarSugestaoCli(nome,end,tel,cnpj){
+  setV('cli',nome); if(end) setV('loc',end); if(tel) setV('tel-cli',tel); if(cnpj) setV('cnpj-cli',cnpj);
   document.getElementById('cli-suggestions').style.display='none'; upd();
 }
 function hideSugCli(){ const b=document.getElementById('cli-suggestions'); if(b) b.style.display='none'; }
+
+function mostrarSugestoesCliOS(val){
+  const box=document.getElementById('os-cli-suggestions'); if(!box) return;
+  if(!val||val.length<2){ box.style.display='none'; return; }
+  const q=val.toLowerCase();
+  const lista=lsCliLer().filter(c=>
+    (c.nome||'').toLowerCase().includes(q)||(c.cnpj||'').replace(/\D/g,'').includes(q.replace(/\D/g,''))
+  ).slice(0,6);
+  if(!lista.length){ box.style.display='none'; return; }
+  box.innerHTML=lista.map(c=>`<div class="cli-suggestion-item" onmousedown="selecionarSugestaoCliOS('${esc(c.nome)}','${esc(c.end||'')}','${esc(c.cnpj||'')}')"><div class="cli-sug-name">${esc(c.nome)}</div><div class="cli-sug-tel">${[c.tel,c.cnpj].filter(Boolean).map(x=>esc(x)).join(' · ')}</div></div>`).join('');
+  box.style.display='block';
+}
+function selecionarSugestaoCliOS(nome,end,cnpj){
+  setV('os-cli',nome); if(end) setV('os-loc',end); if(cnpj) setV('os-cnpj',cnpj);
+  document.getElementById('os-cli-suggestions').style.display='none';
+}
+function hideSugCliOS(){ const b=document.getElementById('os-cli-suggestions'); if(b) b.style.display='none'; }
+
+async function autoSalvarClienteDoOrc(dados){
+  if(!dados.cli||dados.cli==='—') return;
+  const lista=lsCliLer();
+  const existe=lista.find(c=>(c.nome||'').toLowerCase()===dados.cli.toLowerCase());
+  if(existe){
+    // atualiza campos em branco se o orçamento tem mais info
+    let mudou=false;
+    if(!existe.tel&&dados.tel){ existe.tel=dados.tel; mudou=true; }
+    if(!existe.end&&dados.loc){ existe.end=dados.loc; mudou=true; }
+    if(!existe.cnpj&&dados.cnpj){ existe.cnpj=dados.cnpj; mudou=true; }
+    if(mudou){ lsCliSalvar(lista); if(dbOk&&db&&!String(existe.id).startsWith('cli_')) { try{ await db.from('clientes').update({telefone:existe.tel,endereco:existe.end,cnpj:existe.cnpj||null}).eq('id',existe.id); }catch(e){} } }
+    return;
+  }
+  const novo={id:'cli_'+Date.now(),nome:dados.cli,tel:dados.tel||'',end:dados.loc||'',cnpj:dados.cnpj||'',portal_token:crypto.randomUUID()};
+  lista.unshift(novo); lsCliSalvar(lista);
+  if(dbOk&&db){ try{ await db.from('clientes').insert([{nome:novo.nome,telefone:novo.tel,endereco:novo.end,cnpj:novo.cnpj||null}]); }catch(e){} }
+}
 
 // ──────────────────────────────────────────────────
 //  CHIPS CLIENTES
