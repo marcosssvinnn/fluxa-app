@@ -259,6 +259,11 @@ CREATE POLICY "anon full access" ON notas_fiscais  FOR ALL TO anon USING (true) 
 18. **Opções de pagamento avançadas** — boleto parcelado, entrada + boleto, entrada + Pix, cartão parcelado (com nº de parcelas e valor de entrada)
 19. **Quantidade de produto** — campo `qty` em serviços/produtos do orçamento; exibe subtotal quando qty > 1
 20. **Dashboard filtrado por empresa** — `atualizarDash()` usa `filtrarPorLoja()` para exibir totais da empresa ativa
+21. **Gráfico de faturamento** — card no histórico com Chart.js (últimos 6 meses, aprovados ou total emitido, responsivo mobile/desktop)
+22. **Histórico completo do cliente** — botão 📋 Hist. em cada cliente abre modal com todos os orçamentos, OS e total faturado
+23. **Checklist de vistoria na OS** — card na OS com 8 itens padrão (pH, cloro, bomba, filtro…); técnico marca items, adiciona observação, pode personalizar; salvo no Supabase como JSON
+24. **Assinatura do cliente no portal** — ao aprovar orçamento, cliente assina com dedo/mouse num canvas antes de confirmar; assinatura salva como base64 no registro
+25. **Relatório Financeiro** — card na página Produtividade com tabela Receita vs Despesas vs Resultado por mês (6m / 12m / este ano), filtrado por empresa ativa
 
 ---
 
@@ -410,6 +415,18 @@ todosOrc.unshift(rec);     // 2. atualiza memória
 db.from('tabela')...       // 3. sincroniza com BD sem bloquear UI
 ```
 
+### SQL pendente para Supabase (novas colunas)
+```sql
+-- Checklist na OS (salvo como JSON string)
+ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS checklist text;
+-- Assinatura do cliente (base64 PNG)
+ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS assinatura_base64 text;
+```
+
+### Dependências externas (CDN, no <head>)
+- `@supabase/supabase-js@2` — banco de dados
+- `chart.js@4.4.0` — gráfico de faturamento no dashboard
+
 ### Regra crítica: loja_id em novos registros
 Todo novo registro **deve** ter `loja_id` definido. Usar:
 ```js
@@ -457,6 +474,38 @@ Nunca gravar `loja_id: null` em registros novos — registros sem loja_id são t
 
 /* Produto com quantidade */
 .qty-f          /* input de quantidade no serviço/produto */
+
+/* Gráfico dashboard */
+.dash-chart-card  /* card que envolve o gráfico Chart.js */
+.dash-chart-wrap  /* div de altura fixa (180px desktop / 140px mobile) */
+
+/* Checklist OS */
+.chk-list       /* container dos itens */
+.chk-item       /* item individual; .ok quando checked */
+.chk-cb         /* checkbox accent-color verde */
+.chk-obs-inp    /* input de observação (visível só quando checked) */
+.chk-add-row    /* linha de adicionar item personalizado */
+
+/* Histórico do cliente */
+.cli-hist-overlay  /* fundo escuro do modal (bottom sheet mobile, center desktop) */
+.cli-hist-box      /* caixa branca do modal */
+.cli-hist-resumo   /* row com 3 KPIs: orçamentos, OS, faturado */
+.chr-item          /* KPI individual dentro do resumo */
+.chi               /* linha de item (orçamento ou OS) */
+.chi-badge         /* badge de status colorido */
+
+/* Assinatura do cliente */
+.sig-wrap       /* container do canvas com borda dashed */
+.sig-canvas     /* canvas de 130px altura */
+.sig-placeholder /* texto "Assine aqui" some ao desenhar */
+.sig-btn        /* botão Limpar/Confirmar; .ok = verde */
+
+/* Relatório financeiro */
+.fin-card       /* card na página Produtividade */
+.fin-tabela     /* tabela mensal Receita/Despesas/Resultado */
+.fin-pos        /* texto verde (positivo) */
+.fin-neg        /* texto vermelho (negativo) */
+.fin-zero       /* texto cinza (zero) */
 ```
 
 ---
