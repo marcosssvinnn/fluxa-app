@@ -2224,12 +2224,15 @@ function getLojaBadge(id){
   return `<span class="loja-badge ${l.cor}">${l.nome}</span>`;
 }
 
-// Preenche o <select> do header apenas com as lojas Forthemp (gestor principal)
+// Preenche o <select> do header com todas as lojas (gestor principal vê tudo)
 function populaLojaSelect(){
   const sel=document.getElementById('hdr-loja-select'); if(!sel) return;
-  const lojasFt=LOJAS.filter(l=>l.grupo==='forthemp');
-  sel.innerHTML='<option value="">Todas as empresas</option>'+
-    lojasFt.map(l=>`<option value="${l.id}">${l.nome}</option>`).join('');
+  const forthemp=LOJAS.filter(l=>l.grupo==='forthemp');
+  const outros=LOJAS.filter(l=>l.grupo!=='forthemp');
+  sel.innerHTML=
+    '<option value="">Forthemp — Todas</option>'+
+    forthemp.map(l=>`<option value="${l.id}">${l.nome}</option>`).join('')+
+    (outros.length?'<option disabled>──────────</option>'+outros.map(l=>`<option value="${l.id}">${l.nome}</option>`).join(''):'');
   sel.value=lojaAtiva;
 }
 
@@ -2463,22 +2466,32 @@ async function fazerLogin(){
 
 function mostrarSelecaoLojaGestor(){
   const list=document.getElementById('login-loja-list');
-  // Gestor principal vê só empresas do grupo Forthemp
-  const lojasFt=LOJAS.filter(l=>l.grupo==='forthemp');
+  const forthemp=LOJAS.filter(l=>l.grupo==='forthemp');
+  const outros=LOJAS.filter(l=>l.grupo!=='forthemp');
+  const corGrupo={forthemp:'var(--c2)',aquamotor:'#16a34a'};
   list.innerHTML=`
     <button class="login-user-btn" onclick="confirmarLojaGestor('')">
-      <div class="login-user-avatar" style="background:var(--gray);font-size:13px">📊</div>
+      <div class="login-user-avatar" style="background:var(--c1);font-size:16px">📊</div>
       <div class="login-user-info">
         <div class="login-user-nome">Forthemp — Todas as unidades</div>
         <div class="login-user-perfil">Visão consolidada Camboriú + Itapema</div>
       </div>
     </button>
-    ${lojasFt.map(l=>`
+    ${forthemp.map(l=>`
       <button class="login-user-btn" onclick="confirmarLojaGestor('${l.id}')">
-        <div class="login-user-avatar" style="font-size:13px;font-weight:800;background:var(--c2);color:white">${l.nome.charAt(0)}</div>
+        <div class="login-user-avatar" style="font-size:14px;font-weight:800;background:var(--c2);color:white">${l.nome.charAt(0)}</div>
         <div class="login-user-info">
           <div class="login-user-nome">${esc(l.nome)}</div>
-          <div class="login-user-perfil">Gerenciar esta unidade</div>
+          <div class="login-user-perfil">Forthemp — gerenciar esta unidade</div>
+        </div>
+      </button>`).join('')}
+    ${outros.length?`<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--gray);padding:10px 4px 4px">Outras empresas</div>`:''}
+    ${outros.map(l=>`
+      <button class="login-user-btn" onclick="confirmarLojaGestor('${l.id}')">
+        <div class="login-user-avatar" style="font-size:14px;font-weight:800;background:${corGrupo[l.grupo]||'var(--blue)'};color:white">${l.nome.charAt(0)}</div>
+        <div class="login-user-info">
+          <div class="login-user-nome">${esc(l.nome)}</div>
+          <div class="login-user-perfil">${esc(l.nome)} — gerenciar empresa</div>
         </div>
       </button>`).join('')}`;
   document.getElementById('login-loja-wrap').style.display='block';
@@ -2486,12 +2499,15 @@ function mostrarSelecaoLojaGestor(){
 
 function confirmarLojaGestor(lojaId){
   lojaAtiva=lojaId;
-  const sessao={perfil:'gestor',loja_id:null,nome:'Gestor'};
+  const loja=getLoja(lojaId);
+  const nomeGestor=loja?'Gestor '+loja.nome:'Gestor';
+  const sessao={perfil:'gestor',loja_id:null,nome:nomeGestor};
   setSessao(sessao);
   document.getElementById('login-overlay').style.display='none';
   document.getElementById('login-loja-wrap').style.display='none';
   atualizarBadgeUsuario();
   aplicarPermissoesPerfil();
+  go('history');
 }
 
 function voltarParaPin(){
