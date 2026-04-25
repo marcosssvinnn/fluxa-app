@@ -9,6 +9,7 @@
   <meta name="theme-color" content="#F07820">
   <title>Sistema de Orçamentos</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
@@ -494,6 +495,79 @@
       /* Select de status na tabela */
       .ss{font-size:12px;padding:4px 6px}
     }
+
+    /* ── GRÁFICO DASHBOARD ── */
+    .dash-chart-card{background:var(--white);border-radius:var(--r);padding:18px 20px;box-shadow:var(--sh);margin-bottom:20px}
+    .dash-chart-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px}
+    .dash-chart-titulo{font-size:13px;font-weight:700;color:var(--c2)}
+    .dash-chart-wrap{position:relative;height:180px}
+    @media(max-width:680px){.dash-chart-wrap{height:140px}}
+
+    /* ── CHECKLIST OS ── */
+    .chk-list{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+    .chk-item{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:var(--gray-light);border-radius:8px;transition:background .15s}
+    .chk-item.ok{background:var(--green-bg)}
+    .chk-cb{width:18px;height:18px;accent-color:var(--green);flex-shrink:0;margin-top:1px;cursor:pointer}
+    .chk-body{flex:1;min-width:0}
+    .chk-nome{font-size:13px;font-weight:600;color:var(--c2);line-height:1.3}
+    .chk-obs-inp{margin-top:5px;width:100%;font-size:12px;border:1.5px solid var(--gray-mid);border-radius:6px;padding:5px 8px;font-family:'Inter',sans-serif;color:var(--c2);outline:none;display:none;transition:border-color .15s}
+    .chk-obs-inp:focus{border-color:var(--c1)}
+    .chk-item.ok .chk-obs-inp{display:block}
+    .chk-rm{background:none;border:none;cursor:pointer;color:var(--gray);font-size:14px;padding:0 2px;flex-shrink:0;opacity:.5;line-height:1;font-family:'Inter',sans-serif}
+    .chk-rm:hover{opacity:1;color:var(--red)}
+    .chk-add-row{display:flex;gap:8px;align-items:center}
+    .chk-add-inp{flex:1;font-size:13px;border:1.5px dashed var(--gray-mid);border-radius:8px;padding:8px 12px;font-family:'Inter',sans-serif;color:var(--c2);outline:none;background:var(--white)}
+    .chk-add-inp:focus{border-color:var(--c1);border-style:solid}
+    @media(max-width:680px){.chk-add-row{flex-wrap:wrap}.chk-add-inp{width:100%}}
+
+    /* ── HISTÓRICO DO CLIENTE ── */
+    .cli-hist-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:900;display:flex;align-items:flex-end;justify-content:center;padding:0}
+    @media(min-width:680px){.cli-hist-overlay{align-items:center;padding:20px}}
+    .cli-hist-box{background:var(--white);border-radius:16px 16px 0 0;width:100%;max-width:600px;max-height:84vh;display:flex;flex-direction:column;box-shadow:0 -4px 30px rgba(0,0,0,.15)}
+    @media(min-width:680px){.cli-hist-box{border-radius:16px;max-height:78vh}}
+    .cli-hist-hdr{padding:16px 20px 14px;border-bottom:1px solid var(--gray-light);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+    .cli-hist-titulo{font-size:16px;font-weight:800;color:var(--c2)}
+    .cli-hist-close{background:none;border:none;font-size:24px;cursor:pointer;color:var(--gray);line-height:1;padding:0 2px;font-family:'Inter',sans-serif}
+    .cli-hist-body{overflow-y:auto;padding:0 0 20px}
+    .cli-hist-resumo{margin:14px 20px 0;padding:14px 16px;background:var(--c1-light);border-radius:10px;display:flex;gap:0;flex-wrap:wrap}
+    .chr-item{flex:1;min-width:80px;text-align:center;padding:4px 8px}
+    .chr-item+.chr-item{border-left:1px solid var(--c1-mid)}
+    .chr-val{font-size:18px;font-weight:800;color:var(--c1);display:block;line-height:1.2}
+    .chr-label{font-size:10px;font-weight:600;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;margin-top:3px}
+    .cli-hist-secao{padding:14px 20px 0}
+    .cli-hist-sec-titulo{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--gray);margin-bottom:8px}
+    .chi{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray-light)}
+    .chi:last-child{border-bottom:none}
+    .chi-desc{font-size:13px;font-weight:600;color:var(--c2)}
+    .chi-sub{font-size:11px;color:var(--gray);margin-top:2px}
+    .chi-right{text-align:right;flex-shrink:0}
+    .chi-val{font-size:13px;font-weight:700}
+    .chi-badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:50px;margin-top:4px}
+
+    /* ── ASSINATURA PORTAL ── */
+    .sig-section{margin-top:14px;padding:16px;background:var(--white);border-radius:12px;border:1.5px solid var(--gray-mid)}
+    .sig-titulo{font-size:13px;font-weight:700;color:var(--c2);margin-bottom:3px}
+    .sig-sub{font-size:12px;color:var(--gray);margin-bottom:10px}
+    .sig-wrap{border:2px dashed var(--gray-mid);border-radius:10px;overflow:hidden;background:#fafafa;cursor:crosshair;position:relative;touch-action:none}
+    .sig-canvas{display:block;width:100%;height:130px;touch-action:none}
+    .sig-placeholder{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--gray);pointer-events:none;transition:opacity .2s}
+    .sig-btns{display:flex;gap:8px;margin-top:10px}
+    .sig-btn{flex:1;padding:11px;border-radius:8px;font-size:13px;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;border:1.5px solid var(--gray-mid);background:var(--white);color:var(--c2);transition:all .15s}
+    .sig-btn:hover{border-color:var(--c1);color:var(--c1)}
+    .sig-btn.ok{background:var(--green);border-color:var(--green);color:white}
+    .sig-btn.ok:hover{opacity:.9}
+
+    /* ── RELATÓRIO FINANCEIRO ── */
+    .fin-card{background:var(--white);border-radius:var(--r);padding:18px 20px;box-shadow:var(--sh);margin-top:20px}
+    .fin-tabela-wrap{overflow-x:auto;margin-top:4px}
+    .fin-tabela{width:100%;border-collapse:collapse;min-width:380px}
+    .fin-tabela th{text-align:left;font-size:10px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;padding:9px 12px;border-bottom:2px solid var(--gray-mid);white-space:nowrap}
+    .fin-tabela td{padding:10px 12px;font-size:13px;color:var(--c2);border-bottom:1px solid var(--gray-light)}
+    .fin-tabela tr:hover td{background:#fafafa}
+    .fin-tabela tr.fin-total td{font-weight:700;border-top:2px solid var(--gray-mid);border-bottom:none;background:var(--gray-light)}
+    .fin-pos{color:var(--green);font-weight:700}
+    .fin-neg{color:var(--red);font-weight:700}
+    .fin-zero{color:var(--gray)}
 
     /* ── DESPESAS ── */
     .desp-card{background:var(--white);border-radius:var(--r);padding:15px;box-shadow:var(--sh);border-left:4px solid var(--gray-mid);margin-bottom:10px;display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap}
@@ -1220,6 +1294,18 @@
       </div>
     </div>
 
+    <!-- ── Checklist de Vistoria ── -->
+    <div class="card">
+      <div class="ct">✅ Checklist de Vistoria
+        <button class="btn-add" style="font-size:11px;padding:4px 10px;border-width:1.5px" onclick="resetChecklist()" title="Restaurar itens padrão">↺ Resetar</button>
+      </div>
+      <div class="chk-list" id="os-chklist"></div>
+      <div class="chk-add-row">
+        <input type="text" class="chk-add-inp" id="chk-add-inp" placeholder="＋ Adicionar item personalizado…" onkeydown="if(event.key==='Enter'){addChkItem();event.preventDefault()}">
+        <button class="btn-add" style="font-size:12px;padding:7px 12px;border-width:1.5px;flex-shrink:0" onclick="addChkItem()">＋</button>
+      </div>
+    </div>
+
     <div class="card">
       <div class="ct">📷 Fotos e Vídeo</div>
       <div class="row" style="grid-template-columns:1fr 1fr 1fr;margin-bottom:12px">
@@ -1285,6 +1371,21 @@
       <div class="dc y"><div class="dl">A Receber</div><div class="dv" id="d-rec">—</div><div class="ds" id="d-rec-q">aprovado s/ pagto</div></div>
       <div class="dc b"><div class="dl">Ticket Médio</div><div class="dv" id="d-tick">—</div><div class="ds">por orçamento</div></div>
     </div>
+
+    <!-- ── Gráfico de faturamento ── -->
+    <div class="dash-chart-card">
+      <div class="dash-chart-hdr">
+        <div class="dash-chart-titulo">📊 Faturamento — Últimos 6 meses</div>
+        <select id="dash-chart-tipo" onchange="renderGraficoDash()" style="padding:5px 10px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Inter',sans-serif;outline:none;cursor:pointer">
+          <option value="aprovado">Aprovados</option>
+          <option value="emitido">Total emitido</option>
+        </select>
+      </div>
+      <div class="dash-chart-wrap">
+        <canvas id="dash-chart"></canvas>
+      </div>
+    </div>
+
     <div class="card">
       <div class="ct">Orçamentos <button class="btn-add" style="font-size:12px;padding:5px 11px;border-width:1.5px" onclick="loadHist()">↺</button></div>
       <div class="hf" style="margin-bottom:8px">
@@ -1737,6 +1838,29 @@
         </table>
       </div>
     </div>
+
+    <!-- ── Relatório Financeiro ── -->
+    <div class="fin-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+        <div class="ct" style="margin:0">💰 Resultado Financeiro</div>
+        <select id="fin-periodo" onchange="renderRelatorioFinanceiro()" style="padding:7px 12px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Inter',sans-serif;outline:none;cursor:pointer">
+          <option value="6m">Últimos 6 meses</option>
+          <option value="12m">Últimos 12 meses</option>
+          <option value="ano">Este ano</option>
+        </select>
+      </div>
+      <div class="fin-tabela-wrap">
+        <table class="fin-tabela">
+          <thead><tr>
+            <th>Mês</th>
+            <th>Receita (Aprovados)</th>
+            <th>Despesas</th>
+            <th>Resultado</th>
+          </tr></thead>
+          <tbody id="fin-tabela-body"><tr><td colspan="4" style="text-align:center;color:var(--gray);padding:20px">Carregando…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -2105,7 +2229,7 @@ function trocarLojaAtiva(id){
   const paginaAtiva=document.querySelector('.page.on');
   if(!paginaAtiva) return;
   const pid=paginaAtiva.id.replace('page-','');
-  if(pid==='history') { atualizarDash(); renderTabela(); }
+  if(pid==='history') { atualizarDash(); renderTabela(); renderGraficoDash(); }
   else if(pid==='os-history') renderOSTabela();
   else if(pid==='clientes') renderClientes();
   else if(pid==='despesas') renderDespesas();
@@ -2398,6 +2522,25 @@ let todosOS = [], filtroOSSt = 'todos', buscaOS = '';
 let filtroPeriodo = '';
 let osFotos = ['','',''];
 let printMode = ''; // 'orc' | 'os' | 'both'
+
+// ── Checklist OS ──
+const OS_CHECKLIST_DEFAULT = [
+  {id:1, nome:'Nível de pH',            checked:false, obs:''},
+  {id:2, nome:'Nível de cloro',         checked:false, obs:''},
+  {id:3, nome:'Alcalinidade total',     checked:false, obs:''},
+  {id:4, nome:'Limpeza do filtro',      checked:false, obs:''},
+  {id:5, nome:'Limpeza do skimmer',     checked:false, obs:''},
+  {id:6, nome:'Funcionamento da bomba', checked:false, obs:''},
+  {id:7, nome:'Nível da água',          checked:false, obs:''},
+  {id:8, nome:'Iluminação subaquática', checked:false, obs:''},
+];
+let osChecklist = OS_CHECKLIST_DEFAULT.map(x=>({...x}));
+
+// ── Gráfico dashboard ──
+let _dashChart = null;
+
+// ── Assinatura ──
+let _sigDrawing = false, _sigHasMark = false;
 
 // ══════════════════════════════════════════════════
 //  PERSISTÊNCIA LOCAL — localStorage é fonte primária
@@ -2817,14 +2960,14 @@ function go(p){
   document.querySelectorAll('.mob-nb').forEach(x=>x.classList.remove('on'));
   const mnb=document.getElementById('mnb-'+p); if(mnb) mnb.classList.add('on');
   if(p==='portal') { /* página gerenciada por checkPortalHash */ }
-  if(p==='history') loadHist();
+  if(p==='history'){ loadHist(); setTimeout(renderGraficoDash,200); }
   if(p==='os-history') loadOSHist();
   if(p==='clientes') renderClientes();
   if(p==='empresa') preencherFormEmpresa();
   if(p==='equipamentos') loadEquipamentos();
   if(p==='agendamentos'){ loadAgendamentos(); populaTecSelects(); initCal(); renderCal(); }
   if(p==='despesas') loadDespesas();
-  if(p==='produtividade') loadProdutividade();
+  if(p==='produtividade'){ loadProdutividade(); setTimeout(renderRelatorioFinanceiro,300); }
   if(p==='usuarios') loadUsuarios();
   if(p==='minhas-os') loadMinhasOS();
   // Atualiza técnicos disponíveis quando abre form de OS
@@ -3339,6 +3482,44 @@ function addOSSvc(d=''){
   renderOSSvcs();
 }
 
+// ──────────────────────────────────────────────────
+//  CHECKLIST DE VISTORIA
+// ──────────────────────────────────────────────────
+function renderOsChecklist(){
+  const el=document.getElementById('os-chklist'); if(!el) return;
+  if(!osChecklist.length){
+    el.innerHTML='<div style="font-size:13px;color:var(--gray);padding:6px 0">Nenhum item. Adicione abaixo ou clique em ↺ Resetar.</div>';
+    return;
+  }
+  el.innerHTML=osChecklist.map((item,i)=>`
+    <div class="chk-item ${item.checked?'ok':''}" id="chk-item-${i}">
+      <input type="checkbox" class="chk-cb" ${item.checked?'checked':''} onchange="toggleChk(${i},this.checked)">
+      <div class="chk-body">
+        <div class="chk-nome">${esc(item.nome)}</div>
+        <input type="text" class="chk-obs-inp" placeholder="Observação (opcional)" value="${esc(item.obs||'')}" oninput="updChkObs(${i},this.value)">
+      </div>
+      <button class="chk-rm" onclick="rmChkItem(${i})" title="Remover item">✕</button>
+    </div>`).join('');
+}
+function toggleChk(i, checked){
+  if(!osChecklist[i]) return;
+  osChecklist[i].checked=checked;
+  const el=document.getElementById('chk-item-'+i);
+  if(el){ el.className='chk-item'+(checked?' ok':''); }
+}
+function updChkObs(i, val){ if(osChecklist[i]) osChecklist[i].obs=val; }
+function rmChkItem(i){ osChecklist.splice(i,1); renderOsChecklist(); }
+function resetChecklist(){ osChecklist=OS_CHECKLIST_DEFAULT.map(x=>({...x})); renderOsChecklist(); }
+function addChkItem(){
+  const inp=document.getElementById('chk-add-inp'); if(!inp) return;
+  const nome=inp.value.trim(); if(!nome){ toast('⚠️ Digite o nome do item'); return; }
+  osChecklist.push({id:Date.now(), nome, checked:false, obs:''});
+  inp.value=''; renderOsChecklist();
+  // scroll para o último item
+  const el=document.getElementById('os-chklist');
+  if(el) el.lastElementChild?.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
 function renderOSSvcs(){
   const el=document.getElementById('os-slist'); el.innerHTML='';
   osSvcs.forEach(s=>{
@@ -3359,7 +3540,8 @@ async function gerarOSPDF(modo='os'){
     tec:gV('os-tec'), tot:parseFloat(gV('os-total'))||0,
     mat:gV('os-mat'), obs:gV('os-obs'),
     svcs:osSvcs.filter(s=>s.d.trim()).map(s=>s.d.trim()),
-    fotos:osFotos.filter(Boolean), videoLink:gV('os-video-link')
+    fotos:osFotos.filter(Boolean), videoLink:gV('os-video-link'),
+    checklist: osChecklist.filter(x=>x.checked)
   };
   let numStr='???';
   if(dbOk&&db){
@@ -3368,7 +3550,7 @@ async function gerarOSPDF(modo='os'){
       const num=rows&&rows.length?(rows[0].numero||0)+1:1;
       const orcId=osOrcId||null;
       const lojaIdOS=gV('os-loja')||'fortemp-camboriu';
-      await db.from('ordens_servico').insert([{numero:num,orcamento_id:orcId,loja_id:lojaIdOS,cliente:dados.cli,local_servico:dados.loc,cnpj:dados.cnpj||null,data_servico:dados.data,hora:dados.hora,tecnico:dados.tec,servicos:dados.svcs,materiais:dados.mat,obs_tecnica:dados.obs,total:dados.tot,status:'agendado',fotos:dados.fotos,video_link:dados.videoLink||null}]);
+      await db.from('ordens_servico').insert([{numero:num,orcamento_id:orcId,loja_id:lojaIdOS,cliente:dados.cli,local_servico:dados.loc,cnpj:dados.cnpj||null,data_servico:dados.data,hora:dados.hora,tecnico:dados.tec,servicos:dados.svcs,materiais:dados.mat,obs_tecnica:dados.obs,total:dados.tot,status:'agendado',fotos:dados.fotos,video_link:dados.videoLink||null,checklist:dados.checklist.length?JSON.stringify(dados.checklist):null}]);
       numStr=String(num).padStart(3,'0');
     }catch(e){ numStr='???'; }
   } else { const n=(parseInt(ls('fluxa_os_num')||'0'))+1; lsSet('fluxa_os_num',n); numStr=String(n).padStart(3,'0'); }
@@ -3510,6 +3692,59 @@ function filt(btn){
   btn.classList.add('on'); filtroSt=btn.dataset.s; renderTabela();
 }
 function buscar(v){ busca=v.toLowerCase(); renderTabela(); }
+
+// ──────────────────────────────────────────────────
+//  GRÁFICO DE FATURAMENTO
+// ──────────────────────────────────────────────────
+function renderGraficoDash(){
+  const canvas=document.getElementById('dash-chart'); if(!canvas) return;
+  if(typeof Chart==='undefined') return;
+  const tipo=(document.getElementById('dash-chart-tipo')||{value:'aprovado'}).value;
+  const hoje=new Date();
+  const meses=[];
+  for(let i=5;i>=0;i--){
+    const d=new Date(hoje.getFullYear(),hoje.getMonth()-i,1);
+    meses.push({label:d.toLocaleDateString('pt-BR',{month:'short',year:'2-digit'}),y:d.getFullYear(),m:d.getMonth()});
+  }
+  const orcFilt=filtrarPorLoja(todosOrc);
+  const valores=meses.map(({y,m})=>{
+    return orcFilt.filter(o=>{
+      const raw=(o.data_orc||o.data||'').split('T')[0];
+      if(!raw) return false;
+      const d=new Date(raw+'T12:00:00');
+      return d.getFullYear()===y && d.getMonth()===m && (tipo==='aprovado'?o.status==='aprovado':true);
+    }).reduce((a,o)=>a+(o.total||0),0);
+  });
+  if(_dashChart){ try{_dashChart.destroy();}catch(e){} _dashChart=null; }
+  const cor=getComputedStyle(document.documentElement).getPropertyValue('--c1').trim()||'#F07820';
+  _dashChart=new Chart(canvas,{
+    type:'bar',
+    data:{
+      labels:meses.map(m=>m.label),
+      datasets:[{
+        label:tipo==='aprovado'?'Aprovados':'Total emitido',
+        data:valores,
+        backgroundColor:cor+'26',
+        borderColor:cor,
+        borderWidth:2,
+        borderRadius:6,
+        borderSkipped:false,
+      }]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:ctx=>'R$ '+ctx.raw.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}}
+      },
+      scales:{
+        x:{grid:{display:false},ticks:{font:{size:11,family:'Inter'},color:'#6b7280'}},
+        y:{grid:{color:'rgba(0,0,0,.04)'},border:{display:false},ticks:{font:{size:11,family:'Inter'},color:'#6b7280',callback:v=>v===0?'R$0':v>=1000?'R$'+Math.round(v/1000)+'k':'R$'+v}}
+      }
+    }
+  });
+}
 
 function filtrarPorPeriodo(val){ filtroPeriodo=val; renderTabela(); }
 
@@ -3665,6 +3900,9 @@ function novaOS(){
   document.getElementById('os-src-badge').textContent='';
   document.getElementById('btn-os-both').style.display='none';
   document.getElementById('btn-os-pdf').style.gridColumn='1/-1';
+  // Reseta checklist
+  osChecklist = OS_CHECKLIST_DEFAULT.map(x=>({...x}));
+  renderOsChecklist();
 }
 
 // ── MODAL PAGAMENTO ──
@@ -3880,12 +4118,74 @@ function renderClientes(){
         <div class="cli-card-nome">${esc(c.nome)}</div>
         <div class="cli-card-det">${[c.tel,c.cnpj,c.end].filter(Boolean).map(x=>esc(x)).join(' · ')}</div>
       </div>
-      <div style="display:flex;gap:6px;flex-shrink:0">
+      <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap">
+        <button class="tb" onclick="verHistoricoCliente('${c.id}')">📋 Hist.</button>
         <button class="tb" onclick="editarCliente('${c.id}')">✏️ Editar</button>
         <button class="tb" onclick="copiarLinkPortal('${c.id}')">🔗 Portal</button>
         <button class="tb d" onclick="excluirCliente('${c.id}')">🗑</button>
       </div>
     </div>`).join('');
+}
+
+// ──────────────────────────────────────────────────
+//  HISTÓRICO COMPLETO DO CLIENTE
+// ──────────────────────────────────────────────────
+function verHistoricoCliente(cliId){
+  const lista=lsCliLer();
+  const cli=lista.find(x=>x.id===cliId); if(!cli){ toast('Cliente não encontrado'); return; }
+  const nomeL=cli.nome.toLowerCase();
+  const orcCli=todosOrc.filter(o=>(o.cliente||'').toLowerCase()===nomeL||o.cliente_id===cliId);
+  const osCli=todosOS.filter(o=>(o.cliente||'').toLowerCase()===nomeL);
+  const totalFat=orcCli.filter(o=>o.status==='aprovado').reduce((a,o)=>a+(o.total||0),0);
+  const stC={aprovado:'var(--green)',pendente:'var(--yellow)',recusado:'var(--red)',vencido:'var(--gray)',agendado:'var(--blue)',concluido:'var(--green)',cancelado:'var(--red)'};
+  const stBg={aprovado:'var(--green-bg)',pendente:'var(--yellow-bg)',recusado:'var(--red-bg)',vencido:'var(--gray-light)',agendado:'var(--blue-bg)',concluido:'var(--green-bg)',cancelado:'var(--red-bg)'};
+  const existing=document.getElementById('modal-hist-cli'); if(existing) existing.remove();
+  const m=document.createElement('div'); m.id='modal-hist-cli'; m.className='cli-hist-overlay';
+  const orcHTML=orcCli.length?[...orcCli].sort((a,b)=>(b.numero||0)-(a.numero||0)).map(o=>`
+    <div class="chi">
+      <div>
+        <div class="chi-desc">Orçamento #${String(o.numero||'').padStart(3,'0')}</div>
+        <div class="chi-sub">${esc((o.servicos||[]).map(s=>s.desc||s).slice(0,2).join(', '))||'—'} · ${o.data_orc?new Date(o.data_orc+'T12:00:00').toLocaleDateString('pt-BR'):'—'}</div>
+      </div>
+      <div class="chi-right">
+        <div class="chi-val">${brl(o.total||0)}</div>
+        <span class="chi-badge" style="background:${stBg[o.status]||'var(--gray-light)'};color:${stC[o.status]||'var(--gray)'}">${o.status||'—'}</span>
+      </div>
+    </div>`).join('')
+    :'<div style="padding:10px 0;font-size:13px;color:var(--gray)">Nenhum orçamento encontrado</div>';
+  const osHTML=osCli.length?[...osCli].sort((a,b)=>(b.numero||0)-(a.numero||0)).map(o=>`
+    <div class="chi">
+      <div>
+        <div class="chi-desc">OS #${String(o.numero||'').padStart(3,'0')} · ${esc(o.tecnico||'—')}</div>
+        <div class="chi-sub">${esc(Array.isArray(o.servicos)?o.servicos.map(s=>typeof s==='string'?s:(s.desc||s)).slice(0,2).join(', '):'')||'—'} · ${o.data_servico?new Date(o.data_servico+'T12:00:00').toLocaleDateString('pt-BR'):'—'}</div>
+      </div>
+      <div class="chi-right">
+        <div class="chi-val">${o.total?brl(o.total):'—'}</div>
+        <span class="chi-badge" style="background:${stBg[o.status]||'var(--blue-bg)'};color:${stC[o.status]||'var(--blue)'}">${o.status||'agendado'}</span>
+      </div>
+    </div>`).join('')
+    :'<div style="padding:10px 0;font-size:13px;color:var(--gray)">Nenhuma OS encontrada</div>';
+  m.innerHTML=`<div class="cli-hist-box">
+    <div class="cli-hist-hdr">
+      <div class="cli-hist-titulo">📋 ${esc(cli.nome)}</div>
+      <button class="cli-hist-close" onclick="document.getElementById('modal-hist-cli').remove()">×</button>
+    </div>
+    <div class="cli-hist-body">
+      <div class="cli-hist-resumo">
+        <div class="chr-item"><span class="chr-val">${orcCli.length}</span><div class="chr-label">Orçamentos</div></div>
+        <div class="chr-item"><span class="chr-val">${osCli.length}</span><div class="chr-label">OS realizadas</div></div>
+        <div class="chr-item"><span class="chr-val">${brl(totalFat)}</span><div class="chr-label">Faturado</div></div>
+      </div>
+      <div class="cli-hist-secao">
+        <div class="cli-hist-sec-titulo">Orçamentos</div>${orcHTML}
+      </div>
+      <div class="cli-hist-secao">
+        <div class="cli-hist-sec-titulo">Ordens de Serviço</div>${osHTML}
+      </div>
+    </div>
+  </div>`;
+  m.addEventListener('click',e=>{ if(e.target===m) m.remove(); });
+  document.body.appendChild(m);
 }
 
 function excluirCliente(id){
@@ -4384,7 +4684,7 @@ async function renderPortal(cli){
         <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;flex-wrap:wrap;gap:8px">
           <div class="portal-orc-total">${brl(o.total||0)}</div>
           <div style="display:flex;gap:6px">
-            <button class="ba" style="background:var(--green);color:white;padding:7px 14px;font-size:12px" onclick="aprovarOrcPortal('${o.id}')">✅ Aprovar</button>
+            <button class="ba" style="background:var(--green);color:white;padding:7px 14px;font-size:12px" onclick="abrirModalAssinatura('${o.id}')">✅ Aprovar</button>
             <button class="ba" style="background:var(--red);color:white;padding:7px 14px;font-size:12px" onclick="recusarOrcPortal('${o.id}')">❌ Recusar</button>
           </div>
         </div>
@@ -4424,13 +4724,74 @@ async function renderPortal(cli){
   }
 }
 
-async function aprovarOrcPortal(id){
-  if(!confirm('Confirmar aprovação deste orçamento?')) return;
-  todosOrc=todosOrc.map(o=>o.id===id?{...o,status:'aprovado'}:o);
-  lsOrcAtualizar(id,{status:'aprovado'});
-  if(dbOk&&db) db.from('orcamentos').update({status:'aprovado'}).eq('id',id).then(()=>{}).catch(()=>{});
+// ──────────────────────────────────────────────────
+//  ASSINATURA DO CLIENTE (PORTAL)
+// ──────────────────────────────────────────────────
+function abrirModalAssinatura(orcId){
+  const existing=document.getElementById('modal-assinatura'); if(existing) existing.remove();
+  const m=document.createElement('div'); m.id='modal-assinatura'; m.className='cli-hist-overlay'; m.style.zIndex='1100';
+  m.innerHTML=`<div class="cli-hist-box" style="max-height:none">
+    <div class="cli-hist-hdr">
+      <div class="cli-hist-titulo">✍️ Assinar Aprovação</div>
+      <button class="cli-hist-close" onclick="document.getElementById('modal-assinatura').remove()">×</button>
+    </div>
+    <div style="padding:16px 20px 24px">
+      <p style="font-size:13px;color:var(--gray);margin-bottom:12px">Assine abaixo para confirmar a aprovação deste orçamento. Sua assinatura será registrada.</p>
+      <div class="sig-wrap">
+        <canvas id="sig-canvas" class="sig-canvas"></canvas>
+        <div class="sig-placeholder" id="sig-placeholder">✍️ Assine aqui com o dedo ou mouse</div>
+      </div>
+      <div class="sig-btns">
+        <button class="sig-btn" onclick="limparAssinatura()">↺ Limpar</button>
+        <button class="sig-btn ok" onclick="confirmarAssinatura('${orcId}')">✅ Confirmar Aprovação</button>
+      </div>
+    </div>
+  </div>`;
+  m.addEventListener('click',e=>{ if(e.target===m) m.remove(); });
+  document.body.appendChild(m);
+  setTimeout(initSigCanvas, 80);
+}
+function initSigCanvas(){
+  const canvas=document.getElementById('sig-canvas'); if(!canvas) return;
+  const ctx=canvas.getContext('2d');
+  const rect=canvas.getBoundingClientRect();
+  const dpr=window.devicePixelRatio||1;
+  canvas.width=rect.width*dpr; canvas.height=130*dpr;
+  canvas.style.height='130px';
+  ctx.scale(dpr,dpr);
+  ctx.strokeStyle='#1a1a2e'; ctx.lineWidth=2.5; ctx.lineCap='round'; ctx.lineJoin='round';
+  _sigDrawing=false; _sigHasMark=false;
+  function pos(e){ const r=canvas.getBoundingClientRect(); const t=e.touches?e.touches[0]:e; return [(t.clientX-r.left),(t.clientY-r.top)]; }
+  canvas.onmousedown=e=>{ _sigDrawing=true; const [x,y]=pos(e); ctx.beginPath(); ctx.moveTo(x,y); };
+  canvas.onmousemove=e=>{ if(!_sigDrawing) return; const [x,y]=pos(e); ctx.lineTo(x,y); ctx.stroke(); _sigHasMark=true; const ph=document.getElementById('sig-placeholder'); if(ph) ph.style.opacity='0'; };
+  canvas.onmouseup=()=>{ _sigDrawing=false; };
+  canvas.onmouseleave=()=>{ _sigDrawing=false; };
+  canvas.ontouchstart=e=>{ e.preventDefault(); _sigDrawing=true; const [x,y]=pos(e); ctx.beginPath(); ctx.moveTo(x,y); };
+  canvas.ontouchmove=e=>{ e.preventDefault(); if(!_sigDrawing) return; const [x,y]=pos(e); ctx.lineTo(x,y); ctx.stroke(); _sigHasMark=true; const ph=document.getElementById('sig-placeholder'); if(ph) ph.style.opacity='0'; };
+  canvas.ontouchend=()=>{ _sigDrawing=false; };
+}
+function limparAssinatura(){
+  const canvas=document.getElementById('sig-canvas'); if(!canvas) return;
+  const ctx=canvas.getContext('2d'); ctx.clearRect(0,0,canvas.width,canvas.height);
+  _sigHasMark=false;
+  const ph=document.getElementById('sig-placeholder'); if(ph) ph.style.opacity='1';
+}
+async function confirmarAssinatura(orcId){
+  if(!_sigHasMark){ toast('⚠️ Por favor, assine antes de confirmar'); return; }
+  const canvas=document.getElementById('sig-canvas'); if(!canvas) return;
+  const sigB64=canvas.toDataURL('image/png');
+  document.getElementById('modal-assinatura').remove();
+  await aprovarOrcPortal(orcId, sigB64);
+}
+
+async function aprovarOrcPortal(id, sigB64){
+  const upd={status:'aprovado'};
+  if(sigB64) upd.assinatura_base64=sigB64;
+  todosOrc=todosOrc.map(o=>o.id===id?{...o,...upd}:o);
+  lsOrcAtualizar(id,upd);
+  if(dbOk&&db) db.from('orcamentos').update(upd).eq('id',id).then(()=>{}).catch(()=>{});
   if(portalCliente) await renderPortal(portalCliente);
-  toast('✅ Orçamento aprovado!');
+  toast('✅ Orçamento aprovado e assinado!');
 }
 
 async function recusarOrcPortal(id){
@@ -4530,6 +4891,44 @@ async function loadProdutividade(){
     }catch(e){}
   }
   renderProd();
+  renderRelatorioFinanceiro();
+}
+
+// ──────────────────────────────────────────────────
+//  RELATÓRIO FINANCEIRO
+// ──────────────────────────────────────────────────
+function renderRelatorioFinanceiro(){
+  const tbody=document.getElementById('fin-tabela-body'); if(!tbody) return;
+  const periodo=(document.getElementById('fin-periodo')||{value:'6m'}).value;
+  const hoje=new Date();
+  const meses=[];
+  if(periodo==='6m'){for(let i=5;i>=0;i--){const d=new Date(hoje.getFullYear(),hoje.getMonth()-i,1);meses.push({y:d.getFullYear(),m:d.getMonth()});}}
+  else if(periodo==='12m'){for(let i=11;i>=0;i--){const d=new Date(hoje.getFullYear(),hoje.getMonth()-i,1);meses.push({y:d.getFullYear(),m:d.getMonth()});}}
+  else{for(let i=0;i<=hoje.getMonth();i++) meses.push({y:hoje.getFullYear(),m:i});}
+  const orcFilt=filtrarPorLoja(todosOrc);
+  const despFilt=filtrarPorLoja(todasDesp);
+  let totRec=0,totDesp=0;
+  const linhas=meses.map(({y,m})=>{
+    const label=new Date(y,m,1).toLocaleDateString('pt-BR',{month:'short',year:'2-digit'});
+    const rec=orcFilt.filter(o=>{const raw=(o.data_orc||o.data||'').split('T')[0];if(!raw)return false;const d=new Date(raw+'T12:00:00');return d.getFullYear()===y&&d.getMonth()===m&&o.status==='aprovado';}).reduce((a,o)=>a+(o.total||0),0);
+    const desp=despFilt.filter(d=>{const raw=(d.data||'').split('T')[0];if(!raw)return false;const dt=new Date(raw+'T12:00:00');return dt.getFullYear()===y&&dt.getMonth()===m;}).reduce((a,d)=>a+(d.valor||0),0);
+    const res=rec-desp;
+    totRec+=rec; totDesp+=desp;
+    return `<tr>
+      <td style="font-weight:600">${label}</td>
+      <td class="${rec>0?'fin-pos':'fin-zero'}">${brl(rec)}</td>
+      <td class="${desp>0?'fin-neg':'fin-zero'}">${brl(desp)}</td>
+      <td class="${res>0?'fin-pos':res<0?'fin-neg':'fin-zero'}">${brl(res)}</td>
+    </tr>`;
+  });
+  const totRes=totRec-totDesp;
+  linhas.push(`<tr class="fin-total">
+    <td>Total do período</td>
+    <td class="${totRec>0?'fin-pos':'fin-zero'}">${brl(totRec)}</td>
+    <td class="${totDesp>0?'fin-neg':'fin-zero'}">${brl(totDesp)}</td>
+    <td class="${totRes>0?'fin-pos':totRes<0?'fin-neg':'fin-zero'}">${brl(totRes)}</td>
+  </tr>`);
+  tbody.innerHTML=linhas.join('');
 }
 
 function renderProd(){
@@ -4957,6 +5356,7 @@ function verDetalhesOS(id){
       <div><span style="font-weight:700">🛠 Serviços:</span> ${esc(svcs)}</div>
       ${o.total?`<div><span style="font-weight:700">💰 Total:</span> ${brl(o.total)}</div>`:''}
       ${o.obs_tecnica?`<div><span style="font-weight:700">📝 Obs:</span> ${esc(o.obs_tecnica)}</div>`:''}
+      ${(()=>{ try{ const chk=o.checklist?(typeof o.checklist==='string'?JSON.parse(o.checklist):o.checklist):[]; const ok=chk.filter(x=>x.checked); if(!ok.length) return ''; return `<div><span style="font-weight:700">✅ Checklist:</span><div style="margin-top:6px;display:flex;flex-direction:column;gap:4px">${ok.map(x=>`<div style="display:flex;align-items:flex-start;gap:6px;font-size:12px"><span style="color:var(--green);font-weight:700">✓</span><span>${esc(x.nome)}${x.obs?` <span style="color:#6b7280">— ${esc(x.obs)}</span>`:''}</span></div>`).join('')}</div></div>`; }catch(e){ return ''; } })()}
     </div>
     <div style="display:flex;gap:8px;margin-top:18px">
       <button onclick="this.closest('#modal-detalhes-os').remove()" style="flex:1;padding:10px;border-radius:8px;border:1.5px solid #e5e7eb;background:#fff;font-family:Inter,sans-serif;font-size:13px;font-weight:600;cursor:pointer">Fechar</button>
