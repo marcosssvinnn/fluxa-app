@@ -1375,11 +1375,21 @@
     <!-- ── Gráfico de faturamento ── -->
     <div class="dash-chart-card">
       <div class="dash-chart-hdr">
-        <div class="dash-chart-titulo">📊 Faturamento — Últimos 6 meses</div>
-        <select id="dash-chart-tipo" onchange="renderGraficoDash()" style="padding:5px 10px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Inter',sans-serif;outline:none;cursor:pointer">
-          <option value="aprovado">Aprovados</option>
-          <option value="emitido">Total emitido</option>
-        </select>
+        <div class="dash-chart-titulo" id="dash-chart-titulo">📊 Faturamento</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <select id="dash-chart-periodo" onchange="renderGraficoDash()" style="padding:5px 10px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Inter',sans-serif;outline:none;cursor:pointer">
+            <option value="3">3 meses</option>
+            <option value="6" selected>6 meses</option>
+            <option value="12">12 meses</option>
+            <option value="24">24 meses</option>
+            <option value="ano">Este ano</option>
+            <option value="tudo">Tudo</option>
+          </select>
+          <select id="dash-chart-tipo" onchange="renderGraficoDash()" style="padding:5px 10px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Inter',sans-serif;outline:none;cursor:pointer">
+            <option value="aprovado">Aprovados</option>
+            <option value="emitido">Total emitido</option>
+          </select>
+        </div>
       </div>
       <div class="dash-chart-wrap">
         <canvas id="dash-chart"></canvas>
@@ -3696,27 +3706,61 @@ function buscar(v){ busca=v.toLowerCase(); renderTabela(); }
 // ──────────────────────────────────────────────────
 //  GRÁFICO DE FATURAMENTO
 // ──────────────────────────────────────────────────
+function _orcData(o){
+  // campo correto de data: data_criacao (ISO) é o mais confiável
+  const raw = o.data_criacao || o.data_orc || o.data || '';
+  return raw ? new Date(raw) : null;
+}
+
 function renderGraficoDash(){
   const canvas=document.getElementById('dash-chart'); if(!canvas) return;
   if(typeof Chart==='undefined') return;
   const tipo=(document.getElementById('dash-chart-tipo')||{value:'aprovado'}).value;
+  const periodo=(document.getElementById('dash-chart-periodo')||{value:'6'}).value;
   const hoje=new Date();
-  const meses=[];
-  for(let i=5;i>=0;i--){
-    const d=new Date(hoje.getFullYear(),hoje.getMonth()-i,1);
-    meses.push({label:d.toLocaleDateString('pt-BR',{month:'short',year:'2-digit'}),y:d.getFullYear(),m:d.getMonth()});
-  }
   const orcFilt=filtrarPorLoja(todosOrc);
+  let meses=[];
+
+  if(periodo==='tudo'){
+    // Descobre o mês mais antigo com dados
+    const datas=orcFilt.map(o=>_orcData(o)).filter(Boolean);
+    const minData=datas.length?new Date(Math.min(...datas)):hoje;
+    const diffMeses=(hoje.getFullYear()-minData.getFullYear())*12+(hoje.getMonth()-minData.getMonth());
+    const total=Math.max(diffMeses+1, 1);
+    for(let i=total-1;i>=0;i--){
+      const d=new Date(hoje.getFullYear(),hoje.getMonth()-i,1);
+      meses.push({label:d.toLocaleDateString('pt-BR',{month:'short',year:'2-digit'}),y:d.getFullYear(),m:d.getMonth()});
+    }
+  } else if(periodo==='ano'){
+    for(let m=0;m<=hoje.getMonth();m++){
+      const d=new Date(hoje.getFullYear(),m,1);
+      meses.push({label:d.toLocaleDateString('pt-BR',{month:'short'}),y:d.getFullYear(),m:d.getMonth()});
+    }
+  } else {
+    const qtd=parseInt(periodo)||6;
+    for(let i=qtd-1;i>=0;i--){
+      const d=new Date(hoje.getFullYear(),hoje.getMonth()-i,1);
+      meses.push({label:d.toLocaleDateString('pt-BR',{month:'short',year:'2-digit'}),y:d.getFullYear(),m:d.getMonth()});
+    }
+  }
+
+  // Atualiza o título dinamicamente
+  const titulos={'3':'3 meses','6':'6 meses','12':'12 meses','24':'24 meses','ano':'Este ano','tudo':'Todo o período'};
+  const tituloEl=document.getElementById('dash-chart-titulo');
+  if(tituloEl) tituloEl.textContent='📊 Faturamento — '+titulos[periodo];
+
   const valores=meses.map(({y,m})=>{
     return orcFilt.filter(o=>{
-      const raw=(o.data_orc||o.data||'').split('T')[0];
-      if(!raw) return false;
-      const d=new Date(raw+'T12:00:00');
+      const d=_orcData(o); if(!d||isNaN(d)) return false;
       return d.getFullYear()===y && d.getMonth()===m && (tipo==='aprovado'?o.status==='aprovado':true);
     }).reduce((a,o)=>a+(o.total||0),0);
   });
+
   if(_dashChart){ try{_dashChart.destroy();}catch(e){} _dashChart=null; }
   const cor=getComputedStyle(document.documentElement).getPropertyValue('--c1').trim()||'#F07820';
+  // Barras mais finas quando há muitos meses
+  const muitosMeses=meses.length>12;
+
   _dashChart=new Chart(canvas,{
     type:'bar',
     data:{
@@ -3727,8 +3771,9 @@ function renderGraficoDash(){
         backgroundColor:cor+'26',
         borderColor:cor,
         borderWidth:2,
-        borderRadius:6,
+        borderRadius:muitosMeses?3:6,
         borderSkipped:false,
+        maxBarThickness:muitosMeses?24:48,
       }]
     },
     options:{
@@ -3739,7 +3784,7 @@ function renderGraficoDash(){
         tooltip:{callbacks:{label:ctx=>'R$ '+ctx.raw.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}}
       },
       scales:{
-        x:{grid:{display:false},ticks:{font:{size:11,family:'Inter'},color:'#6b7280'}},
+        x:{grid:{display:false},ticks:{font:{size:muitosMeses?9:11,family:'Inter'},color:'#6b7280',maxRotation:muitosMeses?45:0}},
         y:{grid:{color:'rgba(0,0,0,.04)'},border:{display:false},ticks:{font:{size:11,family:'Inter'},color:'#6b7280',callback:v=>v===0?'R$0':v>=1000?'R$'+Math.round(v/1000)+'k':'R$'+v}}
       }
     }
@@ -4910,7 +4955,7 @@ function renderRelatorioFinanceiro(){
   let totRec=0,totDesp=0;
   const linhas=meses.map(({y,m})=>{
     const label=new Date(y,m,1).toLocaleDateString('pt-BR',{month:'short',year:'2-digit'});
-    const rec=orcFilt.filter(o=>{const raw=(o.data_orc||o.data||'').split('T')[0];if(!raw)return false;const d=new Date(raw+'T12:00:00');return d.getFullYear()===y&&d.getMonth()===m&&o.status==='aprovado';}).reduce((a,o)=>a+(o.total||0),0);
+    const rec=orcFilt.filter(o=>{const d=_orcData(o);return d&&!isNaN(d)&&d.getFullYear()===y&&d.getMonth()===m&&o.status==='aprovado';}).reduce((a,o)=>a+(o.total||0),0);
     const desp=despFilt.filter(d=>{const raw=(d.data||'').split('T')[0];if(!raw)return false;const dt=new Date(raw+'T12:00:00');return dt.getFullYear()===y&&dt.getMonth()===m;}).reduce((a,d)=>a+(d.valor||0),0);
     const res=rec-desp;
     totRec+=rec; totDesp+=desp;
