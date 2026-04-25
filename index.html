@@ -3601,7 +3601,7 @@ async function gerarOSPDF(modo='os'){
     }
   }
 
-  autoSalvarClienteDoOrc({cli:dados.cli, loc:dados.loc, tel:'', cnpj:dados.cnpj||''});
+  autoSalvarClienteDoOrc({cli:dados.cli, loc:dados.loc, tel:dados.tel||'', cnpj:dados.cnpj||''});
   preencherDocOS({...dados, fotos:dados.fotos, videoLink:dados.videoLink}, numStr);
   printMode=modo; window.print();
 }
@@ -4182,10 +4182,34 @@ function renderClientes(){
       <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap">
         <button class="tb" onclick="verHistoricoCliente('${c.id}')">📋 Hist.</button>
         <button class="tb" onclick="editarCliente('${c.id}')">✏️ Editar</button>
-        <button class="tb" onclick="copiarLinkPortal('${c.id}')">🔗 Portal</button>
+        <button class="tb" onclick="novoOrcParaCliente('${c.id}')">＋ Orç.</button>
+        <button class="tb" onclick="novaOSParaCliente('${c.id}')">🔧 OS</button>
         <button class="tb d" onclick="excluirCliente('${c.id}')">🗑</button>
       </div>
     </div>`).join('');
+}
+
+function novoOrcParaCliente(id){
+  const c=lsCliLer().find(x=>x.id===id); if(!c) return;
+  novoOrc();
+  setTimeout(()=>{
+    setV('cli', c.nome);
+    if(c.end)  setV('loc', c.end);
+    if(c.tel)  setV('tel-cli', c.tel);
+    if(c.cnpj) setV('cnpj-cli', c.cnpj);
+    go('form');
+  }, 50);
+}
+
+function novaOSParaCliente(id){
+  const c=lsCliLer().find(x=>x.id===id); if(!c) return;
+  novaOS();
+  setTimeout(()=>{
+    if(document.getElementById('os-cli'))  setV('os-cli',  c.nome);
+    if(document.getElementById('os-loc'))  setV('os-loc',  c.end||'');
+    if(document.getElementById('os-cnpj')) setV('os-cnpj', c.cnpj||'');
+    go('os');
+  }, 50);
 }
 
 // ──────────────────────────────────────────────────
