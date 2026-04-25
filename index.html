@@ -2069,7 +2069,15 @@ function isMainGestor(){ const s=getSessao(); return s?.perfil==='gestor'&&!s?.l
 
 // Filtra lista pelo contexto de loja/grupo ativo
 function filtrarPorLoja(lista, campo='loja_id'){
-  if(lojaAtiva) return lista.filter(o=>(o[campo]||'')===lojaAtiva);
+  if(lojaAtiva){
+    const loja=getLoja(lojaAtiva);
+    if(loja?.grupo==='forthemp'){
+      // Forthemp específico: inclui registros sem loja_id (legados)
+      return lista.filter(o=>(o[campo]||'')===lojaAtiva||!o[campo]);
+    }
+    // Acquamotor ou outro grupo: filtro estrito
+    return lista.filter(o=>(o[campo]||'')===lojaAtiva);
+  }
   if(isMainGestor()) return lista.filter(o=>GRUPO_FORTHEMP.includes(o[campo])||!o[campo]);
   // company gestor ou técnico — lojaAtiva já está definido na sua empresa
   return lista;
@@ -2872,7 +2880,7 @@ function novoOrc(){
   svcs=[{id:Date.now(),d:'',p:''}];
   ['cli','loc','tel-cli','obs','escopo','data-svc','data-orc','nota-interna'].forEach(id=>setV(id,''));
   setV('pag','A combinar'); setV('val','5'); setV('desc','0'); setV('disc-tp','R$');
-  setV('orc-loja','fortemp-camboriu');
+  setV('orc-loja', lojaAtiva||'fortemp-camboriu');
   renderSvcs(); upd();
   const fp=document.getElementById('foto-prev'); if(fp){fp.style.display='none';}
   document.getElementById('btn-rm-foto').style.display='none';
@@ -3485,8 +3493,9 @@ function verificarVencidos(){
 }
 
 function atualizarDash(){
-  const tot=todosOrc.length, soma=todosOrc.reduce((a,o)=>a+(o.total||0),0);
-  const aprov=todosOrc.filter(o=>o.status==='aprovado');
+  const orcFiltrado=filtrarPorLoja(todosOrc);
+  const tot=orcFiltrado.length, soma=orcFiltrado.reduce((a,o)=>a+(o.total||0),0);
+  const aprov=orcFiltrado.filter(o=>o.status==='aprovado');
   const somaA=aprov.reduce((a,o)=>a+(o.total||0),0);
   const aRec=aprov.reduce((a,o)=>a+(o.total||0)-(o.valor_recebido||0),0);
   const tick=tot>0?soma/tot:0;
