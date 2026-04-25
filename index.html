@@ -645,18 +645,24 @@
 
     /* ── NOVO LOGIN ── */
     .login-overlay{position:fixed;inset:0;background:var(--c2);z-index:9000;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto}
-    .login-box{background:var(--white);border-radius:20px;padding:36px 28px;width:100%;max-width:380px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.4);margin:auto}
+    .login-box{background:var(--white);border-radius:20px;padding:28px 24px;width:100%;max-width:400px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.4);margin:auto}
     .login-title{font-size:20px;font-weight:800;color:var(--c2);margin-bottom:4px}
-    .login-sub{font-size:13px;color:var(--gray);margin-bottom:22px}
-    .login-users{display:flex;flex-direction:column;gap:8px;margin-bottom:20px;text-align:left;max-height:55vh;overflow-y:auto}
-    .login-user-btn{display:flex;align-items:center;gap:12px;padding:11px 14px;border:2px solid var(--gray-mid);border-radius:12px;background:var(--white);cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s;width:100%}
+    .login-sub{font-size:13px;color:var(--gray);margin-bottom:18px}
+    .login-users{display:flex;flex-direction:column;gap:0;margin-bottom:16px;text-align:left}
+    .login-section-label{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--gray);padding:10px 2px 6px;border-top:1px solid var(--gray-light)}
+    .login-section-label:first-child{border-top:none;padding-top:0}
+    .login-section-btns{display:flex;flex-direction:column;gap:6px;margin-bottom:4px}
+    .login-tec-toggle{width:100%;padding:8px 12px;background:none;border:1.5px dashed var(--gray-mid);border-radius:10px;font-size:12px;font-weight:700;color:var(--gray);cursor:pointer;font-family:'Inter',sans-serif;text-align:left;margin-top:4px;transition:all .15s}
+    .login-tec-toggle:hover{border-color:var(--c1);color:var(--c1)}
+    .login-tec-list{display:flex;flex-direction:column;gap:6px;margin-top:6px}
+    .login-user-btn{display:flex;align-items:center;gap:10px;padding:10px 12px;border:2px solid var(--gray-mid);border-radius:10px;background:var(--white);cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s;width:100%}
     .login-user-btn:hover{border-color:var(--c1);background:var(--c1-light)}
     .login-user-btn.selected{border-color:var(--c1);background:var(--c1-light)}
-    .login-user-avatar{width:38px;height:38px;border-radius:50%;background:var(--c2);color:white;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;flex-shrink:0}
+    .login-user-avatar{width:34px;height:34px;border-radius:50%;background:var(--c2);color:white;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;flex-shrink:0}
     .login-user-avatar.gestor{background:var(--c1)}
     .login-user-info{flex:1;text-align:left}
-    .login-user-nome{font-size:14px;font-weight:700;color:var(--c2)}
-    .login-user-perfil{font-size:11px;color:var(--gray);font-weight:600;margin-top:1px}
+    .login-user-nome{font-size:13px;font-weight:700;color:var(--c2)}
+    .login-user-perfil{font-size:11px;color:var(--gray);font-weight:500;margin-top:1px}
     .login-pin-wrap{display:none;margin-top:0}
     .login-pin-wrap.show{display:block}
     .login-pin-label{font-size:12px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
@@ -747,8 +753,8 @@
       <button onclick="deselecionarUser()" style="width:100%;padding:10px;background:none;border:none;color:var(--gray);font-size:13px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;margin-top:8px">← Voltar</button>
     </div>
     <div id="login-loja-wrap" style="display:none">
-      <div class="login-pin-label" style="margin-bottom:12px;text-align:left">Qual empresa você vai gerenciar?</div>
-      <div id="login-loja-list" style="display:flex;flex-direction:column;gap:8px;max-height:60vh;overflow-y:auto"></div>
+      <div class="login-pin-label" style="margin-bottom:8px;text-align:left">Qual empresa você vai gerenciar?</div>
+      <div id="login-loja-list" style="display:flex;flex-direction:column;gap:0;text-align:left"></div>
       <button onclick="voltarParaPin()" style="width:100%;padding:10px;background:none;border:none;color:var(--gray);font-size:13px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;margin-top:12px">← Voltar</button>
     </div>
   </div>
@@ -2316,23 +2322,23 @@ function renderLoginUsers(){
   const wrap=document.getElementById('login-users');
   if(!wrap) return;
 
-  // Usuário Gestor (sempre disponível via PIN da empresa)
+  // ── Seção Gestão ──
   const gestorBtn=`<button class="login-user-btn" data-id="__gestor__" onclick="selecionarUserLogin(this,'__gestor__','gestor','Gestor',null)">
-    <div class="login-user-avatar gestor">G</div>
+    <div class="login-user-avatar gestor">👑</div>
     <div class="login-user-info">
-      <div class="login-user-nome">Gestor</div>
-      <div class="login-user-perfil">Acesso total ao sistema</div>
+      <div class="login-user-nome">Gestor Principal</div>
+      <div class="login-user-perfil">Forthemp — acesso total</div>
     </div>
     <span class="login-check">✓</span>
   </button>`;
 
-  // Gestores de empresa específica (ex: Gestor Acquamotor)
   const gestoresEmpresa=todosUsuarios.filter(u=>u.perfil==='gestor'&&u.loja_id).map(u=>{
     const loja=getLoja(u.loja_id);
     const inicial=u.nome.charAt(0).toUpperCase();
     const lojaParam=`'${u.loja_id}'`;
+    const corAvatar=loja?.grupo==='aquamotor'?'background:#16a34a':'';
     return `<button class="login-user-btn" data-id="${u.id}" onclick="selecionarUserLogin(this,'${u.id}','gestor','${esc(u.nome)}',${lojaParam})">
-      <div class="login-user-avatar gestor">${inicial}</div>
+      <div class="login-user-avatar gestor" style="${corAvatar}">${inicial}</div>
       <div class="login-user-info">
         <div class="login-user-nome">${esc(u.nome)}</div>
         <div class="login-user-perfil">Gestor — ${esc(loja?.nome||u.loja_id)}</div>
@@ -2341,8 +2347,9 @@ function renderLoginUsers(){
     </button>`;
   }).join('');
 
-  // Técnicos do banco
-  const tecsBtns=todosUsuarios.filter(u=>u.perfil!=='gestor').map(u=>{
+  // ── Seção Técnicos ──
+  const tecs=todosUsuarios.filter(u=>u.perfil!=='gestor');
+  const tecsBtns=tecs.map(u=>{
     const inicial=u.nome.charAt(0).toUpperCase();
     const loja=getLoja(u.loja_id);
     const lojaParam=u.loja_id?`'${u.loja_id}'`:'null';
@@ -2356,7 +2363,17 @@ function renderLoginUsers(){
     </button>`;
   }).join('');
 
-  wrap.innerHTML = gestorBtn + gestoresEmpresa + tecsBtns;
+  wrap.innerHTML=`
+    <div class="login-section-label">🏢 Gestão</div>
+    <div class="login-section-btns">
+      ${gestorBtn}
+      ${gestoresEmpresa}
+    </div>
+    ${tecs.length?`
+    <div class="login-section-label">🔧 Técnicos</div>
+    <div class="login-section-btns">
+      ${tecsBtns}
+    </div>`:''}`;
 }
 
 let loginUserSelecionado = null; // {id, perfil, nome, loja_id}
@@ -2473,30 +2490,36 @@ function mostrarSelecaoLojaGestor(){
   const outros=LOJAS.filter(l=>l.grupo!=='forthemp');
   const corGrupo={forthemp:'var(--c2)',aquamotor:'#16a34a'};
   list.innerHTML=`
-    <button class="login-user-btn" onclick="confirmarLojaGestor('')">
-      <div class="login-user-avatar" style="background:var(--c1);font-size:16px">📊</div>
-      <div class="login-user-info">
-        <div class="login-user-nome">Forthemp — Todas as unidades</div>
-        <div class="login-user-perfil">Visão consolidada Camboriú + Itapema</div>
-      </div>
-    </button>
-    ${forthemp.map(l=>`
-      <button class="login-user-btn" onclick="confirmarLojaGestor('${l.id}')">
-        <div class="login-user-avatar" style="font-size:14px;font-weight:800;background:var(--c2);color:white">${l.nome.charAt(0)}</div>
+    <div class="login-section-label" style="border-top:none;padding-top:0">🏊 Forthemp</div>
+    <div class="login-section-btns">
+      <button class="login-user-btn" onclick="confirmarLojaGestor('')">
+        <div class="login-user-avatar" style="background:var(--c1);font-size:15px">📊</div>
         <div class="login-user-info">
-          <div class="login-user-nome">${esc(l.nome)}</div>
-          <div class="login-user-perfil">Forthemp — gerenciar esta unidade</div>
+          <div class="login-user-nome">Todas as unidades</div>
+          <div class="login-user-perfil">Camboriú + Itapema consolidado</div>
         </div>
-      </button>`).join('')}
-    ${outros.length?`<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--gray);padding:10px 4px 4px">Outras empresas</div>`:''}
-    ${outros.map(l=>`
-      <button class="login-user-btn" onclick="confirmarLojaGestor('${l.id}')">
-        <div class="login-user-avatar" style="font-size:14px;font-weight:800;background:${corGrupo[l.grupo]||'var(--blue)'};color:white">${l.nome.charAt(0)}</div>
-        <div class="login-user-info">
-          <div class="login-user-nome">${esc(l.nome)}</div>
-          <div class="login-user-perfil">${esc(l.nome)} — gerenciar empresa</div>
-        </div>
-      </button>`).join('')}`;
+      </button>
+      ${forthemp.map(l=>`
+        <button class="login-user-btn" onclick="confirmarLojaGestor('${l.id}')">
+          <div class="login-user-avatar" style="background:var(--c2);color:white;font-size:13px;font-weight:800">${l.nome.replace('Fortemp ','')}</div>
+          <div class="login-user-info">
+            <div class="login-user-nome">${esc(l.nome)}</div>
+            <div class="login-user-perfil">Gerenciar esta unidade</div>
+          </div>
+        </button>`).join('')}
+    </div>
+    ${outros.length?`
+    <div class="login-section-label">🏢 Outras empresas</div>
+    <div class="login-section-btns">
+      ${outros.map(l=>`
+        <button class="login-user-btn" onclick="confirmarLojaGestor('${l.id}')">
+          <div class="login-user-avatar" style="background:${corGrupo[l.grupo]||'var(--blue)'};color:white;font-size:13px;font-weight:800">${l.nome.charAt(0)}</div>
+          <div class="login-user-info">
+            <div class="login-user-nome">${esc(l.nome)}</div>
+            <div class="login-user-perfil">Gerenciar empresa</div>
+          </div>
+        </button>`).join('')}
+    </div>`:''}` ;
   document.getElementById('login-loja-wrap').style.display='block';
 }
 
