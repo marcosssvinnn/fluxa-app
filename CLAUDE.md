@@ -35,7 +35,7 @@ Sistema de gestão para empresas de manutenção de piscinas. Single-file HTML a
 ## URLs
 - **Produção:** https://marcosssvinnn.github.io/fluxa-app/
 - **Repositório:** https://github.com/marcosssvinnn/fluxa-app (**público** — necessário para GitHub Pages gratuito)
-- **Banco de dados:** Supabase — URL e key hardcoded no index.html (buscar por `lbxwclwzeqqtnwvlxsxs`)
+- **Banco de dados:** Supabase — project ref `lbxwclwzeqqtnwvlxsxs` — URL e anon key hardcoded no index.html
 
 > ⚠️ O repositório é **público**. Não commit dados sensíveis além da anon key do Supabase (que é necessária para o app funcionar). A anon key sozinha não dá acesso de escrita irrestrito — o RLS já está ativo.
 
@@ -53,6 +53,19 @@ git commit -m "descrição da mudança"
 git push
 ```
 > O GitHub Pages serve a branch `main` do repositório diretamente. Não há build step.
+
+## Como rodar SQL no Supabase (sem abrir o painel)
+
+O Claude consegue executar SQL diretamente via Supabase Management API. **Não é necessário abrir o painel do Supabase.**
+
+```bash
+curl -s -X POST "https://api.supabase.com/v1/projects/lbxwclwzeqqtnwvlxsxs/database/query" \
+  -H "Authorization: Bearer sbp_c48f0abe0436a5755c349182a88a3a66cec1da3e" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "SEU SQL AQUI"}'
+```
+
+> ⚠️ O token acima é o **Personal Access Token** do Marcos — não compartilhar publicamente. Qualquer dev que precisar rodar migrations deve pedir o token ao Marcos ou usar o painel do Supabase manualmente.
 
 ## Arquitetura do index.html
 - Linhas 1–700: CSS completo
@@ -161,8 +174,8 @@ function filtrarPorLoja(lista, campo='loja_id'){
 
 | Tabela | O que armazena |
 |--------|----------------|
-| `orcamentos` | Orçamentos com status, serviços, pagamento, cnpj, nota_interna, loja_id |
-| `ordens_servico` | OS com check-in/check-out, fotos, técnico, cnpj, agendamento_id, loja_id |
+| `orcamentos` | Orçamentos com status, serviços, pagamento, cnpj, nota_interna, loja_id, assinatura_base64 |
+| `ordens_servico` | OS com check-in/check-out, fotos, técnico, cnpj, agendamento_id, loja_id, checklist |
 | `empresa_config` | Config da empresa: cores, nome, PIN, templates WhatsApp |
 | `clientes` | Clientes com portal_token, cnpj, portal_ativo, loja_id |
 | `agendamentos` | Agendamentos recorrentes com periodicidade, loja_id |
@@ -172,11 +185,13 @@ function filtrarPorLoja(lista, campo='loja_id'){
 | `usuarios` | Técnicos e gestores com PIN (SHA-256), perfil, loja_id |
 | `notas_fiscais` | NF-e/NFS-e emitidas via Focus NFe |
 
-**SQL já executado no Supabase (✅ confirmado pelo Marcos):**
+**SQL já executado no Supabase (✅ verificado via API):**
 ```sql
 -- Colunas adicionadas às tabelas existentes:
 ALTER TABLE orcamentos     ADD COLUMN IF NOT EXISTS loja_id text;
+ALTER TABLE orcamentos     ADD COLUMN IF NOT EXISTS assinatura_base64 text;
 ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS loja_id text;
+ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS checklist text;
 ALTER TABLE clientes       ADD COLUMN IF NOT EXISTS loja_id text;
 ALTER TABLE agendamentos   ADD COLUMN IF NOT EXISTS loja_id text;
 ALTER TABLE equipamentos   ADD COLUMN IF NOT EXISTS loja_id text;
@@ -413,14 +428,6 @@ Sempre salvar local primeiro, depois sincronizar com Supabase em background:
 lsOrcUpsert(rec);          // 1. salva local imediatamente
 todosOrc.unshift(rec);     // 2. atualiza memória
 db.from('tabela')...       // 3. sincroniza com BD sem bloquear UI
-```
-
-### SQL pendente para Supabase (novas colunas)
-```sql
--- Checklist na OS (salvo como JSON string)
-ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS checklist text;
--- Assinatura do cliente (base64 PNG)
-ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS assinatura_base64 text;
 ```
 
 ### Dependências externas (CDN, no <head>)
