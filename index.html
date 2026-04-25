@@ -1765,6 +1765,9 @@
         <button class="fb" data-oss="concluido" onclick="filtOS(this)">✅ Concluído</button>
         <button class="fb" data-oss="cancelado" onclick="filtOS(this)">❌ Cancelado</button>
         <input class="hsrch" type="text" placeholder="🔍 Buscar cliente ou #…" oninput="buscarOS(this.value)">
+        <select id="os-filt-tec" onchange="filtTecOS(this.value)" style="padding:6px 10px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Inter',sans-serif;outline:none;background:white;cursor:pointer;color:var(--c2)">
+          <option value="">👤 Todos técnicos</option>
+        </select>
       </div>
       <div id="osh-body"><div class="load"><div class="spin"></div> Carregando…</div></div>
     </div>
@@ -2544,7 +2547,7 @@ let db = null, dbOk = false;
 let svcs = [], editId = null;
 let osSvcs = [], modalOrcId = null, osOrcId = null; // osOrcId = ID do orçamento vinculado à OS
 let todosOrc = [], filtroSt = 'todos', busca = '';
-let todosOS = [], filtroOSSt = 'todos', buscaOS = '';
+let todosOS = [], filtroOSSt = 'todos', buscaOS = '', filtroOSTec = '';
 let filtroPeriodo = '';
 let osFotos = ['','',''];
 let printMode = ''; // 'orc' | 'os' | 'both'
@@ -3810,6 +3813,8 @@ function renderGraficoDash(){
 function filtrarPorPeriodo(val){ filtroPeriodo=val; renderTabela(); }
 
 function renderTabela(){
+  // auto-vence orçamentos pendentes com prazo expirado
+  autoVencerOrc(todosOrc);
   let lista=todosOrc;
   // filtro loja ativa / grupo
   lista=filtrarPorLoja(lista);
@@ -3856,7 +3861,7 @@ function renderTabela(){
         <button class="tb" title="Gerar OS" onclick="gerarOS_deOrc('${o.id}')">📋</button>
         <button class="tb g" title="Registrar pagamento" onclick="abrirModalPg('${o.id}',${ttl})">💰</button>
         ${o.status==='aprovado'?`<button class="tb" title="Emitir Nota Fiscal" onclick="abrirModalNFe('${o.id}')" style="background:#7c3aed;color:white;border-radius:6px;padding:4px 7px;font-size:11px;font-weight:700;border:none;cursor:pointer">NF</button>`:''}
-        <button class="tb" title="WhatsApp" onclick="copiarNotif(notifOrcamento(getNC('${o.id}')))">💬</button>
+        <button class="tb" title="Enviar no WhatsApp" style="background:var(--wa);color:white;border-color:var(--wa)" onclick="enviarNotifWA(notifOrcamento(getNC('${o.id}')), '${o.tel_cliente||''}')">💬 WA</button>
         <button class="tb d" title="Excluir" onclick="excluirOrc('${o.id}')">🗑</button>
       </div></td>
     </tr>`;
@@ -3999,11 +4004,43 @@ function filtOS(btn){
   btn.classList.add('on'); filtroOSSt=btn.dataset.oss; renderOSTabela();
 }
 function buscarOS(v){ buscaOS=v.toLowerCase(); renderOSTabela(); }
+function filtTecOS(val){ filtroOSTec=val; renderOSTabela(); }
+
+function populaFiltTecOS(){
+  const sel=document.getElementById('os-filt-tec'); if(!sel) return;
+  const lojaObj=lojaAtiva?getLoja(lojaAtiva):null;
+  let tecs;
+  if(lojaObj){ tecs=lojaObj.tecs||[]; }
+  else { tecs=[...new Set(LOJAS.flatMap(l=>l.tecs||[]))]; }
+  sel.innerHTML='<option value="">👤 Todos técnicos</option>'+tecs.map(t=>`<option value="${t}" ${t===filtroOSTec?'selected':''}>${t}</option>`).join('');
+}
+
+// Auto-vence orçamentos pendentes cujo prazo de validade já expirou
+function autoVencerOrc(lista){
+  const hoje=new Date(); hoje.setHours(0,0,0,0);
+  let mudou=false;
+  lista.forEach(o=>{
+    if(o.status!=='pendente') return;
+    const dt=_orcData(o); if(!dt) return;
+    const val=parseInt(o.validade_dias)||5;
+    const expira=new Date(dt); expira.setDate(expira.getDate()+val); expira.setHours(23,59,59,999);
+    if(expira<hoje){
+      o.status='vencido'; mudou=true;
+      lsOrcAtualizar(o.id,{status:'vencido'});
+      if(dbOk&&db&&!String(o.id).startsWith('local_'))
+        db.from('orcamentos').update({status:'vencido'}).eq('id',o.id).then(()=>{}).catch(()=>{});
+    }
+  });
+  if(mudou) atualizarDash();
+  return lista;
+}
 
 function renderOSTabela(){
+  populaFiltTecOS();
   let lista=todosOS;
   lista=filtrarPorLoja(lista);
   if(filtroOSSt!=='todos') lista=lista.filter(o=>o.status===filtroOSSt);
+  if(filtroOSTec) lista=lista.filter(o=>(o.tecnico||'')===filtroOSTec);
   if(buscaOS) lista=lista.filter(o=>
     (o.cliente||'').toLowerCase().includes(buscaOS)||
     String(o.numero||'').includes(buscaOS.replace('#',''))
@@ -4026,8 +4063,8 @@ function renderOSTabela(){
       <td><span class="os-badge ${stCl}">${stTx}</span></td>
       <td><div class="ta">
         <button class="tb" onclick="editarOS('${o.id}')">✎ Editar</button>
-        ${o.status==='concluido'?`<button class="tb" title="Notif. OS concluída" onclick="copiarNotif(notifConcluida(getNC('${o.id}')))">✅💬</button>`:''}
-        ${o.status==='agendado'?`<button class="tb" title="Lembrete de visita" onclick="copiarNotif(notifVisita(getNC('${o.id}')))">📅💬</button>`:''}
+        ${o.status==='concluido'?`<button class="tb" title="Notif. OS concluída" style="background:var(--wa);color:white;border-color:var(--wa)" onclick="enviarNotifWA(notifConcluida(getNC('${o.id}')), '${o.tel_cliente||''}')">✅💬</button>`:''}
+        ${o.status==='agendado'?`<button class="tb" title="Lembrete de visita" style="background:var(--wa);color:white;border-color:var(--wa)" onclick="enviarNotifWA(notifVisita(getNC('${o.id}')), '${o.tel_cliente||''}')">📅💬</button>`:''}
         <button class="tb d" onclick="excluirOS('${o.id}')">🗑</button>
       </div></td>
     </tr>`;
@@ -5359,7 +5396,7 @@ async function loadAgendamentos(){
         <div style="font-size:13px;font-weight:700;color:var(--blue);margin-bottom:8px">📅 ${visitasAmanha.length} visita(s) amanhã — envie o lembrete:</div>
         ${visitasAmanha.map(o=>{ _nc[o.id]=o; return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">
           <span style="font-size:13px;flex:1">${esc(o.cliente||'')} · ${o.hora||''} · ${esc(o.tecnico||'')}</span>
-          <button class="tb" onclick="copiarNotif(notifVisita(getNC('${o.id}')))">📋 Copiar</button>
+          <button class="tb" style="background:var(--wa);color:white;border-color:var(--wa)" onclick="enviarNotifWA(notifVisita(getNC('${o.id}')), getNC('${o.id}').tel_cliente||'')">💬 WA</button>
         </div>`; }).join('')}
       </div>`;
     }
