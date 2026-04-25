@@ -644,11 +644,11 @@
     .notif-vars code{background:white;border:1px solid var(--gray-mid);border-radius:4px;padding:1px 5px;font-size:11px;color:var(--c1)}
 
     /* ── NOVO LOGIN ── */
-    .login-overlay{position:fixed;inset:0;background:var(--c2);z-index:9000;display:flex;align-items:center;justify-content:center;padding:16px}
-    .login-box{background:var(--white);border-radius:20px;padding:36px 28px;width:100%;max-width:380px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+    .login-overlay{position:fixed;inset:0;background:var(--c2);z-index:9000;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto}
+    .login-box{background:var(--white);border-radius:20px;padding:36px 28px;width:100%;max-width:380px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.4);margin:auto}
     .login-title{font-size:20px;font-weight:800;color:var(--c2);margin-bottom:4px}
     .login-sub{font-size:13px;color:var(--gray);margin-bottom:22px}
-    .login-users{display:flex;flex-direction:column;gap:8px;margin-bottom:20px;text-align:left}
+    .login-users{display:flex;flex-direction:column;gap:8px;margin-bottom:20px;text-align:left;max-height:55vh;overflow-y:auto}
     .login-user-btn{display:flex;align-items:center;gap:12px;padding:11px 14px;border:2px solid var(--gray-mid);border-radius:12px;background:var(--white);cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s;width:100%}
     .login-user-btn:hover{border-color:var(--c1);background:var(--c1-light)}
     .login-user-btn.selected{border-color:var(--c1);background:var(--c1-light)}
@@ -748,7 +748,7 @@
     </div>
     <div id="login-loja-wrap" style="display:none">
       <div class="login-pin-label" style="margin-bottom:12px;text-align:left">Qual empresa você vai gerenciar?</div>
-      <div id="login-loja-list" style="display:flex;flex-direction:column;gap:8px"></div>
+      <div id="login-loja-list" style="display:flex;flex-direction:column;gap:8px;max-height:60vh;overflow-y:auto"></div>
       <button onclick="voltarParaPin()" style="width:100%;padding:10px;background:none;border:none;color:var(--gray);font-size:13px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;margin-top:12px">← Voltar</button>
     </div>
   </div>
