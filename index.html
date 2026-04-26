@@ -2437,19 +2437,25 @@ async function carregarUsuarios(){
   // Carrega do localStorage primeiro
   let local=[];
   try{ local=JSON.parse(ls('fluxa_usuarios')||'[]'); }catch(e){}
-  // Tenta carregar do Supabase e faz merge (não descarta registros locais ausentes no banco)
+  // Tenta carregar do Supabase e faz merge
   try{
     if(dbOk&&db){
       const {data}=await db.from('usuarios').select('*').eq('ativo',true).order('nome');
       if(data){
-        // Adiciona ao Supabase os registros locais que ainda não foram sincronizados
-        const locaisNaoSincronizados=local.filter(u=>u.id.startsWith('usr_')&&!data.find(d=>d.nome===u.nome&&d.perfil===u.perfil));
+        // Registros locais temporários (usr_xxx) não presentes no Supabase
+        const locaisNaoSincronizados=local.filter(u=>
+          String(u.id).startsWith('usr_') &&
+          !data.find(d=>d.nome===u.nome && d.perfil===u.perfil)
+        );
         for(const u of locaisNaoSincronizados){
           try{
             const payload={nome:u.nome,perfil:u.perfil,loja_id:u.loja_id||null,loja_nome:u.loja_nome||null,pin:u.pin||null,ativo:true};
             const {data:ins}=await db.from('usuarios').insert([payload]).select('*').single();
-            if(ins) data.push(ins);
-          }catch(e2){}
+            if(ins) data.push(ins);   // sincronizado → usa registro do banco
+            else    data.push(u);     // insert sem retorno → mantém local
+          }catch(e2){
+            data.push(u);             // insert falhou → mantém local
+          }
         }
         todosUsuarios=data;
         lsSet('fluxa_usuarios',JSON.stringify(data));
@@ -2500,7 +2506,7 @@ function renderLoginUsers(){
     });
     gestaoGrid.innerHTML = gestores.join('');
     const n = gestores.length;
-    gestaoGrid.style.gridTemplateColumns = n===1?'repeat(2,1fr)':n===2?'repeat(2,1fr)':'repeat(3,1fr)';
+    gestaoGrid.style.gridTemplateColumns = n===1?'1fr':n===2?'repeat(2,1fr)':'repeat(3,1fr)';
   }
 
   // ── Vendas ──
@@ -2516,7 +2522,7 @@ function renderLoginUsers(){
         return avBtn(u.id,'vendas',u.nome,sub,'#f59e0b','💼',u.loja_id||null);
       }).join('');
       const n = vendasList.length;
-      vendasGrid.style.gridTemplateColumns = n===1?'repeat(2,1fr)':n===2?'repeat(2,1fr)':'repeat(3,1fr)';
+      vendasGrid.style.gridTemplateColumns = n===1?'1fr':n===2?'repeat(2,1fr)':'repeat(3,1fr)';
     } else {
       vendasSection.style.display='none';
     }
@@ -6064,10 +6070,11 @@ async function salvarUsuario(){
   const loja=getLoja(lojaId);
   const pinRaw=gV('usr-pin').trim();
   if(pinRaw&&(pinRaw.length!==4||!/^\d{4}$/.test(pinRaw))){ toast('⚠️ PIN deve ter exatamente 4 dígitos'); return; }
-  if(!lojaId){ toast('⚠️ Selecione a empresa do usuário'); return; }
+  const perfil=gV('usr-perfil')||'tecnico';
+  if(!lojaId && perfil!=='vendas'){ toast('⚠️ Selecione a empresa do usuário'); return; }
   const pinHash = pinRaw ? await hashPIN(pinRaw) : null;
   const dados={
-    nome, perfil:gV('usr-perfil')||'tecnico',
+    nome, perfil,
     loja_id:lojaId, loja_nome:loja?.nome||null,
     pin:pinHash, ativo:true
   };
