@@ -645,29 +645,31 @@
 
     /* ── NOVO LOGIN ── */
     .login-overlay{position:fixed;inset:0;background:var(--c2);z-index:9000;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto}
-    .login-box{background:var(--white);border-radius:20px;padding:28px 24px;width:100%;max-width:400px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.4);margin:auto}
-    .login-title{font-size:20px;font-weight:800;color:var(--c2);margin-bottom:4px}
-    .login-sub{font-size:13px;color:var(--gray);margin-bottom:18px}
-    .login-users{display:flex;flex-direction:column;gap:0;margin-bottom:16px;text-align:left}
-    .login-section-label{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--gray);padding:10px 2px 6px;border-top:1px solid var(--gray-light)}
-    .login-section-label:first-child{border-top:none;padding-top:0}
-    .login-section-btns{display:flex;flex-direction:column;gap:6px;margin-bottom:4px}
-    .login-tec-toggle{width:100%;padding:8px 12px;background:none;border:1.5px dashed var(--gray-mid);border-radius:10px;font-size:12px;font-weight:700;color:var(--gray);cursor:pointer;font-family:'Inter',sans-serif;text-align:left;margin-top:4px;transition:all .15s}
-    .login-tec-toggle:hover{border-color:var(--c1);color:var(--c1)}
-    .login-tec-list{display:flex;flex-direction:column;gap:6px;margin-top:6px}
-    .login-user-btn{display:flex;align-items:center;gap:10px;padding:10px 12px;border:2px solid var(--gray-mid);border-radius:10px;background:var(--white);cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s;width:100%}
-    .login-user-btn:hover{border-color:var(--c1);background:var(--c1-light)}
-    .login-user-btn.selected{border-color:var(--c1);background:var(--c1-light)}
-    .login-user-avatar{width:34px;height:34px;border-radius:50%;background:var(--c2);color:white;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;flex-shrink:0}
+    .login-box{background:var(--white);border-radius:20px;padding:24px 20px;width:100%;max-width:420px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.4);margin:auto}
+    .login-title{font-size:19px;font-weight:800;color:var(--c2);margin-bottom:2px}
+    .login-sub{font-size:12px;color:var(--gray);margin-bottom:16px}
+    .login-users{display:flex;flex-direction:column;gap:10px;margin-bottom:14px;text-align:left}
+    .login-section{border:1.5px solid var(--gray-light);border-radius:12px;overflow:hidden}
+    .login-section-hdr{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--gray-light);border-bottom:1.5px solid var(--gray-mid)}
+    .login-section-icon{font-size:14px}
+    .login-section-title{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:var(--c2);flex:1}
+    .login-section-count{font-size:10px;font-weight:700;color:var(--gray);background:white;border-radius:50px;padding:1px 7px}
+    .login-section-body{display:flex;flex-direction:column;gap:0}
+    .login-user-btn{display:flex;align-items:center;gap:10px;padding:10px 12px;border:none;border-bottom:1px solid var(--gray-light);background:var(--white);cursor:pointer;font-family:'Inter',sans-serif;transition:background .12s;width:100%;text-align:left}
+    .login-user-btn:last-child{border-bottom:none}
+    .login-user-btn:hover{background:var(--c1-light)}
+    .login-user-btn.selected{background:var(--c1-light)}
+    .login-user-avatar{width:32px;height:32px;border-radius:50%;background:var(--c2);color:white;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;flex-shrink:0}
     .login-user-avatar.gestor{background:var(--c1)}
-    .login-user-info{flex:1;text-align:left}
+    .login-user-info{flex:1}
     .login-user-nome{font-size:13px;font-weight:700;color:var(--c2)}
     .login-user-perfil{font-size:11px;color:var(--gray);font-weight:500;margin-top:1px}
+    .login-empty-msg{padding:10px 12px;font-size:12px;color:var(--gray);font-style:italic}
     .login-pin-wrap{display:none;margin-top:0}
     .login-pin-wrap.show{display:block}
     .login-pin-label{font-size:12px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
-    .login-user-btn .login-check{margin-left:auto;color:var(--c1);font-size:18px;display:none}
-    .login-user-btn.selected .login-check{display:block}
+    .login-user-btn .login-check{margin-left:auto;display:none!important}
+    .login-user-btn.selected .login-check{display:block!important}
     .login-err{font-size:13px;color:var(--red);font-weight:600;min-height:18px;margin-bottom:8px}
     .login-btn{width:100%;padding:14px;background:var(--c1);color:white;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;margin-top:4px}
     .login-btn:hover{opacity:.9}
@@ -2343,79 +2345,63 @@ function renderLoginUsers(){
   const wrap=document.getElementById('login-users');
   if(!wrap) return;
 
-  // ── Seção Gestão ──
-  const gestorBtn=`<button class="login-user-btn" data-id="__gestor__" onclick="selecionarUserLogin(this,'__gestor__','gestor','Gestor',null)">
-    <div class="login-user-avatar gestor">👑</div>
-    <div class="login-user-info">
-      <div class="login-user-nome">Gestor Principal</div>
-      <div class="login-user-perfil">Forthemp — acesso total</div>
-    </div>
-    <span class="login-check">✓</span>
-  </button>`;
-
-  const gestoresEmpresa=todosUsuarios.filter(u=>u.perfil==='gestor'&&u.loja_id).map(u=>{
-    const loja=getLoja(u.loja_id);
-    const inicial=u.nome.charAt(0).toUpperCase();
-    const lojaParam=`'${u.loja_id}'`;
-    const corAvatar=loja?.grupo==='aquamotor'?'background:#16a34a':'';
-    return `<button class="login-user-btn" data-id="${u.id}" onclick="selecionarUserLogin(this,'${u.id}','gestor','${esc(u.nome)}',${lojaParam})">
-      <div class="login-user-avatar gestor" style="${corAvatar}">${inicial}</div>
+  function userBtn(id, perfil, nome, lojaId, avatarHtml, subLabel){
+    const lojaParam = lojaId ? `'${lojaId}'` : 'null';
+    return `<button class="login-user-btn" data-id="${id}" onclick="selecionarUserLogin(this,'${id}','${perfil}','${esc(nome)}',${lojaParam})">
+      ${avatarHtml}
       <div class="login-user-info">
-        <div class="login-user-nome">${esc(u.nome)}</div>
-        <div class="login-user-perfil">Gestor — ${esc(loja?.nome||u.loja_id)}</div>
+        <div class="login-user-nome">${esc(nome)}</div>
+        <div class="login-user-perfil">${subLabel}</div>
       </div>
-      <span class="login-check">✓</span>
+      <span class="login-check" style="color:var(--c1);font-size:16px;display:none">✓</span>
     </button>`;
+  }
+
+  function section(icon, title, color, btns){
+    const count = (btns.match(/login-user-btn/g)||[]).length;
+    const body  = btns || `<div class="login-empty-msg">Nenhum usuário cadastrado</div>`;
+    return `<div class="login-section">
+      <div class="login-section-hdr">
+        <span class="login-section-icon">${icon}</span>
+        <span class="login-section-title" style="color:${color}">${title}</span>
+        ${count?`<span class="login-section-count">${count}</span>`:''}
+      </div>
+      <div class="login-section-body">${body}</div>
+    </div>`;
+  }
+
+  // ── Gestão ──
+  const gestorBtn = userBtn('__gestor__','gestor','Gestor Principal',null,
+    `<div class="login-user-avatar gestor" style="font-size:15px">👑</div>`,
+    'Acesso completo ao sistema');
+  const gestoresEmpresaBtns = todosUsuarios.filter(u=>u.perfil==='gestor'&&u.loja_id).map(u=>{
+    const loja=getLoja(u.loja_id);
+    const cor=loja?.grupo==='aquamotor'?'#16a34a':'var(--c1)';
+    return userBtn(u.id,'gestor',u.nome,u.loja_id,
+      `<div class="login-user-avatar" style="background:${cor}">${u.nome.charAt(0)}</div>`,
+      `Gestor — ${esc(loja?.nome||u.loja_id)}`);
   }).join('');
 
-  // ── Seção Vendas ──
-  const vendasUsers=todosUsuarios.filter(u=>u.perfil==='vendas');
-  const vendasBtns=vendasUsers.map(u=>{
-    const inicial=u.nome.charAt(0).toUpperCase();
+  // ── Vendas ──
+  const vendasBtns = todosUsuarios.filter(u=>u.perfil==='vendas').map(u=>{
     const loja=getLoja(u.loja_id);
-    const lojaParam=u.loja_id?`'${u.loja_id}'`:'null';
-    return `<button class="login-user-btn" data-id="${u.id}" onclick="selecionarUserLogin(this,'${u.id}','vendas','${esc(u.nome)}',${lojaParam})">
-      <div class="login-user-avatar" style="background:#f59e0b">💼</div>
-      <div class="login-user-info">
-        <div class="login-user-nome">${esc(u.nome)}</div>
-        <div class="login-user-perfil">Vendas — ${loja?esc(loja.nome):(u.loja_nome||'Orçamentos')}</div>
-      </div>
-      <span class="login-check">✓</span>
-    </button>`;
+    return userBtn(u.id,'vendas',u.nome,u.loja_id||null,
+      `<div class="login-user-avatar" style="background:#f59e0b;font-size:15px">💼</div>`,
+      `Vendas — ${loja?esc(loja.nome):(u.loja_nome||'Orçamentos & OS')}`);
   }).join('');
 
-  // ── Seção Técnicos ──
-  const tecs=todosUsuarios.filter(u=>u.perfil==='tecnico'||(!u.perfil&&u.id!=='__gestor__'));
-  const tecsBtns=tecs.map(u=>{
-    const inicial=u.nome.charAt(0).toUpperCase();
+  // ── Técnicos ──
+  const tecsBtns = todosUsuarios.filter(u=>u.perfil==='tecnico'||(!u.perfil&&u.id!=='__gestor__')).map(u=>{
     const loja=getLoja(u.loja_id);
-    const lojaParam=u.loja_id?`'${u.loja_id}'`:'null';
-    return `<button class="login-user-btn" data-id="${u.id}" onclick="selecionarUserLogin(this,'${u.id}','tecnico','${esc(u.nome)}',${lojaParam})">
-      <div class="login-user-avatar">${inicial}</div>
-      <div class="login-user-info">
-        <div class="login-user-nome">${esc(u.nome)}</div>
-        <div class="login-user-perfil">${loja?esc(loja.nome):(u.loja_nome?esc(u.loja_nome):'Técnico')}</div>
-      </div>
-      <span class="login-check">✓</span>
-    </button>`;
+    return userBtn(u.id,'tecnico',u.nome,u.loja_id||null,
+      `<div class="login-user-avatar">${u.nome.charAt(0)}</div>`,
+      loja?esc(loja.nome):(u.loja_nome||'Técnico'));
   }).join('');
 
-  wrap.innerHTML=`
-    <div class="login-section-label">🏢 Gestão</div>
-    <div class="login-section-btns">
-      ${gestorBtn}
-      ${gestoresEmpresa}
-    </div>
-    ${vendasUsers.length?`
-    <div class="login-section-label">💼 Vendas</div>
-    <div class="login-section-btns">
-      ${vendasBtns}
-    </div>`:''}
-    ${tecs.length?`
-    <div class="login-section-label">🔧 Técnicos</div>
-    <div class="login-section-btns">
-      ${tecsBtns}
-    </div>`:''}`;
+  wrap.innerHTML =
+    section('🏢','Gestão','var(--c2)', gestorBtn + gestoresEmpresaBtns) +
+    section('💼','Vendas','#d97706',   vendasBtns) +
+    section('🔧','Técnicos','var(--blue)', tecsBtns);
 }
 
 let loginUserSelecionado = null; // {id, perfil, nome, loja_id}
@@ -2530,38 +2516,44 @@ function mostrarSelecaoLojaGestor(){
   const list=document.getElementById('login-loja-list');
   const forthemp=LOJAS.filter(l=>l.grupo==='forthemp');
   const outros=LOJAS.filter(l=>l.grupo!=='forthemp');
-  const corGrupo={forthemp:'var(--c2)',aquamotor:'#16a34a'};
+  const corGrupo={aquamotor:'#16a34a'};
+
+  function lojaBtn(id, avatarHtml, nome, sub){
+    return `<button class="login-user-btn" onclick="confirmarLojaGestor('${id}')">
+      ${avatarHtml}
+      <div class="login-user-info">
+        <div class="login-user-nome">${nome}</div>
+        <div class="login-user-perfil">${sub}</div>
+      </div>
+    </button>`;
+  }
+
+  const forthempBtns =
+    lojaBtn('',`<div class="login-user-avatar" style="background:var(--c1);font-size:15px">📊</div>`,'Todas as unidades','Camboriú + Itapema consolidado') +
+    forthemp.map(l=>lojaBtn(l.id,
+      `<div class="login-user-avatar" style="background:var(--c2);font-size:11px;font-weight:800">${l.nome.replace('Fortemp ','')}</div>`,
+      esc(l.nome),'Gerenciar esta unidade')).join('');
+
+  const outrasBtns = outros.map(l=>lojaBtn(l.id,
+    `<div class="login-user-avatar" style="background:${corGrupo[l.grupo]||'var(--blue)'};font-size:15px">${l.nome.charAt(0)}</div>`,
+    esc(l.nome),'Gerenciar empresa')).join('');
+
   list.innerHTML=`
-    <div class="login-section-label" style="border-top:none;padding-top:0">🏊 Forthemp</div>
-    <div class="login-section-btns">
-      <button class="login-user-btn" onclick="confirmarLojaGestor('')">
-        <div class="login-user-avatar" style="background:var(--c1);font-size:15px">📊</div>
-        <div class="login-user-info">
-          <div class="login-user-nome">Todas as unidades</div>
-          <div class="login-user-perfil">Camboriú + Itapema consolidado</div>
-        </div>
-      </button>
-      ${forthemp.map(l=>`
-        <button class="login-user-btn" onclick="confirmarLojaGestor('${l.id}')">
-          <div class="login-user-avatar" style="background:var(--c2);color:white;font-size:13px;font-weight:800">${l.nome.replace('Fortemp ','')}</div>
-          <div class="login-user-info">
-            <div class="login-user-nome">${esc(l.nome)}</div>
-            <div class="login-user-perfil">Gerenciar esta unidade</div>
-          </div>
-        </button>`).join('')}
+    <div class="login-section">
+      <div class="login-section-hdr">
+        <span class="login-section-icon">🏊</span>
+        <span class="login-section-title" style="color:var(--c2)">Forthemp</span>
+      </div>
+      <div class="login-section-body">${forthempBtns}</div>
     </div>
     ${outros.length?`
-    <div class="login-section-label">🏢 Outras empresas</div>
-    <div class="login-section-btns">
-      ${outros.map(l=>`
-        <button class="login-user-btn" onclick="confirmarLojaGestor('${l.id}')">
-          <div class="login-user-avatar" style="background:${corGrupo[l.grupo]||'var(--blue)'};color:white;font-size:13px;font-weight:800">${l.nome.charAt(0)}</div>
-          <div class="login-user-info">
-            <div class="login-user-nome">${esc(l.nome)}</div>
-            <div class="login-user-perfil">Gerenciar empresa</div>
-          </div>
-        </button>`).join('')}
-    </div>`:''}` ;
+    <div class="login-section">
+      <div class="login-section-hdr">
+        <span class="login-section-icon">🏢</span>
+        <span class="login-section-title" style="color:#16a34a">Outras Empresas</span>
+      </div>
+      <div class="login-section-body">${outrasBtns}</div>
+    </div>`:''}`;
   document.getElementById('login-loja-wrap').style.display='block';
 }
 
