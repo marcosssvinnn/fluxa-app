@@ -665,6 +665,7 @@
     .login-user-nome{font-size:13px;font-weight:700;color:var(--c2)}
     .login-user-perfil{font-size:11px;color:var(--gray);font-weight:500;margin-top:1px}
     .login-empty-msg{padding:10px 12px;font-size:12px;color:var(--gray);font-style:italic}
+    .login-section-arrow{margin-left:auto;font-size:10px;color:var(--gray)}
     .login-pin-wrap{display:none;margin-top:0}
     .login-pin-wrap.show{display:block}
     .login-pin-label{font-size:12px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
@@ -2357,16 +2358,20 @@ function renderLoginUsers(){
     </button>`;
   }
 
-  function section(icon, title, color, btns){
+  function section(icon, title, color, btns, collapsed=false){
     const count = (btns.match(/login-user-btn/g)||[]).length;
     const body  = btns || `<div class="login-empty-msg">Nenhum usuário cadastrado</div>`;
+    const bodyStyle = collapsed ? 'display:none' : '';
+    const arrow = collapsed ? '▶' : '▼';
+    const clickable = collapsed ? `onclick="toggleLoginSection(this)"style="cursor:pointer"` : '';
     return `<div class="login-section">
-      <div class="login-section-hdr">
+      <div class="login-section-hdr" ${clickable}>
         <span class="login-section-icon">${icon}</span>
         <span class="login-section-title" style="color:${color}">${title}</span>
-        ${count?`<span class="login-section-count">${count}</span>`:''}
+        <span class="login-section-count">${count||0}</span>
+        ${collapsed?`<span class="login-section-arrow">${arrow}</span>`:''}
       </div>
-      <div class="login-section-body">${body}</div>
+      <div class="login-section-body" style="${bodyStyle}">${body}</div>
     </div>`;
   }
 
@@ -2401,7 +2406,15 @@ function renderLoginUsers(){
   wrap.innerHTML =
     section('🏢','Gestão','var(--c2)', gestorBtn + gestoresEmpresaBtns) +
     section('💼','Vendas','#d97706',   vendasBtns) +
-    section('🔧','Técnicos','var(--blue)', tecsBtns);
+    section('🔧','Técnicos','var(--blue)', tecsBtns, true);
+}
+
+function toggleLoginSection(hdr){
+  const body = hdr.nextElementSibling;
+  const arrow = hdr.querySelector('.login-section-arrow');
+  const open = body.style.display === 'none';
+  body.style.display = open ? '' : 'none';
+  if(arrow) arrow.textContent = open ? '▼' : '▶';
 }
 
 let loginUserSelecionado = null; // {id, perfil, nome, loja_id}
