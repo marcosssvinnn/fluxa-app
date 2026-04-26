@@ -2233,7 +2233,7 @@ function aplicarPermissoesPerfil(){
     'nb-history'      : gestor||vendas,
     'nb-clientes'     : gestor||vendas,
     'nb-agendamentos' : gestor||vendas,
-    'nb-os'           : gestor,
+    'nb-os'           : gestor||vendas,
     'nb-os-history'   : gestor,
     'nb-equipamentos' : gestor,
     'nb-despesas'     : gestor,
@@ -2262,7 +2262,7 @@ function aplicarPermissoesPerfil(){
     const el=document.getElementById(id); if(el) el.style.display=pode?'':'none';
   });
   // Regras por conteúdo do onclick
-  const gearHideVendas = ['despesas','equipamentos',"'os'"];
+  const gearHideVendas = ['despesas','equipamentos','os-history'];
   document.querySelectorAll('#gear-menu button').forEach(btn=>{
     const oc=btn.getAttribute('onclick')||'';
     if(gearHideVendas.some(k=>oc.includes(k)))
@@ -2271,10 +2271,10 @@ function aplicarPermissoesPerfil(){
 
   // ── Mobile nav ──
   const mnbRules = {
-    'mnb-form'     : gestor||vendas,
-    'mnb-os'       : gestor,
-    'mnb-minhas-os': tecnico,
-    'mnb-history'  : gestor||vendas,
+    'mnb-form'        : gestor||vendas,
+    'mnb-os'          : gestor||vendas,
+    'mnb-minhas-os'   : tecnico,
+    'mnb-history'     : gestor||vendas,
     'mnb-agendamentos': gestor||vendas,
     'mnb-equipamentos': gestor,
   };
@@ -2291,10 +2291,10 @@ function aplicarPermissoesPerfil(){
   // ── Redirecionamentos ──
   const pAtiva=document.querySelector('.page.on');
   const pid=pAtiva?pAtiva.id.replace('page-',''):'';
-  const pagesVendas  =['form','history','clientes','agendamentos'];
-  const pagesTecnico =['minhas-os'];
-  if(tecnico && !pagesTecnico.includes(pid)) go('minhas-os');
-  if(vendas  && !pagesVendas.includes(pid))  go('form');
+  const pagesVendasOk=['form','history','clientes','agendamentos','os'];
+  const pagesTecnicoOk=['minhas-os'];
+  if(tecnico && !pagesTecnicoOk.includes(pid)) go('minhas-os');
+  if(vendas  && !pagesVendasOk.includes(pid))  go('form');
 }
 
 // Atualiza badge de usuário no header
@@ -3203,7 +3203,7 @@ function go(p){
   const _vendas  = eVendas();
   const _tecnico = eTecnico();
   const _gestor  = eGestor();
-  const pagesVendas  = ['form','history','clientes','agendamentos'];
+  const pagesVendas  = ['form','history','clientes','agendamentos','os'];
   const pagesTecnico = ['minhas-os'];
   if(_vendas  && !pagesVendas.includes(p))  return; // bloqueia silenciosamente
   if(_tecnico && !pagesTecnico.includes(p)) return; // bloqueia silenciosamente
@@ -3229,7 +3229,28 @@ function go(p){
   if(p==='usuarios') loadUsuarios();
   if(p==='minhas-os') loadMinhasOS();
   // Atualiza técnicos disponíveis quando abre form de OS
-  if(p==='os'){ const l=gV('os-loja')||'fortemp-camboriu'; atualizarTecsPorLoja(l,'os-tec'); atualizarTecsPorLoja(l,'os-tec-checkin'); }
+  if(p==='os'){
+    const l=gV('os-loja')||'fortemp-camboriu';
+    atualizarTecsPorLoja(l,'os-tec');
+    atualizarTecsPorLoja(l,'os-tec-checkin');
+    // Vendas: oculta seções técnicas (check-in, checklist, fotos, detalhes)
+    const soVendas = eVendas();
+    ['os-checkin-card'].forEach(id=>{
+      const el=document.getElementById(id);
+      if(el) el.style.display=soVendas?'none':'';
+    });
+    // Checklist e fotos (cards filhos do wrap da OS)
+    document.querySelectorAll('#page-os .card').forEach(c=>{
+      const titulo=c.querySelector('.ct');
+      if(!titulo) return;
+      const txt=titulo.textContent||'';
+      if(soVendas && (txt.includes('Checklist')||txt.includes('Fotos')||txt.includes('Detalhes Técnicos'))){
+        c.style.display='none';
+      } else {
+        c.style.display='';
+      }
+    });
+  }
 }
 
 // Gear dropdown
