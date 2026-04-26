@@ -666,6 +666,7 @@
     .login-user-perfil{font-size:11px;color:var(--gray);font-weight:500;margin-top:1px}
     .login-empty-msg{padding:10px 12px;font-size:12px;color:var(--gray);font-style:italic}
     .login-section-arrow{margin-left:auto;font-size:10px;color:var(--gray)}
+    .login-section-body.hidden{display:none!important}
     .login-pin-wrap{display:none;margin-top:0}
     .login-pin-wrap.show{display:block}
     .login-pin-label{font-size:12px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
@@ -2331,14 +2332,30 @@ async function sincronizarSeedUsuarios(){
 }
 
 async function carregarUsuarios(){
-  // Tenta carregar do Supabase, fallback para localStorage
+  // Carrega do localStorage primeiro
+  let local=[];
+  try{ local=JSON.parse(ls('fluxa_usuarios')||'[]'); }catch(e){}
+  // Tenta carregar do Supabase e faz merge (não descarta registros locais ausentes no banco)
   try{
     if(dbOk&&db){
       const {data}=await db.from('usuarios').select('*').eq('ativo',true).order('nome');
-      if(data){ todosUsuarios=data; lsSet('fluxa_usuarios',JSON.stringify(data)); return; }
+      if(data){
+        // Adiciona ao Supabase os registros locais que ainda não foram sincronizados
+        const locaisNaoSincronizados=local.filter(u=>u.id.startsWith('usr_')&&!data.find(d=>d.nome===u.nome&&d.perfil===u.perfil));
+        for(const u of locaisNaoSincronizados){
+          try{
+            const payload={nome:u.nome,perfil:u.perfil,loja_id:u.loja_id||null,loja_nome:u.loja_nome||null,pin:u.pin||null,ativo:true};
+            const {data:ins}=await db.from('usuarios').insert([payload]).select('*').single();
+            if(ins) data.push(ins);
+          }catch(e2){}
+        }
+        todosUsuarios=data;
+        lsSet('fluxa_usuarios',JSON.stringify(data));
+        return;
+      }
     }
   }catch(e){}
-  try{ todosUsuarios=JSON.parse(ls('fluxa_usuarios')||'[]'); }catch(e){ todosUsuarios=[]; }
+  todosUsuarios=local;
 }
 
 // ── Renderiza lista de usuários no login ──
@@ -2361,17 +2378,15 @@ function renderLoginUsers(){
   function section(icon, title, color, btns, collapsed=false){
     const count = (btns.match(/login-user-btn/g)||[]).length;
     const body  = btns || `<div class="login-empty-msg">Nenhum usuário cadastrado</div>`;
-    const bodyStyle = collapsed ? 'display:none' : '';
-    const arrow = collapsed ? '▶' : '▼';
-    const clickable = collapsed ? `onclick="toggleLoginSection(this)"style="cursor:pointer"` : '';
+    const hiddenClass = collapsed ? 'hidden' : '';
     return `<div class="login-section">
-      <div class="login-section-hdr" ${clickable}>
+      <div class="login-section-hdr${collapsed?' collapsible':''}" ${collapsed?'onclick="toggleLoginSection(this)"':''} style="${collapsed?'cursor:pointer':''}">
         <span class="login-section-icon">${icon}</span>
         <span class="login-section-title" style="color:${color}">${title}</span>
         <span class="login-section-count">${count||0}</span>
-        ${collapsed?`<span class="login-section-arrow">${arrow}</span>`:''}
+        ${collapsed?`<span class="login-section-arrow">${count?'▶':'▶'}</span>`:''}
       </div>
-      <div class="login-section-body" style="${bodyStyle}">${body}</div>
+      <div class="login-section-body ${hiddenClass}">${body}</div>
     </div>`;
   }
 
@@ -2412,9 +2427,9 @@ function renderLoginUsers(){
 function toggleLoginSection(hdr){
   const body = hdr.nextElementSibling;
   const arrow = hdr.querySelector('.login-section-arrow');
-  const open = body.style.display === 'none';
-  body.style.display = open ? '' : 'none';
-  if(arrow) arrow.textContent = open ? '▼' : '▶';
+  const isHidden = body.classList.contains('hidden');
+  body.classList.toggle('hidden', !isHidden);
+  if(arrow) arrow.textContent = isHidden ? '▼' : '▶';
 }
 
 let loginUserSelecionado = null; // {id, perfil, nome, loja_id}
