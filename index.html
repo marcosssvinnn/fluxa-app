@@ -2227,60 +2227,63 @@ function aplicarPermissoesPerfil(){
   const tecnico = eTecnico();
 
   // ── Desktop nav ──
-  // Só gestor vê: Produtividade, Config, Usuários
-  ['nb-produtividade','gear-btn-empresa','gear-btn-usuarios','gear-btn-prod'].forEach(id=>{
-    const el=document.getElementById(id); if(el) el.style.display=gestor?'':'none';
+  // Mapa: id do botão → quem pode ver
+  const navRules = {
+    'nb-form'         : gestor||vendas,
+    'nb-history'      : gestor||vendas,
+    'nb-clientes'     : gestor||vendas,
+    'nb-agendamentos' : gestor||vendas,
+    'nb-os'           : gestor,
+    'nb-os-history'   : gestor,
+    'nb-equipamentos' : gestor,
+    'nb-despesas'     : gestor,
+    'nb-produtividade': gestor,
+  };
+  Object.entries(navRules).forEach(([id,pode])=>{
+    const el=document.getElementById(id); if(el) el.style.display=pode?'':'none';
   });
-  // Gestor e Vendas vêem: + Orçamento, Histórico, OS Hist., Clientes, Equipamentos, Agenda
-  ['nb-form','nb-history','nb-os-history','nb-os','nb-clientes','nb-equipamentos','nb-agendamentos'].forEach(id=>{
-    const el=document.getElementById(id); if(el) el.style.display=(gestor||vendas)?'':'none';
-  });
-  // Despesas: só gestor
-  const nbDesp=document.getElementById('nb-despesas');
-  if(nbDesp) nbDesp.style.display=gestor?'':'none';
 
-  // ── Seletor de loja no header — só gestor PRINCIPAL ──
+  // ── Seletor de loja no header — só gestor principal ──
   const lojaSelEl=document.getElementById('hdr-loja-select');
   if(lojaSelEl){
     const mostrarSelect=isMainGestor();
     lojaSelEl.style.display=mostrarSelect?'':'none';
-    if(mostrarSelect){ populaLojaSelect(); }
+    if(mostrarSelect) populaLojaSelect();
   }
 
-  // ── Nav desktop: visibilidade por perfil ──
-  // Vendas vê APENAS: Orçamento, Histórico, Clientes, Agenda
-  const navVendas  =['nb-form','nb-history','nb-clientes','nb-agendamentos'];
-  const navGestor  =['nb-form','nb-history','nb-os','nb-os-history','nb-clientes','nb-equipamentos','nb-agendamentos','nb-despesas','nb-produtividade'];
-  const todosNavIds=['nb-form','nb-history','nb-os','nb-os-history','nb-clientes','nb-equipamentos','nb-agendamentos','nb-despesas','nb-produtividade'];
-  todosNavIds.forEach(id=>{
-    const el=document.getElementById(id); if(!el) return;
-    if(gestor) el.style.display='';
-    else if(vendas) el.style.display=navVendas.includes(id)?'':'none';
-    else el.style.display='none'; // técnico — usa mob-nav próprio
+  // ── Gear menu ──
+  // Regras por id
+  const gearRules = {
+    'gear-btn-empresa' : gestor,
+    'gear-btn-usuarios': gestor,
+    'gear-btn-prod'    : gestor,
+  };
+  Object.entries(gearRules).forEach(([id,pode])=>{
+    const el=document.getElementById(id); if(el) el.style.display=pode?'':'none';
   });
-
-  // ── Gear menu: itens restritos por perfil ──
-  ['gear-btn-empresa','gear-btn-usuarios','gear-btn-prod'].forEach(id=>{
-    const el=document.getElementById(id); if(el) el.style.display=gestor?'':'none';
+  // Regras por conteúdo do onclick
+  const gearHideVendas = ['despesas','equipamentos',"'os'"];
+  document.querySelectorAll('#gear-menu button').forEach(btn=>{
+    const oc=btn.getAttribute('onclick')||'';
+    if(gearHideVendas.some(k=>oc.includes(k)))
+      btn.style.display=(vendas||tecnico)?'none':'';
   });
-  // Itens do gear que vendas não deve ver
-  const gearDesp=document.querySelector('#gear-menu button[onclick*="despesas"]');
-  const gearOS  =document.querySelector('#gear-menu button[onclick*="\'os\'"]');
-  const gearEq  =document.querySelector('#gear-menu button[onclick*="equipamentos"]');
-  if(gearDesp) gearDesp.style.display=vendas?'none':'';
-  if(gearOS)   gearOS.style.display  =vendas?'none':'';
-  if(gearEq)   gearEq.style.display  =vendas?'none':'';
 
   // ── Mobile nav ──
-  const mnbForm   =document.getElementById('mnb-form');
-  const mnbOs     =document.getElementById('mnb-os');
-  const mnbMinhasOs=document.getElementById('mnb-minhas-os');
-  if(mnbForm)    mnbForm.style.display    =(gestor||vendas)?'':'none';
-  if(mnbOs)      mnbOs.style.display      =gestor?'':'none'; // vendas não tem Nova OS no mob-nav
-  if(mnbMinhasOs)mnbMinhasOs.style.display=tecnico?'':'none';
+  const mnbRules = {
+    'mnb-form'     : gestor||vendas,
+    'mnb-os'       : gestor,
+    'mnb-minhas-os': tecnico,
+    'mnb-history'  : gestor||vendas,
+    'mnb-agendamentos': gestor||vendas,
+    'mnb-equipamentos': gestor,
+  };
+  Object.entries(mnbRules).forEach(([id,pode])=>{
+    const el=document.getElementById(id); if(el) el.style.display=pode?'':'none';
+  });
 
-  // ── Cards financeiros e gráfico: ocultos para Vendas ──
-  const dashEl=document.querySelector('.dash');
+  // ── Cards financeiros e gráfico: ocultos para vendas ──
+  const dashEl   =document.querySelector('.dash');
   const chartCard=document.querySelector('.dash-chart-card');
   if(dashEl)    dashEl.style.display   =vendas?'none':'';
   if(chartCard) chartCard.style.display=vendas?'none':'';
@@ -2288,12 +2291,10 @@ function aplicarPermissoesPerfil(){
   // ── Redirecionamentos ──
   const pAtiva=document.querySelector('.page.on');
   const pid=pAtiva?pAtiva.id.replace('page-',''):'';
-  if(tecnico && ['form','history','empresa','usuarios','produtividade','despesas'].includes(pid)){
-    go('minhas-os');
-  }
-  if(vendas && ['empresa','usuarios','produtividade','despesas','minhas-os','os','os-history','equipamentos'].includes(pid)){
-    go('history');
-  }
+  const pagesVendas  =['form','history','clientes','agendamentos'];
+  const pagesTecnico =['minhas-os'];
+  if(tecnico && !pagesTecnico.includes(pid)) go('minhas-os');
+  if(vendas  && !pagesVendas.includes(pid))  go('form');
 }
 
 // Atualiza badge de usuário no header
@@ -3198,8 +3199,16 @@ async function salvarBD(){
 //  NAVEGAÇÃO
 // ──────────────────────────────────────────────────
 function go(p){
-  // Controle de acesso: técnico não acessa orçamentos, empresa, produtividade, usuários
-  if(!eGestor() && ['form','history','empresa','usuarios','produtividade'].includes(p)){
+  // ── Controle de acesso por perfil ──
+  const _vendas  = eVendas();
+  const _tecnico = eTecnico();
+  const _gestor  = eGestor();
+  const pagesVendas  = ['form','history','clientes','agendamentos'];
+  const pagesTecnico = ['minhas-os'];
+  if(_vendas  && !pagesVendas.includes(p))  return; // bloqueia silenciosamente
+  if(_tecnico && !pagesTecnico.includes(p)) return; // bloqueia silenciosamente
+  if(!_gestor && !_vendas && !_tecnico &&
+     ['form','history','empresa','usuarios','produtividade'].includes(p)){
     toast('⚠️ Acesso restrito ao Gestor'); return;
   }
   document.querySelectorAll('.page').forEach(x=>x.classList.remove('on'));
