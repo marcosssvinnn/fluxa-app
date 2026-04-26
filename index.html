@@ -644,38 +644,52 @@
     .notif-vars code{background:white;border:1px solid var(--gray-mid);border-radius:4px;padding:1px 5px;font-size:11px;color:var(--c1)}
 
     /* ── NOVO LOGIN ── */
-    .login-overlay{position:fixed;inset:0;background:var(--c2);z-index:9000;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto}
-    .login-box{background:var(--white);border-radius:20px;padding:24px 20px;width:100%;max-width:420px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.4);margin:auto}
-    .login-title{font-size:19px;font-weight:800;color:var(--c2);margin-bottom:2px}
-    .login-sub{font-size:12px;color:var(--gray);margin-bottom:16px}
-    .login-users{display:flex;flex-direction:column;gap:10px;margin-bottom:14px;text-align:left}
-    .login-section{border:1.5px solid var(--gray-light);border-radius:12px;overflow:hidden}
-    .login-section-hdr{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--gray-light);border-bottom:1.5px solid var(--gray-mid)}
-    .login-section-icon{font-size:14px}
-    .login-section-title{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:var(--c2);flex:1}
-    .login-section-count{font-size:10px;font-weight:700;color:var(--gray);background:white;border-radius:50px;padding:1px 7px}
-    .login-section-body{display:flex;flex-direction:column;gap:0}
-    .login-user-btn{display:flex;align-items:center;gap:10px;padding:10px 12px;border:none;border-bottom:1px solid var(--gray-light);background:var(--white);cursor:pointer;font-family:'Inter',sans-serif;transition:background .12s;width:100%;text-align:left}
-    .login-user-btn:last-child{border-bottom:none}
-    .login-user-btn:hover{background:var(--c1-light)}
-    .login-user-btn.selected{background:var(--c1-light)}
+    /* ══ LOGIN ══ */
+    .login-overlay{position:fixed;inset:0;z-index:9000;display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto;background:linear-gradient(145deg,var(--c2) 0%,#1a2035 100%)}
+    .login-box{background:var(--white);border-radius:24px;width:100%;max-width:400px;overflow:hidden;box-shadow:0 32px 80px rgba(0,0,0,.5);margin:auto}
+    .login-brand{background:linear-gradient(135deg,var(--c2),#1a2035);padding:28px 24px 22px;text-align:center}
+    .login-brand-logo{width:56px;height:56px;border-radius:16px;object-fit:cover;margin:0 auto 10px;display:block}
+    .login-brand-initials{width:56px;height:56px;border-radius:16px;background:rgba(255,255,255,.15);margin:0 auto 10px;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;color:white;letter-spacing:-1px}
+    .login-brand-name{font-size:18px;font-weight:800;color:white;letter-spacing:-.3px}
+    .login-brand-sub{font-size:12px;color:rgba(255,255,255,.55);margin-top:2px}
+    .login-body{padding:20px 20px 24px}
+    .login-prompt{font-size:13px;font-weight:700;color:var(--c2);margin-bottom:14px;text-align:left}
+    .login-users{display:flex;flex-direction:column;gap:8px;text-align:left}
+    .login-section{border-radius:12px;overflow:hidden;border:1.5px solid #e8eaf0}
+    .login-section-hdr{display:flex;align-items:center;gap:8px;padding:8px 12px 8px 10px;background:#f5f6fa}
+    .login-section-hdr.collapsible:hover{background:#eceef5}
+    .login-section-icon{font-size:13px;line-height:1}
+    .login-section-title{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;flex:1}
+    .login-section-count{font-size:10px;font-weight:700;color:#fff;background:var(--c2);border-radius:50px;padding:1px 7px;min-width:18px;text-align:center}
+    .login-section-arrow{font-size:9px;color:var(--gray);margin-left:4px}
+    .login-section-body{display:flex;flex-direction:column}
+    .login-section-body.hidden{display:none!important}
+    .login-user-btn{display:flex;align-items:center;gap:10px;padding:10px 12px;border:none;border-top:1px solid #f0f1f5;background:var(--white);cursor:pointer;font-family:'Inter',sans-serif;transition:background .1s;width:100%;text-align:left}
+    .login-user-btn:first-child{border-top:none}
+    .login-user-btn:hover{background:#f8f9ff}
+    .login-user-btn.selected{background:var(--c1-light);border-left:3px solid var(--c1)}
+    .login-user-btn.selected .login-user-nome{color:var(--c1)}
     .login-user-avatar{width:32px;height:32px;border-radius:50%;background:var(--c2);color:white;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;flex-shrink:0}
     .login-user-avatar.gestor{background:var(--c1)}
-    .login-user-info{flex:1}
-    .login-user-nome{font-size:13px;font-weight:700;color:var(--c2)}
+    .login-user-info{flex:1;min-width:0}
+    .login-user-nome{font-size:13px;font-weight:700;color:var(--c2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .login-user-perfil{font-size:11px;color:var(--gray);font-weight:500;margin-top:1px}
-    .login-empty-msg{padding:10px 12px;font-size:12px;color:var(--gray);font-style:italic}
-    .login-section-arrow{margin-left:auto;font-size:10px;color:var(--gray)}
-    .login-section-body.hidden{display:none!important}
-    .login-pin-wrap{display:none;margin-top:0}
-    .login-pin-wrap.show{display:block}
-    .login-pin-label{font-size:12px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
-    .login-user-btn .login-check{margin-left:auto;display:none!important}
+    .login-user-btn .login-check{margin-left:auto;color:var(--c1);font-size:15px;flex-shrink:0;display:none!important}
     .login-user-btn.selected .login-check{display:block!important}
-    .login-err{font-size:13px;color:var(--red);font-weight:600;min-height:18px;margin-bottom:8px}
-    .login-btn{width:100%;padding:14px;background:var(--c1);color:white;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;margin-top:4px}
-    .login-btn:hover{opacity:.9}
-    .login-btn:disabled{opacity:.5;cursor:default}
+    .login-empty-msg{padding:10px 12px;font-size:12px;color:#adb5bd;font-style:italic;text-align:center}
+    /* PIN step */
+    .login-pin-wrap{display:none;padding-top:16px}
+    .login-pin-wrap.show{display:block}
+    .login-pin-back{background:none;border:none;font-size:12px;color:var(--gray);cursor:pointer;font-family:'Inter',sans-serif;font-weight:600;padding:0;margin-bottom:12px;display:flex;align-items:center;gap:4px}
+    .login-pin-back:hover{color:var(--c2)}
+    .login-pin-who{display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:10px 12px;background:#f5f6fa;border-radius:10px}
+    .login-pin-label{font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+    .login-err{font-size:12px;color:var(--red);font-weight:600;min-height:16px;margin-bottom:6px;text-align:center}
+    .login-btn{width:100%;padding:13px;background:var(--c1);color:white;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;margin-top:4px;transition:opacity .15s}
+    .login-btn:hover{opacity:.88}
+    .login-btn:disabled{opacity:.45;cursor:default}
+    /* Picker empresa */
+    .login-loja-wrap-inner{padding:16px 0 0}
 
     /* ── HEADER USER BADGE ── */
     .hdr-user{display:flex;align-items:center;gap:6px;padding:0 10px;border-left:1px solid rgba(255,255,255,.1);cursor:pointer}
@@ -745,24 +759,47 @@
 <!-- ══ LOGIN OVERLAY ══ -->
 <div class="login-overlay" id="login-overlay">
   <div class="login-box">
-    <div style="font-size:36px;margin-bottom:8px">🔐</div>
-    <div class="login-title" id="login-title">Quem está acessando?</div>
-    <div class="login-sub" id="login-sub">Selecione seu perfil e insira o PIN</div>
-    <div class="login-users" id="login-users">
-      <!-- preenchido por JS -->
+
+    <!-- Cabeçalho com marca -->
+    <div class="login-brand">
+      <img id="login-logo-img" class="login-brand-logo" alt="" style="display:none">
+      <div class="login-brand-initials" id="login-brand-initials">F</div>
+      <div class="login-brand-name" id="login-brand-name">Fluxa</div>
+      <div class="login-brand-sub">Sistema de gestão</div>
     </div>
-    <div class="login-pin-wrap" id="login-pin-wrap">
-      <div class="login-pin-label">PIN de acesso</div>
-      <input class="pin-input" type="password" id="pin-input" maxlength="4" inputmode="numeric" placeholder="••••" onkeydown="if(event.key==='Enter')fazerLogin()" style="margin-bottom:8px">
-      <div class="login-err" id="login-err"></div>
-      <button class="login-btn" onclick="fazerLogin()">Entrar →</button>
-      <button onclick="deselecionarUser()" style="width:100%;padding:10px;background:none;border:none;color:var(--gray);font-size:13px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;margin-top:8px">← Voltar</button>
+
+    <!-- Corpo -->
+    <div class="login-body">
+      <!-- Seleção de usuário -->
+      <div id="login-users-wrap">
+        <div class="login-prompt">Quem está acessando?</div>
+        <div class="login-users" id="login-users"></div>
+      </div>
+
+      <!-- PIN -->
+      <div class="login-pin-wrap" id="login-pin-wrap">
+        <button class="login-pin-back" onclick="deselecionarUser()">← Voltar</button>
+        <div class="login-pin-who" id="login-pin-who">
+          <div class="login-user-avatar" id="login-pin-avatar">?</div>
+          <div>
+            <div class="login-user-nome" id="login-pin-nome">—</div>
+            <div class="login-user-perfil" id="login-pin-perfil">—</div>
+          </div>
+        </div>
+        <div class="login-pin-label">PIN de acesso</div>
+        <input class="pin-input" type="password" id="pin-input" maxlength="4" inputmode="numeric" placeholder="••••" onkeydown="if(event.key==='Enter')fazerLogin()" style="margin-bottom:8px">
+        <div class="login-err" id="login-err"></div>
+        <button class="login-btn" onclick="fazerLogin()">Entrar →</button>
+      </div>
+
+      <!-- Picker empresa (após PIN do gestor) -->
+      <div id="login-loja-wrap" style="display:none">
+        <button class="login-pin-back" onclick="voltarParaPin()">← Voltar</button>
+        <div class="login-prompt" style="margin-bottom:12px">Qual empresa gerenciar?</div>
+        <div id="login-loja-list" class="login-users"></div>
+      </div>
     </div>
-    <div id="login-loja-wrap" style="display:none">
-      <div class="login-pin-label" style="margin-bottom:8px;text-align:left">Qual empresa você vai gerenciar?</div>
-      <div id="login-loja-list" style="display:flex;flex-direction:column;gap:0;text-align:left"></div>
-      <button onclick="voltarParaPin()" style="width:100%;padding:10px;background:none;border:none;color:var(--gray);font-size:13px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;margin-top:12px">← Voltar</button>
-    </div>
+
   </div>
 </div>
 
@@ -2177,12 +2214,36 @@ function aplicarPermissoesPerfil(){
     if(mostrarSelect){ populaLojaSelect(); }
   }
 
+  // ── Nav desktop: visibilidade por perfil ──
+  // Vendas vê APENAS: Orçamento, Histórico, Clientes, Agenda
+  const navVendas  =['nb-form','nb-history','nb-clientes','nb-agendamentos'];
+  const navGestor  =['nb-form','nb-history','nb-os','nb-os-history','nb-clientes','nb-equipamentos','nb-agendamentos','nb-despesas','nb-produtividade'];
+  const todosNavIds=['nb-form','nb-history','nb-os','nb-os-history','nb-clientes','nb-equipamentos','nb-agendamentos','nb-despesas','nb-produtividade'];
+  todosNavIds.forEach(id=>{
+    const el=document.getElementById(id); if(!el) return;
+    if(gestor) el.style.display='';
+    else if(vendas) el.style.display=navVendas.includes(id)?'':'none';
+    else el.style.display='none'; // técnico — usa mob-nav próprio
+  });
+
+  // ── Gear menu: itens restritos por perfil ──
+  ['gear-btn-empresa','gear-btn-usuarios','gear-btn-prod'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.style.display=gestor?'':'none';
+  });
+  // Itens do gear que vendas não deve ver
+  const gearDesp=document.querySelector('#gear-menu button[onclick*="despesas"]');
+  const gearOS  =document.querySelector('#gear-menu button[onclick*="\'os\'"]');
+  const gearEq  =document.querySelector('#gear-menu button[onclick*="equipamentos"]');
+  if(gearDesp) gearDesp.style.display=vendas?'none':'';
+  if(gearOS)   gearOS.style.display  =vendas?'none':'';
+  if(gearEq)   gearEq.style.display  =vendas?'none':'';
+
   // ── Mobile nav ──
   const mnbForm   =document.getElementById('mnb-form');
   const mnbOs     =document.getElementById('mnb-os');
   const mnbMinhasOs=document.getElementById('mnb-minhas-os');
   if(mnbForm)    mnbForm.style.display    =(gestor||vendas)?'':'none';
-  if(mnbOs)      mnbOs.style.display      =(gestor||vendas)?'':'none';
+  if(mnbOs)      mnbOs.style.display      =gestor?'':'none'; // vendas não tem Nova OS no mob-nav
   if(mnbMinhasOs)mnbMinhasOs.style.display=tecnico?'':'none';
 
   // ── Cards financeiros e gráfico: ocultos para Vendas ──
@@ -2197,7 +2258,7 @@ function aplicarPermissoesPerfil(){
   if(tecnico && ['form','history','empresa','usuarios','produtividade','despesas'].includes(pid)){
     go('minhas-os');
   }
-  if(vendas && ['empresa','usuarios','produtividade','despesas','minhas-os'].includes(pid)){
+  if(vendas && ['empresa','usuarios','produtividade','despesas','minhas-os','os','os-history','equipamentos'].includes(pid)){
     go('history');
   }
 }
@@ -2438,7 +2499,20 @@ function selecionarUserLogin(btn, id, perfil, nome, lojaId){
   document.querySelectorAll('.login-user-btn').forEach(b=>b.classList.remove('selected'));
   btn.classList.add('selected');
   loginUserSelecionado={id,perfil,nome,loja_id:lojaId};
-  // Mostra campo PIN
+  // Preenche card de quem está entrando
+  const avatarEl=document.getElementById('login-pin-avatar');
+  const nomeEl=document.getElementById('login-pin-nome');
+  const perfilEl=document.getElementById('login-pin-perfil');
+  if(avatarEl){
+    const perfilLabel={gestor:'👑',vendas:'💼',tecnico:nome.charAt(0)};
+    const perfilCor={gestor:'var(--c1)',vendas:'#f59e0b',tecnico:'var(--c2)'};
+    avatarEl.textContent=perfilLabel[perfil]||nome.charAt(0);
+    avatarEl.style.background=perfilCor[perfil]||'var(--c2)';
+  }
+  if(nomeEl) nomeEl.textContent=nome;
+  if(perfilEl) perfilEl.textContent=perfil==='gestor'?'Gestor':perfil==='vendas'?'Vendas':'Técnico';
+  // Oculta lista, mostra PIN
+  document.getElementById('login-users-wrap').style.display='none';
   const pw=document.getElementById('login-pin-wrap');
   pw.classList.add('show');
   const inp=document.getElementById('pin-input');
@@ -2582,6 +2656,7 @@ function mostrarSelecaoLojaGestor(){
       </div>
       <div class="login-section-body">${outrasBtns}</div>
     </div>`:''}`;
+  document.getElementById('login-pin-wrap').classList.remove('show');
   document.getElementById('login-loja-wrap').style.display='block';
 }
 
@@ -2610,6 +2685,7 @@ function deselecionarUser(){
   document.querySelectorAll('.login-user-btn').forEach(b=>b.classList.remove('selected'));
   document.getElementById('login-pin-wrap').classList.remove('show');
   document.getElementById('login-loja-wrap').style.display='none';
+  document.getElementById('login-users-wrap').style.display='';
   document.getElementById('pin-input').value='';
   document.getElementById('login-err').textContent='';
 }
@@ -2946,6 +3022,18 @@ function aplicarCFG(){
   const img = document.getElementById('hdr-logo-img');
   if(CFG.logoB64){ img.src=CFG.logoB64; img.classList.add('has-logo'); }
   else { img.classList.remove('has-logo'); }
+  // Atualiza brand no login
+  const loginLogoImg = document.getElementById('login-logo-img');
+  const loginInitials = document.getElementById('login-brand-initials');
+  const loginName = document.getElementById('login-brand-name');
+  if(loginName) loginName.textContent = CFG.nome || 'Fluxa';
+  if(loginLogoImg && loginInitials){
+    if(CFG.logoB64){ loginLogoImg.src=CFG.logoB64; loginLogoImg.style.display='block'; loginInitials.style.display='none'; }
+    else { loginLogoImg.style.display='none'; loginInitials.style.display='flex'; loginInitials.textContent=(CFG.nome||'F').charAt(0).toUpperCase(); }
+  }
+  // Atualiza gradiente do login brand com cores da empresa
+  const loginBrand=document.querySelector('.login-brand');
+  if(loginBrand) loginBrand.style.background=`linear-gradient(135deg,${CFG.cor2||'#2B3244'},${hexA(CFG.cor2||'#2B3244',.8)})`;
   document.title = CFG.nome + ' — Orçamentos';
   renderPresets();
   preencherFormEmpresa();
