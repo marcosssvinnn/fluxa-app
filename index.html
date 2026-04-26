@@ -676,6 +676,7 @@
     /* ── HEADER USER BADGE ── */
     .hdr-user{display:flex;align-items:center;gap:6px;padding:0 10px;border-left:1px solid rgba(255,255,255,.1);cursor:pointer}
     .hdr-user-avatar{width:28px;height:28px;border-radius:50%;background:var(--c1);color:white;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0}
+    .hdr-user-avatar.vendas{background:#f59e0b}
     .hdr-user-nome{font-size:12px;font-weight:600;color:rgba(255,255,255,.7);white-space:nowrap}
     @media(max-width:680px){.hdr-user-nome{display:none}}
 
@@ -710,6 +711,7 @@
     .usr-badge{display:inline-block;padding:2px 8px;border-radius:50px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
     .usr-badge.gestor{background:var(--c1-light);color:var(--c1)}
     .usr-badge.tecnico{background:var(--blue-bg);color:var(--blue)}
+    .usr-badge.vendas{background:#fef3c7;color:#d97706}
 
     /* ── NF-e MODAL ── */
     .nfe-modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:800;display:none;align-items:center;justify-content:center;padding:16px}
@@ -1004,6 +1006,7 @@
           <label>Perfil</label>
           <select id="usr-perfil" onchange="updUsrForm()">
             <option value="tecnico">Técnico</option>
+            <option value="vendas">Vendas</option>
             <option value="gestor">Gestor</option>
           </select>
         </div>
@@ -2139,18 +2142,30 @@ function getSessao(){ try{ return JSON.parse(sessionStorage.getItem('fluxa_user'
 function setSessao(u){ sessionStorage.setItem('fluxa_user',JSON.stringify(u)); }
 function clearSessao(){ sessionStorage.removeItem('fluxa_user'); }
 function eGestor(){ const s=getSessao(); return !s || s.perfil==='gestor'; }
+function eVendas(){ const s=getSessao(); return s?.perfil==='vendas'; }
+function eTecnico(){ const s=getSessao(); return s?.perfil==='tecnico'; }
 function getLojaFiltro(){ const s=getSessao(); return s?.loja_id||null; }
 
 // Oculta/exibe nav conforme perfil
 function aplicarPermissoesPerfil(){
-  const gestor=eGestor();
+  const gestor  = eGestor();
+  const vendas  = eVendas();
+  const tecnico = eTecnico();
 
-  // nav desktop — itens só para gestor
-  ['nb-form','nb-history','nb-produtividade','gear-btn-empresa','gear-btn-usuarios','gear-btn-prod'].forEach(id=>{
+  // ── Desktop nav ──
+  // Só gestor vê: Produtividade, Config, Usuários
+  ['nb-produtividade','gear-btn-empresa','gear-btn-usuarios','gear-btn-prod'].forEach(id=>{
     const el=document.getElementById(id); if(el) el.style.display=gestor?'':'none';
   });
+  // Gestor e Vendas vêem: + Orçamento, Histórico, OS Hist., Clientes, Equipamentos, Agenda
+  ['nb-form','nb-history','nb-os-history','nb-os','nb-clientes','nb-equipamentos','nb-agendamentos'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.style.display=(gestor||vendas)?'':'none';
+  });
+  // Despesas: só gestor
+  const nbDesp=document.getElementById('nb-despesas');
+  if(nbDesp) nbDesp.style.display=gestor?'':'none';
 
-  // seletor de loja no header — só gestor PRINCIPAL (Forthemp, sem loja fixa)
+  // ── Seletor de loja no header — só gestor PRINCIPAL ──
   const lojaSelEl=document.getElementById('hdr-loja-select');
   if(lojaSelEl){
     const mostrarSelect=isMainGestor();
@@ -2158,23 +2173,28 @@ function aplicarPermissoesPerfil(){
     if(mostrarSelect){ populaLojaSelect(); }
   }
 
-  // nav mobile: técnico vê "Minhas OS" em vez de "+ Orçam."
-  const mnbForm=document.getElementById('mnb-form');
-  const mnbOs=document.getElementById('mnb-os');
+  // ── Mobile nav ──
+  const mnbForm   =document.getElementById('mnb-form');
+  const mnbOs     =document.getElementById('mnb-os');
   const mnbMinhasOs=document.getElementById('mnb-minhas-os');
-  if(mnbForm) mnbForm.style.display=gestor?'':'none';
-  if(mnbOs)   mnbOs.style.display=gestor?'':'none';
-  if(mnbMinhasOs) mnbMinhasOs.style.display=gestor?'none':'';
+  if(mnbForm)    mnbForm.style.display    =(gestor||vendas)?'':'none';
+  if(mnbOs)      mnbOs.style.display      =(gestor||vendas)?'':'none';
+  if(mnbMinhasOs)mnbMinhasOs.style.display=tecnico?'':'none';
 
-  // Se técnico estava numa página restrita, redireciona para suas OS
-  if(!gestor){
-    const pAtiva=document.querySelector('.page.on');
-    if(pAtiva){
-      const pid=pAtiva.id.replace('page-','');
-      if(['form','history','empresa','usuarios','produtividade'].includes(pid)){
-        go('minhas-os');
-      }
-    }
+  // ── Cards financeiros e gráfico: ocultos para Vendas ──
+  const dashEl=document.querySelector('.dash');
+  const chartCard=document.querySelector('.dash-chart-card');
+  if(dashEl)    dashEl.style.display   =vendas?'none':'';
+  if(chartCard) chartCard.style.display=vendas?'none':'';
+
+  // ── Redirecionamentos ──
+  const pAtiva=document.querySelector('.page.on');
+  const pid=pAtiva?pAtiva.id.replace('page-',''):'';
+  if(tecnico && ['form','history','empresa','usuarios','produtividade','despesas'].includes(pid)){
+    go('minhas-os');
+  }
+  if(vendas && ['empresa','usuarios','produtividade','despesas','minhas-os'].includes(pid)){
+    go('history');
   }
 }
 
@@ -2185,7 +2205,8 @@ function atualizarBadgeUsuario(){
   const inicial=nome.charAt(0).toUpperCase();
   const el=document.getElementById('hdr-user-avatar');
   const elNome=document.getElementById('hdr-user-nome');
-  if(el){ el.textContent=inicial; el.className='hdr-user-avatar'+(s?.perfil==='gestor'?' gestor':''); }
+  const avatarExtra = s?.perfil==='gestor'?' gestor': s?.perfil==='vendas'?' vendas':'';
+  if(el){ el.textContent=s?.perfil==='vendas'?'💼':inicial; el.className='hdr-user-avatar'+avatarExtra; }
   if(elNome) elNome.textContent=nome;
 }
 
@@ -2347,13 +2368,29 @@ function renderLoginUsers(){
     </button>`;
   }).join('');
 
+  // ── Seção Vendas ──
+  const vendasUsers=todosUsuarios.filter(u=>u.perfil==='vendas');
+  const vendasBtns=vendasUsers.map(u=>{
+    const inicial=u.nome.charAt(0).toUpperCase();
+    const loja=getLoja(u.loja_id);
+    const lojaParam=u.loja_id?`'${u.loja_id}'`:'null';
+    return `<button class="login-user-btn" data-id="${u.id}" onclick="selecionarUserLogin(this,'${u.id}','vendas','${esc(u.nome)}',${lojaParam})">
+      <div class="login-user-avatar" style="background:#f59e0b">💼</div>
+      <div class="login-user-info">
+        <div class="login-user-nome">${esc(u.nome)}</div>
+        <div class="login-user-perfil">Vendas — ${loja?esc(loja.nome):(u.loja_nome||'Orçamentos')}</div>
+      </div>
+      <span class="login-check">✓</span>
+    </button>`;
+  }).join('');
+
   // ── Seção Técnicos ──
-  const tecs=todosUsuarios.filter(u=>u.perfil!=='gestor');
+  const tecs=todosUsuarios.filter(u=>u.perfil==='tecnico'||(!u.perfil&&u.id!=='__gestor__'));
   const tecsBtns=tecs.map(u=>{
     const inicial=u.nome.charAt(0).toUpperCase();
     const loja=getLoja(u.loja_id);
     const lojaParam=u.loja_id?`'${u.loja_id}'`:'null';
-    return `<button class="login-user-btn" data-id="${u.id}" onclick="selecionarUserLogin(this,'${u.id}','${u.perfil||'tecnico'}','${esc(u.nome)}',${lojaParam})">
+    return `<button class="login-user-btn" data-id="${u.id}" onclick="selecionarUserLogin(this,'${u.id}','tecnico','${esc(u.nome)}',${lojaParam})">
       <div class="login-user-avatar">${inicial}</div>
       <div class="login-user-info">
         <div class="login-user-nome">${esc(u.nome)}</div>
@@ -2369,6 +2406,11 @@ function renderLoginUsers(){
       ${gestorBtn}
       ${gestoresEmpresa}
     </div>
+    ${vendasUsers.length?`
+    <div class="login-section-label">💼 Vendas</div>
+    <div class="login-section-btns">
+      ${vendasBtns}
+    </div>`:''}
     ${tecs.length?`
     <div class="login-section-label">🔧 Técnicos</div>
     <div class="login-section-btns">
@@ -3862,7 +3904,8 @@ function renderTabela(){
   );
   if(!lista.length){ document.getElementById('hist-body').innerHTML=`<div class="empty-st"><div class="ei">📭</div><p>Nenhum orçamento encontrado.</p></div>`; return; }
   const sopts=s=>['pendente','aprovado','recusado','vencido'].map(x=>`<option value="${x}" ${x===s?'selected':''}>${x.charAt(0).toUpperCase()+x.slice(1)}</option>`).join('');
-  let h=`<div class="htw"><table class="ht"><thead><tr><th>#</th><th>Cliente</th><th>Total / Recebido</th><th>Data</th><th>Status</th><th>Ações</th></tr></thead><tbody>`;
+  const ocultarFinanceiro=eVendas();
+  let h=`<div class="htw"><table class="ht"><thead><tr><th>#</th><th>Cliente</th>${ocultarFinanceiro?'':'<th>Total / Recebido</th>'}<th>Data</th><th>Status</th><th>Ações</th></tr></thead><tbody>`;
   lista.forEach(o=>{
     _nc[o.id]=o;
     const num=String(o.numero||'—').padStart(3,'0');
@@ -3875,17 +3918,17 @@ function renderTabela(){
     h+=`<tr>
       <td><span class="on">#${num}</span></td>
       <td><div class="ocl">${esc(o.cliente||'—')}${notaIcon}</div><div class="oloc">${esc(o.local_servico||'')}</div><div class="osvc" title="${esc(svs)}">${esc(svs)}</div><div style="margin-top:3px">${getLojaBadge(o.loja_id)}</div></td>
-      <td><span class="otot">${brl(ttl)}</span><br><span class="${recCl}" style="font-size:11px">${recTxt}</span></td>
+      ${ocultarFinanceiro?'':'<td><span class="otot">'+brl(ttl)+'</span><br><span class="'+recCl+'" style="font-size:11px">'+recTxt+'</span></td>'}
       <td><span class="odt">${dt}</span></td>
       <td><select class="ss ${o.status||'pendente'}" onchange="mudarSt('${o.id}',this)">${sopts(o.status||'pendente')}</select></td>
       <td><div class="ta">
         <button class="tb" title="Editar" onclick="abrirOrc('${o.id}')">✎</button>
         <button class="tb" title="Duplicar" onclick="duplicarOrc('${o.id}')">⧉</button>
         <button class="tb" title="Gerar OS" onclick="gerarOS_deOrc('${o.id}')">📋</button>
-        <button class="tb g" title="Registrar pagamento" onclick="abrirModalPg('${o.id}',${ttl})">💰</button>
-        ${o.status==='aprovado'?`<button class="tb" title="Emitir Nota Fiscal" onclick="abrirModalNFe('${o.id}')" style="background:#7c3aed;color:white;border-radius:6px;padding:4px 7px;font-size:11px;font-weight:700;border:none;cursor:pointer">NF</button>`:''}
+        ${ocultarFinanceiro?'':'<button class="tb g" title="Registrar pagamento" onclick="abrirModalPg(\''+o.id+'\','+ttl+')">💰</button>'}
+        ${!ocultarFinanceiro&&o.status==='aprovado'?`<button class="tb" title="Emitir Nota Fiscal" onclick="abrirModalNFe('${o.id}')" style="background:#7c3aed;color:white;border-radius:6px;padding:4px 7px;font-size:11px;font-weight:700;border:none;cursor:pointer">NF</button>`:''}
         <button class="tb" title="Enviar no WhatsApp" style="background:var(--wa);color:white;border-color:var(--wa)" onclick="enviarNotifWA(notifOrcamento(getNC('${o.id}')), '${o.tel_cliente||''}')">💬 WA</button>
-        <button class="tb d" title="Excluir" onclick="excluirOrc('${o.id}')">🗑</button>
+        ${ocultarFinanceiro?'':'<button class="tb d" title="Excluir" onclick="excluirOrc(\''+o.id+'\')">🗑</button>'}
       </div></td>
     </tr>`;
   });
@@ -5836,14 +5879,16 @@ function renderUsuarios(){
     <span class="usr-badge gestor">Gestor</span>
   </div>`;
 
+  const perfilLabel={gestor:'Gestor',vendas:'Vendas',tecnico:'Técnico'};
+  const perfilCor={gestor:'gestor',vendas:'vendas',tecnico:'tecnico'};
   const tecsHtml=todosUsuarios.filter(u=>u.ativo!==false).map(u=>`
     <div class="usr-card">
-      <div class="usr-avatar">${u.nome.charAt(0).toUpperCase()}</div>
+      <div class="usr-avatar" style="${u.perfil==='vendas'?'background:#f59e0b':''}">${u.perfil==='vendas'?'💼':u.nome.charAt(0).toUpperCase()}</div>
       <div class="usr-info">
         <div class="usr-nome">${esc(u.nome)}</div>
-        <div class="usr-det">${u.loja_nome?'Loja: '+esc(u.loja_nome)+' · ':''} PIN: ${u.pin?'configurado':'não definido (usa PIN da empresa)'}</div>
+        <div class="usr-det">${u.loja_nome?'Loja: '+esc(u.loja_nome)+' · ':''} PIN: ${u.pin?'configurado':'não definido'}</div>
       </div>
-      <span class="usr-badge tecnico">Técnico</span>
+      <span class="usr-badge ${perfilCor[u.perfil]||'tecnico'}">${perfilLabel[u.perfil]||'Técnico'}</span>
       <button class="tb d" style="margin-left:8px;flex-shrink:0" onclick="excluirUsuario('${u.id}')">🗑</button>
     </div>`).join('');
 
