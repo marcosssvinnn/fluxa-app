@@ -9,6 +9,7 @@
   <meta name="theme-color" content="#F07820">
   <title>Sistema de Orçamentos</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -371,6 +372,36 @@
 
       /* ── FOOTER ── */
       .pd-foot{padding:12px 28px;text-align:center;font-size:10.5px;color:rgba(255,255,255,.7);letter-spacing:.4px}
+
+      /* ── VISIT REPORT ── */
+      .pd-vis-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#9ca3af;margin-bottom:12px;padding-bottom:6px;border-bottom:1.5px solid #e9ecef}
+      .pd-vis-info-grid{display:grid!important;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px}
+      .pd-vis-equip-list{display:flex!important;flex-direction:column;gap:12px;margin-bottom:16px}
+      .pd-vis-equip-item{border:1.5px solid #e9ecef;border-radius:10px;overflow:hidden;page-break-inside:avoid}
+      .pd-vis-equip-item.st-bom{border-color:#16a34a}
+      .pd-vis-equip-item.st-atencao{border-color:#d97706}
+      .pd-vis-equip-item.st-critico{border-color:#ef4444}
+      .pd-vis-equip-hdr{display:flex!important;align-items:center;gap:10px;padding:9px 14px}
+      .pd-vis-equip-hdr.st-bom{background:#dcfce7}
+      .pd-vis-equip-hdr.st-atencao{background:#fef3c7}
+      .pd-vis-equip-hdr.st-critico{background:#fee2e2}
+      .pd-vis-equip-hdr.st-na{background:#f3f4f6}
+      .pd-vis-equip-nm{font-size:13px;font-weight:700;color:#111827;flex:1}
+      .pd-vis-equip-bd{font-size:10px;font-weight:700;padding:2px 9px;border-radius:50px}
+      .bd-bom{background:#dcfce7;color:#16a34a}
+      .bd-atencao{background:#fef3c7;color:#d97706}
+      .bd-critico{background:#fee2e2;color:#ef4444}
+      .bd-na{background:#f3f4f6;color:#6b7280}
+      .pd-vis-equip-body{padding:10px 14px;background:white}
+      .pd-vis-equip-obs{font-size:12px;color:#374151;line-height:1.5;margin-bottom:8px;white-space:pre-wrap}
+      .pd-vis-equip-fotos{display:grid!important;grid-template-columns:repeat(3,1fr);gap:6px}
+      .pd-vis-equip-fotos img{width:100%;max-height:100px;object-fit:cover;border-radius:6px;background:#f9fafb}
+      .pd-vis-sumtable{width:100%;border-collapse:collapse;margin-bottom:16px}
+      .pd-vis-sumtable th{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:8px 12px;background:#f8f9fb;text-align:left;border-bottom:1.5px solid #e9ecef}
+      .pd-vis-sumtable td{font-size:11.5px;padding:7px 12px;border-bottom:1px solid #f3f4f6;vertical-align:middle}
+      .pd-vis-sumtable tr:last-child td{border-bottom:none}
+      .st-dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:middle}
+      .st-dot.bom{background:#16a34a}.st-dot.atencao{background:#d97706}.st-dot.critico{background:#ef4444}.st-dot.na{background:#9ca3af}
     }
 
     /* ── EQUIPAMENTOS ── */
@@ -535,6 +566,54 @@
     .chk-add-inp{flex:1;font-size:13px;border:1.5px dashed var(--gray-mid);border-radius:8px;padding:8px 12px;font-family:'Inter',sans-serif;color:var(--c2);outline:none;background:var(--white)}
     .chk-add-inp:focus{border-color:var(--c1);border-style:solid}
     @media(max-width:680px){.chk-add-row{flex-wrap:wrap}.chk-add-inp{width:100%}}
+
+    /* ── VISITAS / INSPEÇÕES ── */
+    .vis-equip-grid{display:flex;flex-direction:column;gap:12px;margin-bottom:4px}
+    .vis-equip-block{border:1.5px solid var(--gray-mid);border-radius:12px;overflow:hidden;transition:border-color .2s}
+    .vis-equip-block.status-bom{border-color:var(--green)}
+    .vis-equip-block.status-atencao{border-color:var(--yellow)}
+    .vis-equip-block.status-critico{border-color:var(--red)}
+    .vis-equip-hdr{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;background:var(--gray-light);user-select:none}
+    .vis-equip-hdr:hover{background:#eaecef}
+    .vis-equip-block.status-bom .vis-equip-hdr{background:var(--green-bg)}
+    .vis-equip-block.status-atencao .vis-equip-hdr{background:var(--yellow-bg)}
+    .vis-equip-block.status-critico .vis-equip-hdr{background:var(--red-bg)}
+    .vis-equip-emoji{font-size:20px;flex-shrink:0}
+    .vis-equip-nome{font-size:13px;font-weight:700;color:var(--c2);flex:1}
+    .vis-equip-badge{font-size:10px;font-weight:700;padding:3px 10px;border-radius:50px;flex-shrink:0}
+    .badge-bom{background:var(--green-bg);color:var(--green)}
+    .badge-atencao{background:var(--yellow-bg);color:var(--yellow)}
+    .badge-critico{background:var(--red-bg);color:var(--red)}
+    .badge-na{background:var(--gray-light);color:var(--gray)}
+    .vis-equip-toggle{font-size:11px;color:var(--gray);flex-shrink:0}
+    .vis-equip-body{padding:14px;background:var(--white);display:none}
+    .vis-equip-body.open{display:block}
+    .vis-status-row{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+    .vis-status-btn{flex:1;min-width:70px;padding:8px 6px;border-radius:8px;border:2px solid var(--gray-mid);background:var(--white);font-size:12px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;text-align:center;transition:all .15s}
+    .vis-status-btn.sel-bom{border-color:var(--green);background:var(--green-bg);color:var(--green)}
+    .vis-status-btn.sel-atencao{border-color:var(--yellow);background:var(--yellow-bg);color:var(--yellow)}
+    .vis-status-btn.sel-critico{border-color:var(--red);background:var(--red-bg);color:var(--red)}
+    .vis-status-btn.sel-na{border-color:var(--gray);background:var(--gray-light);color:var(--gray)}
+    .vis-fotos-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+    .vis-foto-slot{border:2px dashed var(--gray-mid);border-radius:10px;min-height:68px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;position:relative;background:var(--white);transition:border-color .2s,background .2s}
+    .vis-foto-slot:hover{border-color:var(--c1);background:var(--c1-light)}
+    .vis-foto-slot.filled{border-style:solid;border-color:var(--c1);background:var(--c1-light)}
+    .vis-foto-slot img{width:100%;height:60px;object-fit:cover;border-radius:7px}
+    .vis-foto-slot-icon{font-size:18px;margin-bottom:2px}
+    .vis-foto-slot.filled .vis-foto-slot-icon{display:none}
+    .vis-foto-rm{position:absolute;top:3px;right:3px;background:rgba(239,68,68,.85);color:white;border:none;border-radius:50%;width:18px;height:18px;font-size:11px;display:none;align-items:center;justify-content:center;cursor:pointer;font-family:'Inter',sans-serif;line-height:1;padding:0}
+    .vis-foto-slot.filled .vis-foto-rm{display:flex}
+    .vis-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+    .vis-chip{padding:7px 13px;border-radius:50px;border:1.5px solid var(--gray-mid);font-size:12px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;background:var(--white);color:var(--gray);transition:all .15s;user-select:none}
+    .vis-chip.on{border-color:var(--c1);background:var(--c1-light);color:var(--c1)}
+    .vis-history-item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 16px;border-bottom:1px solid var(--gray-light);cursor:pointer;transition:background .15s}
+    .vis-history-item:last-child{border-bottom:none}
+    .vis-history-item:hover{background:var(--gray-light)}
+    .vis-hist-data{font-size:13px;font-weight:700;color:var(--c2)}
+    .vis-hist-cli{font-size:12px;color:var(--gray);margin-top:2px}
+    .vis-hist-badges{display:flex;gap:5px;flex-wrap:wrap}
+    .vis-hist-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:50px}
+    @media(max-width:680px){.vis-status-row .vis-status-btn{font-size:11px;padding:7px 4px}.vis-fotos-row{grid-template-columns:repeat(3,1fr)}}
 
     /* ── HISTÓRICO DO CLIENTE ── */
     .cli-hist-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:900;display:flex;align-items:flex-end;justify-content:center;padding:0}
@@ -869,6 +948,7 @@
     <button class="nb" onclick="go('clientes')" id="nb-clientes">👥 Clientes</button>
     <button class="nb" onclick="go('equipamentos')" id="nb-equipamentos">🔧 Equipamentos</button>
     <button class="nb" onclick="go('agendamentos')" id="nb-agendamentos">📅 Agenda</button>
+    <button class="nb" onclick="go('visitas')" id="nb-visitas">🔍 Vistorias</button>
     <button class="nb" onclick="go('despesas')" id="nb-despesas">💸 Despesas</button>
     <button class="nb" onclick="go('produtividade')" id="nb-produtividade">📈 Prod.</button>
   </nav>
@@ -892,6 +972,7 @@
         <button onclick="closeGear();go('equipamentos')">🔧 Equipamentos</button>
         <button onclick="closeGear();novoOrc()">🔄 Novo Orçamento</button>
         <button onclick="closeGear();go('agendamentos')">📅 Agendamentos</button>
+        <button id="gear-btn-visitas" onclick="closeGear();go('visitas')">🔍 Vistorias</button>
         <button onclick="closeGear();go('despesas')">💸 Despesas</button>
         <button id="gear-btn-prod" onclick="closeGear();go('produtividade')">📈 Produtividade</button>
         <button onclick="closeGear();fazerLogout()" style="color:var(--red)">🔓 Sair / Trocar usuário</button>
@@ -919,6 +1000,9 @@
   </button>
   <button class="mob-nb" id="mnb-equipamentos" onclick="go('equipamentos')">
     <span class="micon">🔧</span><span>Equip.</span>
+  </button>
+  <button class="mob-nb" id="mnb-visitas" onclick="go('visitas')">
+    <span class="micon">🔍</span><span>Vistorias</span>
   </button>
 </nav>
 
@@ -1073,6 +1157,38 @@
       </div>
       <button class="btn-primary" onclick="salvarEmpresa()" style="margin-bottom:0">💾 Salvar Configurações</button>
     </div>
+
+    <!-- ══ EMAIL AUTOMÁTICO ══ -->
+    <div class="card">
+      <div class="ct">📧 E-mail Automático de Vistoria</div>
+      <p style="font-size:13px;color:var(--gray);margin-bottom:14px">
+        Configure o <strong>EmailJS</strong> para enviar o relatório de vistoria automaticamente ao síndico/responsável.
+        Crie uma conta gratuita em <a href="https://www.emailjs.com" target="_blank" style="color:var(--c1)">emailjs.com</a>
+        (200 e-mails/mês grátis), crie um serviço de e-mail e um template, então preencha abaixo.
+      </p>
+      <div style="background:var(--c1-light);border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:12px;color:var(--c2);line-height:1.7">
+        <strong>Variáveis do template EmailJS:</strong><br>
+        <code>{{to_email}}</code> — e-mail do responsável &nbsp;·&nbsp;
+        <code>{{to_name}}</code> — nome do cliente &nbsp;·&nbsp;
+        <code>{{empresa}}</code> — nome da empresa<br>
+        <code>{{tecnico}}</code> — técnico responsável &nbsp;·&nbsp;
+        <code>{{mes_ref}}</code> — mês de referência &nbsp;·&nbsp;
+        <code>{{data_visita}}</code> — data da vistoria<br>
+        <code>{{resumo}}</code> — resumo dos equipamentos &nbsp;·&nbsp;
+        <code>{{obs_geral}}</code> — observações gerais
+      </div>
+      <div class="row f3">
+        <div class="fl"><label>Public Key (User ID)</label><input type="text" id="cfg-ejs-pubkey" placeholder="xxxxxxxxxxxxxxxx"></div>
+        <div class="fl"><label>Service ID</label><input type="text" id="cfg-ejs-service" placeholder="service_xxxxxxx"></div>
+        <div class="fl"><label>Template ID</label><input type="text" id="cfg-ejs-template" placeholder="template_xxxxxxx"></div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <button class="btn-primary" onclick="salvarEmpresa()" style="padding:9px 18px">💾 Salvar</button>
+        <button class="ba" style="background:var(--gray-light);color:var(--c2);padding:9px 14px;font-size:13px" onclick="testarEmailJS()">📨 Testar Envio</button>
+        <span id="ejs-status" style="font-size:12px;color:var(--gray)"></span>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -1314,6 +1430,7 @@
         <button class="fb on" data-tec-st="pendente" onclick="filtTecOS(this)">⏳ Agendadas</button>
         <button class="fb" data-tec-st="concluido" onclick="filtTecOS(this)">✅ Concluídas</button>
         <button class="fb" data-tec-st="todos" onclick="filtTecOS(this)">Todas</button>
+        <button class="btn-primary" style="padding:8px 14px;font-size:13px" onclick="novaVistoria()">🔍 Nova Vistoria</button>
       </div>
     </div>
     <div id="tec-os-lista"><div class="load"><div class="spin"></div> Carregando…</div></div>
@@ -1850,6 +1967,77 @@
   <div class="pd-foot" id="pd-foot-os"></div>
 </div>
 
+<!-- ══ PDF: RELATÓRIO DE VISTORIA ══ -->
+<div class="pdoc" id="pdoc-visita">
+  <!-- HEADER -->
+  <div class="pd-header" id="pd-header-vis">
+    <div class="pd-hdr-brand">
+      <img id="pd-hdr-logo-vis" class="pd-hdr-logo-img" alt="logo">
+      <div class="pd-hdr-logo-initials" id="pd-hdr-init-vis"></div>
+      <div class="pd-hdr-txt">
+        <div class="pd-hdr-nome" id="pd-nm-vis"></div>
+        <div class="pd-hdr-sub" id="pd-sb-vis"></div>
+        <div class="pd-hdr-tagline" id="pd-tag-vis"></div>
+      </div>
+    </div>
+    <div class="pd-hdr-doc">
+      <div class="pd-doctype-badge">Relatório de Vistoria</div>
+      <div class="pd-docnum" id="pd-num-vis"></div>
+    </div>
+  </div>
+  <!-- META STRIP -->
+  <div class="pd-meta-strip">
+    <div class="pd-meta-left" id="pd-cont-vis"></div>
+    <div class="pd-meta-right" id="pd-meta-vis"></div>
+  </div>
+  <!-- CONTENT -->
+  <div class="pd-content">
+    <!-- CLIENT -->
+    <div class="pd-sl">Cliente</div>
+    <div class="pd-cli-card" style="margin-bottom:16px">
+      <div class="pd-cli-bar" id="pd-cli-bar-vis"></div>
+      <div class="pd-cli-info">
+        <div class="pd-cli-nm" id="pd-cli-nm-vis"></div>
+        <div class="pd-cli-loc" id="pd-cli-loc-vis"></div>
+      </div>
+    </div>
+    <!-- VISIT INFO -->
+    <div class="pd-vis-info-grid" id="pd-vis-info-grid"></div>
+    <!-- SUMMARY TABLE -->
+    <div class="pd-sl">Resumo dos Equipamentos</div>
+    <div style="border:1.5px solid #e9ecef;border-radius:10px;overflow:hidden;margin-bottom:16px">
+      <table class="pd-vis-sumtable" id="pd-vis-sumtable"></table>
+    </div>
+    <!-- DETAILED EQUIPMENT SECTIONS -->
+    <div class="pd-sl">Vistoria Detalhada</div>
+    <div class="pd-vis-equip-list" id="pd-vis-equip-list"></div>
+    <!-- GENERAL OBS -->
+    <div id="pd-vis-obs-wrap" style="display:none">
+      <div class="pd-sl">Observações Gerais</div>
+      <div class="pd-obs-card">
+        <div class="pd-obs-bar" id="pd-vis-obs-bar"></div>
+        <div class="pd-obs-inner">
+          <div class="pd-obs-lbl">Observações do Técnico</div>
+          <div class="pd-obs-txt" id="pd-vis-obs-txt"></div>
+        </div>
+      </div>
+    </div>
+    <!-- SIGNATURES -->
+    <div class="pd-sig-area">
+      <div class="pd-sig-blk">
+        <div class="pd-sig-line"></div>
+        <div class="pd-sig-name">Assinatura do Responsável / Síndico</div>
+      </div>
+      <div class="pd-sig-blk">
+        <div class="pd-sig-line"></div>
+        <div class="pd-sig-name" id="pd-vis-sign-tec">Técnico Responsável</div>
+      </div>
+    </div>
+  </div>
+  <!-- FOOTER -->
+  <div class="pd-foot" id="pd-foot-vis"></div>
+</div>
+
 <!-- ══ PAGE: OS HISTORY ══ -->
 <div class="page" id="page-os-history">
   <div class="wrap">
@@ -1887,6 +2075,18 @@
         <div class="row" style="margin-bottom:12px">
           <div class="fl"><label>Endereço</label><input type="text" id="cli-new-end" placeholder="Rua, número, bairro, cidade"></div>
           <div class="fl"><label>CNPJ (opcional)</label><input type="text" id="cli-new-cnpj" placeholder="00.000.000/0001-00"></div>
+        </div>
+        <div class="row" style="margin-bottom:12px">
+          <div class="fl"><label>E-mail do Responsável / Síndico <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--gray)">(para relatórios automáticos)</span></label><input type="email" id="cli-new-email" placeholder="sindico@condominio.com.br"></div>
+          <div class="fl"><label>Tipo de Local</label>
+            <select id="cli-new-tipo" style="width:100%;padding:9px 12px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:14px;font-family:'Inter',sans-serif;outline:none">
+              <option value="">Residência</option>
+              <option value="condominio">Condomínio</option>
+              <option value="hotel">Hotel / Pousada</option>
+              <option value="clube">Clube / Academia</option>
+              <option value="comercial">Comercial</option>
+            </select>
+          </div>
         </div>
         <div style="display:flex;gap:10px">
           <button class="btn-primary" style="flex:1" onclick="salvarNovoCliente()">💾 Salvar Cliente</button>
@@ -2040,6 +2240,140 @@
 </div>
 
 <!-- ══ PAGE: AGENDAMENTOS ══ -->
+<!-- ══ PAGE: VISTORIAS ══ -->
+<div class="page" id="page-visitas">
+  <div class="wrap">
+
+    <!-- Header + tabs -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+      <div style="font-size:18px;font-weight:800;color:var(--c2)">🔍 Vistorias de Manutenção</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="fb on" id="vis-tab-nova" onclick="visTab('nova')">📋 Nova Vistoria</button>
+        <button class="fb" id="vis-tab-hist" onclick="visTab('hist')">📜 Histórico</button>
+      </div>
+    </div>
+
+    <!-- ── ABA: NOVA VISTORIA ── -->
+    <div id="vis-view-nova">
+
+      <!-- Dados gerais -->
+      <div class="card">
+        <div class="ct">Dados da Visita</div>
+        <div class="row">
+          <div class="fl"><label>Cliente</label>
+            <div class="cli-input-wrap">
+              <input type="text" id="vis-cli" placeholder="Nome do cliente" oninput="mostrarSugestoesCliVis(this.value)" autocomplete="off" onblur="setTimeout(()=>hideSugCliVis(),200)">
+              <button type="button" class="cli-search-btn" onclick="abrirBuscaCli('vis')" title="Buscar cliente">🔍</button>
+              <div class="cli-suggestions" id="vis-cli-suggestions" style="display:none"></div>
+            </div>
+          </div>
+          <div class="fl"><label>Local / Endereço</label><input type="text" id="vis-loc" placeholder="Endereço do local"></div>
+        </div>
+        <div class="row f4">
+          <div class="fl"><label>Data da Vistoria</label><input type="date" id="vis-data"></div>
+          <div class="fl"><label>Horário</label><input type="time" id="vis-hora" value="08:00"></div>
+          <div class="fl"><label>Técnico</label>
+            <select id="vis-tec"><option value="">Selecione…</option></select>
+          </div>
+          <div class="fl"><label>Mês de Referência</label><input type="month" id="vis-mes-ref"></div>
+        </div>
+        <div class="row">
+          <div class="fl">
+            <label>E-mail do Responsável / Síndico <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--gray)">(relatório enviado automaticamente ao salvar)</span></label>
+            <input type="email" id="vis-email-resp" placeholder="sindico@condominio.com.br">
+          </div>
+          <div class="fl" style="display:flex;flex-direction:column;justify-content:flex-end">
+            <label style="visibility:hidden">.</label>
+            <div id="vis-email-status" style="font-size:12px;color:var(--gray);padding:9px 12px;background:var(--gray-light);border-radius:8px;min-height:38px;display:flex;align-items:center">
+              E-mail será enviado ao salvar a vistoria
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Check-in -->
+      <div class="card">
+        <div class="ct">⏱ Check-in / Check-out</div>
+        <div id="vis-checkin-bar" style="display:none" class="checkin-bar">
+          <span>✅ Check-in realizado</span>
+          <span class="checkin-timer" id="vis-checkin-timer">00:00</span>
+          <button class="ba" style="background:var(--red);color:white;padding:8px 14px;font-size:13px" onclick="visCheckout()">✔ Check-out</button>
+        </div>
+        <div id="vis-checkin-form" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <div style="font-size:13px;color:var(--gray);flex:1">Registre sua chegada ao local para iniciar o relatório.</div>
+          <button class="ba" style="background:var(--green);color:white;padding:10px 18px;font-size:13px" onclick="visCheckin()">📍 Check-in</button>
+        </div>
+        <div id="vis-checkin-info" style="font-size:12px;color:var(--gray);margin-top:8px;min-height:16px"></div>
+      </div>
+
+      <!-- Equipamentos presentes neste local -->
+      <div class="card">
+        <div class="ct">⚙️ Equipamentos do Local
+          <span style="font-size:11px;font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0">Selecione os que existem neste local</span>
+        </div>
+        <div class="vis-chips" id="vis-equip-chips"></div>
+      </div>
+
+      <!-- Vistoria por equipamento -->
+      <div class="card" id="vis-equip-card" style="display:none">
+        <div class="ct">🔧 Vistoria dos Equipamentos</div>
+        <div class="vis-equip-grid" id="vis-equip-grid"></div>
+      </div>
+
+      <!-- Observações gerais -->
+      <div class="card">
+        <div class="ct">📝 Observações Gerais</div>
+        <div class="row f1">
+          <div class="fl"><textarea id="vis-obs" rows="4" placeholder="Condições gerais do local, recomendações, pendências, produtos aplicados…"></textarea></div>
+        </div>
+      </div>
+
+      <!-- Ações -->
+      <div class="acts" style="grid-template-columns:1fr 1fr">
+        <button class="ba" style="background:var(--c2);color:white" onclick="salvarVistoria()">
+          💾 Salvar Relatório
+        </button>
+        <button class="ba ba-pdf" onclick="gerarRelatorioVistoria()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h9l5 5v15a2 2 0 01-2 2H6a2 2 0 01-2-2V4a2 2 0 012-2z"/><polyline points="14 2 14 8 20 8"/></svg>
+          Gerar Relatório PDF
+        </button>
+      </div>
+
+    </div><!-- /vis-view-nova -->
+
+    <!-- ── ABA: HISTÓRICO ── -->
+    <div id="vis-view-hist" style="display:none">
+
+      <!-- Mini-dashboard stats -->
+      <div id="vis-stats-row" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px"></div>
+
+      <!-- Filtros -->
+      <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
+        <input type="text" id="vis-hist-busca" placeholder="Buscar cliente ou local…"
+          oninput="renderVisHistorico()"
+          style="flex:1;min-width:160px;padding:9px 12px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;outline:none;color:var(--c2)">
+        <input type="month" id="vis-hist-mes" onchange="renderVisHistorico()"
+          style="padding:9px 12px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;outline:none;color:var(--c2)">
+        <select id="vis-hist-tec" onchange="renderVisHistorico()"
+          style="padding:9px 12px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;outline:none;color:var(--c2)">
+          <option value="">Todos os técnicos</option>
+        </select>
+      </div>
+
+      <!-- Ranking de técnicos -->
+      <div class="card" id="vis-ranking-card" style="margin-bottom:14px;display:none">
+        <div class="ct">🏆 Ranking de Técnicos (mês)</div>
+        <div id="vis-ranking-body"></div>
+      </div>
+
+      <div class="card" style="padding:0;overflow:hidden">
+        <div id="vis-hist-body" style="min-height:80px"></div>
+      </div>
+    </div><!-- /vis-view-hist -->
+
+  </div>
+</div>
+
 <div class="page" id="page-agendamentos">
   <div class="wrap">
 
@@ -2249,6 +2583,7 @@ function aplicarPermissoesPerfil(){
     'nb-os'           : gestor||vendas,
     'nb-os-history'   : gestor,
     'nb-equipamentos' : gestor,
+    'nb-visitas'      : gestor||tecnico,
     'nb-despesas'     : gestor,
     'nb-produtividade': gestor,
   };
@@ -2270,6 +2605,7 @@ function aplicarPermissoesPerfil(){
     'gear-btn-empresa' : gestor,
     'gear-btn-usuarios': gestor,
     'gear-btn-prod'    : gestor,
+    'gear-btn-visitas' : gestor||tecnico,
   };
   Object.entries(gearRules).forEach(([id,pode])=>{
     const el=document.getElementById(id); if(el) el.style.display=pode?'':'none';
@@ -2290,6 +2626,7 @@ function aplicarPermissoesPerfil(){
     'mnb-history'     : gestor||vendas,
     'mnb-agendamentos': gestor||vendas,
     'mnb-equipamentos': gestor,
+    'mnb-visitas'     : gestor||tecnico,
   };
   Object.entries(mnbRules).forEach(([id,pode])=>{
     const el=document.getElementById(id); if(el) el.style.display=pode?'':'none';
@@ -2305,7 +2642,7 @@ function aplicarPermissoesPerfil(){
   const pAtiva=document.querySelector('.page.on');
   const pid=pAtiva?pAtiva.id.replace('page-',''):'';
   const pagesVendasOk=['form','history','clientes','agendamentos','os'];
-  const pagesTecnicoOk=['minhas-os'];
+  const pagesTecnicoOk=['minhas-os','visitas'];
   if(tecnico && !pagesTecnicoOk.includes(pid)) go('minhas-os');
   if(vendas  && !pagesVendasOk.includes(pid))  go('form');
 }
@@ -2817,6 +3154,7 @@ function lsOrcProxNum(){ return lsOrcLer().reduce((a,o)=>Math.max(a,o.numero||0)
 ;(async () => {
   carregarCFGlocal();
   aplicarCFG();
+  initEmailJS(); // inicializa EmailJS com chave local se configurada
 
   const isPortal = await checkPortalHash();
   if(isPortal) return;
@@ -2851,10 +3189,11 @@ function lsOrcProxNum(){ return lsOrcLer().reduce((a,o)=>Math.max(a,o.numero||0)
     try {
       const ok = await conectarDB(sbUrl, sbKey, false);
       if(ok){
-        await carregarCFGremoto(); aplicarCFG();
+        await carregarCFGremoto(); aplicarCFG(); initEmailJS();
         await carregarClientesRemoto();
         await sincronizarSeedUsuarios();
         await carregarUsuarios();
+        loadVistoriasRemoto();
         if(document.getElementById('login-overlay').style.display!=='none') renderLoginUsers();
       }
       else if(tentativa < 3) setTimeout(()=>tentarConectar(tentativa+1), tentativa===1?3000:15000);
@@ -2951,6 +3290,26 @@ ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS checkin_at timestamptz;
 ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS checkout_at timestamptz;
 ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS duracao_min integer;
 ALTER PUBLICATION supabase_realtime ADD TABLE agendamentos;
+
+CREATE TABLE IF NOT EXISTS vistorias (
+  id text PRIMARY KEY,
+  loja_id text,
+  cliente text,
+  local text,
+  data text,
+  hora text,
+  tecnico text,
+  mes_ref text,
+  hora_checkin text,
+  hora_checkout text,
+  obs_geral text,
+  email_responsavel text,
+  equipamentos jsonb DEFAULT '[]',
+  created_at timestamptz DEFAULT now()
+);
+ALTER TABLE vistorias ADD COLUMN IF NOT EXISTS email_responsavel text;
+ALTER TABLE clientes   ADD COLUMN IF NOT EXISTS email_responsavel text;
+ALTER PUBLICATION supabase_realtime ADD TABLE vistorias;
 
 CREATE TABLE IF NOT EXISTS equipamentos (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -3123,6 +3482,11 @@ function preencherFormEmpresa(){
   setV('cfg-nfe-cnpj', CFG.nfe_cnpj||'');
   setV('cfg-nfe-iss', CFG.nfe_iss||'2.0');
   setV('cfg-nfe-cod-svc', CFG.nfe_cod_svc||'7.10');
+  setV('cfg-ejs-pubkey',   CFG.emailjs_pubkey||'');
+  setV('cfg-ejs-service',  CFG.emailjs_service||'');
+  setV('cfg-ejs-template', CFG.emailjs_template||'');
+  const ejsSt=document.getElementById('ejs-status');
+  if(ejsSt) ejsSt.textContent=emailJSConfigurado()?'✅ EmailJS configurado':'';
   const lp = document.getElementById('logo-preview');
   if(CFG.logoB64){ lp.src=CFG.logoB64; lp.style.display='block'; }
 }
@@ -3167,7 +3531,12 @@ async function salvarEmpresa(){
   CFG.nfe_cnpj       = gV('cfg-nfe-cnpj').trim();
   CFG.nfe_iss        = gV('cfg-nfe-iss')||'2.0';
   CFG.nfe_cod_svc    = gV('cfg-nfe-cod-svc')||'7.10';
+  // EmailJS
+  CFG.emailjs_pubkey   = gV('cfg-ejs-pubkey').trim();
+  CFG.emailjs_service  = gV('cfg-ejs-service').trim();
+  CFG.emailjs_template = gV('cfg-ejs-template').trim();
   lsSet('empresa_cfg',JSON.stringify(CFG));
+  if(CFG.emailjs_pubkey) initEmailJS();
   if(dbOk&&db){
     try{ await db.from('empresa_config').upsert([{id:1,dados:CFG,updated_at:new Date().toISOString()}]); }catch(e){ console.warn('cfg sync:',e.message); toast('✅ Configurações salvas localmente (sync falhou)'); aplicarCFG(); return; }
   }
@@ -3217,7 +3586,7 @@ function go(p){
   const _tecnico = eTecnico();
   const _gestor  = eGestor();
   const pagesVendas  = ['form','history','clientes','agendamentos','os'];
-  const pagesTecnico = ['minhas-os'];
+  const pagesTecnico = ['minhas-os','visitas'];
   if(_vendas  && !pagesVendas.includes(p))  return; // bloqueia silenciosamente
   if(_tecnico && !pagesTecnico.includes(p)) return; // bloqueia silenciosamente
   if(!_gestor && !_vendas && !_tecnico &&
@@ -3241,6 +3610,7 @@ function go(p){
   if(p==='produtividade'){ loadProdutividade(); setTimeout(renderRelatorioFinanceiro,300); }
   if(p==='usuarios') loadUsuarios();
   if(p==='minhas-os') loadMinhasOS();
+  if(p==='visitas') initVisitas();
   // Atualiza técnicos disponíveis quando abre form de OS
   if(p==='os'){
     const l=gV('os-loja')||'fortemp-camboriu';
@@ -4626,6 +4996,8 @@ function editarCliente(id){
   setV('cli-new-tel',c.tel||'');
   setV('cli-new-end',c.end||'');
   setV('cli-new-cnpj',c.cnpj||'');
+  setV('cli-new-email',c.email_responsavel||'');
+  const tipoEl=document.getElementById('cli-new-tipo'); if(tipoEl) tipoEl.value=c.tipo||'';
   const wrap=document.getElementById('cli-form-wrap');
   wrap.style.display='block';
   // muda o título do form
@@ -4643,16 +5015,16 @@ async function salvarNovoCliente(){
     const lista=lsCliLer();
     const idx=lista.findIndex(x=>x.id===_cliEditId);
     if(idx>=0){
-      lista[idx]={...lista[idx], nome, tel:gV('cli-new-tel').trim(), end:gV('cli-new-end').trim(), cnpj:gV('cli-new-cnpj').trim()};
+      lista[idx]={...lista[idx], nome, tel:gV('cli-new-tel').trim(), end:gV('cli-new-end').trim(), cnpj:gV('cli-new-cnpj').trim(), email_responsavel:gV('cli-new-email').trim(), tipo:document.getElementById('cli-new-tipo')?.value||''};
       lsCliSalvar(lista);
-      if(dbOk&&db){ try{ await db.from('clientes').update({nome,telefone:lista[idx].tel,endereco:lista[idx].end,cnpj:lista[idx].cnpj||null}).eq('id',_cliEditId); }catch(e){ console.warn('cli update sync:',e.message); } }
+      if(dbOk&&db){ try{ await db.from('clientes').update({nome,telefone:lista[idx].tel,endereco:lista[idx].end,cnpj:lista[idx].cnpj||null,email_responsavel:lista[idx].email_responsavel||null}).eq('id',_cliEditId); }catch(e){ console.warn('cli update sync:',e.message); } }
     }
     _cliEditId=null;
     document.getElementById('cli-form-wrap').style.display='none';
     renderClientes(); toast('✅ Cliente atualizado!'); return;
   }
   // modo novo
-  const novo={id:'cli_'+Date.now(), nome, tel:gV('cli-new-tel').trim(), end:gV('cli-new-end').trim(), cnpj:gV('cli-new-cnpj').trim(), portal_token:crypto.randomUUID(), loja_id:lojaAtiva||'fortemp-camboriu'};
+  const novo={id:'cli_'+Date.now(), nome, tel:gV('cli-new-tel').trim(), end:gV('cli-new-end').trim(), cnpj:gV('cli-new-cnpj').trim(), email_responsavel:gV('cli-new-email').trim(), tipo:document.getElementById('cli-new-tipo')?.value||'', portal_token:crypto.randomUUID(), loja_id:lojaAtiva||'fortemp-camboriu'};
   const lista=lsCliLer(); lista.unshift(novo); lsCliSalvar(lista);
   if(dbOk&&db){
     try{ await db.from('clientes').insert([{nome:novo.nome,telefone:novo.tel,endereco:novo.end,cnpj:novo.cnpj||null,loja_id:novo.loja_id}]); }catch(e){ console.warn('cli sync:',e.message); }
@@ -4745,6 +5117,16 @@ function selecionarCliModal(nome, end, tel, cnpj){
     setV('os-cli', nome);
     if(end) setV('os-loc', end);
     if(cnpj) setV('os-cnpj', cnpj);
+  } else if(_buscaCliCtx === 'vis'){
+    setV('vis-cli', nome);
+    if(end) setV('vis-loc', end);
+    // auto-fill email from client record
+    const clis=JSON.parse(ls('fluxa_clientes_full')||'[]');
+    const cliVis=clis.find(c=>(c.nome||'')=== nome);
+    if(cliVis?.email_responsavel){
+      setV('vis-email-resp', cliVis.email_responsavel);
+      const st=document.getElementById('vis-email-status'); if(st) st.textContent=`📧 ${cliVis.email_responsavel} (do cadastro)`;
+    }
   } else {
     setV('cli', nome);
     if(end) setV('loc', end);
@@ -5803,8 +6185,9 @@ function renderAgLista(){
         <div class="agenda-sub">📍 ${esc(a.local_servico||'—')} &nbsp;·&nbsp; 👤 ${esc(a.tecnico||'—')} &nbsp;·&nbsp; ⏰ ${esc(a.horario||'')}</div>
         <div class="agenda-sub" style="margin-top:2px">🔁 ${periodos[a.periodicidade]||a.periodicidade} &nbsp;·&nbsp; Início: ${a.data_inicio?new Date(a.data_inicio+'T12:00:00').toLocaleDateString('pt-BR'):'—'}</div>
       </div>
-      <div style="display:flex;gap:6px;flex-shrink:0">
-        <button class="tb d" onclick="cancelarSerie('${a.id}')">🚫 Cancelar série</button>
+      <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap">
+        <button class="tb" style="background:var(--c1-light);color:var(--c1);border-color:var(--c1-mid)" onclick="novaVistoria('${esc(a.cliente||'')}','${esc(a.local_servico||'')}','${esc(a.tecnico||'')}')">🔍 Vistoria</button>
+        <button class="tb d" onclick="cancelarSerie('${a.id}')">🚫 Cancelar</button>
       </div>
     </div>
   `).join('');
@@ -6415,6 +6798,691 @@ function iniciarPollingNF(baseUrl, auth, ref, nfId){
       }
     }catch(e){ console.warn('polling NF erro:',e.message); }
   },5000); // verifica a cada 5s
+}
+
+// ══════════════════════════════════════════════════
+//  VISTORIAS DE MANUTENÇÃO
+// ══════════════════════════════════════════════════
+
+const VIS_EQUIPAMENTOS_DEFAULT = [
+  { id:'motobomba',     nome:'Motobomba Principal',      emoji:'⚙️'  },
+  { id:'mot-aux',       nome:'Motobomba Auxiliar',        emoji:'⚙️'  },
+  { id:'trocador',      nome:'Trocador de Calor',         emoji:'🌡️'  },
+  { id:'filtro',        nome:'Filtro',                    emoji:'🔵'  },
+  { id:'skimmer',       nome:'Skimmer',                   emoji:'💧'  },
+  { id:'iluminacao',    nome:'Iluminação Subaquática',    emoji:'💡'  },
+  { id:'automacao',     nome:'Automação / Dosador',       emoji:'🤖'  },
+  { id:'spa',           nome:'Spa',                       emoji:'🛁'  },
+  { id:'sauna',         nome:'Sauna',                     emoji:'🧖'  },
+];
+
+// Estado atual da vistoria em edição
+let visEquipSelecionados = []; // ids dos equipamentos ativos
+let visEquipDados = {};        // { id: { status, obs, fotos:[] } }
+let visCheckinTime = null;
+let visCheckoutTime = null;
+let visCheckinInterval = null;
+let visEditId = null;          // id da vistoria sendo editada (null = nova)
+
+const LS_VIS = 'fluxa_visitas';
+function lsVisLer(){ try{ return JSON.parse(localStorage.getItem(LS_VIS)||'[]'); }catch(e){ return []; } }
+function lsVisSalvar(lista){ localStorage.setItem(LS_VIS, JSON.stringify(lista)); }
+
+function initVisitas(){
+  // Preenche técnicos no select
+  atualizarTecsPorLoja(null,'vis-tec');
+  // Data e mês ref padrão = hoje
+  const hoje = new Date();
+  const dd = document.getElementById('vis-data');
+  const mm = document.getElementById('vis-mes-ref');
+  if(dd && !dd.value) dd.value = hoje.toISOString().slice(0,10);
+  if(mm && !mm.value) mm.value = hoje.toISOString().slice(0,7);
+  // Chips de equipamentos
+  renderVisChips();
+  // Histórico — default = mês atual
+  const hmEl = document.getElementById('vis-hist-mes');
+  if(hmEl && !hmEl.value) hmEl.value = hoje.toISOString().slice(0,7);
+  renderVisHistorico();
+  // Popula autocomplete técnico no select
+  const sel = document.getElementById('vis-tec');
+  if(sel){
+    const sess = getSessao();
+    if(sess?.perfil==='tecnico' && sess.nome){
+      // auto-seleciona técnico logado
+      for(let o of sel.options){ if(o.text===sess.nome){ o.selected=true; break; } }
+    }
+  }
+}
+
+function visTab(tab){
+  document.getElementById('vis-view-nova').style.display = tab==='nova'?'':'none';
+  document.getElementById('vis-view-hist').style.display = tab==='hist'?'':'none';
+  document.getElementById('vis-tab-nova').className = 'fb'+(tab==='nova'?' on':'');
+  document.getElementById('vis-tab-hist').className = 'fb'+(tab==='hist'?' on':'');
+  if(tab==='hist') renderVisHistorico();
+}
+
+// ── Chips de seleção de equipamentos ──
+function renderVisChips(){
+  const el = document.getElementById('vis-equip-chips'); if(!el) return;
+  el.innerHTML = VIS_EQUIPAMENTOS_DEFAULT.map(eq=>`
+    <div class="vis-chip${visEquipSelecionados.includes(eq.id)?' on':''}"
+         onclick="toggleVisEquip('${eq.id}')" data-visid="${eq.id}">
+      ${eq.emoji} ${eq.nome}
+    </div>`).join('');
+}
+
+function toggleVisEquip(id){
+  if(visEquipSelecionados.includes(id)){
+    visEquipSelecionados = visEquipSelecionados.filter(x=>x!==id);
+    delete visEquipDados[id];
+  } else {
+    visEquipSelecionados.push(id);
+    if(!visEquipDados[id]) visEquipDados[id] = { status:'na', obs:'', fotos:[] };
+  }
+  renderVisChips();
+  renderVisEquipGrid();
+  const card = document.getElementById('vis-equip-card');
+  if(card) card.style.display = visEquipSelecionados.length?'':'none';
+}
+
+// ── Grid de vistoria por equipamento ──
+function renderVisEquipGrid(){
+  const el = document.getElementById('vis-equip-grid'); if(!el) return;
+  el.innerHTML = '';
+  visEquipSelecionados.forEach(id=>{
+    const def = VIS_EQUIPAMENTOS_DEFAULT.find(x=>x.id===id);
+    if(!def) return;
+    const d = visEquipDados[id] || { status:'na', obs:'', fotos:[] };
+    const stClass = 'status-'+d.status;
+    const badgeMap = { bom:'badge-bom', atencao:'badge-atencao', critico:'badge-critico', na:'badge-na' };
+    const badgeTxt = { bom:'✅ Bom', atencao:'⚠️ Atenção', critico:'🔴 Crítico', na:'— N/A' };
+    const block = document.createElement('div');
+    block.className = `vis-equip-block ${stClass}`;
+    block.id = `vis-block-${id}`;
+    // 3 foto slots
+    const fotosHtml = [0,1,2].map(i=>{
+      const f = (d.fotos||[])[i];
+      return `<div class="vis-foto-slot${f?' filled':''}" onclick="visClickFotoSlot('${id}',${i})">
+        <input type="file" id="vis-f-${id}-${i}" accept="image/*" capture="environment" style="display:none"
+               onchange="visCarregarFoto(this,'${id}',${i})">
+        ${f?`<img src="${f}" alt="">`:'' }
+        <div class="vis-foto-slot-icon">📷</div>
+        <button class="vis-foto-rm" onclick="event.stopPropagation();visRemoverFoto('${id}',${i})" title="Remover">✕</button>
+      </div>`;
+    }).join('');
+    block.innerHTML = `
+      <div class="vis-equip-hdr" onclick="toggleVisEquipBody('${id}')">
+        <div class="vis-equip-emoji">${def.emoji}</div>
+        <div class="vis-equip-nome">${def.nome}</div>
+        <div class="vis-equip-badge ${badgeMap[d.status]}">${badgeTxt[d.status]}</div>
+        <div class="vis-equip-toggle" id="vis-arr-${id}">▼</div>
+      </div>
+      <div class="vis-equip-body open" id="vis-body-${id}">
+        <div style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Status</div>
+        <div class="vis-status-row">
+          <button class="vis-status-btn${d.status==='bom'?' sel-bom':''}" onclick="setVisEquipStatus('${id}','bom')">✅ Bom</button>
+          <button class="vis-status-btn${d.status==='atencao'?' sel-atencao':''}" onclick="setVisEquipStatus('${id}','atencao')">⚠️ Atenção</button>
+          <button class="vis-status-btn${d.status==='critico'?' sel-critico':''}" onclick="setVisEquipStatus('${id}','critico')">🔴 Crítico</button>
+          <button class="vis-status-btn${d.status==='na'?' sel-na':''}" onclick="setVisEquipStatus('${id}','na')">— N/A</button>
+        </div>
+        <div class="fl" style="margin-bottom:8px">
+          <label>Observações</label>
+          <textarea rows="2" placeholder="Condições encontradas, medições, pendências…"
+            oninput="visUpdObs('${id}',this.value)"
+            style="width:100%;padding:8px 10px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;resize:vertical;outline:none">${esc(d.obs||'')}</textarea>
+        </div>
+        <div style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Fotos</div>
+        <div class="vis-fotos-row">${fotosHtml}</div>
+      </div>`;
+    el.appendChild(block);
+  });
+}
+
+function toggleVisEquipBody(id){
+  const b = document.getElementById('vis-body-'+id);
+  const a = document.getElementById('vis-arr-'+id);
+  if(!b) return;
+  const open = b.classList.contains('open');
+  b.classList.toggle('open',!open);
+  if(a) a.textContent = open?'▶':'▼';
+}
+
+function setVisEquipStatus(id, status){
+  if(!visEquipDados[id]) visEquipDados[id]={ status:'na', obs:'', fotos:[] };
+  visEquipDados[id].status = status;
+  renderVisEquipGrid();
+}
+
+function visUpdObs(id, val){
+  if(!visEquipDados[id]) visEquipDados[id]={ status:'na', obs:'', fotos:[] };
+  visEquipDados[id].obs = val;
+}
+
+function visClickFotoSlot(id, idx){
+  document.getElementById(`vis-f-${id}-${idx}`)?.click();
+}
+function visCarregarFoto(inp, id, idx){
+  const f = inp.files[0]; if(!f) return;
+  if(f.size > FOTO_MAX_BYTES){ toast('⚠️ Foto muito grande (máx 2 MB)'); inp.value=''; return; }
+  const r = new FileReader();
+  r.onload = e => {
+    if(!visEquipDados[id]) visEquipDados[id]={ status:'na', obs:'', fotos:[] };
+    if(!visEquipDados[id].fotos) visEquipDados[id].fotos=[];
+    visEquipDados[id].fotos[idx] = e.target.result;
+    renderVisEquipGrid();
+  };
+  r.readAsDataURL(f);
+}
+function visRemoverFoto(id, idx){
+  if(visEquipDados[id]?.fotos) visEquipDados[id].fotos[idx]=null;
+  renderVisEquipGrid();
+}
+
+// ── Check-in / Check-out ──
+function visCheckin(){
+  visCheckinTime = new Date();
+  const info = document.getElementById('vis-checkin-info');
+  const bar  = document.getElementById('vis-checkin-bar');
+  const form = document.getElementById('vis-checkin-form');
+  if(bar)  bar.style.display='flex';
+  if(form) form.style.display='none';
+  if(info) info.textContent = '📍 Check-in: '+visCheckinTime.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  // Auto-preenche hora no campo
+  const hEl = document.getElementById('vis-hora');
+  if(hEl) hEl.value = visCheckinTime.toTimeString().slice(0,5);
+  // Timer
+  const timerEl = document.getElementById('vis-checkin-timer');
+  visCheckinInterval = setInterval(()=>{
+    const diff = Math.floor((Date.now()-visCheckinTime)/1000);
+    const h=Math.floor(diff/3600), m=Math.floor((diff%3600)/60), s=diff%60;
+    if(timerEl) timerEl.textContent=(h?h+':':'')+(m<10&&h?'0':'')+m+':'+(s<10?'0':'')+s;
+  },1000);
+}
+function visCheckout(){
+  visCheckoutTime = new Date();
+  if(visCheckinInterval){ clearInterval(visCheckinInterval); visCheckinInterval=null; }
+  const bar  = document.getElementById('vis-checkin-bar');
+  const info = document.getElementById('vis-checkin-info');
+  if(bar)  bar.style.display='none';
+  const entradaTxt = visCheckinTime?visCheckinTime.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):'—';
+  const saidaTxt   = visCheckoutTime.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  const diff = visCheckinTime ? Math.floor((visCheckoutTime-visCheckinTime)/60000) : null;
+  if(info) info.textContent = `✅ Check-in: ${entradaTxt}  ·  Check-out: ${saidaTxt}${diff!==null?' · '+diff+' min':''}`;
+  toast('✅ Check-out registrado');
+}
+
+// ── Autocomplete cliente no campo vis-cli ──
+function mostrarSugestoesCliVis(val){
+  const sug = document.getElementById('vis-cli-suggestions'); if(!sug) return;
+  if(!val||val.length<2){ sug.style.display='none'; return; }
+  const clientes = JSON.parse(ls('fluxa_clientes_full')||'[]');
+  const hits = clientes.filter(c=>(c.nome||'').toLowerCase().includes(val.toLowerCase())).slice(0,5);
+  if(!hits.length){ sug.style.display='none'; return; }
+  sug.innerHTML = hits.map(c=>`<div class="cli-suggestion-item" onmousedown="selecionarCliVis('${esc(c.nome||'')}','${esc(c.local||c.endereco||'')}')"><div class="cli-sug-name">${esc(c.nome)}</div><div class="cli-sug-tel">${esc(c.local||c.endereco||c.tel||'')}</div></div>`).join('');
+  sug.style.display='block';
+}
+function hideSugCliVis(){ const el=document.getElementById('vis-cli-suggestions'); if(el) el.style.display='none'; }
+function selecionarCliVis(nome, local){
+  const inp=document.getElementById('vis-cli'); if(inp) inp.value=nome;
+  const loc=document.getElementById('vis-loc'); if(loc&&local&&!loc.value) loc.value=local;
+  // Auto-fill email from client record
+  const clientes=JSON.parse(ls('fluxa_clientes_full')||'[]');
+  const cli=clientes.find(c=>(c.nome||'')=== nome);
+  if(cli?.email_responsavel){
+    const emailInp=document.getElementById('vis-email-resp');
+    if(emailInp&&!emailInp.value) emailInp.value=cli.email_responsavel;
+    const st=document.getElementById('vis-email-status');
+    if(st) st.textContent=`📧 ${cli.email_responsavel} (do cadastro)`;
+  }
+  hideSugCliVis();
+}
+
+// ── Salvar vistoria ──
+async function salvarVistoria(){
+  const cli  = (document.getElementById('vis-cli')?.value||'').trim();
+  const loc  = (document.getElementById('vis-loc')?.value||'').trim();
+  const data = document.getElementById('vis-data')?.value||new Date().toISOString().slice(0,10);
+  const hora = document.getElementById('vis-hora')?.value||'';
+  const tec  = document.getElementById('vis-tec')?.value||gV('vis-tec')||'';
+  const mes  = document.getElementById('vis-mes-ref')?.value||new Date().toISOString().slice(0,7);
+  const obs  = document.getElementById('vis-obs')?.value||'';
+  const emailResp = (document.getElementById('vis-email-resp')?.value||'').trim();
+  if(!cli){ toast('⚠️ Informe o cliente'); return; }
+  const equipamentos = visEquipSelecionados.map(id=>{
+    const def = VIS_EQUIPAMENTOS_DEFAULT.find(x=>x.id===id)||{id,nome:id,emoji:''};
+    const d   = visEquipDados[id]||{ status:'na', obs:'', fotos:[] };
+    return { id, nome:def.nome, emoji:def.emoji, status:d.status, obs:d.obs||'', fotos:(d.fotos||[]).filter(Boolean) };
+  });
+  const s    = getSessao();
+  const lojaId = s?.loja_id || getLojaFiltro() || CFG?.lojas?.[0]?.id || 'default';
+  const id   = visEditId || 'vis_'+Date.now();
+  const rec  = {
+    id, loja_id:lojaId, cliente:cli, local:loc, data, hora,
+    tecnico: tec || (s?.nome||''),
+    mes_ref: mes,
+    hora_checkin: visCheckinTime?visCheckinTime.toTimeString().slice(0,5):hora,
+    hora_checkout: visCheckoutTime?visCheckoutTime.toTimeString().slice(0,5):null,
+    obs_geral: obs,
+    email_responsavel: emailResp||null,
+    equipamentos,
+    created_at: new Date().toISOString()
+  };
+  // Save local
+  const lista = lsVisLer();
+  const idx   = lista.findIndex(x=>x.id===id);
+  if(idx>=0) lista[idx]=rec; else lista.unshift(rec);
+  lsVisSalvar(lista);
+  // Save Supabase
+  if(dbOk&&db){
+    try{
+      const payload={...rec, equipamentos:JSON.stringify(rec.equipamentos)};
+      if(visEditId) await db.from('vistorias').update(payload).eq('id',id);
+      else          await db.from('vistorias').insert([payload]);
+    }catch(e){ console.warn('Visita Supabase err:',e.message); }
+  }
+  toast('✅ Vistoria salva!');
+  visEditId = null;
+  renderVisHistorico();
+
+  // ── Auto-envio de e-mail ──
+  if(emailResp && emailJSConfigurado()){
+    const stEl = document.getElementById('vis-email-status');
+    if(stEl) stEl.textContent = '📨 Enviando e-mail…';
+    const ok = await enviarEmailVistoria(rec);
+    if(stEl) stEl.textContent = ok
+      ? `✅ E-mail enviado para ${emailResp}`
+      : '❌ Falha no envio do e-mail (ver console)';
+    if(ok) toast(`📧 Relatório enviado para ${emailResp}`);
+    else   toast('⚠️ Vistoria salva, mas e-mail falhou');
+  } else if(emailResp && !emailJSConfigurado()){
+    const stEl = document.getElementById('vis-email-status');
+    if(stEl) stEl.textContent = '⚠️ Configure o EmailJS em Empresa → E-mail Automático para enviar';
+    toast('⚠️ EmailJS não configurado — e-mail não enviado');
+  }
+}
+
+// ── Histórico ──
+function renderVisHistorico(){
+  const el = document.getElementById('vis-hist-body'); if(!el) return;
+  const busca = (document.getElementById('vis-hist-busca')?.value||'').toLowerCase();
+  const mes   = document.getElementById('vis-hist-mes')?.value||'';
+  const tecFilt = document.getElementById('vis-hist-tec')?.value||'';
+  let listaTotal = lsVisLer();
+  let lista = listaTotal;
+  // Filtros
+  if(busca) lista = lista.filter(v=>(v.cliente||'').toLowerCase().includes(busca)||(v.local||'').toLowerCase().includes(busca));
+  if(mes)   lista = lista.filter(v=>(v.mes_ref||v.data||'').startsWith(mes));
+  if(tecFilt) lista = lista.filter(v=>(v.tecnico||'')=== tecFilt);
+  // Sort desc
+  lista.sort((a,b)=>(b.data||'').localeCompare(a.data||''));
+
+  // ── Stats cards ──
+  const statsEl = document.getElementById('vis-stats-row');
+  if(statsEl){
+    const scope = mes ? listaTotal.filter(v=>(v.mes_ref||v.data||'').startsWith(mes)) : listaTotal;
+    const total = scope.length;
+    // Conta críticos e atenções
+    let comCritico=0, comAtencao=0;
+    scope.forEach(v=>{
+      const equips=(typeof v.equipamentos==='string'?JSON.parse(v.equipamentos||'[]'):v.equipamentos)||[];
+      if(equips.some(e=>e.status==='critico')) comCritico++;
+      else if(equips.some(e=>e.status==='atencao')) comAtencao++;
+    });
+    const statCard=(val,lbl,cor,bg)=>`<div style="background:${bg};border-radius:12px;padding:14px 10px;text-align:center"><div style="font-size:24px;font-weight:800;color:${cor}">${val}</div><div style="font-size:10px;font-weight:600;color:${cor};opacity:.8;text-transform:uppercase;letter-spacing:.5px;margin-top:2px">${lbl}</div></div>`;
+    statsEl.innerHTML=statCard(total,'Vistorias','var(--c2)','var(--white)')+statCard(comAtencao,'c/ Atenção','var(--yellow)','var(--yellow-bg)')+statCard(comCritico,'c/ Crítico','var(--red)','var(--red-bg)');
+  }
+
+  // ── Popula select de técnicos ──
+  const tecSel = document.getElementById('vis-hist-tec');
+  if(tecSel && tecSel.options.length === 1){
+    const tecs=[...new Set(listaTotal.map(v=>v.tecnico).filter(Boolean))].sort();
+    tecs.forEach(t=>{ const o=document.createElement('option'); o.value=t; o.textContent=t; tecSel.appendChild(o); });
+  }
+
+  // ── Ranking ──
+  const rankCard = document.getElementById('vis-ranking-card');
+  const rankBody = document.getElementById('vis-ranking-body');
+  const rankScope = mes ? listaTotal.filter(v=>(v.mes_ref||v.data||'').startsWith(mes)) : listaTotal;
+  if(rankCard && rankBody && rankScope.length){
+    const counts={};
+    rankScope.forEach(v=>{ if(v.tecnico) counts[v.tecnico]=(counts[v.tecnico]||0)+1; });
+    const sorted=Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,5);
+    const max=sorted[0]?.[1]||1;
+    rankCard.style.display='';
+    rankBody.innerHTML=sorted.map(([tec,cnt],i)=>`
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 0;${i<sorted.length-1?'border-bottom:1px solid var(--gray-light)':''}">
+        <div style="font-size:13px;font-weight:700;color:var(--gray);min-width:22px;text-align:center">${i+1}º</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:700;color:var(--c2);margin-bottom:4px">${esc(tec)}</div>
+          <div style="height:6px;background:var(--gray-light);border-radius:50px;overflow:hidden">
+            <div style="height:100%;background:var(--c1);border-radius:50px;width:${Math.round(cnt/max*100)}%"></div>
+          </div>
+        </div>
+        <div style="font-size:18px;font-weight:800;color:var(--c1);min-width:28px;text-align:right">${cnt}</div>
+      </div>`).join('');
+  } else if(rankCard) rankCard.style.display='none';
+  if(!lista.length){
+    el.innerHTML='<div style="padding:28px;text-align:center;color:var(--gray);font-size:13px">Nenhuma vistoria encontrada.</div>';
+    return;
+  }
+  const statusIcon = { bom:'✅', atencao:'⚠️', critico:'🔴', na:'—' };
+  const statusBg   = { bom:'var(--green-bg)', atencao:'var(--yellow-bg)', critico:'var(--red-bg)', na:'var(--gray-light)' };
+  const statusClr  = { bom:'var(--green)', atencao:'var(--yellow)', critico:'var(--red)', na:'var(--gray)' };
+  el.innerHTML = lista.map(v=>{
+    const equips = (typeof v.equipamentos==='string'?JSON.parse(v.equipamentos||'[]'):v.equipamentos)||[];
+    const mRef = v.mes_ref?new Date(v.mes_ref+'-01').toLocaleDateString('pt-BR',{month:'long',year:'numeric'}):'';
+    // Conta status
+    const cnt = { bom:0, atencao:0, critico:0 };
+    equips.filter(e=>e.status!=='na').forEach(e=>{ if(cnt[e.status]!==undefined) cnt[e.status]++; });
+    const dataFmt = v.data?new Date(v.data+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'}):'';
+    return `<div class="vis-history-item" onclick="abrirVisRelatorio('${v.id}')">
+      <div style="flex:1;min-width:0">
+        <div class="vis-hist-data">${dataFmt}${mRef?' · '+mRef:''}</div>
+        <div class="vis-hist-cli">${esc(v.cliente||'')}${v.local?' · '+esc(v.local):''}</div>
+        <div class="vis-hist-cli" style="margin-top:2px">👤 ${esc(v.tecnico||'')} · ${equips.length} equip.${v.email_responsavel?' · 📧 '+esc(v.email_responsavel):''}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0">
+        <div class="vis-hist-badges">
+          ${cnt.critico?`<span class="vis-hist-badge" style="background:var(--red-bg);color:var(--red)">🔴 ${cnt.critico}</span>`:''}
+          ${cnt.atencao?`<span class="vis-hist-badge" style="background:var(--yellow-bg);color:var(--yellow)">⚠️ ${cnt.atencao}</span>`:''}
+          ${cnt.bom?`<span class="vis-hist-badge" style="background:var(--green-bg);color:var(--green)">✅ ${cnt.bom}</span>`:''}
+        </div>
+        <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end">
+          ${v.email_responsavel?`<button class="tb" title="Reenviar e-mail" onclick="event.stopPropagation();reenviarEmailVistoria('${v.id}')" style="font-size:11px;background:var(--blue-bg);color:var(--blue);border-color:var(--blue-bg)">📧</button>`:''}
+          <button class="tb" title="Gerar PDF" onclick="event.stopPropagation();abrirVisRelatorio('${v.id}')" style="font-size:11px">📄 PDF</button>
+          <button class="tb" title="Excluir" onclick="event.stopPropagation();excluirVistoria('${v.id}')" style="background:var(--red-bg);color:var(--red);border-color:var(--red-bg);font-size:11px">✕</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function excluirVistoria(id){
+  if(!confirm('Excluir esta vistoria?')) return;
+  lsVisSalvar(lsVisLer().filter(x=>x.id!==id));
+  if(dbOk&&db) db.from('vistorias').delete().eq('id',id).then(()=>{}).catch(()=>{});
+  renderVisHistorico();
+  toast('Vistoria excluída');
+}
+
+// ── Gerar PDF do relatório ──
+function abrirVisRelatorio(id){
+  const lista = lsVisLer();
+  const vis = lista.find(x=>x.id===id);
+  if(!vis){ toast('⚠️ Vistoria não encontrada'); return; }
+  preencherRelatorioVistoria(vis);
+  window.print();
+}
+
+function gerarRelatorioVistoria(){
+  // Usa dados atuais do formulário
+  const cli  = (document.getElementById('vis-cli')?.value||'').trim()||'—';
+  const loc  = document.getElementById('vis-loc')?.value||'';
+  const data = document.getElementById('vis-data')?.value||'';
+  const hora = document.getElementById('vis-hora')?.value||'';
+  const tec  = document.getElementById('vis-tec')?.value||'';
+  const mes  = document.getElementById('vis-mes-ref')?.value||'';
+  const obs  = document.getElementById('vis-obs')?.value||'';
+  const equipamentos = visEquipSelecionados.map(id=>{
+    const def = VIS_EQUIPAMENTOS_DEFAULT.find(x=>x.id===id)||{id,nome:id,emoji:''};
+    const d   = visEquipDados[id]||{ status:'na', obs:'', fotos:[] };
+    return { id, nome:def.nome, emoji:def.emoji, status:d.status, obs:d.obs||'', fotos:(d.fotos||[]).filter(Boolean) };
+  });
+  const s = getSessao();
+  const vis = {
+    id:'preview', cliente:cli, local:loc, data, hora,
+    tecnico: tec || (s?.nome||''),
+    mes_ref: mes,
+    hora_checkin: visCheckinTime?visCheckinTime.toTimeString().slice(0,5):hora,
+    hora_checkout: visCheckoutTime?visCheckoutTime.toTimeString().slice(0,5):null,
+    obs_geral: obs,
+    equipamentos,
+  };
+  preencherRelatorioVistoria(vis);
+  window.print();
+}
+
+function preencherRelatorioVistoria(vis){
+  // Desativa todos pdocs, ativa só este
+  document.querySelectorAll('.pdoc').forEach(d=>d.classList.remove('print-active'));
+  const pdoc = document.getElementById('pdoc-visita');
+  if(!pdoc) return;
+  pdoc.classList.add('print-active');
+
+  const cor = getComputedStyle(document.documentElement).getPropertyValue('--c1').trim()||'#F07820';
+  const cor2 = getComputedStyle(document.documentElement).getPropertyValue('--c2').trim()||'#2B3244';
+
+  // Header branding
+  const hdr = document.getElementById('pd-header-vis');
+  if(hdr) hdr.style.background=`linear-gradient(135deg,${cor2},${cor2}ee)`;
+  const footEl = document.getElementById('pd-foot-vis');
+
+  // Logo / initials
+  const logoEl    = document.getElementById('pd-hdr-logo-vis');
+  const initEl    = document.getElementById('pd-hdr-init-vis');
+  const logoSrc   = document.getElementById('hdr-logo-img')?.src||'';
+  if(logoEl){ logoEl.src=logoSrc; logoEl.className='pd-hdr-logo-img'+(logoSrc&&!logoSrc.endsWith('/')?' has-logo':''); }
+  if(initEl){ initEl.textContent=CFG?.nome_empresa?.charAt(0)||'F'; initEl.className='pd-hdr-logo-initials'+(logoSrc&&!logoSrc.endsWith('/')?' ':' show-init'); }
+
+  // Nome empresa
+  const nm=document.getElementById('pd-nm-vis'); if(nm) nm.textContent=CFG?.nome_empresa||'Empresa';
+  const sb=document.getElementById('pd-sb-vis'); if(sb) sb.textContent=CFG?.slogan||'Serviços';
+  const tag=document.getElementById('pd-tag-vis'); if(tag) tag.textContent=CFG?.descricao||'';
+
+  // Doc number = data
+  const numEl=document.getElementById('pd-num-vis');
+  if(numEl){ const d=vis.data?new Date(vis.data+'T12:00:00'):new Date(); numEl.textContent=d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'2-digit'}); }
+
+  // Meta strip
+  const cont=document.getElementById('pd-cont-vis');
+  if(cont){ const mRef=vis.mes_ref?new Date(vis.mes_ref+'-01').toLocaleDateString('pt-BR',{month:'long',year:'numeric'}):''; cont.textContent=`Referência: ${mRef}`; }
+  const meta=document.getElementById('pd-meta-vis');
+  if(meta){ const tel=CFG?.tel||''; meta.innerHTML=`${CFG?.nome_empresa||''}<br>${tel}`; }
+
+  // Client card
+  const cliBar=document.getElementById('pd-cli-bar-vis'); if(cliBar) cliBar.style.background=cor;
+  const cliNm=document.getElementById('pd-cli-nm-vis'); if(cliNm) cliNm.textContent=vis.cliente||'—';
+  const cliLoc=document.getElementById('pd-cli-loc-vis'); if(cliLoc) cliLoc.textContent=vis.local||'';
+
+  // Visit info grid (3 cells: técnico, data, checkin-checkout)
+  const infoGrid=document.getElementById('pd-vis-info-grid');
+  if(infoGrid){
+    const dataFmt=vis.data?new Date(vis.data+'T12:00:00').toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}):'—';
+    const checkinTxt=(vis.hora_checkin||vis.hora||'—')+' → '+(vis.hora_checkout||'—');
+    infoGrid.innerHTML=`
+      <div class="pd-g2card"><div class="pd-g2lbl">Técnico Responsável</div><div class="pd-g2val">👤 ${esc(vis.tecnico||'—')}</div></div>
+      <div class="pd-g2card"><div class="pd-g2lbl">Data da Vistoria</div><div class="pd-g2val">📅 ${dataFmt}</div></div>
+      <div class="pd-g2card"><div class="pd-g2lbl">Entrada → Saída</div><div class="pd-g2val">⏱ ${checkinTxt}</div></div>`;
+  }
+
+  // Equipamentos
+  const equips = (typeof vis.equipamentos==='string'?JSON.parse(vis.equipamentos||'[]'):vis.equipamentos)||[];
+  const statusTxt = { bom:'Bom', atencao:'Atenção', critico:'Crítico', na:'N/A' };
+  const statusCls = { bom:'st-bom', atencao:'st-atencao', critico:'st-critico', na:'st-na' };
+  const bdCls     = { bom:'bd-bom', atencao:'bd-atencao', critico:'bd-critico', na:'bd-na' };
+  const dotCls    = { bom:'bom', atencao:'atencao', critico:'critico', na:'na' };
+
+  // Summary table
+  const sumTable=document.getElementById('pd-vis-sumtable');
+  if(sumTable){
+    sumTable.innerHTML=`<thead><tr><th>Equipamento</th><th>Status</th><th>Observação</th></tr></thead>
+      <tbody>${equips.map(e=>`<tr>
+        <td><strong>${esc(e.nome||e.id)}</strong></td>
+        <td><span class="st-dot ${dotCls[e.status]||'na'}"></span>${statusTxt[e.status]||'N/A'}</td>
+        <td style="color:#6b7280;font-size:11px">${esc((e.obs||'').slice(0,80))}</td>
+      </tr>`).join('')}</tbody>`;
+  }
+
+  // Detailed list
+  const detList=document.getElementById('pd-vis-equip-list');
+  if(detList){
+    detList.innerHTML=equips.filter(e=>e.status!=='na').map(e=>{
+      const fotosArr=(e.fotos||[]).filter(Boolean);
+      const fotosHtml=fotosArr.length?`<div class="pd-vis-equip-fotos">${fotosArr.map(f=>`<img src="${f}" alt="">`).join('')}</div>`:'';
+      const obsHtml=e.obs?`<div class="pd-vis-equip-obs">${esc(e.obs)}</div>`:'';
+      return `<div class="pd-vis-equip-item ${statusCls[e.status]||''}">
+        <div class="pd-vis-equip-hdr ${statusCls[e.status]||'st-na'}">
+          <div class="pd-vis-equip-nm">${e.emoji||''} ${esc(e.nome||e.id)}</div>
+          <div class="pd-vis-equip-bd ${bdCls[e.status]||'bd-na'}">${statusTxt[e.status]||'N/A'}</div>
+        </div>
+        ${(obsHtml||fotosHtml)?`<div class="pd-vis-equip-body">${obsHtml}${fotosHtml}</div>`:''}
+      </div>`;
+    }).join('');
+  }
+
+  // General obs
+  const obsWrap=document.getElementById('pd-vis-obs-wrap');
+  const obsBar=document.getElementById('pd-vis-obs-bar');
+  const obsTxt=document.getElementById('pd-vis-obs-txt');
+  if(obsWrap){ obsWrap.style.display=vis.obs_geral?'block':'none'; }
+  if(obsBar)  obsBar.style.background=cor;
+  if(obsTxt)  obsTxt.textContent=vis.obs_geral||'';
+
+  // Technician signature label
+  const signTec=document.getElementById('pd-vis-sign-tec');
+  if(signTec) signTec.textContent=(vis.tecnico||'Técnico Responsável');
+
+  // Footer
+  const tel=CFG?.tel||''; const email=CFG?.email||'';
+  if(footEl){ footEl.style.background=cor2; footEl.textContent=`${CFG?.nome_empresa||''}${tel?' · '+tel:''}${email?' · '+email:''}`; }
+}
+
+// ── Abrir a aba de visitas já preenchida com agendamento ──
+function novaVistoria(cliNome, cliLocal, tecNome){
+  visEquipSelecionados=[];
+  visEquipDados={};
+  visCheckinTime=null;
+  visCheckoutTime=null;
+  visEditId=null;
+  go('visitas');
+  visTab('nova');
+  const hoje=new Date();
+  const dd=document.getElementById('vis-data'); if(dd) dd.value=hoje.toISOString().slice(0,10);
+  const mm=document.getElementById('vis-mes-ref'); if(mm) mm.value=hoje.toISOString().slice(0,7);
+  if(cliNome){ const inp=document.getElementById('vis-cli'); if(inp) inp.value=cliNome; }
+  if(cliLocal){ const inp=document.getElementById('vis-loc'); if(inp) inp.value=cliLocal; }
+  if(tecNome){
+    const sel=document.getElementById('vis-tec');
+    if(sel){ for(let o of sel.options){ if(o.text===tecNome||o.value===tecNome){ o.selected=true; break; } } }
+  }
+  renderVisChips();
+  renderVisEquipGrid();
+}
+
+// ══════════════════════════════════════════════════
+//  EMAILJS — envio de relatório de vistoria
+// ══════════════════════════════════════════════════
+
+function emailJSConfigurado(){
+  return !!(CFG.emailjs_pubkey && CFG.emailjs_service && CFG.emailjs_template);
+}
+
+function initEmailJS(){
+  if(CFG.emailjs_pubkey){
+    try{ emailjs.init({ publicKey: CFG.emailjs_pubkey }); }catch(e){}
+  }
+}
+
+async function enviarEmailVistoria(vis){
+  if(!emailJSConfigurado()){
+    console.log('EmailJS não configurado, pulando envio automático');
+    return false;
+  }
+  const emailDest = vis.email_responsavel;
+  if(!emailDest){ return false; }
+
+  // Monta resumo dos equipamentos em texto
+  const equips=(typeof vis.equipamentos==='string'?JSON.parse(vis.equipamentos||'[]'):vis.equipamentos)||[];
+  const statusTxt={bom:'✅ Bom',atencao:'⚠️ Atenção',critico:'🔴 Crítico',na:'N/A'};
+  const resumoLinhas = equips.filter(e=>e.status!=='na').map(e=>`• ${e.nome}: ${statusTxt[e.status]||e.status}${e.obs?' — '+e.obs:''}`);
+  const resumo = resumoLinhas.join('\n') || 'Nenhum equipamento vistoriado com problemas.';
+  const mesRef = vis.mes_ref ? new Date(vis.mes_ref+'-01').toLocaleDateString('pt-BR',{month:'long',year:'numeric'}) : '';
+  const dataVisita = vis.data ? new Date(vis.data+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric'}) : '';
+
+  // Conta críticos e atenções para assunto dinâmico
+  const temCritico = equips.some(e=>e.status==='critico');
+  const temAtencao = equips.some(e=>e.status==='atencao');
+  const statusGeral = temCritico ? '🔴 Ação necessária' : temAtencao ? '⚠️ Verificar pontos' : '✅ Tudo em ordem';
+
+  const params = {
+    to_email   : emailDest,
+    to_name    : vis.cliente || 'Responsável',
+    empresa    : CFG.nome_empresa || CFG.nome || 'Empresa',
+    tecnico    : vis.tecnico || '',
+    mes_ref    : mesRef,
+    data_visita: dataVisita,
+    hora_checkin: vis.hora_checkin || vis.hora || '',
+    hora_checkout: vis.hora_checkout || '',
+    resumo     : resumo,
+    obs_geral  : vis.obs_geral || '',
+    status_geral: statusGeral,
+    tel_empresa: CFG.tel || '',
+    reply_to   : CFG.emailjs_reply_to || '',
+  };
+
+  try{
+    initEmailJS();
+    await emailjs.send(CFG.emailjs_service, CFG.emailjs_template, params);
+    return true;
+  }catch(e){
+    console.error('EmailJS send error:', e);
+    return false;
+  }
+}
+
+async function testarEmailJS(){
+  const st = document.getElementById('ejs-status');
+  if(!CFG.emailjs_pubkey || !CFG.emailjs_service || !CFG.emailjs_template){
+    if(st) st.textContent='⚠️ Preencha e salve os 3 campos antes de testar.';
+    return;
+  }
+  if(st) st.textContent='📨 Enviando…';
+  const s=getSessao();
+  const testVis={
+    cliente:'TESTE VISTORIA', local:'Endereço de teste', data:new Date().toISOString().slice(0,10),
+    hora:'09:00', tecnico: s?.nome||'Técnico', mes_ref:new Date().toISOString().slice(0,7),
+    hora_checkin:'09:00', hora_checkout:'10:30', obs_geral:'E-mail de teste do sistema Fluxa.',
+    email_responsavel: prompt('E-mail de destino para o teste:',''),
+    equipamentos:[
+      {id:'motobomba',nome:'Motobomba Principal',emoji:'⚙️',status:'bom',obs:'Funcionando normalmente',fotos:[]},
+      {id:'filtro',nome:'Filtro',emoji:'🔵',status:'atencao',obs:'Pressão acima do ideal — verificar na próxima visita',fotos:[]},
+    ]
+  };
+  if(!testVis.email_responsavel){ if(st) st.textContent='Cancelado.'; return; }
+  const ok = await enviarEmailVistoria(testVis);
+  if(st) st.textContent = ok ? '✅ E-mail enviado com sucesso!' : '❌ Falha no envio — verifique o console e as credenciais.';
+}
+
+async function reenviarEmailVistoria(id){
+  const lista = lsVisLer();
+  const vis = lista.find(x=>x.id===id);
+  if(!vis){ toast('⚠️ Vistoria não encontrada'); return; }
+  if(!vis.email_responsavel){ toast('⚠️ Nenhum e-mail cadastrado nesta vistoria'); return; }
+  if(!emailJSConfigurado()){ toast('⚠️ Configure o EmailJS em Empresa → E-mail Automático'); return; }
+  toast('📨 Reenviando e-mail…');
+  const ok = await enviarEmailVistoria(vis);
+  if(ok) toast(`✅ E-mail reenviado para ${vis.email_responsavel}`);
+  else   toast('❌ Falha no envio — verifique o console');
+}
+
+// ── Carrega vistorias do Supabase e faz merge com local ──
+async function loadVistoriasRemoto(){
+  if(!dbOk||!db) return;
+  try{
+    let q = db.from('vistorias').select('*').order('created_at',{ascending:false}).limit(200);
+    const lojaFiltro = getLojaFiltro();
+    if(lojaFiltro) q = q.eq('loja_id', lojaFiltro);
+    const {data} = await q;
+    if(!data?.length) return;
+    const local = lsVisLer();
+    // Merge: remoto prevalece, mantém locais que não estão no remoto
+    const merged = [...data.map(r=>({...r, equipamentos: typeof r.equipamentos==='string'?JSON.parse(r.equipamentos||'[]'):r.equipamentos}))];
+    local.forEach(l=>{ if(!merged.find(r=>r.id===l.id)) merged.push(l); });
+    lsVisSalvar(merged);
+    // Atualiza view se estiver visível
+    if(document.getElementById('page-visitas')?.classList.contains('on')) renderVisHistorico();
+  }catch(e){ console.warn('loadVistoriasRemoto err:',e.message); }
 }
 
 // Init OS page
