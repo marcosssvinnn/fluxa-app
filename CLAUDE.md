@@ -28,6 +28,9 @@ curl -s -X POST "https://api.supabase.com/v1/projects/lbxwclwzeqqtnwvlxsxs/datab
   -H "Content-Type: application/json" \
   -d '{"query": "SEU SQL AQUI"}'
 ```
+# ⛔ Verificar: o token acima deve ser [SEU_PAT_AQUI], nunca um valor real (sbp_...).
+# Se por engano aparecer um token real, não commitar — revogue em:
+# https://app.supabase.com/account/tokens
 > ⚠️ **NUNCA commitar o PAT aqui.** Gere um novo token em https://app.supabase.com/account/tokens, use na sessão e **não salve no arquivo**.
 
 **Via Chrome Extension (quando o token não funcionar via curl):**
@@ -47,6 +50,17 @@ curl -s -X POST "https://api.supabase.com/v1/projects/lbxwclwzeqqtnwvlxsxs/datab
 > Resposta `[]` = sucesso para DDL. Erros aparecem como objeto JSON com `message`.
 
 > ⚠️ **NUNCA commitar o PAT no CLAUDE.md** — o repositório é público. Use sempre `[SEU_PAT_AQUI]` como placeholder e substitua só localmente na sessão.
+
+#### 🔒 Segredos que NUNCA devem aparecer neste arquivo
+
+| Segredo | Padrão a bloquear |
+|---|---|
+| Supabase PAT | qualquer token começando com `sbp_` |
+| Supabase anon key | JWT começando com `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9` |
+| EmailJS keys | valores reais de `emailjs_pubkey`, `emailjs_service`, `emailjs_template` |
+
+Use sempre `[PLACEHOLDER]` no arquivo. Substitua localmente na sessão e **não commite**.
+Um hook pré-commit bloqueia estes padrões automaticamente (ver `docs/segurança.md`).
 
 ### Como deployar
 ```bash
@@ -274,6 +288,10 @@ CREATE TABLE IF NOT EXISTS vistorias (
 
 -- ─── RLS (já aplicado) ──────────────────────────────────────────────────────
 -- Todas as tabelas têm RLS ativo com policy "anon full access" (FOR ALL TO anon)
+-- ⚠️ ATENÇÃO: esta policy concede leitura e escrita a QUALQUER pessoa com a anon
+-- key (que está no código-fonte público). O controle de acesso acontece APENAS no
+-- JS do cliente. Antes de adicionar tabela com dados sensíveis, registrar em
+-- "Perguntas em aberto" a necessidade de policy RLS mais restritiva.
 -- Tabelas com Realtime: orcamentos, equipamentos, despesas, agendamentos, vistorias
 ```
 
@@ -526,6 +544,8 @@ go('usuarios')      // gestão de usuários (só gestor)
 // Lockout: 3 tentativas erradas → 30s bloqueado
 ```
 
+> **⚠️ Candidata a remoção:** a linha de retrocompatibilidade com PIN em texto plano em `pinValido()` deve ser removida assim que confirmado que nenhum usuário ainda usa PIN legado. Verificar com Marcos antes de remover. Registrado como pendência em "Perguntas em aberto".
+
 ### Salvamento de dados — padrão local-first
 ```js
 lsOrcUpsert(rec);        // 1. salva local imediatamente
@@ -608,6 +628,100 @@ vistorias          → loadVistoriasRemoto()   ← NOVA
 
 ---
 
+## Padrões obrigatórios de código
+
+### ⚠️ Controle de acesso — o que `go()` e `eGestor()` NÃO fazem
+
+As funções `go()`, `eGestor()`, `eVendas()`, `eTecnico()` e `aplicarPermissoesPerfil()` são **guardrails de UI** — escondem botões e bloqueiam navegação, mas **não protegem dados no servidor**.
+
+Toda query ao Supabase usa a anon key pública com policy `FOR ALL TO anon`. Qualquer pessoa com a anon key pode ler/escrever qualquer tabela via REST, independentemente do JS.
+
+**Consequências práticas:**
+- Não confie em `eGestor()` para proteger dados financeiros — use-a só para UI
+- Não exponha dados sensíveis em variáveis JS globais acessíveis pelo console
+- Nova feature que exige isolamento real de dados precisa de RLS server-side → registrar em "Perguntas em aberto"
+- **Bug conhecido corrigido em 2026-05-06:** `eGestor()` retornava `true` quando sessão era nula
+
+### Tratamento de erros — proibido silenciar
+
+`catch(e){}` vazio é **proibido** em qualquer função que acesse Supabase, localStorage ou envie e-mail. Use no mínimo:
+
+```js
+catch(e){ console.warn('[nomeDAFunção]', e?.message||e); }
+```
+
+Para operações com feedback ao usuário (salvar OS, enviar e-mail):
+```js
+catch(e){
+  console.warn('[salvarOS]', e?.message||e);
+  toast('Erro ao salvar. Tente novamente.');
+}
+```
+
+Nunca exibir `e.message` diretamente ao usuário — pode vazar stack trace ou schema interno.
+
+### Diálogos nativos — proibidos
+
+`window.confirm()`, `window.alert()` e `window.prompt()` são **proibidos** em produção:
+- Bloqueados silenciosamente em PWA/WebView Android
+- Não podem ser estilizados
+- Bloqueiam a thread JS
+
+**Substitutos:**
+- Confirmações destrutivas → função `confirmar(titulo, desc, callback)` já existente no app
+- Inputs simples → campo no modal da feature
+- Notificações → `toast('msg')`
+
+### Auto-save de rascunho em formulários longos
+
+Formulários com mais de 3 campos editáveis devem salvar estado em `localStorage` durante o preenchimento, **antes do submit**:
+
+```js
+// Escuta mudanças com debounce
+formEl.addEventListener('input', () => { salvarRascunho('os'); });
+// Ao abrir o formulário
+restaurarRascunho('os');
+// Ao salvar com sucesso
+limparRascunho('os');
+```
+
+Funções `salvarRascunho(tipo)`, `restaurarRascunho(tipo)` e `limparRascunho(tipo)` já existem no app.
+Chaves usadas: `fluxa_draft_orc`, `fluxa_draft_os`, `fluxa_draft_vis`.
+
+Adicionar `beforeunload` como fallback:
+```js
+window.addEventListener('beforeunload', e => { if(formDirty){ e.preventDefault(); } });
+```
+
+### Consistência entre formulários
+
+Todo formulário novo deve:
+
+1. **Pré-preencher data com hoje** em `go('[modulo]')` ou `initForm()`:
+   ```js
+   setV('modulo-data', new Date().toISOString().slice(0,10));
+   ```
+2. **Campo técnico como `<select>`** — nunca `<input type="text">` livre. Usar `populaTecSelects()` ou equivalente. Inconsistências de nome fragmentam relatórios.
+3. **Campos obrigatórios marcados** com `required` no HTML e classe `req` no label (`.req::after { content: ' *'; color: var(--red); }`).
+
+### Versão das dependências CDN — sempre exata
+
+CDN URLs devem usar versão exata, nunca range de versão maior:
+```html
+<!-- ✅ -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.105.3/dist/umd/supabase.min.js">
+
+<!-- ❌ proibido — pode receber atualização automática -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
+```
+
+Versões atuais (última verificação 2026-05-06):
+- `@supabase/supabase-js`: `2.105.3` (com SRI sha384)
+- `@emailjs/browser`: `4.x` — fixar sub-versão na próxima atualização
+- `chart.js`: `4.4.0` ✓
+
+---
+
 ## Observações importantes de UX/comportamento
 - Header `position:fixed` height 56px → `body { padding-top: 56px }`
 - **CSS no lugar errado** é o bug mais comum — nunca colocar CSS de tela dentro do `@media print`
@@ -622,6 +736,19 @@ vistorias          → loadVistoriasRemoto()   ← NOVA
 - `lojaAtiva` é volátil (não persiste entre sessões) — gestor sempre começa com "Todas"
 - Inputs de valor monetário: `type="text"` com `inputmode="decimal"`
 - **Usuários locais** (prefixo `usr_`) são sincronizados no próximo boot com BD; se sync falhar, são preservados
+
+#### Requisitos mínimos de acessibilidade (não regredir)
+
+A cada nova tela ou componente, verificar:
+
+- **Foco visível:** nunca usar `outline: none` sem substituto. Padrão aprovado: `:focus-visible { outline: 2px solid var(--c1); outline-offset: 2px; }`
+- **Toast:** manter `role="alert" aria-live="assertive"` no elemento `#toast`
+- **Botões de fechar modal:** sempre com `aria-label="Fechar"`
+- **Alvos de toque:** min. 44×44px em qualquer botão visível em mobile (`min-width:44px; min-height:44px`)
+- **Página ativa na nav:** atualizar `aria-current="page"` em `go(p)`
+- **Navegação bloqueada:** se `go()` retornar por falta de permissão, chamar `toast('Acesso não permitido.')` antes do `return`
+
+Checklist completo WCAG: `docs/acessibilidade.md`
 
 ---
 
@@ -644,3 +771,4 @@ vistorias          → loadVistoriasRemoto()   ← NOVA
 1. **CNPJs reais** das 3 empresas — para preencher tabela `lojas` e emissão de NF
 2. **Tokens Focus NFe** — um por CNPJ (homologação e produção)
 3. **Template EmailJS** — Marcos precisa criar a conta no emailjs.com e configurar o template usando as variáveis documentadas acima
+- [ ] **PIN legado:** ainda existe algum usuário com PIN em texto plano (não-hash)? Se não, remover o branch de fallback em `pinValido()` e a nota de retrocompatibilidade.
