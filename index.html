@@ -146,6 +146,17 @@
     .foto-preview{max-width:100%;max-height:200px;border-radius:8px;margin-top:10px;display:none}
     .foto-label{font-size:13px;color:var(--gray);font-weight:500}
     .foto-icon{font-size:28px;margin-bottom:6px}
+    /* ── FOTOS DO ORÇAMENTO (form — fora do print) ── */
+    .fotos-orc-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:4px}
+    .fotos-orc-slot{border:2px dashed var(--gray-mid);border-radius:10px;padding:10px 6px;text-align:center;cursor:pointer;position:relative;min-height:76px;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:border-color .2s,background .2s;background:var(--white)}
+    .fotos-orc-slot:hover{border-color:var(--c1);background:var(--c1-light)}
+    .fotos-orc-slot.filled{border-style:solid;border-color:var(--c1);background:var(--c1-light)}
+    .fotos-orc-slot img{max-width:100%;max-height:56px;border-radius:6px;object-fit:cover;margin-bottom:3px}
+    .fotos-orc-slot-icon{font-size:20px;margin-bottom:3px}
+    .fotos-orc-slot.filled .fotos-orc-slot-icon{display:none}
+    .fotos-orc-slot-lbl{font-size:9px;color:var(--gray);font-weight:600}
+    .fotos-orc-rm{position:absolute;top:3px;right:3px;background:rgba(239,68,68,.85);color:white;border:none;border-radius:50%;width:18px;height:18px;font-size:11px;display:none;align-items:center;justify-content:center;cursor:pointer;font-family:'Inter',sans-serif;line-height:1;padding:0}
+    .fotos-orc-slot.filled .fotos-orc-rm{display:flex}
 
     /* ações */
     .acts{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
@@ -333,18 +344,6 @@
 
       /* ── PHOTO ── */
       .pd-foto{width:100%;max-height:220px;object-fit:contain;border-radius:10px;margin-bottom:16px;display:block;background:#f9fafb}
-      /* fotos orçamento — form */
-      .fotos-orc-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:4px}
-      .fotos-orc-slot{border:2px dashed var(--gray-mid);border-radius:10px;padding:10px 6px;text-align:center;cursor:pointer;position:relative;min-height:76px;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:border-color .2s,background .2s}
-      .fotos-orc-slot:hover{border-color:var(--c1);background:var(--c1-light)}
-      .fotos-orc-slot.filled{border-style:solid;border-color:var(--c1)}
-      .fotos-orc-slot img{max-width:100%;max-height:60px;border-radius:6px;object-fit:cover;display:none;margin-bottom:3px}
-      .fotos-orc-slot.filled img{display:block}
-      .fotos-orc-slot-icon{font-size:20px;margin-bottom:3px}
-      .fotos-orc-slot.filled .fotos-orc-slot-icon{display:none}
-      .fotos-orc-slot-lbl{font-size:9px;color:var(--gray);font-weight:500}
-      .fotos-orc-rm{position:absolute;top:3px;right:3px;background:rgba(239,68,68,.85);color:white;border:none;border-radius:50%;width:17px;height:17px;font-size:10px;display:none;align-items:center;justify-content:center;cursor:pointer;font-family:'Inter',sans-serif;line-height:1;padding:0}
-      .fotos-orc-slot.filled .fotos-orc-rm{display:flex}
       /* fotos orçamento — PDF print */
       .pd-fotos-section{margin-bottom:16px}
       .pd-fotos-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#9ca3af;margin-bottom:8px}
@@ -3428,7 +3427,7 @@ function renderFotosOrcSlots(){
     slot.className='fotos-orc-slot'+(fotosB64[i]?' filled':'');
     slot.innerHTML=`
       <input type="file" id="forc-inp-${i}" accept="image/*" capture="environment" style="display:none" onchange="carregarFotoOrc(this,${i})">
-      <img src="${fotosB64[i]||''}" alt="foto ${i+1}">
+      ${fotosB64[i]?`<img src="${fotosB64[i]}" alt="foto ${i+1}">`:'' }
       <div class="fotos-orc-slot-icon">📷</div>
       <div class="fotos-orc-slot-lbl">Foto ${i+1}</div>
       <button class="fotos-orc-rm" onclick="event.stopPropagation();removerFotoOrc(${i})" title="Remover">✕</button>`;
