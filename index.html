@@ -6,7 +6,7 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="theme-color" content="#F07820">
+  <meta name="theme-color" content="#C45E0A">
   <title>Sistema de Orçamentos</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.105.3/dist/umd/supabase.min.js"
           integrity="sha384-iWpUQPQzWsFiosLgsS8o+e6E8y3Gm+EW2m/vAAo7A2H3fuc4KOKEx+5CAord2H2z"
@@ -22,7 +22,7 @@
   <style>
     /* ── CSS VARIABLES (white-label via JS) ── */
     :root {
-      --c1: #F07820;
+      --c1: #C45E0A;
       --c1-light: #FFF3E8;
       --c1-mid: #fde8d0;
       --c2: #2B3244;
@@ -84,7 +84,8 @@
     .row.f4{grid-template-columns:1fr 1fr 1fr 1fr}
     .fl label{display:block;font-size:11px;font-weight:600;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
     .fl input,.fl select,.fl textarea{width:100%;padding:9px 12px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:14px;font-family:'Inter',sans-serif;color:var(--c2);background:var(--white);transition:border-color .2s;outline:none}
-    .fl input:focus,.fl select:focus,.fl textarea:focus{border-color:var(--c1)}
+    .fl input:focus,.fl select:focus,.fl textarea:focus{border-color:var(--c1);outline:2px solid var(--c1);outline-offset:1px}
+    *:focus-visible{outline:2px solid var(--c1);outline-offset:2px}
     .fl textarea{resize:vertical;min-height:60px}
     .vdate{font-size:12px;color:var(--c1);font-weight:600;margin-top:4px;min-height:16px}
 
@@ -129,7 +130,7 @@
     .pag-extra input,.pag-extra select{padding:7px 10px;border:1.5px solid var(--gray-mid);border-radius:7px;font-size:13px;font-family:'Inter',sans-serif;color:var(--c2);background:var(--white);outline:none;width:100%}
     .pag-extra input:focus,.pag-extra select:focus{border-color:var(--c1)}
     .pag-field{flex:1;min-width:120px}
-    .btn-rm{background:none;border:none;color:#d1d5db;font-size:17px;cursor:pointer;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:6px;transition:all .15s;flex-shrink:0}
+    .btn-rm{background:none;border:none;color:#d1d5db;font-size:17px;cursor:pointer;width:28px;height:28px;min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center;border-radius:6px;transition:all .15s;flex-shrink:0}
     .btn-rm:hover{background:var(--red-bg);color:var(--red)}
     .btn-add{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:var(--c1-light);color:var(--c1);border:2px dashed var(--c1);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif}
     .btn-add:hover{background:var(--c1-mid)}
@@ -226,7 +227,7 @@
     .ss.recusado{border-color:var(--red);color:var(--red);background:var(--red-bg)}
 
     .ta{display:flex;gap:4px;align-items:center;flex-wrap:nowrap}
-    .tb{padding:4px 9px;border-radius:7px;border:1.5px solid var(--gray-mid);background:var(--white);font-size:12px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s;white-space:nowrap}
+    .tb{padding:8px 12px;border-radius:7px;border:1.5px solid var(--gray-mid);background:var(--white);font-size:12px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s;white-space:nowrap}
     .tb:hover{border-color:var(--c1);color:var(--c1)}
     .tb.d:hover{border-color:var(--red);color:var(--red)}
     .tb.g{background:var(--green);border-color:var(--green);color:white}
@@ -277,6 +278,21 @@
     .btn-sec{flex:1;padding:11px;border:2px solid var(--gray-mid);border-radius:9px;background:var(--white);font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif}
     .btn-pri{flex:1;padding:11px;background:var(--c1);color:white;border:none;border-radius:9px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif}
 
+    /* ── SR-ONLY (acessibilidade) ── */
+    .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+
+    /* ── SKIP LINK ── */
+    .skip-link{position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden}.skip-link:focus{position:fixed;left:50%;transform:translateX(-50%);top:8px;width:auto;height:auto;padding:8px 18px;background:var(--c1);color:white;font-size:14px;font-weight:700;border-radius:8px;z-index:99999;text-decoration:none}
+
+    /* ── REQUIRED FIELD INDICATOR ── */
+    label.req::after{content:' *';color:var(--red);font-size:12px}
+
+    /* ── CALENDAR MOBILE ── */
+    @media(max-width:600px){
+      .cal-grid{grid-template-columns:repeat(7,1fr)!important}
+      .cal-day{min-width:0!important;font-size:11px!important;padding:6px 2px!important}
+    }
+
     /* ── PRINT ── */
     .pdoc{display:none}
     @media print{
@@ -300,7 +316,7 @@
       .pd-hdr-sub{font-size:8px;font-weight:700;letter-spacing:3px;color:rgba(255,255,255,.65);text-transform:uppercase;margin-top:2px}
       .pd-hdr-tagline{font-size:11px;color:rgba(255,255,255,.82);margin-top:3px;font-style:italic;line-height:1.4}
       .pd-escopo{margin-bottom:14px}
-      .pd-escopo-txt{font-size:13px;color:#374151;line-height:1.65;background:#f8f9fb;border-left:3px solid var(--c1,#F07820);padding:10px 14px;border-radius:0 8px 8px 0;white-space:pre-wrap}
+      .pd-escopo-txt{font-size:13px;color:#374151;line-height:1.65;background:#f8f9fb;border-left:3px solid var(--c1,#C45E0A);padding:10px 14px;border-radius:0 8px 8px 0;white-space:pre-wrap}
       .pd-hdr-doc{text-align:right;flex-shrink:0}
       .pd-doctype-badge{display:inline-block;border:1.5px solid rgba(255,255,255,.4);color:rgba(255,255,255,.8);font-size:8px;font-weight:700;padding:3px 10px;border-radius:50px;letter-spacing:2px;text-transform:uppercase;margin-bottom:6px}
       .pd-docnum{font-size:30px;font-weight:800;color:white;line-height:1;letter-spacing:-1px}
@@ -870,6 +886,7 @@
   </style>
 </head>
 <body>
+<a class="skip-link" href="#main-content">Pular para o conteúdo principal</a>
 
 <!-- ══ LOGIN OVERLAY ══ -->
 <div class="login-overlay" id="login-overlay">
@@ -921,6 +938,7 @@
       </div>
       <input class="login-pin-tap" type="password" id="pin-input" maxlength="4"
         inputmode="numeric" placeholder="••••"
+        aria-label="Senha PIN de 4 dígitos"
         oninput="atualizarDotsPIN(this.value)"
         onkeydown="if(event.key==='Enter')fazerLogin()">
       <div class="login-err" id="login-err"></div>
@@ -940,7 +958,7 @@
 <!-- ══ HEADER ══ -->
 <header class="hdr">
   <div class="hdr-logo">
-    <img id="hdr-logo-img" alt="logo">
+    <img id="hdr-logo-img" alt="Logo da empresa" width="32" height="32">
     <div class="hdr-logo-text">
       <span class="hdr-nome" id="hdr-nome">carregando…</span>
       <span class="hdr-sub" id="hdr-sub">Serviços</span>
@@ -950,13 +968,13 @@
     <button class="nb" onclick="go('form')"    id="nb-form">＋ Orçamento</button>
     <button class="nb" onclick="novaOS();go('os')" id="nb-os">📋 OS</button>
     <button class="nb" onclick="go('history')" id="nb-history">📊 Histórico</button>
-    <button class="nb" onclick="go('os-history')" id="nb-os-history">📋 OS Hist.</button>
+    <button class="nb" onclick="go('os-history')" id="nb-os-history">📋 Hist. OS</button>
     <button class="nb" onclick="go('clientes')" id="nb-clientes">👥 Clientes</button>
     <button class="nb" onclick="go('equipamentos')" id="nb-equipamentos">🔧 Equipamentos</button>
     <button class="nb" onclick="go('agendamentos')" id="nb-agendamentos">📅 Agenda</button>
     <button class="nb" onclick="go('visitas')" id="nb-visitas">🔍 Vistorias</button>
     <button class="nb" onclick="go('despesas')" id="nb-despesas">💸 Despesas</button>
-    <button class="nb" onclick="go('produtividade')" id="nb-produtividade">📈 Prod.</button>
+    <button class="nb" onclick="go('produtividade')" id="nb-produtividade">📈 Produt.</button>
   </nav>
   <div class="hdr-right">
     <span class="db-dot" id="db-dot" title="Status do banco de dados"></span>
@@ -999,7 +1017,7 @@
     <span class="micon">📋</span><span>Minhas OS</span>
   </button>
   <button class="mob-nb" id="mnb-history" onclick="go('history')">
-    <span class="micon">📊</span><span>Hist.</span>
+    <span class="micon">📊</span><span>Hist. OS</span>
   </button>
   <button class="mob-nb" id="mnb-agendamentos" onclick="go('agendamentos')">
     <span class="micon">📅</span><span>Agenda</span>
@@ -1011,6 +1029,9 @@
     <span class="micon">🔍</span><span>Vistorias</span>
   </button>
 </nav>
+
+<!-- ══ MAIN CONTENT ══ -->
+<main id="main-content" role="main">
 
 <!-- ══ PAGE: SETUP ══ -->
 <div class="page" id="page-setup">
@@ -1065,8 +1086,8 @@
       <div class="row">
         <div class="fl"><label>Cor principal</label>
           <div class="color-row">
-            <input type="color" id="cfg-cor" value="#F07820" oninput="previewCfg()">
-            <input type="text" id="cfg-cor-txt" value="#F07820" oninput="syncCor(this.value)">
+            <input type="color" id="cfg-cor" value="#C45E0A" oninput="previewCfg()">
+            <input type="text" id="cfg-cor-txt" value="#C45E0A" oninput="syncCor(this.value)">
           </div>
         </div>
         <div class="fl"><label>Cor secundária (textos/fundo)</label>
@@ -1212,7 +1233,7 @@
 
     <!-- Form novo usuário -->
     <div class="card" id="usr-form-card" style="display:none">
-      <div class="ct">Novo Usuário <button onclick="fecharFormUsuario()" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;line-height:1">×</button></div>
+      <div class="ct">Novo Usuário <button onclick="fecharFormUsuario()" aria-label="Fechar" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;line-height:1">×</button></div>
       <div class="row">
         <div class="fl"><label>Nome</label><input type="text" id="usr-nome" placeholder="Ex: João Silva"></div>
         <div class="fl">
@@ -1260,7 +1281,7 @@
       <div class="ct">Dados do Cliente</div>
       <div class="row">
         <div class="fl">
-          <label>Nome do Cliente</label>
+          <label class="req">Nome do Cliente</label>
           <div class="cli-input-wrap">
             <input type="text" id="cli" placeholder="Ex: João Silva" oninput="upd();mostrarSugestoesCli(this.value)" autocomplete="off" onblur="setTimeout(()=>hideSugCli(),200)">
             <button type="button" class="cli-search-btn" onclick="abrirBuscaCli('orc')" title="Buscar cliente na base">🔍</button>
@@ -1448,9 +1469,9 @@
 <div class="page" id="page-os">
   <div class="wrap">
     <div class="card">
-      <div class="ct">Nova Ordem de Serviço <span id="os-src-badge" style="font-size:11px;color:var(--gray);font-weight:400;text-transform:none;letter-spacing:0"></span></div>
+      <div class="ct"><span id="os-form-titulo">Nova Ordem de Serviço</span> <span id="os-src-badge" style="font-size:11px;color:var(--gray);font-weight:400;text-transform:none;letter-spacing:0"></span></div>
       <div class="row">
-        <div class="fl"><label>Cliente</label>
+        <div class="fl"><label class="req">Cliente</label>
           <div class="cli-input-wrap">
             <input type="text" id="os-cli" placeholder="Nome do cliente" oninput="mostrarSugestoesCliOS(this.value)" autocomplete="off" onblur="setTimeout(()=>hideSugCliOS(),200)">
             <button type="button" class="cli-search-btn" onclick="abrirBuscaCli('os')" title="Buscar cliente na base">🔍</button>
@@ -1565,7 +1586,7 @@
     <div class="acts" style="grid-template-columns:1fr 1fr">
       <button class="ba ba-pdf" id="btn-os-pdf" onclick="gerarOSPDF('os')">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h9l5 5v15a2 2 0 01-2 2H6a2 2 0 01-2-2V4a2 2 0 012-2z"/><polyline points="14 2 14 8 20 8"/></svg>
-        Só a OS
+        Salvar OS
       </button>
       <button class="ba ba-save" id="btn-os-both" onclick="gerarOSPDF('both')" style="display:none">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h9l5 5v15a2 2 0 01-2 2H6a2 2 0 01-2-2V4a2 2 0 012-2z"/><polyline points="14 2 14 8 20 8"/></svg>
@@ -1631,7 +1652,8 @@
         <button class="fb" data-s="aprovado" onclick="filt(this)">✅ Aprovado</button>
         <button class="fb" data-s="recusado" onclick="filt(this)">❌ Recusado</button>
         <button class="fb" data-s="vencido" onclick="filt(this)">🕐 Vencido</button>
-        <input class="hsrch" type="text" placeholder="🔍 Buscar cliente ou #…" oninput="buscar(this.value)">
+        <label class="sr-only" for="hist-busca-input">Buscar orçamentos por cliente ou número</label>
+        <input class="hsrch" type="text" id="hist-busca-input" placeholder="🔍 Buscar cliente ou #…" oninput="buscar(this.value)">
       </div>
       <div id="hist-body"><div class="load"><div class="spin"></div> Carregando…</div></div>
     </div>
@@ -1643,7 +1665,7 @@
   <div class="wrap">
     <!-- Formulário novo equipamento (oculto por padrão) -->
     <div class="card" id="eq-form-card" style="display:none">
-      <div class="ct">Novo Equipamento <button onclick="fecharFormEq()" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;line-height:1">×</button></div>
+      <div class="ct">Novo Equipamento <button onclick="fecharFormEq()" aria-label="Fechar" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;line-height:1">×</button></div>
       <div class="row">
         <div class="fl"><label>Cliente</label>
           <input type="text" id="eq-cli-nome" placeholder="Nome do cliente" list="eq-cli-list" oninput="filtrarClientesEq(this.value)">
@@ -1694,7 +1716,8 @@
         <div style="font-size:12px;color:var(--gray)" id="eq-count">Carregando…</div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <input type="text" placeholder="🔍 Buscar…" oninput="buscarEq(this.value)" style="padding:7px 13px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:13px;font-family:'Inter',sans-serif;outline:none;width:160px">
+        <label class="sr-only" for="eq-busca-input">Buscar equipamentos</label>
+        <input type="text" id="eq-busca-input" placeholder="🔍 Buscar…" oninput="buscarEq(this.value)" style="padding:7px 13px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:13px;font-family:'Inter',sans-serif;outline:none;width:160px">
         <select onchange="filtrarTipoEq(this.value)" style="padding:7px 12px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Inter',sans-serif;outline:none">
           <option value="">Todos os tipos</option>
           <option>Motobomba</option><option>Filtro</option><option>Trocador de Calor</option>
@@ -2055,7 +2078,8 @@
         <button class="fb" data-oss="agendado" onclick="filtOS(this)">📅 Agendado</button>
         <button class="fb" data-oss="concluido" onclick="filtOS(this)">✅ Concluído</button>
         <button class="fb" data-oss="cancelado" onclick="filtOS(this)">❌ Cancelado</button>
-        <input class="hsrch" type="text" placeholder="🔍 Buscar cliente ou #…" oninput="buscarOS(this.value)">
+        <label class="sr-only" for="os-busca-input">Buscar ordens de serviço por cliente ou número</label>
+        <input class="hsrch" type="text" id="os-busca-input" placeholder="🔍 Buscar cliente ou #…" oninput="buscarOS(this.value)">
         <select id="os-filt-tec" onchange="filtTecOS(this.value)" style="padding:6px 10px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Inter',sans-serif;outline:none;background:white;cursor:pointer;color:var(--c2)">
           <option value="">👤 Todos técnicos</option>
         </select>
@@ -2076,12 +2100,12 @@
       <div class="cli-form-inline">
         <div style="font-size:14px;font-weight:700;color:var(--c2);margin-bottom:14px">＋ Novo Cliente</div>
         <div class="row">
-          <div class="fl"><label>Nome</label><input type="text" id="cli-new-nome" placeholder="Nome completo"></div>
+          <div class="fl"><label class="req">Nome</label><input type="text" id="cli-new-nome" placeholder="Nome completo"></div>
           <div class="fl"><label>Telefone</label><input type="tel" id="cli-new-tel" placeholder="(47) 99999-9999"></div>
         </div>
         <div class="row" style="margin-bottom:12px">
           <div class="fl"><label>Endereço</label><input type="text" id="cli-new-end" placeholder="Rua, número, bairro, cidade"></div>
-          <div class="fl"><label>CNPJ (opcional)</label><input type="text" id="cli-new-cnpj" placeholder="00.000.000/0001-00"></div>
+          <div class="fl"><label>CNPJ (opcional)</label><input type="text" id="cli-new-cnpj" placeholder="00.000.000/0001-00" inputmode="numeric"></div>
         </div>
         <div class="row" style="margin-bottom:12px">
           <div class="fl"><label>E-mail do Responsável / Síndico <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--gray)">(para relatórios automáticos)</span></label><input type="email" id="cli-new-email" placeholder="sindico@condominio.com.br"></div>
@@ -2184,7 +2208,7 @@
 <div class="page" id="page-despesas">
   <div class="wrap">
     <div class="card" id="desp-form-card" style="display:none">
-      <div class="ct">Nova Despesa <button onclick="fecharFormDesp()" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;line-height:1">×</button></div>
+      <div class="ct">Nova Despesa <button onclick="fecharFormDesp()" aria-label="Fechar" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;line-height:1">×</button></div>
       <div class="row">
         <div class="fl"><label>Técnico</label><select id="desp-tec"><option value="">Selecione…</option></select></div>
         <div class="fl"><label>Data</label><input type="date" id="desp-data"></div>
@@ -2197,7 +2221,7 @@
             <option>Material</option><option>Alimentação</option><option>Outro</option>
           </select>
         </div>
-        <div class="fl"><label>Valor (R$)</label><input type="number" id="desp-valor" placeholder="0,00" step="0.01" min="0"></div>
+        <div class="fl"><label>Valor (R$)</label><input type="number" id="desp-valor" placeholder="0,00" step="0.01" min="0" inputmode="decimal"></div>
       </div>
       <div class="row f1">
         <div class="fl"><label>Descrição</label><input type="text" id="desp-desc" placeholder="Ex: Gasolina ida/volta Camboriú"></div>
@@ -2356,6 +2380,7 @@
 
       <!-- Filtros -->
       <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
+        <label class="sr-only" for="vis-hist-busca">Buscar vistorias por cliente ou local</label>
         <input type="text" id="vis-hist-busca" placeholder="Buscar cliente ou local…"
           oninput="renderVisHistorico()"
           style="flex:1;min-width:160px;padding:9px 12px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;outline:none;color:var(--c2)">
@@ -2386,7 +2411,7 @@
 
     <!-- Formulário novo contrato (oculto por padrão) -->
     <div class="card" id="ag-form-card" style="display:none">
-      <div class="ct">Novo Agendamento Recorrente <button onclick="fecharFormAg()" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;line-height:1">×</button></div>
+      <div class="ct">Novo Agendamento Recorrente <button onclick="fecharFormAg()" aria-label="Fechar" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;line-height:1">×</button></div>
       <div class="row">
         <div class="fl"><label>Cliente</label><input type="text" id="ag-cli" placeholder="Nome do cliente" list="ag-cli-list" oninput="filtrarCliAg(this.value)"><datalist id="ag-cli-list"></datalist></div>
         <div class="fl"><label>Local / Endereço</label><input type="text" id="ag-loc" placeholder="Endereço"></div>
@@ -2454,7 +2479,7 @@
   <div class="modal-cli-box">
     <div style="display:flex;justify-content:space-between;align-items:center">
       <div style="font-size:15px;font-weight:700;color:var(--c2)">Buscar Cliente</div>
-      <button onclick="fecharBuscaCli()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--gray);line-height:1">×</button>
+      <button onclick="fecharBuscaCli()" aria-label="Fechar" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--gray);line-height:1">×</button>
     </div>
     <input class="modal-cli-inp" id="modal-cli-inp" type="text" placeholder="Nome, telefone ou CNPJ..." oninput="filtrarListaCli(this.value)" autocomplete="off">
     <div class="modal-cli-lista" id="modal-cli-lista"></div>
@@ -2469,6 +2494,18 @@
     <div class="modal-acts">
       <button class="btn-sec" onclick="fecharModal()">Cancelar</button>
       <button class="btn-pri" onclick="salvarPagamento()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: CONFIRMAÇÃO (M-01) ══ -->
+<div class="modal-bg" id="confirmar-modal-bg" role="dialog" aria-modal="true" aria-labelledby="confirmar-titulo">
+  <div class="modal">
+    <h3 id="confirmar-titulo">Confirmar</h3>
+    <p id="confirmar-msg" style="font-size:14px;color:var(--gray);margin-bottom:0"></p>
+    <div class="modal-acts">
+      <button class="btn-sec" id="confirmar-nao" onclick="document.getElementById('confirmar-modal-bg').classList.remove('on')">Cancelar</button>
+      <button class="btn-pri" id="confirmar-sim" style="background:var(--red)">Confirmar</button>
     </div>
   </div>
 </div>
@@ -2560,7 +2597,9 @@
   </div>
 </div>
 
-<div class="toast" id="toast"></div>
+</main><!-- /#main-content -->
+
+<div class="toast" id="toast" role="alert" aria-live="assertive" aria-atomic="true"></div>
 
 <script>
 // ══════════════════════════════════════════════════
@@ -3114,7 +3153,7 @@ function deselecionarUser(){
 // ══════════════════════════════════════════════════
 const CFG_DEF = {
   nome:'Minha Empresa', sub:'Serviços', tel:'', whatsapp:'', cidades:'',
-  tagline:'', cor:'#F07820', cor2:'#2B3244', logoB64:'', segmento:'geral',
+  tagline:'', cor:'#C45E0A', cor2:'#2B3244', logoB64:'', segmento:'geral',
   svcs:['Serviço 1','Serviço 2','Serviço 3'], pin:'1234',
   tecnicos:['Marcos','Josimar','Eldecir','Bruno'],
   notif_visita: 'Olá, {nome}! 👋\n\nLembramos que amanhã teremos nossa visita técnica agendada.\n\n⏰ Horário: {hora}\n👤 Técnico: {tecnico}\n🔧 Serviço: {servico}\n\nQualquer dúvida estamos à disposição!\n\n*{empresa}*\n📞 {tel_empresa}',
@@ -3129,8 +3168,8 @@ let CFG = { ...CFG_DEF };
 let db = null, dbOk = false;
 let svcs = [], editId = null;
 let osSvcs = [], modalOrcId = null, osOrcId = null; // osOrcId = ID do orçamento vinculado à OS
-let todosOrc = [], filtroSt = 'todos', busca = '';
-let todosOS = [], filtroOSSt = 'todos', buscaOS = '', filtroOSTec = '';
+let todosOrc = [], filtroSt = localStorage.getItem('fluxa_filtroSt')||'todos', busca = '';
+let todosOS = [], filtroOSSt = localStorage.getItem('fluxa_filtroOSSt')||'todos', buscaOS = '', filtroOSTec = '';
 let filtroPeriodo = '';
 let osFotos = ['','',''];
 let printMode = ''; // 'orc' | 'os' | 'both'
@@ -3229,6 +3268,31 @@ function lsOrcProxNum(){ return lsOrcLer().reduce((a,o)=>Math.max(a,o.numero||0)
   tentarConectar(1);
   checkQRHash();
 })();
+
+// ──────────────────────────────────────────────────
+//  M-09 — ATALHOS DE TECLADO (Ctrl+S, /)
+// ──────────────────────────────────────────────────
+document.addEventListener('keydown', function(e){
+  // Ctrl+S / Cmd+S — salva o formulário ativo
+  if((e.ctrlKey || e.metaKey) && e.key === 's'){
+    e.preventDefault();
+    const activePage = document.querySelector('.page.on');
+    if(!activePage) return;
+    const pid = activePage.id;
+    if(pid === 'page-form') salvarApenas();
+    else if(pid === 'page-os') { const btn=document.getElementById('btn-os-pdf'); if(btn) btn.click(); }
+    else if(pid === 'page-empresa') salvarEmpresa();
+    else if(pid === 'page-visitas') salvarVistoria();
+  }
+  // '/' — foca no campo de busca da página ativa
+  if(e.key === '/' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA' && document.activeElement.tagName !== 'SELECT'){
+    e.preventDefault();
+    const activePage = document.querySelector('.page.on');
+    if(!activePage) return;
+    const srch = activePage.querySelector('.hsrch, input[type="search"]');
+    if(srch) srch.focus();
+  }
+});
 
 // ──────────────────────────────────────────────────
 //  PWA
@@ -3464,6 +3528,7 @@ function aplicarCFG(){
   document.getElementById('hdr-nome').textContent = CFG.nome;
   document.getElementById('hdr-sub').textContent  = CFG.sub || 'Serviços';
   const img = document.getElementById('hdr-logo-img');
+  img.alt = CFG.nome || 'Logo';
   if(CFG.logoB64){ img.src=CFG.logoB64; img.classList.add('has-logo'); }
   else { img.classList.remove('has-logo'); }
   // Atualiza brand no login
@@ -3611,20 +3676,21 @@ function go(p){
   const _gestor  = eGestor();
   const pagesVendas  = ['form','history','clientes','agendamentos','os'];
   const pagesTecnico = ['minhas-os','visitas'];
-  if(_vendas  && !pagesVendas.includes(p))  return; // bloqueia silenciosamente
-  if(_tecnico && !pagesTecnico.includes(p)) return; // bloqueia silenciosamente
+  if(_vendas  && !pagesVendas.includes(p))  { toast('Você não tem acesso a essa área.'); return; }
+  if(_tecnico && !pagesTecnico.includes(p)) { toast('Você não tem acesso a essa área.'); return; }
   if(!_gestor && !_vendas && !_tecnico &&
      ['form','history','empresa','usuarios','produtividade'].includes(p)){
     toast('⚠️ Acesso restrito ao Gestor'); return;
   }
   document.querySelectorAll('.page').forEach(x=>x.classList.remove('on'));
   document.getElementById('page-'+p).classList.add('on');
-  document.querySelectorAll('.nb').forEach(x=>x.classList.remove('on'));
-  const nb=document.getElementById('nb-'+p); if(nb) nb.classList.add('on');
-  document.querySelectorAll('.mob-nb').forEach(x=>x.classList.remove('on'));
-  const mnb=document.getElementById('mnb-'+p); if(mnb) mnb.classList.add('on');
+  document.querySelectorAll('.nb').forEach(x=>{ x.classList.remove('on'); x.removeAttribute('aria-current'); });
+  const nb=document.getElementById('nb-'+p); if(nb){ nb.classList.add('on'); nb.setAttribute('aria-current','page'); }
+  document.querySelectorAll('.mob-nb').forEach(x=>{ x.classList.remove('on'); x.removeAttribute('aria-current'); });
+  const mnb=document.getElementById('mnb-'+p); if(mnb){ mnb.classList.add('on'); mnb.setAttribute('aria-current','page'); }
   if(p==='portal') { /* página gerenciada por checkPortalHash */ }
   if(p==='history'){ loadHist(); setTimeout(renderGraficoDash,200); }
+  if(p==='form') restaurarRascunho('form');
   if(p==='os-history') loadOSHist();
   if(p==='clientes') renderClientes();
   if(p==='empresa') preencherFormEmpresa();
@@ -3637,6 +3703,10 @@ function go(p){
   if(p==='visitas') initVisitas();
   // Atualiza técnicos disponíveis quando abre form de OS
   if(p==='os'){
+    restaurarRascunho('os');
+    // A-04: pré-preenche data de hoje se vazio
+    const osDataEl=document.getElementById('os-data');
+    if(osDataEl && !osDataEl.value) osDataEl.value=new Date().toISOString().slice(0,10);
     const l=gV('os-loja')||LOJA_PADRAO_ID;
     atualizarTecsPorLoja(l,'os-tec');
     atualizarTecsPorLoja(l,'os-tec-checkin');
@@ -4017,6 +4087,7 @@ async function salvarApenas(){
     autoSalvarClienteDoOrc(dados);
     atualizarDash(); renderTabela();
     if(document.getElementById('toggle-os')?.checked) await criarOSjunto(dados, savedNum);
+    limparRascunho('form');
     setTimeout(()=>{ mostrarBannerNovo(savedNum); },600);
   }catch(e){ console.error(e); toast('⚠️ Erro ao salvar: '+e.message); }
   btn.disabled=false; btn.textContent='Salvar Orçamento';
@@ -4227,6 +4298,7 @@ function toggleChk(i, checked){
   osChecklist[i].checked=checked;
   const el=document.getElementById('chk-item-'+i);
   if(el){ el.className='chk-item'+(checked?' ok':''); }
+  if(navigator.vibrate) navigator.vibrate(30);
 }
 function updChkObs(i, val){ if(osChecklist[i]) osChecklist[i].obs=val; }
 function rmChkItem(i){ osChecklist.splice(i,1); renderOsChecklist(); }
@@ -4410,7 +4482,9 @@ function atualizarDash(){
 
 function filt(btn){
   document.querySelectorAll('.hf .fb[data-s]').forEach(b=>b.classList.remove('on'));
-  btn.classList.add('on'); filtroSt=btn.dataset.s; renderTabela();
+  btn.classList.add('on'); filtroSt=btn.dataset.s;
+  localStorage.setItem('fluxa_filtroSt', filtroSt);
+  renderTabela();
 }
 function buscar(v){ busca=v.toLowerCase(); renderTabela(); }
 
@@ -4468,7 +4542,7 @@ function renderGraficoDash(){
   });
 
   if(_dashChart){ try{_dashChart.destroy();}catch(e){} _dashChart=null; }
-  const cor=getComputedStyle(document.documentElement).getPropertyValue('--c1').trim()||'#F07820';
+  const cor=getComputedStyle(document.documentElement).getPropertyValue('--c1').trim()||'#C45E0A';
   // Barras mais finas quando há muitos meses
   const muitosMeses=meses.length>12;
 
@@ -4529,7 +4603,7 @@ function renderTabela(){
     (o.local_servico||'').toLowerCase().includes(busca)||
     String(o.numero||'').includes(busca.replace('#',''))
   );
-  if(!lista.length){ document.getElementById('hist-body').innerHTML=`<div class="empty-st"><div class="ei">📭</div><p>Nenhum orçamento encontrado.</p></div>`; return; }
+  if(!lista.length){ document.getElementById('hist-body').innerHTML=`<div class="empty-st"><div class="ei">📭</div><p>Nenhum orçamento encontrado.</p><button class="btn-primary" style="margin-top:12px" onclick="novoOrc();go('form')">＋ Criar Orçamento</button></div>`; return; }
   const sopts=s=>['pendente','aprovado','recusado','vencido'].map(x=>`<option value="${x}" ${x===s?'selected':''}>${x.charAt(0).toUpperCase()+x.slice(1)}</option>`).join('');
   const ocultarFinanceiro=eVendas();
   let h=`<div class="htw"><table class="ht"><thead><tr><th>#</th><th>Cliente</th>${ocultarFinanceiro?'':'<th>Total / Recebido</th>'}<th>Data</th><th>Status</th><th>Ações</th></tr></thead><tbody>`;
@@ -4573,8 +4647,10 @@ async function mudarSt(id, sel){
   toast('✅ Status atualizado');
 }
 
-async function excluirOrc(id){
-  if(!confirm('Excluir este orçamento?')) return;
+function excluirOrc(id){
+  confirmar('Excluir este orçamento?', ()=>_excluirOrcConfirmado(id), 'Excluir Orçamento');
+}
+async function _excluirOrcConfirmado(id){
   lsOrcRemover(id); // remove local
   if(dbOk&&db&&!String(id).startsWith('local_'))
     db.from('orcamentos').delete().eq('id',id).then(()=>{}).catch(()=>{});
@@ -4661,6 +4737,8 @@ function novaOS(){
   document.getElementById('os-src-badge').textContent='';
   document.getElementById('btn-os-both').style.display='none';
   document.getElementById('btn-os-pdf').style.gridColumn='1/-1';
+  const tituloEl=document.getElementById('os-form-titulo');
+  if(tituloEl) tituloEl.textContent='Nova Ordem de Serviço';
   // Reseta checklist
   osChecklist = OS_CHECKLIST_DEFAULT.map(x=>({...x}));
   renderOsChecklist();
@@ -4696,7 +4774,9 @@ async function loadOSHist(){
 
 function filtOS(btn){
   document.querySelectorAll('#page-os-history .fb[data-oss]').forEach(b=>b.classList.remove('on'));
-  btn.classList.add('on'); filtroOSSt=btn.dataset.oss; renderOSTabela();
+  btn.classList.add('on'); filtroOSSt=btn.dataset.oss;
+  localStorage.setItem('fluxa_filtroOSSt', filtroOSSt);
+  renderOSTabela();
 }
 function buscarOS(v){ buscaOS=v.toLowerCase(); renderOSTabela(); }
 function filtTecOS(val){ filtroOSTec=val; renderOSTabela(); }
@@ -4740,7 +4820,7 @@ function renderOSTabela(){
     (o.cliente||'').toLowerCase().includes(buscaOS)||
     String(o.numero||'').includes(buscaOS.replace('#',''))
   );
-  if(!lista.length){ document.getElementById('osh-body').innerHTML=`<div class="empty-st"><div class="ei">📋</div><p>Nenhuma OS encontrada.</p></div>`; return; }
+  if(!lista.length){ document.getElementById('osh-body').innerHTML=`<div class="empty-st"><div class="ei">📋</div><p>Nenhuma OS encontrada.</p><button class="btn-primary" style="margin-top:12px" onclick="novaOS();go('os')">＋ Nova OS</button></div>`; return; }
   let h=`<div class="htw"><table class="ht"><thead><tr><th>#</th><th>Cliente</th><th>Local</th><th>Data</th><th>Técnico</th><th>Status</th><th>Ações</th></tr></thead><tbody>`;
   lista.forEach(o=>{
     _nc[o.id]=o;
@@ -4791,11 +4871,16 @@ function editarOS(id){
   document.getElementById('os-src-badge').textContent=osOrcId?'· vinculada a ORC':'';
   document.getElementById('btn-os-both').style.display=osOrcId?'flex':'none';
   document.getElementById('btn-os-pdf').style.gridColumn=osOrcId?'':'1/-1';
+  const numStr='#'+String(o.numero||o.id||'').toString().padStart(3,'0');
+  const tituloEl=document.getElementById('os-form-titulo');
+  if(tituloEl) tituloEl.textContent='Editar OS '+numStr;
   go('os');
 }
 
-async function excluirOS(id){
-  if(!confirm('Excluir esta OS?')) return;
+function excluirOS(id){
+  confirmar('Excluir esta OS?', ()=>_excluirOSConfirmado(id), 'Excluir OS');
+}
+async function _excluirOSConfirmado(id){
   todosOS=todosOS.filter(x=>x.id!==id);
   if(dbOk&&db) db.from('ordens_servico').delete().eq('id',id).then(()=>{}).catch(()=>{});
   renderOSTabela(); toast('🗑 OS excluída');
@@ -4904,7 +4989,7 @@ function renderClientes(){
   let lista=lsCliLer();
   lista=filtrarPorLoja(lista);
   const el=document.getElementById('clientes-lista');
-  if(!lista.length){ el.innerHTML='<div class="empty-st"><div class="ei">👥</div><p>Nenhum cliente cadastrado.</p></div>'; return; }
+  if(!lista.length){ el.innerHTML='<div class="empty-st"><div class="ei">👥</div><p>Nenhum cliente cadastrado.</p><button class="btn-primary" style="margin-top:12px" onclick="abrirFormCliente()">＋ Cadastrar Cliente</button></div>'; return; }
   el.innerHTML=lista.map(c=>`
     <div class="cli-card">
       <div class="cli-card-info">
@@ -5006,9 +5091,7 @@ function verHistoricoCliente(cliId){
 }
 
 function excluirCliente(id){
-  if(!confirm('Excluir este cliente?')) return;
-  const lista=lsCliLer().filter(x=>x.id!==id); lsCliSalvar(lista);
-  renderClientes(); toast('🗑 Cliente removido');
+  confirmar('Excluir este cliente?', ()=>{ const lista=lsCliLer().filter(x=>x.id!==id); lsCliSalvar(lista); renderClientes(); toast('🗑 Cliente removido'); }, 'Excluir Cliente');
 }
 
 let _cliEditId = null;
@@ -5318,8 +5401,75 @@ function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').repla
 function safeKey(s){ return btoa(unescape(encodeURIComponent(s))).replace(/[^a-zA-Z0-9]/g,''); }
 function ls(k){ try{return localStorage.getItem(k);}catch(e){return null;} }
 function lsSet(k,v){ try{localStorage.setItem(k,v);}catch(e){} }
-function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('on'); setTimeout(()=>t.classList.remove('on'),2800); }
+function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('on'); setTimeout(()=>t.classList.remove('on'),5000); }
 function hexA(hex,a){ try{ const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16); return `rgba(${r},${g},${b},${a})`; }catch(e){ return hex; } }
+
+// C-03 — Draft auto-save (rascunho automático de formulários)
+const DRAFT_KEYS = {
+  form: 'fluxa_draft_form',
+  os:   'fluxa_draft_os',
+};
+function salvarRascunho(pagina){
+  try{
+    if(pagina === 'form'){
+      const dados = {
+        cli: gV('cli'), loc: gV('loc'), tel: gV('tel'), obs: gV('obs'),
+        escopo: gV('escopo'), nota_interna: gV('nota-interna'),
+      };
+      lsSet(DRAFT_KEYS.form, JSON.stringify(dados));
+    } else if(pagina === 'os'){
+      const dados = {
+        'os-cli': gV('os-cli'), 'os-loc': gV('os-loc'), 'os-data': gV('os-data'),
+        'os-obs': gV('os-obs'), 'os-mat': gV('os-mat'),
+      };
+      lsSet(DRAFT_KEYS.os, JSON.stringify(dados));
+    }
+  }catch(e){}
+}
+function restaurarRascunho(pagina){
+  try{
+    const raw = ls(DRAFT_KEYS[pagina]); if(!raw) return;
+    const dados = JSON.parse(raw);
+    Object.entries(dados).forEach(([k,v])=>setV(k,v));
+  }catch(e){}
+}
+function limparRascunho(pagina){
+  try{ localStorage.removeItem(DRAFT_KEYS[pagina]); }catch(e){}
+}
+// Auto-save ao digitar
+document.addEventListener('input', function(e){
+  const activePage = document.querySelector('.page.on');
+  if(!activePage) return;
+  const pid = activePage.id;
+  if(pid === 'page-form') salvarRascunho('form');
+  else if(pid === 'page-os') salvarRascunho('os');
+});
+// Aviso antes de sair
+window.addEventListener('beforeunload', function(e){
+  const activePage = document.querySelector('.page.on');
+  if(!activePage) return;
+  const pid = activePage.id;
+  if((pid === 'page-form' || pid === 'page-os') && gV(pid==='page-form'?'cli':'os-cli')){
+    e.preventDefault(); e.returnValue = '';
+  }
+});
+
+// M-01 — Diálogo de confirmação acessível (substitui window.confirm)
+function confirmar(msg, cbSim, titulo){
+  const bg = document.getElementById('confirmar-modal-bg');
+  const titEl = document.getElementById('confirmar-titulo');
+  const msgEl = document.getElementById('confirmar-msg');
+  const simBtn = document.getElementById('confirmar-sim');
+  const naoBtn = document.getElementById('confirmar-nao');
+  if(!bg){ if(window.confirm(msg)) cbSim(); return; }
+  titEl.textContent = titulo || 'Confirmar';
+  msgEl.textContent = msg;
+  bg.classList.add('on');
+  const fechar = () => { bg.classList.remove('on'); simBtn.onclick = null; };
+  naoBtn.onclick = fechar;
+  simBtn.onclick = () => { fechar(); cbSim(); };
+  setTimeout(()=>simBtn.focus(), 50);
+}
 
 // ══════════════════════════════════════════════════
 //  MÓDULO 6 — NOTIFICAÇÕES WHATSAPP
@@ -5623,8 +5773,10 @@ async function aprovarOrcPortal(id, sigB64){
   toast('✅ Orçamento aprovado e assinado!');
 }
 
-async function recusarOrcPortal(id){
-  if(!confirm('Recusar este orçamento?')) return;
+function recusarOrcPortal(id){
+  confirmar('Recusar este orçamento?', ()=>_recusarOrcPortalConfirmado(id), 'Recusar Orçamento');
+}
+async function _recusarOrcPortalConfirmado(id){
   todosOrc=todosOrc.map(o=>o.id===id?{...o,status:'recusado'}:o);
   lsOrcAtualizar(id,{status:'recusado'});
   if(dbOk&&db) db.from('orcamentos').update({status:'recusado'}).eq('id',id).then(()=>{}).catch(()=>{});
@@ -5889,11 +6041,8 @@ async function reembolsarDesp(id){
   renderDespesas(); toast('✅ Marcado como reembolsado');
 }
 
-async function excluirDesp(id){
-  if(!confirm('Excluir esta despesa?')) return;
-  todasDesp=todasDesp.filter(x=>x.id!==id); lsDespSalvar(todasDesp);
-  if(dbOk&&db) db.from('despesas').delete().eq('id',id).then(()=>{}).catch(()=>{});
-  renderDespesas(); toast('🗑 Despesa excluída');
+function excluirDesp(id){
+  confirmar('Excluir esta despesa?', ()=>{ todasDesp=todasDesp.filter(x=>x.id!==id); lsDespSalvar(todasDesp); if(dbOk&&db) db.from('despesas').delete().eq('id',id).then(()=>{}).catch(()=>{}); renderDespesas(); toast('🗑 Despesa excluída'); }, 'Excluir Despesa');
 }
 
 function lsDespLer(){ try{ return JSON.parse(ls('fluxa_despesas')||'[]'); }catch(e){ return []; } }
@@ -6076,8 +6225,10 @@ async function gerarOSdoAgendamento(ag, agId){
   }
 }
 
-async function cancelarSerie(agId){
-  if(!confirm('Cancelar TODAS as OS futuras deste agendamento?')) return;
+function cancelarSerie(agId){
+  confirmar('Cancelar TODAS as OS futuras deste agendamento?', ()=>_cancelarSerieConfirmado(agId), 'Cancelar Série');
+}
+async function _cancelarSerieConfirmado(agId){
   todosAg=todosAg.map(a=>a.id===agId?{...a,ativo:false}:a); lsAgSalvar(todosAg);
   if(dbOk&&db){
     db.from('agendamentos').update({ativo:false}).eq('id',agId).then(()=>{}).catch(()=>{});
@@ -6255,6 +6406,9 @@ function fazerCheckin(){
 
 function fazerCheckout(){
   if(!checkinAt){ toast('⚠️ Faça o check-in primeiro'); return; }
+  confirmar('Confirmar check-out e marcar OS como concluída?', _fazerCheckoutConfirmado, 'Check-out');
+}
+function _fazerCheckoutConfirmado(){
   const checkout=new Date();
   const duracaoMin=Math.round((checkout-checkinAt)/60000);
   if(checkinTimer){ clearInterval(checkinTimer); checkinTimer=null; }
@@ -6349,6 +6503,8 @@ function filtrarClientesEq(v){
 async function salvarEquipamento(){
   const nome=gV('eq-cli-nome').trim(), tipo=gV('eq-tipo');
   if(!nome||!tipo){ toast('⚠️ Informe o cliente e o tipo'); return; }
+  const _btnEq=document.querySelector('button[onclick="salvarEquipamento()"]');
+  if(_btnEq){ _btnEq.disabled=true; _btnEq.textContent='Salvando…'; }
   const venc=calcVencGarantia();
   const dados={
     cliente_nome:nome, tipo, marca:gV('eq-marca'), modelo:gV('eq-modelo'),
@@ -6378,14 +6534,12 @@ async function salvarEquipamento(){
     }
     toast('✅ Equipamento salvo!');
   }
+  if(_btnEq){ _btnEq.disabled=false; _btnEq.textContent='💾 Salvar Equipamento'; }
   fecharFormEq(); renderEqGrid(); verificarAlertasGarantia();
 }
 
-async function excluirEq(id){
-  if(!confirm('Excluir este equipamento?')) return;
-  todosEq=todosEq.filter(x=>x.id!==id); lsEqSalvar(todosEq);
-  if(dbOk&&db) db.from('equipamentos').delete().eq('id',id).then(()=>{}).catch(()=>{});
-  renderEqGrid(); toast('🗑 Equipamento excluído');
+function excluirEq(id){
+  confirmar('Excluir este equipamento?', ()=>{ todosEq=todosEq.filter(x=>x.id!==id); lsEqSalvar(todosEq); if(dbOk&&db) db.from('equipamentos').delete().eq('id',id).then(()=>{}).catch(()=>{}); renderEqGrid(); toast('🗑 Equipamento excluído'); }, 'Excluir Equipamento');
 }
 
 // localStorage para equipamentos
@@ -6417,7 +6571,7 @@ function renderEqGrid(){
   const el=document.getElementById('eq-grid');
   const count=document.getElementById('eq-count');
   if(count) count.textContent=lista.length+' equipamento'+(lista.length!==1?'s':'');
-  if(!lista.length){ el.innerHTML='<div class="empty-st"><div class="ei">🔧</div><p>Nenhum equipamento encontrado.</p></div>'; return; }
+  if(!lista.length){ el.innerHTML='<div class="empty-st"><div class="ei">🔧</div><p>Nenhum equipamento encontrado.</p><button class="btn-primary" style="margin-top:12px" onclick="abrirFormEq()">＋ Cadastrar Equipamento</button></div>'; return; }
   const hoje=new Date(); hoje.setHours(0,0,0,0);
   el.innerHTML='';
   lista.forEach(eq=>{
@@ -6592,8 +6746,10 @@ async function salvarUsuario(){
   toast('✅ Usuário salvo!');
 }
 
-async function excluirUsuario(id){
-  if(!confirm('Desativar este usuário?')) return;
+function excluirUsuario(id){
+  confirmar('Desativar este usuário?', ()=>_excluirUsuarioConfirmado(id), 'Desativar Usuário');
+}
+async function _excluirUsuarioConfirmado(id){
   todosUsuarios=todosUsuarios.filter(x=>x.id!==id);
   lsSet('fluxa_usuarios',JSON.stringify(todosUsuarios));
   if(dbOk&&db){
@@ -7081,6 +7237,8 @@ async function salvarVistoria(){
   const obs  = document.getElementById('vis-obs')?.value||'';
   const emailResp = (document.getElementById('vis-email-resp')?.value||'').trim();
   if(!cli){ toast('⚠️ Informe o cliente'); return; }
+  const _btnVis=document.querySelector('button[onclick="salvarVistoria()"]');
+  if(_btnVis){ _btnVis.disabled=true; _btnVis.textContent='Salvando…'; }
   const equipamentos = visEquipSelecionados.map(id=>{
     const def = VIS_EQUIPAMENTOS_DEFAULT.find(x=>x.id===id)||{id,nome:id,emoji:''};
     const d   = visEquipDados[id]||{ status:'na', obs:'', fotos:[] };
@@ -7132,6 +7290,7 @@ async function salvarVistoria(){
     if(stEl) stEl.textContent = '⚠️ Configure o EmailJS em Empresa → E-mail Automático para enviar';
     toast('⚠️ EmailJS não configurado — e-mail não enviado');
   }
+  if(_btnVis){ _btnVis.disabled=false; _btnVis.textContent='💾 Salvar Relatório'; }
 }
 
 // ── Histórico ──
@@ -7195,7 +7354,7 @@ function renderVisHistorico(){
       </div>`).join('');
   } else if(rankCard) rankCard.style.display='none';
   if(!lista.length){
-    el.innerHTML='<div style="padding:28px;text-align:center;color:var(--gray);font-size:13px">Nenhuma vistoria encontrada.</div>';
+    el.innerHTML='<div style="padding:28px;text-align:center;color:var(--gray);font-size:13px">Nenhuma vistoria encontrada.<br><button class="btn-primary" style="margin-top:12px" onclick="visTab(\'nova\')">＋ Nova Vistoria</button></div>';
     return;
   }
   const statusIcon = { bom:'✅', atencao:'⚠️', critico:'🔴', na:'—' };
@@ -7231,11 +7390,7 @@ function renderVisHistorico(){
 }
 
 function excluirVistoria(id){
-  if(!confirm('Excluir esta vistoria?')) return;
-  lsVisSalvar(lsVisLer().filter(x=>x.id!==id));
-  if(dbOk&&db) db.from('vistorias').delete().eq('id',id).then(()=>{}).catch(()=>{});
-  renderVisHistorico();
-  toast('Vistoria excluída');
+  confirmar('Excluir esta vistoria?', ()=>{ lsVisSalvar(lsVisLer().filter(x=>x.id!==id)); if(dbOk&&db) db.from('vistorias').delete().eq('id',id).then(()=>{}).catch(()=>{}); renderVisHistorico(); toast('Vistoria excluída'); }, 'Excluir Vistoria');
 }
 
 // ── Gerar PDF do relatório ──
@@ -7282,7 +7437,7 @@ function preencherRelatorioVistoria(vis){
   if(!pdoc) return;
   pdoc.classList.add('print-active');
 
-  const cor = getComputedStyle(document.documentElement).getPropertyValue('--c1').trim()||'#F07820';
+  const cor = getComputedStyle(document.documentElement).getPropertyValue('--c1').trim()||'#C45E0A';
   const cor2 = getComputedStyle(document.documentElement).getPropertyValue('--c2').trim()||'#2B3244';
 
   // Header branding
