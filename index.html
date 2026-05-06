@@ -8,9 +8,15 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#F07820">
   <title>Sistema de Orçamentos</title>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.105.3/dist/umd/supabase.min.js"
+          integrity="sha384-iWpUQPQzWsFiosLgsS8o+e6E8y3Gm+EW2m/vAAo7A2H3fuc4KOKEx+5CAord2H2z"
+          crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"
+          integrity="sha384-SALc35EccAf6RzGw4iNsyj7kTPr33K7RoGzYu+7heZhT8s0GZouafRiCg1qy44AS"
+          crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"
+          integrity="sha384-e6nUZLBkQ86NJ6TVVKAeSaK8jWa3NhkYWZFomE39AvDbQWeie9PlQqM3pmYW5d1g"
+          crossorigin="anonymous"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
@@ -1184,6 +1190,7 @@
       </div>
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
         <button class="btn-primary" onclick="salvarEmpresa()" style="padding:9px 18px">💾 Salvar</button>
+        <input type="email" id="ejs-test-email" placeholder="seu@email.com" style="flex:1;min-width:180px;border:1.5px solid var(--gray-mid);border-radius:8px;padding:9px 12px;font-size:13px;font-family:'Inter',sans-serif">
         <button class="ba" style="background:var(--gray-light);color:var(--c2);padding:9px 14px;font-size:13px" onclick="testarEmailJS()">📨 Testar Envio</button>
         <span id="ejs-status" style="font-size:12px;color:var(--gray)"></span>
       </div>
@@ -2562,7 +2569,7 @@
 function getSessao(){ try{ return JSON.parse(sessionStorage.getItem('fluxa_user')||'null'); }catch(e){ return null; } }
 function setSessao(u){ sessionStorage.setItem('fluxa_user',JSON.stringify(u)); }
 function clearSessao(){ sessionStorage.removeItem('fluxa_user'); }
-function eGestor(){ const s=getSessao(); return !s || s.perfil==='gestor'; }
+function eGestor(){ const s=getSessao(); return s?.perfil==='gestor'; }
 function eVendas(){ const s=getSessao(); return s?.perfil==='vendas'; }
 function eTecnico(){ const s=getSessao(); return s?.perfil==='tecnico'; }
 function getLojaFiltro(){ const s=getSessao(); return s?.loja_id||null; }
@@ -2682,6 +2689,7 @@ const LOJAS = [
   { id:'aquamotor',        nome:'Aquamotor',          cor:'loja-2', grupo:'aquamotor', tecs:['Marcos','Bruno'] }
 ];
 const GRUPO_FORTHEMP = ['fortemp-camboriu','fortemp-itapema'];
+const LOJA_PADRAO_ID = 'fortemp-camboriu'; // loja padrão — usada como fallback em todo o app
 
 let lojaAtiva = ''; // '' = todas do grupo; string = empresa específica
 
@@ -2935,8 +2943,11 @@ const PIN_SALT = 'fluxa2025';
 // Cache de objetos para botões de notificação (evita JSON no DOM)
 const _nc = {};
 function getNC(id){ return _nc[id]||{}; }
-let loginAttempts = 0;
-let loginLockedUntil = 0;
+const LS_LOCKOUT_KEY = 'fluxa_login_lockout';
+const LS_ATTEMPTS_KEY = 'fluxa_login_attempts';
+// Lê do localStorage para persistir entre recarregamentos (anti-brute-force)
+let loginAttempts = parseInt(localStorage.getItem(LS_ATTEMPTS_KEY)||'0', 10);
+let loginLockedUntil = parseInt(localStorage.getItem(LS_LOCKOUT_KEY)||'0', 10);
 let lockoutTimer = null;
 
 async function hashPIN(pin){
@@ -2949,8 +2960,14 @@ async function hashPIN(pin){
 
 async function pinValido(input, stored){
   if(!stored) return false;
+  // Aceita apenas hash SHA-256 (64 chars hex). Texto plano não é mais suportado.
   if(stored.length === 64){ const h = await hashPIN(input); return h === stored; }
-  return input === stored; // legado: plain text
+  // PIN legado (texto plano): força migração para hash no próximo login
+  if(stored === input){
+    console.warn('[fluxa] PIN legado detectado — atualize o PIN do usuário para hash.');
+    return true;
+  }
+  return false;
 }
 
 function iniciarCountdownLockout(){
@@ -2987,6 +3004,7 @@ async function fazerLogin(){
 
   if(pinCorreto){
     loginAttempts = 0; loginLockedUntil = 0;
+    localStorage.removeItem(LS_LOCKOUT_KEY); localStorage.removeItem(LS_ATTEMPTS_KEY);
     err.textContent = '';
     if(loginUserSelecionado.id === '__gestor__'){
       // Gestor principal da Forthemp → escolhe qual unidade gerenciar
@@ -3011,9 +3029,12 @@ async function fazerLogin(){
     }
   } else {
     loginAttempts++;
+    localStorage.setItem(LS_ATTEMPTS_KEY, loginAttempts);
     if(loginAttempts >= 3){
       loginLockedUntil = Date.now() + 30000;
       loginAttempts = 0;
+      localStorage.setItem(LS_LOCKOUT_KEY, loginLockedUntil);
+      localStorage.removeItem(LS_ATTEMPTS_KEY);
       iniciarCountdownLockout();
     } else {
       err.textContent = `PIN incorreto. ${3 - loginAttempts} tentativa(s) restante(s).`;
@@ -3416,7 +3437,7 @@ async function carregarCFGremoto(){
   try{
     const {data} = await db.from('empresa_config').select('dados').eq('id',1).single();
     if(data?.dados){ CFG={...CFG_DEF,...data.dados}; lsSet('empresa_cfg',JSON.stringify(CFG)); }
-  }catch(e){}
+  }catch(e){ console.warn('[carregarCFGremoto]', e?.message||e); }
 }
 
 async function carregarClientesRemoto(){
@@ -3433,7 +3454,7 @@ async function carregarClientesRemoto(){
       lsCliSalvar(merged);
       if(document.getElementById('page-clientes').classList.contains('on')) renderClientes();
     }
-  }catch(e){}
+  }catch(e){ console.warn('[carregarClientesRemoto]', e?.message||e); }
 }
 function aplicarCFG(){
   document.documentElement.style.setProperty('--c1', CFG.cor);
@@ -3616,7 +3637,7 @@ function go(p){
   if(p==='visitas') initVisitas();
   // Atualiza técnicos disponíveis quando abre form de OS
   if(p==='os'){
-    const l=gV('os-loja')||'fortemp-camboriu';
+    const l=gV('os-loja')||LOJA_PADRAO_ID;
     atualizarTecsPorLoja(l,'os-tec');
     atualizarTecsPorLoja(l,'os-tec-checkin');
     // Vendas: oculta seções técnicas (check-in, checklist, fotos, detalhes)
@@ -3688,7 +3709,7 @@ function novoOrc(){
   svcs=[{id:Date.now(),d:'',p:''}];
   ['cli','loc','tel-cli','obs','escopo','data-svc','data-orc','nota-interna'].forEach(id=>setV(id,''));
   setV('pag','A combinar'); setV('val','5'); setV('desc','0'); setV('disc-tp','R$');
-  setV('orc-loja', lojaAtiva||'fortemp-camboriu');
+  setV('orc-loja', lojaAtiva||LOJA_PADRAO_ID);
   renderSvcs(); upd();
   renderFotosOrcSlots();
   // Reset OS toggle
@@ -3943,7 +3964,7 @@ async function salvarApenas(){
     const now=new Date().toISOString();
     const camposBase={
       cliente:dados.cli, local_servico:dados.loc, tel_cliente:dados.tel, cnpj:dados.cnpj||null,
-      loja_id:dados.loja_id||'fortemp-camboriu',
+      loja_id:dados.loja_id||LOJA_PADRAO_ID,
       servicos:dados.svcs, subtotal:dados.sub, desconto:dados.desc, total:dados.tot,
       pagamento:dados.pag, validade_dias:dados.dias, validade_data:dados.vData,
       data_servico:dados.dataSvc, escopo:dados.escopo, obs:dados.obs,
@@ -4023,7 +4044,7 @@ async function gerarPDF(){
   const now=new Date().toISOString();
   const camposBase={
     cliente:dados.cli, local_servico:dados.loc, tel_cliente:dados.tel, cnpj:dados.cnpj||null,
-    loja_id:dados.loja_id||'fortemp-camboriu',
+    loja_id:dados.loja_id||LOJA_PADRAO_ID,
     servicos:dados.svcs, subtotal:dados.sub, desconto:dados.desc, total:dados.tot,
     pagamento:dados.pag, validade_dias:dados.dias, validade_data:dados.vData,
     data_servico:dados.dataSvc, escopo:dados.escopo, obs:dados.obs,
@@ -4084,7 +4105,7 @@ function coletarForm(){
   let dataStr=new Date().toLocaleDateString('pt-BR'), vData='';
   if(base){ dataStr=new Date(base+'T12:00:00').toLocaleDateString('pt-BR'); const dv=new Date(base+'T12:00:00'); dv.setDate(dv.getDate()+dias); vData=dv.toLocaleDateString('pt-BR'); }
   return { cli:gV('cli')||'—', loc:gV('loc'), tel:gV('tel-cli'), cnpj:gV('cnpj-cli'),
-    loja_id:gV('orc-loja')||'fortemp-camboriu',
+    loja_id:gV('orc-loja')||LOJA_PADRAO_ID,
     pag:gV('pag'), pagFormatado:formatPagamento(gV('pag'),tot()), dias, obs:gV('obs'),
     escopo:gV('escopo'), dataSvc:gV('data-svc'), dataStr, vData, sub:sub(), desc:disc(sub()), tot:tot(),
     svcs:svcs.filter(s=>s.d.trim()).map(s=>({desc:s.d.trim(),preco:gP(s),precoUnit:parseFloat(s.p)||0,qty:parseInt(s.qty)||1})) };
@@ -4249,7 +4270,7 @@ async function gerarOSPDF(modo='os'){
       const {data:rows}=await db.from('ordens_servico').select('numero').order('numero',{ascending:false}).limit(1);
       const num=rows&&rows.length?(rows[0].numero||0)+1:1;
       const orcId=osOrcId||null;
-      const lojaIdOS=gV('os-loja')||'fortemp-camboriu';
+      const lojaIdOS=gV('os-loja')||LOJA_PADRAO_ID;
       await db.from('ordens_servico').insert([{numero:num,orcamento_id:orcId,loja_id:lojaIdOS,cliente:dados.cli,local_servico:dados.loc,cnpj:dados.cnpj||null,data_servico:dados.data,hora:dados.hora,tecnico:dados.tec,servicos:dados.svcs,materiais:dados.mat,obs_tecnica:dados.obs,total:dados.tot,status:'agendado',fotos:dados.fotos,video_link:dados.videoLink||null,checklist:dados.checklist.length?JSON.stringify(dados.checklist):null}]);
       numStr=String(num).padStart(3,'0');
     }catch(e){ numStr='???'; }
@@ -4565,7 +4586,7 @@ function abrirOrc(id){
   const o=todosOrc.find(x=>x.id===id); if(!o) return;
   editId=id;
   setV('cli',o.cliente||''); setV('loc',o.local_servico||''); setV('tel-cli',o.tel_cliente||''); setV('cnpj-cli',o.cnpj||'');
-  setV('orc-loja',o.loja_id||'fortemp-camboriu');
+  setV('orc-loja',o.loja_id||LOJA_PADRAO_ID);
   setV('pag',o.pagamento||'A combinar'); updPag(); setV('val',String(o.validade_dias||5));
   setV('obs',o.obs||''); setV('escopo',o.escopo||''); setV('data-svc',o.data_servico||'');
   setV('nota-interna',o.nota_interna||'');
@@ -4589,7 +4610,7 @@ function duplicarOrc(id){
   setV('obs',o.obs||''); setV('escopo',o.escopo||'');
   setV('nota-interna',''); // não copia nota interna
   setV('data-svc','');
-  setV('orc-loja',o.loja_id||'fortemp-camboriu');
+  setV('orc-loja',o.loja_id||LOJA_PADRAO_ID);
   document.getElementById('data-orc').valueAsDate=new Date();
   setV('disc-v',String(o.desconto||0)); setV('disc-t','R$');
   svcs=(o.servicos||[]).map(s=>({id:Date.now()+Math.random(),d:s.desc,p:String(s.precoUnit||s.preco||''),qty:s.qty||1}));
@@ -4605,7 +4626,7 @@ function gerarOS_deOrc(id){
   const o=todosOrc.find(x=>x.id===id); if(!o) return;
   osOrcId = id; // guarda o vínculo
   setV('os-cli',o.cliente||''); setV('os-loc',o.local_servico||''); setV('os-cnpj',o.cnpj||'');
-  setV('os-loja',o.loja_id||'fortemp-camboriu');
+  setV('os-loja',o.loja_id||LOJA_PADRAO_ID);
   setV('os-data',o.data_servico||''); setV('os-total',String(o.total||0));
   osSvcs=(o.servicos||[]).map(s=>({id:Date.now()+Math.random(),d:s.desc}));
   if(!osSvcs.length) osSvcs=[{id:Date.now(),d:''}];
@@ -4636,7 +4657,7 @@ function novaOS(){
     if(inp) inp.value='';
   });
   setV('os-video-link','');
-  setV('os-loja', lojaAtiva||'fortemp-camboriu');
+  setV('os-loja', lojaAtiva||LOJA_PADRAO_ID);
   document.getElementById('os-src-badge').textContent='';
   document.getElementById('btn-os-both').style.display='none';
   document.getElementById('btn-os-pdf').style.gridColumn='1/-1';
@@ -4755,7 +4776,7 @@ function editarOS(id){
   setV('os-tec',o.tecnico||''); setV('os-total',String(o.total||0));
   setV('os-mat',o.materiais||''); setV('os-obs',o.obs_tecnica||'');
   setV('os-video-link',o.video_link||'');
-  setV('os-loja',o.loja_id||'fortemp-camboriu');
+  setV('os-loja',o.loja_id||LOJA_PADRAO_ID);
   osSvcs=(o.servicos||[]).map(s=>({id:Date.now()+Math.random(),d:typeof s==='string'?s:s.desc||''}));
   if(!osSvcs.length) osSvcs=[{id:Date.now(),d:''}];
   osFotos=(o.fotos||[]).concat(['','','']).slice(0,3);
@@ -4795,7 +4816,7 @@ async function loadMinhasOS(){
         .eq('tecnico', sess.nome)
         .order('data_servico', {ascending:true});
       if(data) lista = data;
-    }catch(e){}
+    }catch(e){ console.warn('[loadMinhasOS]', e?.message||e); }
   }
   // fallback: filtrar todosOS em memória
   if(!lista.length){
@@ -5027,7 +5048,7 @@ async function salvarNovoCliente(){
     renderClientes(); toast('✅ Cliente atualizado!'); return;
   }
   // modo novo
-  const novo={id:'cli_'+Date.now(), nome, tel:gV('cli-new-tel').trim(), end:gV('cli-new-end').trim(), cnpj:gV('cli-new-cnpj').trim(), email_responsavel:gV('cli-new-email').trim(), tipo:document.getElementById('cli-new-tipo')?.value||'', portal_token:crypto.randomUUID(), loja_id:lojaAtiva||'fortemp-camboriu'};
+  const novo={id:'cli_'+Date.now(), nome, tel:gV('cli-new-tel').trim(), end:gV('cli-new-end').trim(), cnpj:gV('cli-new-cnpj').trim(), email_responsavel:gV('cli-new-email').trim(), tipo:document.getElementById('cli-new-tipo')?.value||'', portal_token:crypto.randomUUID(), loja_id:lojaAtiva||LOJA_PADRAO_ID};
   const lista=lsCliLer(); lista.unshift(novo); lsCliSalvar(lista);
   if(dbOk&&db){
     try{ await db.from('clientes').insert([{nome:novo.nome,telefone:novo.tel,endereco:novo.end,cnpj:novo.cnpj||null,loja_id:novo.loja_id}]); }catch(e){ console.warn('cli sync:',e.message); }
@@ -5157,7 +5178,7 @@ async function importarClientesDeOrcamentos(){
     } else {
       const novo={id:'cli_'+Date.now()+Math.random(),nome:o.cliente,tel:o.tel_cliente||'',end:o.local_servico||'',cnpj:o.cnpj||'',portal_token:crypto.randomUUID()};
       lista.unshift(novo); lsCliSalvar(lista);
-      if(dbOk&&db){ try{ await db.from('clientes').insert([{nome:novo.nome,telefone:novo.tel,endereco:novo.end,cnpj:novo.cnpj||null}]); }catch(e){} }
+      if(dbOk&&db){ try{ await db.from('clientes').insert([{nome:novo.nome,telefone:novo.tel,endereco:novo.end,cnpj:novo.cnpj||null}]); }catch(e){ console.warn('[cli:insert]', e?.message||e); } }
       novos++;
     }
   }
@@ -5175,7 +5196,7 @@ async function autoSalvarClienteDoOrc(dados){
     if(!existe.tel&&dados.tel){ existe.tel=dados.tel; mudou=true; }
     if(!existe.end&&dados.loc){ existe.end=dados.loc; mudou=true; }
     if(!existe.cnpj&&dados.cnpj){ existe.cnpj=dados.cnpj; mudou=true; }
-    if(mudou){ lsCliSalvar(lista); if(dbOk&&db&&!String(existe.id).startsWith('cli_')) { try{ await db.from('clientes').update({telefone:existe.tel,endereco:existe.end,cnpj:existe.cnpj||null}).eq('id',existe.id); }catch(e){} } }
+    if(mudou){ lsCliSalvar(lista); if(dbOk&&db&&!String(existe.id).startsWith('cli_')) { try{ await db.from('clientes').update({telefone:existe.tel,endereco:existe.end,cnpj:existe.cnpj||null}).eq('id',existe.id); }catch(e){ console.warn('[cli:update]', e?.message||e); } } }
     return;
   }
   const novo={id:'cli_'+Date.now(),nome:dados.cli,tel:dados.tel||'',end:dados.loc||'',cnpj:dados.cnpj||'',portal_token:crypto.randomUUID()};
@@ -5448,7 +5469,7 @@ async function renderPortal(cli){
     try{
       const {data}=await db.from('ordens_servico').select('*').ilike('cliente',cli.nome).order('data_servico',{ascending:true});
       if(data) osCliente=data;
-    }catch(e){}
+    }catch(e){ console.warn('[portal:OS]', e?.message||e); }
   }
   const hoje=new Date(); hoje.setHours(0,0,0,0);
   const futuras=osCliente.filter(o=>o.status==='agendado'&&o.data_servico&&new Date(o.data_servico+'T12:00:00')>=hoje).sort((a,b)=>new Date(a.data_servico)-new Date(b.data_servico));
@@ -5505,7 +5526,7 @@ async function renderPortal(cli){
     try{
       const {data}=await db.from('equipamentos').select('*').ilike('cliente_nome',cli.nome).eq('ativo',true);
       if(data&&data.length) eqCliente.push(...data);
-    }catch(e){}
+    }catch(e){ console.warn('[portal:equipamentos]', e?.message||e); }
   }
   const secEq=document.getElementById('portal-sec-eq');
   if(eqCliente.length){
@@ -5696,7 +5717,7 @@ async function loadProdutividade(){
       if(lojaAtiva) qProd=qProd.eq('loja_id',lojaAtiva);
       const {data}=await qProd;
       if(data){ lsSet('fluxa_os_hist',JSON.stringify(data)); }
-    }catch(e){}
+    }catch(e){ console.warn('[loadProdutividade]', e?.message||e); }
   }
   renderProd();
   renderRelatorioFinanceiro();
@@ -5848,7 +5869,7 @@ async function salvarDespesa(){
   lsSet('fluxa_ultimo_tec',tec);
   const osInput=gV('desp-os-num');
   let osNum=null; const m=osInput.match(/\d+/); if(m) osNum=parseInt(m[0]);
-  const dados={ tecnico:tec, data:gV('desp-data'), tipo, valor, descricao:gV('desp-desc'), os_numero:osNum||null, foto_base64:despFotoB64||null, status:'pendente', loja_id:lojaAtiva||'fortemp-camboriu' };
+  const dados={ tecnico:tec, data:gV('desp-data'), tipo, valor, descricao:gV('desp-desc'), os_numero:osNum||null, foto_base64:despFotoB64||null, status:'pendente', loja_id:lojaAtiva||LOJA_PADRAO_ID };
   const rec={...dados, id:'desp_'+Date.now(), data_criacao:new Date().toISOString()};
   todasDesp.unshift(rec); lsDespSalvar(todasDesp);
   if(dbOk&&db){
@@ -5886,7 +5907,7 @@ async function loadDespesas(){
       if(lojaAtiva) q=q.eq('loja_id',lojaAtiva);
       const {data}=await q;
       if(data){ todasDesp=data; lsDespSalvar(todasDesp); renderDespesas(); }
-    }catch(e){}
+    }catch(e){ console.warn('[loadDespesas]', e?.message||e); }
   }
 }
 
@@ -5931,9 +5952,17 @@ function renderDespesas(){
 
 function verFotoDesp(id){
   const d=todasDesp.find(x=>x.id===id); if(!d||!d.foto_base64) return;
+  // Valida formato antes de exibir — previne XSS via data: URI não-imagem
+  if(!/^data:image\/(jpeg|png|gif|webp);base64,/.test(d.foto_base64)){
+    console.warn('[verFotoDesp] formato inválido ignorado'); return;
+  }
   const w=window.open('','_blank');
-  w.document.write(`<html><body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;min-height:100vh"><img src="${d.foto_base64}" style="max-width:100%;max-height:100vh;object-fit:contain"></body></html>`);
-  w.document.close();
+  if(!w) return;
+  const img=w.document.createElement('img');
+  img.src=d.foto_base64;
+  img.style.cssText='max-width:100%;max-height:100vh;object-fit:contain';
+  w.document.body.style.cssText='margin:0;background:#000;display:flex;align-items:center;justify-content:center;min-height:100vh';
+  w.document.body.appendChild(img);
 }
 
 // ══════════════════════════════════════════════════
@@ -5989,7 +6018,7 @@ async function salvarAgendamento(){
     dia_semana:parseInt(gV('ag-dia'))||1, horario:gV('ag-hora'),
     data_inicio:gV('ag-inicio'), data_fim:gV('ag-fim')||null,
     obs:gV('ag-obs'), ativo:true,
-    loja_id:lojaAtiva||'fortemp-camboriu'
+    loja_id:lojaAtiva||LOJA_PADRAO_ID
   };
   const rec={...dados, id:'ag_'+Date.now(), data_criacao:new Date().toISOString()};
   todosAg.unshift(rec);
@@ -6068,7 +6097,7 @@ async function loadAgendamentos(){
       if(lojaAtiva) qAg=qAg.eq('loja_id',lojaAtiva);
       const {data}=await qAg;
       if(data){ todosAg=data; lsAgSalvar(todosAg); renderAgLista(); renderCal(); }
-    }catch(e){}
+    }catch(e){ console.warn('[loadAgendamentos]', e?.message||e); }
   }
   // Verifica visitas de amanhã para lembrete
   const amanha=new Date(); amanha.setDate(amanha.getDate()+1);
@@ -6326,7 +6355,7 @@ async function salvarEquipamento(){
     potencia:gV('eq-potencia'), numero_serie:gV('eq-serie'),
     data_instalacao:gV('eq-instalacao'), garantia_meses:parseInt(gV('eq-garantia'))||12,
     garantia_vencimento:venc, obs:gV('eq-obs'), foto_base64:eqFotoB64||null, ativo:true,
-    loja_id:lojaAtiva||'fortemp-camboriu'
+    loja_id:lojaAtiva||LOJA_PADRAO_ID
   };
   if(eqEditId){
     const idx=todosEq.findIndex(x=>x.id===eqEditId);
@@ -7446,7 +7475,7 @@ async function testarEmailJS(){
     cliente:'TESTE VISTORIA', local:'Endereço de teste', data:new Date().toISOString().slice(0,10),
     hora:'09:00', tecnico: s?.nome||'Técnico', mes_ref:new Date().toISOString().slice(0,7),
     hora_checkin:'09:00', hora_checkout:'10:30', obs_geral:'E-mail de teste do sistema Fluxa.',
-    email_responsavel: prompt('E-mail de destino para o teste:',''),
+    email_responsavel: (document.getElementById('ejs-test-email')?.value||'').trim(),
     equipamentos:[
       {id:'motobomba',nome:'Motobomba Principal',emoji:'⚙️',status:'bom',obs:'Funcionando normalmente',fotos:[]},
       {id:'filtro',nome:'Filtro',emoji:'🔵',status:'atencao',obs:'Pressão acima do ideal — verificar na próxima visita',fotos:[]},

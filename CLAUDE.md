@@ -24,10 +24,11 @@ O Claude consegue executar SQL diretamente via Management API **ou via browser c
 **Via curl (com Personal Access Token):**
 ```bash
 curl -s -X POST "https://api.supabase.com/v1/projects/lbxwclwzeqqtnwvlxsxs/database/query" \
-  -H "Authorization: Bearer sbp_c48f0abe0436a5755c349182a88a3a66cec1da3e" \
+  -H "Authorization: Bearer [SEU_PAT_AQUI]" \
   -H "Content-Type: application/json" \
   -d '{"query": "SEU SQL AQUI"}'
 ```
+> ⚠️ **NUNCA commitar o PAT aqui.** Gere um novo token em https://app.supabase.com/account/tokens, use na sessão e **não salve no arquivo**.
 
 **Via Chrome Extension (quando o token não funcionar via curl):**
 ```js
@@ -45,7 +46,7 @@ curl -s -X POST "https://api.supabase.com/v1/projects/lbxwclwzeqqtnwvlxsxs/datab
 ```
 > Resposta `[]` = sucesso para DDL. Erros aparecem como objeto JSON com `message`.
 
-> ⚠️ O Personal Access Token (`sbp_...`) é do Marcos — não commitar em repositório público.
+> ⚠️ **NUNCA commitar o PAT no CLAUDE.md** — o repositório é público. Use sempre `[SEU_PAT_AQUI]` como placeholder e substitua só localmente na sessão.
 
 ### Como deployar
 ```bash
