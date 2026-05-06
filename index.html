@@ -333,6 +333,23 @@
 
       /* ── PHOTO ── */
       .pd-foto{width:100%;max-height:220px;object-fit:contain;border-radius:10px;margin-bottom:16px;display:block;background:#f9fafb}
+      /* fotos orçamento — form */
+      .fotos-orc-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:4px}
+      .fotos-orc-slot{border:2px dashed var(--gray-mid);border-radius:10px;padding:10px 6px;text-align:center;cursor:pointer;position:relative;min-height:76px;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:border-color .2s,background .2s}
+      .fotos-orc-slot:hover{border-color:var(--c1);background:var(--c1-light)}
+      .fotos-orc-slot.filled{border-style:solid;border-color:var(--c1)}
+      .fotos-orc-slot img{max-width:100%;max-height:60px;border-radius:6px;object-fit:cover;display:none;margin-bottom:3px}
+      .fotos-orc-slot.filled img{display:block}
+      .fotos-orc-slot-icon{font-size:20px;margin-bottom:3px}
+      .fotos-orc-slot.filled .fotos-orc-slot-icon{display:none}
+      .fotos-orc-slot-lbl{font-size:9px;color:var(--gray);font-weight:500}
+      .fotos-orc-rm{position:absolute;top:3px;right:3px;background:rgba(239,68,68,.85);color:white;border:none;border-radius:50%;width:17px;height:17px;font-size:10px;display:none;align-items:center;justify-content:center;cursor:pointer;font-family:'Inter',sans-serif;line-height:1;padding:0}
+      .fotos-orc-slot.filled .fotos-orc-rm{display:flex}
+      /* fotos orçamento — PDF print */
+      .pd-fotos-section{margin-bottom:16px}
+      .pd-fotos-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#9ca3af;margin-bottom:8px}
+      .pd-fotos-grid{display:grid;gap:8px;margin-bottom:4px}
+      .pd-fotos-grid img{width:100%;border-radius:8px;object-fit:cover;background:#f9fafb;display:block}
 
       /* ── OBSERVATIONS ── */
       .pd-obs-card{display:flex!important;border:1.5px solid #e9ecef;border-radius:10px;overflow:hidden;margin-bottom:16px}
@@ -1233,14 +1250,8 @@
         </div>
       </div>
       <div class="fl">
-        <label>Foto do local / problema (opcional)</label>
-        <div class="foto-area" onclick="document.getElementById('foto-input').click()">
-          <input type="file" id="foto-input" accept="image/*" capture="environment" onchange="carregarFoto(this)" style="display:none">
-          <div class="foto-icon">📷</div>
-          <div class="foto-label" id="foto-lbl">Tirar foto ou selecionar imagem</div>
-          <img id="foto-prev" class="foto-preview" alt="foto">
-        </div>
-        <button id="btn-rm-foto" style="display:none;margin-top:6px;font-size:12px;color:var(--red);background:none;border:none;cursor:pointer;font-family:'Inter',sans-serif" onclick="removerFoto()">✕ Remover foto</button>
+        <label>Fotos (até 6) <span style="font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0">— só aparecem no PDF quando preenchidas</span></label>
+        <div class="fotos-orc-grid" id="fotos-orc-grid"></div>
       </div>
     </div>
 
@@ -1716,8 +1727,11 @@
         <div class="pd-g2val" id="pd-val-orc"></div>
       </div>
     </div>
-    <!-- PHOTO -->
-    <img id="pd-foto-orc" class="pd-foto" style="display:none" alt="foto do serviço">
+    <!-- PHOTOS -->
+    <div id="pd-fotos-orc-section" class="pd-fotos-section" style="display:none">
+      <div class="pd-fotos-lbl">📷 Registro Fotográfico</div>
+      <div class="pd-fotos-grid" id="pd-fotos-orc-grid"></div>
+    </div>
     <!-- OBSERVATIONS -->
     <div class="pd-obs-card" id="pd-obs-orc" style="display:none">
       <div class="pd-obs-bar" id="pd-obs-bar-orc"></div>
@@ -3298,14 +3312,13 @@ async function criarOSjunto(dados, orcNum){
 
 // Limpar formulário para novo orçamento
 function novoOrc(){
-  editId=null; fotoB64='';
+  editId=null; fotosB64=[];
   svcs=[{id:Date.now(),d:'',p:''}];
   ['cli','loc','tel-cli','obs','escopo','data-svc','data-orc','nota-interna'].forEach(id=>setV(id,''));
   setV('pag','A combinar'); setV('val','5'); setV('desc','0'); setV('disc-tp','R$');
   setV('orc-loja', lojaAtiva||'fortemp-camboriu');
   renderSvcs(); upd();
-  const fp=document.getElementById('foto-prev'); if(fp){fp.style.display='none';}
-  document.getElementById('btn-rm-foto').style.display='none';
+  renderFotosOrcSlots();
   // Reset OS toggle
   const tog=document.getElementById('toggle-os'); if(tog) tog.checked=false;
   const osf=document.getElementById('os-inline-fields'); if(osf) osf.style.display='none';
@@ -3316,11 +3329,11 @@ function novoOrc(){
 // ──────────────────────────────────────────────────
 //  FORM — INIT
 // ──────────────────────────────────────────────────
-let fotoB64 = '';
+let fotosB64 = []; // array de até 6 base64 strings
 function initForm(){
   document.getElementById('data-orc').valueAsDate=new Date();
-  svcs=[]; editId=null; fotoB64='';
-  addSvc('',''); renderPresets(); upd(); renderChips();
+  svcs=[]; editId=null; fotosB64=[];
+  addSvc('',''); renderPresets(); upd(); renderChips(); renderFotosOrcSlots();
 }
 
 // ──────────────────────────────────────────────────
@@ -3407,18 +3420,35 @@ function gP(s){ return (parseFloat(s.p)||0)*(parseInt(s.qty)||1); }
 //  FOTO
 // ──────────────────────────────────────────────────
 const FOTO_MAX_BYTES = 2 * 1024 * 1024; // 2 MB
-function carregarFoto(inp){
+function renderFotosOrcSlots(){
+  const grid=document.getElementById('fotos-orc-grid'); if(!grid) return;
+  grid.innerHTML='';
+  for(let i=0;i<6;i++){
+    const slot=document.createElement('div');
+    slot.className='fotos-orc-slot'+(fotosB64[i]?' filled':'');
+    slot.innerHTML=`
+      <input type="file" id="forc-inp-${i}" accept="image/*" capture="environment" style="display:none" onchange="carregarFotoOrc(this,${i})">
+      <img src="${fotosB64[i]||''}" alt="foto ${i+1}">
+      <div class="fotos-orc-slot-icon">📷</div>
+      <div class="fotos-orc-slot-lbl">Foto ${i+1}</div>
+      <button class="fotos-orc-rm" onclick="event.stopPropagation();removerFotoOrc(${i})" title="Remover">✕</button>`;
+    slot.addEventListener('click',()=>document.getElementById(`forc-inp-${i}`).click());
+    grid.appendChild(slot);
+  }
+}
+function carregarFotoOrc(inp, idx){
   const f=inp.files[0]; if(!f) return;
-  if(f.size > FOTO_MAX_BYTES){ toast('⚠️ Foto muito grande (máx 2 MB). Reduza a resolução.'); inp.value=''; return; }
+  if(f.size > FOTO_MAX_BYTES){ toast('⚠️ Foto muito grande (máx 2 MB).'); inp.value=''; return; }
   const r=new FileReader();
-  r.onload=e=>{ fotoB64=e.target.result;
-    const prev=document.getElementById('foto-prev'); prev.src=e.target.result; prev.style.display='block';
-    document.getElementById('foto-lbl').textContent=f.name;
-    document.getElementById('btn-rm-foto').style.display='block';
-  };
+  r.onload=e=>{ fotosB64[idx]=e.target.result; renderFotosOrcSlots(); };
   r.readAsDataURL(f);
 }
-function removerFoto(){ fotoB64=''; document.getElementById('foto-prev').style.display='none'; document.getElementById('foto-lbl').textContent='Tirar foto ou selecionar imagem'; document.getElementById('btn-rm-foto').style.display='none'; document.getElementById('foto-input').value=''; }
+function removerFotoOrc(idx){
+  fotosB64[idx]=null;
+  // compact: remove trailing nulls
+  while(fotosB64.length && !fotosB64[fotosB64.length-1]) fotosB64.pop();
+  renderFotosOrcSlots();
+}
 
 // ──────────────────────────────────────────────────
 //  CÁLCULOS
@@ -3545,7 +3575,7 @@ async function salvarApenas(){
       servicos:dados.svcs, subtotal:dados.sub, desconto:dados.desc, total:dados.tot,
       pagamento:dados.pag, validade_dias:dados.dias, validade_data:dados.vData,
       data_servico:dados.dataSvc, escopo:dados.escopo, obs:dados.obs,
-      foto_base64:fotoB64||null, nota_interna:gV('nota-interna')||null
+      foto_base64:fotosB64.filter(Boolean).length?JSON.stringify(fotosB64.filter(Boolean)):null, nota_interna:gV('nota-interna')||null
     };
 
     if(editId){
@@ -3625,7 +3655,7 @@ async function gerarPDF(){
     servicos:dados.svcs, subtotal:dados.sub, desconto:dados.desc, total:dados.tot,
     pagamento:dados.pag, validade_dias:dados.dias, validade_data:dados.vData,
     data_servico:dados.dataSvc, escopo:dados.escopo, obs:dados.obs,
-    foto_base64:fotoB64||null, nota_interna:gV('nota-interna')||null
+    foto_base64:fotosB64.filter(Boolean).length?JSON.stringify(fotosB64.filter(Boolean)):null, nota_interna:gV('nota-interna')||null
   };
   let num=null;
 
@@ -3716,11 +3746,20 @@ function preencherDocOrc(d, num){
   setV_el('pd-foot-orc',CFG.nome+(CFG.tel?'   ·   '+CFG.tel:'')+(CFG.cidades?'   ·   '+CFG.cidades:''),'textContent');
   // table body
   const tb=document.getElementById('pd-tbody-orc'); tb.innerHTML='';
+  const temMulti=d.svcs.some(s=>(parseInt(s.qty)||1)>1);
+  document.getElementById('pd-thead-orc').innerHTML=temMulti
+    ?'<th>#</th><th>Descrição</th><th>Qtd × Unit.</th><th>Total</th>'
+    :'<th>#</th><th>Descrição</th><th>Valor</th>';
   d.svcs.forEach((s,i)=>{
     const tr=document.createElement('tr');
-    const qtyLabel=s.qty>1?`${s.qty}x `:'';
-    const precoLabel=s.preco>0?(s.qty>1?`${brl(s.precoUnit)} = ${brl(s.preco)}`:brl(s.preco)):'—';
-    tr.innerHTML=`<td>${i+1}</td><td>${qtyLabel}${esc(s.desc)}</td><td>${precoLabel}</td>`;
+    const qty=parseInt(s.qty)||1;
+    if(temMulti){
+      const qtyUnit=s.preco>0?`${qty} × ${brl(s.precoUnit||0)}`:'—';
+      const total=s.preco>0?brl(s.preco):'—';
+      tr.innerHTML=`<td>${i+1}</td><td>${esc(s.desc)}</td><td>${qtyUnit}</td><td>${total}</td>`;
+    } else {
+      tr.innerHTML=`<td>${i+1}</td><td>${esc(s.desc)}</td><td>${s.preco>0?brl(s.preco):'—'}</td>`;
+    }
     tb.appendChild(tr);
   });
   // totals block (below table, outside table element)
@@ -3732,9 +3771,19 @@ function preencherDocOrc(d, num){
   }
   th+=`<div class="pd-tot-final" style="background:${c1}"><span class="pd-tot-final-lbl">Total</span><span class="pd-tot-final-val">${brl(d.tot)}</span></div>`;
   tw.innerHTML=th;
-  // foto
-  const fi=document.getElementById('pd-foto-orc');
-  if(fotoB64){ fi.src=fotoB64; fi.style.display='block'; } else fi.style.display='none';
+  // fotos
+  const fotosSec=document.getElementById('pd-fotos-orc-section');
+  const fotosGrid=document.getElementById('pd-fotos-orc-grid');
+  const fotosArr=(Array.isArray(fotosB64)?fotosB64:[]).filter(Boolean);
+  if(fotosSec && fotosGrid && fotosArr.length){
+    const cols=fotosArr.length===1?1:fotosArr.length<=4?2:3;
+    fotosGrid.style.gridTemplateColumns=`repeat(${cols},1fr)`;
+    const maxH=fotosArr.length===1?'280px':fotosArr.length<=2?'220px':'160px';
+    fotosGrid.innerHTML=fotosArr.map(b=>`<img src="${b}" style="max-height:${maxH}">`).join('');
+    fotosSec.style.display='block';
+  } else if(fotosSec){
+    fotosSec.style.display='none';
+  }
   // escopo
   const escopoEl=document.getElementById('pd-escopo-orc');
   if(escopoEl){ if(d.escopo){ document.getElementById('pd-escopo-txt-orc').textContent=d.escopo; escopoEl.style.display='block'; } else escopoEl.style.display='none'; }
@@ -3847,10 +3896,10 @@ async function gerarOSPDF(modo='os'){
         vData:o.validade_data||'', sub:o.subtotal||0, desc:o.desconto||0, tot:o.total||0,
         svcs:o.servicos||[]
       };
-      // Restaura fotoB64 do orçamento original se houver
-      const savedFoto=fotoB64; fotoB64=o.foto_base64||'';
+      const savedFotos=[...fotosB64];
+      try{ const raw=o.foto_base64||''; fotosB64=raw.startsWith('[')?JSON.parse(raw):(raw?[raw]:[]); }catch(e){ fotosB64=[]; }
       preencherDocOrc(dadosOrc, numOrc);
-      fotoB64=savedFoto;
+      fotosB64=savedFotos;
     }
   }
 
@@ -4150,16 +4199,19 @@ function abrirOrc(id){
   setV('nota-interna',o.nota_interna||'');
   svcs=(o.servicos||[]).map(s=>({id:Date.now()+Math.random(),d:s.desc,p:String(s.precoUnit||s.preco||''),qty:s.qty||1}));
   if(!svcs.length) svcs=[{id:Date.now(),d:'',p:''}];
-  fotoB64=o.foto_base64||'';
-  const fp=document.getElementById('foto-prev'); if(fotoB64){fp.src=fotoB64;fp.style.display='block';document.getElementById('btn-rm-foto').style.display='block';}
-  else { fp.style.display='none'; document.getElementById('btn-rm-foto').style.display='none'; }
+  // Compatibilidade: antigo=string, novo=JSON array
+  try{
+    const raw=o.foto_base64||'';
+    fotosB64=raw.startsWith('[')?JSON.parse(raw):(raw?[raw]:[]);
+  }catch(e){ fotosB64=[]; }
+  renderFotosOrcSlots();
   renderSvcs(); upd(); go('form');
   toast('✏️ Editando Orçamento #'+String(o.numero).padStart(3,'0'));
 }
 
 function duplicarOrc(id){
   const o=todosOrc.find(x=>x.id===id); if(!o) return;
-  editId=null; fotoB64='';
+  editId=null; fotosB64=[];
   setV('cli',o.cliente||''); setV('loc',o.local_servico||''); setV('tel-cli',o.tel_cliente||''); setV('cnpj-cli',o.cnpj||'');
   setV('pag',o.pagamento||'A combinar'); updPag(); setV('val',String(o.validade_dias||5));
   setV('obs',o.obs||''); setV('escopo',o.escopo||'');
@@ -4170,8 +4222,7 @@ function duplicarOrc(id){
   setV('disc-v',String(o.desconto||0)); setV('disc-t','R$');
   svcs=(o.servicos||[]).map(s=>({id:Date.now()+Math.random(),d:s.desc,p:String(s.precoUnit||s.preco||''),qty:s.qty||1}));
   if(!svcs.length) svcs=[{id:Date.now(),d:'',p:''}];
-  const fp=document.getElementById('foto-prev'); fp.style.display='none';
-  document.getElementById('btn-rm-foto').style.display='none';
+  renderFotosOrcSlots();
   const tog=document.getElementById('toggle-os'); if(tog) tog.checked=false;
   const osf=document.getElementById('os-inline-fields'); if(osf) osf.style.display='none';
   renderSvcs(); upd(); go('form');
