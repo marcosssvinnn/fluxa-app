@@ -37,9 +37,13 @@
       --blue: #3b82f6;  --blue-bg: #dbeafe;
       --wa: #25D366; --wa2: #128C7E;
       --r: 12px; --sh: 0 1px 4px rgba(0,0,0,.08);
+      --sidebar-w: 220px;
+      --sidebar-c: 52px;
     }
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:'Inter',sans-serif;background:#f0f2f5;color:var(--c2);min-height:100vh;padding-top:56px}
+    body{font-family:'Inter',sans-serif;background:#f0f2f5;color:var(--c2);min-height:100vh;padding-top:56px;padding-left:var(--sidebar-w);transition:padding-left .2s ease}
+    body.sbar-col{padding-left:var(--sidebar-c)}
+    body.no-sbar{padding-left:0}
 
     /* ── HEADER ── */
     .hdr{background:var(--c2);padding:0 16px;display:flex;align-items:stretch;position:fixed;top:0;left:0;right:0;height:56px;z-index:200;box-shadow:0 2px 8px rgba(0,0,0,.25)}
@@ -49,11 +53,8 @@
     .hdr-logo-text{display:flex;flex-direction:column;line-height:1}
     .hdr-nome{font-size:18px;font-weight:800;color:var(--c1);letter-spacing:-.5px}
     .hdr-sub{font-size:8px;font-weight:700;color:rgba(255,255,255,.5);letter-spacing:3px;text-transform:uppercase}
-    .hdr-nav{display:flex;align-items:stretch;padding:0 8px;overflow-x:auto;scrollbar-width:none}
-    .hdr-nav::-webkit-scrollbar{display:none}
-    .nb{background:none;border:none;color:rgba(255,255,255,.55);font-size:13px;font-weight:600;padding:0 12px;cursor:pointer;font-family:'Inter',sans-serif;border-bottom:3px solid transparent;transition:all .15s;white-space:nowrap;flex-shrink:0}
-    .nb:hover{color:white}
-    .nb.on{color:white;border-bottom-color:var(--c1)}
+    .hdr-nav{display:none!important}
+    .nb{display:none!important}
     .hdr-right{margin-left:auto;display:flex;align-items:center;gap:8px;padding-left:8px;flex-shrink:0}
     .db-dot{width:7px;height:7px;border-radius:50%;background:#6b7280;flex-shrink:0}
     .db-dot.ok{background:#22c55e}.db-dot.err{background:var(--red)}
@@ -68,6 +69,28 @@
     .gear-menu button:hover{background:#f9fafb}
     .gear-menu .gear-section{padding:8px 16px 4px;font-size:10px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:1px}
     .gear-menu .gear-status{padding:10px 16px;font-size:12px;color:#6b7280;border-bottom:1px solid #f3f4f6;display:flex;align-items:center;gap:8px}
+
+    /* ── SIDEBAR ── */
+    .sidebar{position:fixed;top:56px;left:0;bottom:0;width:var(--sidebar-w);background:var(--c2);z-index:150;transition:width .2s ease;overflow:hidden;border-right:1px solid rgba(255,255,255,.08)}
+    .sidebar.collapsed{width:var(--sidebar-c)}
+    .sidebar.s-hidden{display:none}
+    .snav{display:flex;flex-direction:column;padding:8px 0;height:100%;overflow-y:auto;overflow-x:hidden;scrollbar-width:none}
+    .snav::-webkit-scrollbar{display:none}
+    .snb{display:flex;align-items:center;gap:12px;padding:11px 14px;background:none;border:none;border-left:3px solid transparent;color:rgba(255,255,255,.55);font-size:13px;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;transition:all .15s;text-align:left;width:100%;white-space:nowrap}
+    .snb:hover{background:rgba(255,255,255,.07);color:#fff}
+    .snb.on{background:rgba(196,94,10,.15);color:var(--c1);border-left-color:var(--c1)}
+    .snb:focus-visible{outline:2px solid var(--c1);outline-offset:-2px}
+    .sicon{font-size:18px;line-height:1;flex-shrink:0;width:24px;text-align:center}
+    .slabel{font-size:13px;font-weight:600;transition:opacity .15s,visibility .15s}
+    .sidebar.collapsed .slabel{opacity:0;visibility:hidden;pointer-events:none}
+    .sidebar.collapsed .snav-section-label{opacity:0;visibility:hidden}
+    .snav-div{height:1px;background:rgba(255,255,255,.1);margin:6px 12px}
+    .snav-section-label{font-size:9px;font-weight:700;color:rgba(255,255,255,.25);text-transform:uppercase;letter-spacing:1.5px;padding:10px 16px 4px;transition:opacity .15s,visibility .15s;white-space:nowrap}
+    .sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:140}
+    .sidebar-overlay.on{display:block}
+    .btn-sbar{background:none;border:none;color:rgba(255,255,255,.7);font-size:20px;cursor:pointer;padding:7px 10px;margin-right:2px;border-radius:8px;line-height:1;transition:all .15s;flex-shrink:0}
+    .btn-sbar:hover{background:rgba(255,255,255,.12);color:#fff}
+    .btn-sbar:focus-visible{outline:2px solid var(--c1);outline-offset:2px}
 
     /* ── PAGES ── */
     .page{display:none}.page.on{display:block}
@@ -532,6 +555,12 @@
       .mob-nav{display:flex}
       .hdr-nav{display:none}
       .hdr{padding:0 10px}
+      /* Sidebar vira drawer no mobile */
+      body,body.sbar-col{padding-left:0!important}
+      .sidebar{width:var(--sidebar-w)!important;transform:translateX(-110%);transition:transform .25s ease}
+      .sidebar.mob-open{transform:translateX(0)}
+      .sidebar.collapsed .slabel{opacity:1!important;visibility:visible!important}
+      .sidebar.collapsed .snav-section-label{opacity:1!important;visibility:visible!important}
 
       /* Padding extra no fundo para a nav bar não cobrir conteúdo */
       .wrap{padding-bottom:calc(80px + env(safe-area-inset-bottom))}
@@ -885,7 +914,7 @@
     .nfe-hist-item:last-child{border-bottom:none}
   </style>
 </head>
-<body>
+<body class="no-sbar">
 <a class="skip-link" href="#main-content">Pular para o conteúdo principal</a>
 
 <!-- ══ LOGIN OVERLAY ══ -->
@@ -957,6 +986,7 @@
 
 <!-- ══ HEADER ══ -->
 <header class="hdr">
+  <button class="btn-sbar" id="btn-sbar" onclick="toggleSidebar()" aria-label="Menu lateral" title="Menu">☰</button>
   <div class="hdr-logo">
     <img id="hdr-logo-img" alt="Logo da empresa" width="32" height="32">
     <div class="hdr-logo-text">
@@ -1005,28 +1035,49 @@
   </div>
 </header>
 
+<!-- ══ SIDEBAR OVERLAY ══ -->
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+
+<!-- ══ SIDEBAR ══ -->
+<aside class="sidebar s-hidden" id="sidebar" role="navigation" aria-label="Menu principal">
+  <nav class="snav">
+    <button class="snb on" id="snb-form" onclick="go('form')"><span class="sicon">＋</span><span class="slabel">Orçamento</span></button>
+    <button class="snb" id="snb-os" onclick="novaOS();go('os')"><span class="sicon">📋</span><span class="slabel">OS</span></button>
+    <button class="snb" id="snb-history" onclick="go('history')"><span class="sicon">📊</span><span class="slabel">Histórico</span></button>
+    <button class="snb" id="snb-visitas" onclick="go('visitas')"><span class="sicon">🔍</span><span class="slabel">Vistorias</span></button>
+    <button class="snb" id="snb-agendamentos" onclick="go('agendamentos')"><span class="sicon">📅</span><span class="slabel">Agenda</span></button>
+    <div class="snav-div"></div>
+    <span class="snav-section-label">Mais opções</span>
+    <button class="snb" id="snb-os-history" onclick="go('os-history')"><span class="sicon">📄</span><span class="slabel">Hist. OS</span></button>
+    <button class="snb" id="snb-clientes" onclick="go('clientes')"><span class="sicon">👥</span><span class="slabel">Clientes</span></button>
+    <button class="snb" id="snb-equipamentos" onclick="go('equipamentos')"><span class="sicon">🔧</span><span class="slabel">Equipamentos</span></button>
+    <button class="snb" id="snb-despesas" onclick="go('despesas')"><span class="sicon">💸</span><span class="slabel">Despesas</span></button>
+    <button class="snb" id="snb-produtividade" onclick="go('produtividade')"><span class="sicon">📈</span><span class="slabel">Produtividade</span></button>
+  </nav>
+</aside>
+
 <!-- ══ BOTTOM NAV (mobile) ══ -->
 <nav class="mob-nav" id="mob-nav">
   <button class="mob-nb on" id="mnb-form" onclick="go('form')">
     <span class="micon">＋</span><span>Orçam.</span>
   </button>
   <button class="mob-nb" id="mnb-os" onclick="novaOS();go('os')">
-    <span class="micon">📋</span><span>Nova OS</span>
+    <span class="micon">📋</span><span>OS</span>
   </button>
   <button class="mob-nb" id="mnb-minhas-os" onclick="go('minhas-os')" style="display:none">
     <span class="micon">📋</span><span>Minhas OS</span>
   </button>
   <button class="mob-nb" id="mnb-history" onclick="go('history')">
-    <span class="micon">📊</span><span>Hist. OS</span>
+    <span class="micon">📊</span><span>Histórico</span>
+  </button>
+  <button class="mob-nb" id="mnb-visitas" onclick="go('visitas')">
+    <span class="micon">🔍</span><span>Vistorias</span>
   </button>
   <button class="mob-nb" id="mnb-agendamentos" onclick="go('agendamentos')">
     <span class="micon">📅</span><span>Agenda</span>
   </button>
-  <button class="mob-nb" id="mnb-equipamentos" onclick="go('equipamentos')">
-    <span class="micon">🔧</span><span>Equip.</span>
-  </button>
-  <button class="mob-nb" id="mnb-visitas" onclick="go('visitas')">
-    <span class="micon">🔍</span><span>Vistorias</span>
+  <button class="mob-nb" id="mnb-mais" onclick="openSidebar()">
+    <span class="micon">☰</span><span>Mais</span>
   </button>
 </nav>
 
@@ -2637,6 +2688,28 @@ function aplicarPermissoesPerfil(){
     const el=document.getElementById(id); if(el) el.style.display=pode?'':'none';
   });
 
+  // ── Sidebar nav ──
+  const snbRules = {
+    'snb-form'         : gestor||vendas,
+    'snb-history'      : gestor||vendas,
+    'snb-clientes'     : gestor||vendas,
+    'snb-agendamentos' : gestor||vendas,
+    'snb-os'           : gestor||vendas,
+    'snb-os-history'   : gestor,
+    'snb-equipamentos' : gestor,
+    'snb-visitas'      : gestor||tecnico,
+    'snb-despesas'     : gestor,
+    'snb-produtividade': gestor,
+  };
+  Object.entries(snbRules).forEach(([id,pode])=>{
+    const el=document.getElementById(id); if(el) el.style.display=pode?'':'none';
+  });
+  // Reveal sidebar now that user is logged in
+  const _sb=document.getElementById('sidebar');
+  if(_sb){ _sb.classList.remove('s-hidden'); }
+  document.body.classList.remove('no-sbar');
+  initSidebar();
+
   // ── Seletor de loja no header — só gestor principal ──
   const lojaSelEl=document.getElementById('hdr-loja-select');
   if(lojaSelEl){
@@ -2706,6 +2779,10 @@ function atualizarBadgeUsuario(){
 }
 
 function fazerLogout(){
+  const _sbLogout=document.getElementById('sidebar');
+  if(_sbLogout){ _sbLogout.classList.add('s-hidden'); }
+  closeSidebar();
+  document.body.classList.add('no-sbar');
   clearSessao();
   loginUserSelecionado=null;
   // Resetar passos
@@ -3669,6 +3746,39 @@ async function salvarBD(){
 // ──────────────────────────────────────────────────
 //  NAVEGAÇÃO
 // ──────────────────────────────────────────────────
+/* ── SIDEBAR ── */
+function initSidebar(){
+  const col=localStorage.getItem('fluxa_sbar_col')==='1';
+  const sb=document.getElementById('sidebar');
+  if(!sb) return;
+  if(col){ sb.classList.add('collapsed'); document.body.classList.add('sbar-col'); }
+  else   { sb.classList.remove('collapsed'); document.body.classList.remove('sbar-col'); }
+}
+function toggleSidebar(){
+  const sb=document.getElementById('sidebar');
+  if(!sb) return;
+  const isMob=window.innerWidth<=680;
+  if(isMob){
+    sb.classList.contains('mob-open') ? closeSidebar() : openSidebar();
+  } else {
+    const col=sb.classList.toggle('collapsed');
+    document.body.classList.toggle('sbar-col',col);
+    localStorage.setItem('fluxa_sbar_col',col?'1':'0');
+  }
+}
+function openSidebar(){
+  const sb=document.getElementById('sidebar');
+  const ov=document.getElementById('sidebar-overlay');
+  if(sb) sb.classList.add('mob-open');
+  if(ov) ov.classList.add('on');
+}
+function closeSidebar(){
+  const sb=document.getElementById('sidebar');
+  const ov=document.getElementById('sidebar-overlay');
+  if(sb) sb.classList.remove('mob-open');
+  if(ov) ov.classList.remove('on');
+}
+
 function go(p){
   // ── Controle de acesso por perfil ──
   const _vendas  = eVendas();
@@ -3688,6 +3798,9 @@ function go(p){
   const nb=document.getElementById('nb-'+p); if(nb){ nb.classList.add('on'); nb.setAttribute('aria-current','page'); }
   document.querySelectorAll('.mob-nb').forEach(x=>{ x.classList.remove('on'); x.removeAttribute('aria-current'); });
   const mnb=document.getElementById('mnb-'+p); if(mnb){ mnb.classList.add('on'); mnb.setAttribute('aria-current','page'); }
+  document.querySelectorAll('.snb').forEach(x=>{ x.classList.remove('on'); x.removeAttribute('aria-current'); });
+  const snb=document.getElementById('snb-'+p); if(snb){ snb.classList.add('on'); snb.setAttribute('aria-current','page'); }
+  closeSidebar();
   if(p==='portal') { /* página gerenciada por checkPortalHash */ }
   if(p==='history'){ loadHist(); setTimeout(renderGraficoDash,200); }
   if(p==='form') restaurarRascunho('form');
