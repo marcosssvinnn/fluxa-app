@@ -540,32 +540,41 @@
     .checkin-timer{font-size:20px;font-weight:800;color:var(--green);font-variant-numeric:tabular-nums;min-width:70px}
 
     /* ── LOCAIS VISTORIA ── */
-    .loc-tracking-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px}
+    /* ── LOCAIS: página header ── */
+    .loc-page-header{background:var(--white);border-radius:var(--r);box-shadow:var(--sh);padding:18px 20px;margin-bottom:14px}
+    .loc-page-title-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+    .loc-mes-bar{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
     .loc-mes-nav{display:flex;align-items:center;gap:8px}
     .loc-mes-nav button{background:none;border:1.5px solid var(--gray-mid);border-radius:8px;padding:5px 11px;cursor:pointer;font-family:'Inter',sans-serif;font-size:14px;font-weight:700;color:var(--c2);transition:all .15s}
     .loc-mes-nav button:hover{background:var(--gray-light)}
     .loc-mes-label{font-size:15px;font-weight:800;color:var(--c2);min-width:110px;text-align:center}
-    .loc-stats-row{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap}
-    .loc-stat{background:var(--white);border-radius:10px;padding:12px 18px;box-shadow:var(--sh);display:flex;align-items:center;gap:10px;flex:1;min-width:120px}
-    .loc-stat-icon{font-size:22px;line-height:1}
-    .loc-stat-info .loc-stat-val{font-size:20px;font-weight:800;color:var(--c2)}
-    .loc-stat-info .loc-stat-lbl{font-size:11px;color:var(--gray);font-weight:600}
-    .loc-card{background:var(--white);border-radius:var(--r);padding:16px 18px;box-shadow:var(--sh);margin-bottom:10px;display:flex;align-items:center;gap:14px;border-left:4px solid var(--gray-mid)}
-    .loc-card.feita{border-left-color:var(--green)}
-    .loc-card.pendente{border-left-color:var(--yellow)}
-    .loc-card-status{font-size:22px;flex-shrink:0}
-    .loc-card-info{flex:1;min-width:0}
-    .loc-card-nome{font-size:14px;font-weight:700;color:var(--c2)}
-    .loc-card-det{font-size:12px;color:var(--gray);margin-top:2px}
-    .loc-card-sub{font-size:11px;color:var(--green);font-weight:600;margin-top:3px}
-    .loc-card-acts{display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap}
+    .loc-stats-row{display:flex;gap:8px;flex-wrap:wrap;flex:1}
+    .loc-stat{background:var(--gray-light);border-radius:8px;padding:7px 14px;display:flex;align-items:center;gap:7px}
+    .loc-stat-icon{font-size:16px;line-height:1}
+    .loc-stat-info .loc-stat-val{font-size:16px;font-weight:800;color:var(--c2)}
+    .loc-stat-info .loc-stat-lbl{font-size:10px;color:var(--gray);font-weight:600}
+    /* ── LOCAIS: cards unificados ── */
+    .loc-ucard{background:var(--white);border-radius:var(--r);box-shadow:var(--sh);margin-bottom:10px;border-left:4px solid var(--gray-mid);overflow:hidden}
+    .loc-ucard.feita{border-left-color:var(--green)}
+    .loc-ucard.pendente{border-left-color:var(--yellow)}
+    .loc-ucard.inativo{opacity:.5;border-left-color:var(--gray-mid)}
+    .loc-ucard-top{display:flex;align-items:center;gap:12px;padding:14px 16px}
+    .loc-ucard-icon{font-size:22px;flex-shrink:0}
+    .loc-ucard-info{flex:1;min-width:0}
+    .loc-ucard-nome{font-size:14px;font-weight:800;color:var(--c2)}
+    .loc-ucard-det{font-size:12px;color:var(--gray);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .loc-ucard-status{font-size:11px;font-weight:700;margin-top:4px}
+    .loc-ucard-status.ok{color:var(--green)}
+    .loc-ucard-status.pend{color:#d97706}
+    .loc-ucard-acts{display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;align-items:center}
+    .loc-ucard-footer{border-top:1px solid var(--gray-light);padding:8px 16px;display:flex;gap:8px;background:#fafafa}
+    /* ── LOCAIS: form e outros ── */
     .loc-add-form{background:var(--c1-light);border:2px dashed var(--c1);border-radius:var(--r);padding:20px;margin-bottom:16px}
     .loc-add-form .ct{border-bottom-color:var(--c1-light)}
-    .loc-list-item{background:var(--white);border-radius:var(--r);padding:14px 16px;box-shadow:var(--sh);margin-bottom:8px;display:flex;align-items:center;gap:12px;justify-content:space-between}
-    .loc-list-item-info .loc-list-nome{font-size:14px;font-weight:700;color:var(--c2)}
-    .loc-list-item-info .loc-list-det{font-size:12px;color:var(--gray);margin-top:2px}
-    .loc-list-acts{display:flex;gap:6px;flex-shrink:0}
     .loc-inactive{opacity:.5}
+    .loc-empty{text-align:center;padding:40px 20px;color:var(--gray);font-size:13px}
+    .loc-empty-icon{font-size:40px;margin-bottom:10px}
+    .loc-empty-txt{margin-bottom:16px;line-height:1.6}
 
     /* ── BOTTOM NAV (mobile) ── */
     .mob-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--c2);border-top:1px solid rgba(255,255,255,.12);z-index:300;padding-bottom:env(safe-area-inset-bottom)}
@@ -2488,38 +2497,40 @@
     <!-- Tab: Locais Recorrentes -->
     <div id="vis-view-locais" style="display:none">
 
-      <!-- Tracking mensal -->
-      <div class="card">
-        <div class="loc-tracking-header">
-          <div class="ct" style="margin-bottom:0;border:none;padding:0">📋 Acompanhamento Mensal</div>
+      <!-- ── CABEÇALHO: título + botão novo + navegação de mês ── -->
+      <div class="loc-page-header" id="loc-page-header">
+        <div class="loc-page-title-row">
+          <div>
+            <div style="font-size:17px;font-weight:800;color:var(--c2)">📍 Planos de Acompanhamento</div>
+            <div style="font-size:12px;color:var(--gray);margin-top:2px">Clientes com visita recorrente mensal</div>
+          </div>
+          <button class="btn-primary" id="loc-btn-novo" onclick="abrirLocForm()" style="white-space:nowrap">＋ Novo plano</button>
+        </div>
+        <div class="loc-mes-bar">
           <div class="loc-mes-nav">
             <button onclick="locVisMesAnterior()" title="Mês anterior">◀</button>
             <span class="loc-mes-label" id="loc-mes-label">—</span>
             <button onclick="locVisMesProximo()" title="Próximo mês">▶</button>
           </div>
+          <div class="loc-stats-row" id="loc-stats-row"></div>
         </div>
-        <div class="loc-stats-row" id="loc-stats-row"></div>
-        <div id="loc-tracking-list"></div>
       </div>
 
-      <!-- Cadastrar novo local -->
+      <!-- ── FORMULÁRIO: adicionar / editar plano ── -->
       <div class="loc-add-form" id="loc-add-form" style="display:none">
-        <div class="ct">➕ Novo Local Recorrente</div>
+        <div class="ct">➕ Novo Plano de Acompanhamento</div>
         <div class="row"><div class="fl"><label class="req">Cliente / Nome do local</label><input type="text" id="loc-cli" placeholder="Ex: Condomínio Sol Nascente" autocomplete="off"></div><div class="fl"><label class="req">Endereço</label><input type="text" id="loc-end" placeholder="Rua, número, bairro"></div></div>
         <div class="row"><div class="fl"><label>E-mail responsável</label><input type="email" id="loc-email" placeholder="sindico@condominio.com.br"></div><div class="fl"><label>Técnico responsável</label><select id="loc-tec"><option value="">Qualquer técnico</option></select></div></div>
         <div class="fl" style="margin-bottom:12px"><label>Equipamentos padrão</label><div id="loc-equip-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px"></div></div>
         <input type="hidden" id="loc-edit-id">
         <div style="display:flex;gap:8px">
-          <button class="btn-primary" onclick="salvarLocal()">💾 Salvar Local</button>
-          <button class="btn-sm" onclick="fecharLocForm()">Cancelar</button>
+          <button class="btn-primary" onclick="salvarLocal()">💾 Salvar</button>
+          <button class="btn-sm" onclick="fecharLocForm()" style="color:var(--c2)">Cancelar</button>
         </div>
       </div>
 
-      <!-- Gerenciar locais -->
-      <div class="card">
-        <div class="ct">🗂️ Locais Cadastrados <button class="btn-sm" style="margin-left:auto;text-transform:none;font-size:12px;letter-spacing:0;color:var(--c2);background:white;border-color:var(--gray-mid)" onclick="abrirLocForm()">＋ Novo local</button></div>
-        <div id="loc-gerenciar-list"></div>
-      </div>
+      <!-- ── LISTA UNIFICADA: cada cliente com status do mês ── -->
+      <div id="loc-lista-unificada"></div>
 
     </div><!-- /vis-view-locais -->
 
@@ -7488,98 +7499,128 @@ function renderLocaisTab(){
   loadLocais();
   const s=getSessao();
   const lojaAtiva=s?.loja_id||getLojaFiltro()||CFG?.lojas?.[0]?.id||'default';
-  // set default month
+  const isTecnico=s?.perfil==='tecnico';
+  const nomeLogado=s?.nome||'';
+  const mesNomes=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+  // Mês de referência padrão
   if(!locaisVisMesRef){
     const now=new Date();
     locaisVisMesRef=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
   }
-  // update month label
+  const [y,m]=locaisVisMesRef.split('-').map(Number);
   const labelEl=document.getElementById('loc-mes-label');
-  if(labelEl){
-    const [y,m]=locaisVisMesRef.split('-').map(Number);
-    const nome=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
-    labelEl.textContent=nome[m-1]+' '+y;
+  if(labelEl) labelEl.textContent=mesNomes[m-1].slice(0,3)+' '+y;
+
+  // Visibilidade do botão "Novo plano" (só gestor)
+  const btnNovo=document.getElementById('loc-btn-novo');
+  if(btnNovo) btnNovo.style.display=isTecnico?'none':'';
+
+  // Header (só gestor vê o bloco de cabeçalho completo; técnico vê versão simplificada)
+  const pgHdr=document.getElementById('loc-page-header');
+  if(pgHdr){
+    const tecTitle=pgHdr.querySelector('.loc-page-title-row div div:first-child');
+    if(isTecnico && tecTitle){ tecTitle.textContent='📍 Minhas visitas do mês'; }
   }
-  // Perfil
-  const isTecnico = s?.perfil==='tecnico';
-  const nomeLogado = s?.nome||'';
-  // filter locais for this loja (técnico vê apenas os atribuídos a ele)
-  const locaisFiltrados=locaisVistoria.filter(l=>l.loja_id===lojaAtiva && l.ativo!==false && (!isTecnico || !l.tecnico || l.tecnico===nomeLogado));
-  // get vistorias for this month+loja
-  const vis=(JSON.parse(localStorage.getItem(LS_VIS)||'[]')).filter(v=>v.loja_id===lojaAtiva && v.mes_ref===locaisVisMesRef);
-  // build tracking
-  const tracking=locaisFiltrados.map(loc=>{
-    // match vistoria: by local_id (if set) or by cliente+local
-    const vistoria=vis.find(v=>(v.local_id && v.local_id===loc.id)||(v.cliente===loc.cliente && v.local===loc.local));
+
+  // Filtra locais
+  const locaisFiltrados=locaisVistoria.filter(l=>
+    l.loja_id===lojaAtiva && l.ativo!==false &&
+    (!isTecnico || !l.tecnico || l.tecnico===nomeLogado)
+  );
+  // Todos os locais desta loja (para o gestor ver inativos também na lista)
+  const todosLoja=isTecnico ? locaisFiltrados : locaisVistoria.filter(l=>l.loja_id===lojaAtiva);
+
+  // Vistorias deste mês
+  const vis=lsVisLer().filter(v=>v.loja_id===lojaAtiva && v.mes_ref===locaisVisMesRef);
+
+  // Build tracking somente dos ativos para stats
+  const trackingAtivos=locaisFiltrados.map(loc=>{
+    const vistoria=vis.find(v=>(v.local_id&&v.local_id===loc.id)||(v.cliente===loc.cliente&&v.local===loc.local));
     return {loc, vistoria, feita:!!vistoria};
   });
-  const nFeitas=tracking.filter(x=>x.feita).length;
-  const nPend=tracking.filter(x=>!x.feita).length;
-  // stats
+  const nFeitas=trackingAtivos.filter(x=>x.feita).length;
+  const nPend=trackingAtivos.filter(x=>!x.feita).length;
+
+  // Stats
   const statsEl=document.getElementById('loc-stats-row');
-  if(statsEl){
-    statsEl.innerHTML=`
-      <div class="loc-stat"><span class="loc-stat-icon">✅</span><div class="loc-stat-info"><div class="loc-stat-val">${nFeitas}</div><div class="loc-stat-lbl">Realizadas</div></div></div>
-      <div class="loc-stat"><span class="loc-stat-icon">⏳</span><div class="loc-stat-info"><div class="loc-stat-val">${nPend}</div><div class="loc-stat-lbl">Pendentes</div></div></div>
-      <div class="loc-stat"><span class="loc-stat-icon">📍</span><div class="loc-stat-info"><div class="loc-stat-val">${locaisFiltrados.length}</div><div class="loc-stat-lbl">Locais ativos</div></div></div>
-    `;
+  if(statsEl) statsEl.innerHTML=`
+    <div class="loc-stat"><span class="loc-stat-icon">✅</span><div class="loc-stat-info"><div class="loc-stat-val">${nFeitas}</div><div class="loc-stat-lbl">Realizadas</div></div></div>
+    <div class="loc-stat"><span class="loc-stat-icon">⏳</span><div class="loc-stat-info"><div class="loc-stat-val">${nPend}</div><div class="loc-stat-lbl">Pendentes</div></div></div>
+    <div class="loc-stat"><span class="loc-stat-icon">📍</span><div class="loc-stat-info"><div class="loc-stat-val">${locaisFiltrados.length}</div><div class="loc-stat-lbl">Ativos</div></div></div>
+  `;
+
+  // ── Lista unificada ──
+  const listaEl=document.getElementById('loc-lista-unificada');
+  if(!listaEl) return;
+
+  if(todosLoja.length===0){
+    listaEl.innerHTML=`<div class="loc-empty">
+      <div class="loc-empty-icon">📋</div>
+      <div class="loc-empty-txt">${isTecnico?'Nenhum local atribuído a você ainda.':'Nenhum plano cadastrado ainda.<br>Clique em <strong>＋ Novo plano</strong> para começar.'}</div>
+      ${!isTecnico?`<button class="btn-primary" onclick="abrirLocForm()">＋ Adicionar primeiro plano</button>`:''}
+    </div>`;
+    return;
   }
-  // tracking list
-  const listEl=document.getElementById('loc-tracking-list');
-  if(listEl){
-    if(locaisFiltrados.length===0){
-      const msgVazia = isTecnico
-        ? 'Nenhum local atribuído a você para este mês.'
-        : 'Nenhum local cadastrado. Adicione locais recorrentes abaixo.';
-      listEl.innerHTML=`<p style="color:var(--gray);font-size:13px;text-align:center;padding:20px 0">${msgVazia}</p>`;
+
+  // Ordena: ativos pendentes primeiro, ativos feitos depois, inativos por último
+  const sorted=[...todosLoja].sort((a,b)=>{
+    const aAtivo=a.ativo!==false, bAtivo=b.ativo!==false;
+    if(aAtivo!==bAtivo) return bAtivo-aAtivo; // ativos antes
+    const aVis=vis.find(v=>(v.local_id&&v.local_id===a.id)||(v.cliente===a.cliente&&v.local===a.local));
+    const bVis=vis.find(v=>(v.local_id&&v.local_id===b.id)||(v.cliente===b.cliente&&v.local===b.local));
+    return (!!aVis)-(!!bVis); // pendentes antes dos feitos
+  });
+
+  listaEl.innerHTML=sorted.map(loc=>{
+    const ativo=loc.ativo!==false;
+    const vistoria=vis.find(v=>(v.local_id&&v.local_id===loc.id)||(v.cliente===loc.cliente&&v.local===loc.local));
+    const feita=!!vistoria;
+    const cls=!ativo?'inativo':feita?'feita':'pendente';
+    const icon=!ativo?'⏸':feita?'✅':'⏳';
+
+    // Status do mês
+    let statusHtml='';
+    if(!ativo){
+      statusHtml=`<div class="loc-ucard-status" style="color:var(--gray)">⏸ Inativo</div>`;
+    } else if(feita){
+      const dataFmt=vistoria.data?vistoria.data.split('-').reverse().join('/'):'?';
+      statusHtml=`<div class="loc-ucard-status ok">✅ Realizada em ${dataFmt}${vistoria.tecnico?' — '+vistoria.tecnico:''}</div>`;
     } else {
-      // pendentes primeiro, depois feitas
-      const sorted=[...tracking].sort((a,b)=>a.feita-b.feita);
-      listEl.innerHTML=sorted.map(({loc,vistoria,feita})=>{
-        const acoes=feita
-          ? `<button class="tb" onclick="abrirVisRelatorio('${vistoria.id}')" title="Ver PDF">📄 PDF</button>
-             <button class="tb" onclick="reenviarEmailVistoria('${vistoria.id}')" title="Reenviar e-mail">✉️</button>`
-          : `<button class="btn-primary" style="padding:7px 14px;font-size:13px" onclick="iniciarVistoriaLocal('${loc.id}')">✅ Concluir visita</button>`;
-        const subInfo=feita
-          ? `<div class="loc-card-sub">✅ Realizada em ${vistoria.data?vistoria.data.split('-').reverse().join('/'):'?'}${vistoria.tecnico?' — '+vistoria.tecnico:''}</div>`
-          : `<div style="font-size:11px;color:var(--yellow);font-weight:600;margin-top:3px">⏳ Pendente para ${document.getElementById('loc-mes-label')?.textContent||''}</div>`;
-        return `<div class="loc-card ${feita?'feita':'pendente'}">
-          <span class="loc-card-status">${feita?'✅':'⏳'}</span>
-          <div class="loc-card-info">
-            <div class="loc-card-nome">${loc.cliente}</div>
-            <div class="loc-card-det">📍 ${loc.local}${loc.tecnico?' &nbsp;·&nbsp; 👤 '+loc.tecnico:''}</div>
-            ${subInfo}
-          </div>
-          <div class="loc-card-acts">${acoes}</div>
-        </div>`;
-      }).join('');
+      statusHtml=`<div class="loc-ucard-status pend">⏳ Pendente — ${mesNomes[m-1]} ${y}</div>`;
     }
-  }
-  // Seção de gerenciamento: oculta para técnico (apenas gestor pode cadastrar/editar locais)
-  const gerCard=document.querySelector('#vis-view-locais .card:last-child');
-  if(gerCard) gerCard.style.display=isTecnico?'none':'';
-  // gerenciar list
-  const gerEl=document.getElementById('loc-gerenciar-list');
-  if(gerEl){
-    const todos=locaisVistoria.filter(l=>l.loja_id===lojaAtiva);
-    if(todos.length===0){
-      gerEl.innerHTML='<p style="color:var(--gray);font-size:13px;text-align:center;padding:16px 0">Nenhum local cadastrado ainda.</p>';
-    } else {
-      gerEl.innerHTML=todos.map(loc=>`
-        <div class="loc-list-item ${loc.ativo===false?'loc-inactive':''}">
-          <div class="loc-list-item-info">
-            <div class="loc-list-nome">${loc.cliente}</div>
-            <div class="loc-list-det">📍 ${loc.local}${loc.tecnico?' · 👤 '+loc.tecnico:''}${loc.email_responsavel?' · ✉️ '+loc.email_responsavel:''}</div>
-          </div>
-          <div class="loc-list-acts">
-            <button class="tb" onclick="abrirLocForm('${loc.id}')" title="Editar">✏️</button>
-            <button class="tb" onclick="toggleLocalAtivo('${loc.id}')" title="${loc.ativo===false?'Reativar':'Desativar'}">${loc.ativo===false?'▶':'⏸'}</button>
-            <button class="tb" style="color:var(--red)" onclick="excluirLocal('${loc.id}')" title="Excluir">🗑️</button>
-          </div>
+
+    // Ações do mês (coluna direita)
+    let acoesHtml='';
+    if(ativo && feita){
+      acoesHtml=`
+        <button class="tb" onclick="abrirVisRelatorio('${vistoria.id}')" title="Ver relatório PDF" style="font-size:12px;padding:5px 10px">📄 Relatório</button>
+        <button class="tb" onclick="reenviarEmailVistoria('${vistoria.id}')" title="Reenviar e-mail">✉️</button>`;
+    } else if(ativo){
+      acoesHtml=`<button class="btn-primary" style="padding:7px 14px;font-size:13px;white-space:nowrap" onclick="iniciarVistoriaLocal('${loc.id}')">✅ Concluir</button>`;
+    }
+
+    // Rodapé com ações de gestão (só gestor)
+    const rodape=!isTecnico?`
+      <div class="loc-ucard-footer">
+        <button class="tb" onclick="abrirLocForm('${loc.id}')" title="Editar plano" style="font-size:12px">✏️ Editar</button>
+        <button class="tb" onclick="toggleLocalAtivo('${loc.id}')" title="${ativo?'Pausar':'Reativar'}" style="font-size:12px">${ativo?'⏸ Pausar':'▶ Reativar'}</button>
+        <button class="tb" onclick="excluirLocal('${loc.id}')" title="Excluir" style="font-size:12px;color:var(--red)">🗑️ Excluir</button>
+      </div>`:'';
+
+    return `<div class="loc-ucard ${cls}">
+      <div class="loc-ucard-top">
+        <span class="loc-ucard-icon">${icon}</span>
+        <div class="loc-ucard-info">
+          <div class="loc-ucard-nome">${esc(loc.cliente)}</div>
+          <div class="loc-ucard-det">📍 ${esc(loc.local)}${loc.tecnico?' · 👤 '+esc(loc.tecnico):''}${loc.email_responsavel?' · ✉️ '+esc(loc.email_responsavel):''}</div>
+          ${statusHtml}
         </div>
-      `).join('');
-    }
-  }
+        <div class="loc-ucard-acts">${acoesHtml}</div>
+      </div>
+      ${rodape}
+    </div>`;
+  }).join('');
 }
 /* ══ /LOCAIS RECORRENTES ══ */
 
