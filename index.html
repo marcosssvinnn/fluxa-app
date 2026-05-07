@@ -2362,7 +2362,7 @@
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="fb on" id="vis-tab-nova" onclick="visTab('nova')">📋 Nova Vistoria</button>
         <button class="fb" id="vis-tab-hist" onclick="visTab('hist')">📜 Histórico</button>
-        <button class="fb" id="vis-tab-locais" onclick="visTab('locais')">📋 Locais</button>
+        <button class="fb" id="vis-tab-locais" onclick="visTab('locais')">📍 Meus Locais</button>
       </div>
     </div>
 
@@ -2855,6 +2855,10 @@ function aplicarPermissoesPerfil(){
   const chartCard=document.querySelector('.dash-chart-card');
   if(dashEl)    dashEl.style.display   =vendas?'none':'';
   if(chartCard) chartCard.style.display=vendas?'none':'';
+
+  // ── Abas de Vistorias: técnico vê só "Meus Locais" e "Histórico" ──
+  const visTabNova=document.getElementById('vis-tab-nova');
+  if(visTabNova) visTabNova.style.display=tecnico?'none':'';
 
   // ── Redirecionamentos ──
   const pAtiva=document.querySelector('.page.on');
@@ -3918,7 +3922,13 @@ function go(p){
   if(p==='produtividade'){ loadProdutividade(); setTimeout(renderRelatorioFinanceiro,300); }
   if(p==='usuarios') loadUsuarios();
   if(p==='minhas-os') loadMinhasOS();
-  if(p==='visitas') initVisitas();
+  if(p==='visitas'){
+    initVisitas();
+    // Técnico cai direto na aba Locais (onde estão as visitas atribuídas a ele)
+    // Gestor/vendas cai na Nova Vistoria (comportamento padrão)
+    const _sess=getSessao();
+    if(_sess?.perfil==='tecnico') visTab('locais');
+  }
   // Atualiza técnicos disponíveis quando abre form de OS
   if(p==='os'){
     restaurarRascunho('os');
