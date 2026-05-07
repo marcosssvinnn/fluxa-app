@@ -3574,6 +3574,7 @@ CREATE TABLE IF NOT EXISTS agendamentos (
   data_criacao timestamptz DEFAULT now()
 );
 ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS agendamento_id uuid;
+ALTER TABLE agendamentos ADD COLUMN IF NOT EXISTS local_id text;
 ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS checkin_at timestamptz;
 ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS checkout_at timestamptz;
 ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS duracao_min integer;
@@ -3596,6 +3597,7 @@ CREATE TABLE IF NOT EXISTS vistorias (
   created_at timestamptz DEFAULT now()
 );
 ALTER TABLE vistorias ADD COLUMN IF NOT EXISTS email_responsavel text;
+ALTER TABLE vistorias ADD COLUMN IF NOT EXISTS local_id text;
 ALTER TABLE clientes   ADD COLUMN IF NOT EXISTS email_responsavel text;
 ALTER PUBLICATION supabase_realtime ADD TABLE vistorias;
 
@@ -6559,7 +6561,10 @@ function renderCal(){
       h+=`<td class="${isHoje?'hoje':''}"><div style="font-size:10px;color:var(--gray);margin-bottom:2px">${dia}</div>`;
       osNoDia.slice(0,3).forEach(o=>{
         _nc[o.id]=o;
-        h+=`<div class="cal-ev ${o.status||'agendado'}" title="${esc(o.cliente||'')} — ${esc(o.tecnico||'')}" onclick="verDetalhesOS('${o.id}')" style="cursor:pointer">${esc((o.cliente||'').split(' ')[0])}</div>`;
+        const isVis=Array.isArray(o.servicos)?o.servicos.some(s=>(s||'').toString().toLowerCase().includes('vistoria')):(o.servicos||'').toString().toLowerCase().includes('vistoria');
+        const extraStyle=isVis&&o.status==='agendado'?'background:#7c3aed;':'';
+        const evLabel=(isVis?'🔍 ':'')+esc((o.cliente||'').split(' ')[0]);
+        h+=`<div class="cal-ev ${o.status||'agendado'}" title="${esc(o.cliente||'')} — ${esc(o.tecnico||'')}" onclick="verDetalhesOS('${o.id}')" style="cursor:pointer;${extraStyle}">${evLabel}</div>`;
       });
       if(osNoDia.length>3) h+=`<div style="font-size:9px;color:var(--gray)">+${osNoDia.length-3}</div>`;
       h+='</td>';
@@ -6613,19 +6618,22 @@ function renderAgLista(){
   ativos=filtrarPorLoja(ativos);
   if(!ativos.length){ el.innerHTML='<div class="empty-st"><div class="ei">📅</div><p>Nenhum agendamento recorrente.</p></div>'; return; }
   const periodos={semanal:'Semanal',quinzenal:'Quinzenal',mensal:'Mensal'};
-  el.innerHTML=ativos.map(a=>`
-    <div class="agenda-card">
+  el.innerHTML=ativos.map(a=>{
+    const isPlano=!!(a.local_id||(a.id&&a.id.startsWith('ag_plano_')));
+    const badge=isPlano?`<span style="display:inline-block;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:700;background:#ede9fe;color:#7c3aed;margin-left:6px">📍 Plano</span>`:'';
+    return `
+    <div class="agenda-card" style="${isPlano?'border-left:3px solid #7c3aed;':''}" >
       <div class="agenda-info">
-        <div class="agenda-titulo">${esc(a.cliente||'—')} <span style="font-size:12px;font-weight:400;color:var(--gray)">— ${esc(a.tipo_servico||'')}</span></div>
+        <div class="agenda-titulo">${esc(a.cliente||'—')}${badge} <span style="font-size:12px;font-weight:400;color:var(--gray)">— ${esc(a.tipo_servico||'')}</span></div>
         <div class="agenda-sub">📍 ${esc(a.local_servico||'—')} &nbsp;·&nbsp; 👤 ${esc(a.tecnico||'—')} &nbsp;·&nbsp; ⏰ ${esc(a.horario||'')}</div>
         <div class="agenda-sub" style="margin-top:2px">🔁 ${periodos[a.periodicidade]||a.periodicidade} &nbsp;·&nbsp; Início: ${a.data_inicio?new Date(a.data_inicio+'T12:00:00').toLocaleDateString('pt-BR'):'—'}</div>
       </div>
       <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap">
-        <button class="tb" style="background:var(--c1-light);color:var(--c1);border-color:var(--c1-mid)" onclick="novaVistoria('${esc(a.cliente||'')}','${esc(a.local_servico||'')}','${esc(a.tecnico||'')}')">🔍 Vistoria</button>
+        ${isPlano?`<button class="tb" style="background:#ede9fe;color:#7c3aed;border-color:#ddd6fe" onclick="go('visitas')">📍 Ver Plano</button>`:`<button class="tb" style="background:var(--c1-light);color:var(--c1);border-color:var(--c1-mid)" onclick="novaVistoria('${esc(a.cliente||'')}','${esc(a.local_servico||'')}','${esc(a.tecnico||'')}')">🔍 Vistoria</button>`}
         <button class="tb d" onclick="cancelarSerie('${a.id}')">🚫 Cancelar</button>
       </div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 }
 
 // ── CHECK-IN / CHECK-OUT ──
@@ -7353,6 +7361,58 @@ function renderLocEquipChips(sel){
   });
 }
 
+// Cria ou atualiza o agendamento mensal vinculado ao plano de acompanhamento
+async function criarOuAtualizarAgendamentoPlano(rec, isEdit){
+  const hoje=new Date().toISOString().split('T')[0];
+  const agDados={
+    cliente: rec.cliente,
+    local_servico: rec.local,
+    tecnico: rec.tecnico||'',
+    tipo_servico: 'Vistoria de Manutenção',
+    periodicidade: 'mensal',
+    dia_semana: 1,
+    horario: '08:00',
+    data_inicio: hoje,
+    data_fim: null,
+    obs: 'Plano de acompanhamento mensal',
+    ativo: true,
+    loja_id: rec.loja_id||lojaAtiva||LOJA_PADRAO_ID,
+    local_id: rec.id
+  };
+  if(isEdit && rec.agendamento_id){
+    // Atualiza agendamento existente
+    const agIdx=todosAg.findIndex(a=>a.id===rec.agendamento_id);
+    if(agIdx>=0){ todosAg[agIdx]={...todosAg[agIdx],...agDados}; lsAgSalvar(todosAg); }
+    if(dbOk&&db){
+      try{ await db.from('agendamentos').update(agDados).eq('id',rec.agendamento_id); }
+      catch(e){ console.warn('[atualizarAgPlano]',e.message); }
+    }
+    return rec.agendamento_id;
+  } else {
+    // Cria novo agendamento
+    const agId='ag_plano_'+Date.now();
+    const agRec={...agDados,id:agId,data_criacao:new Date().toISOString()};
+    todosAg.unshift(agRec);
+    lsAgSalvar(todosAg);
+    // Gera OS dos próximos 6 meses no calendário
+    await gerarOSdoAgendamento(agRec,agId);
+    if(dbOk&&db){
+      (async()=>{
+        try{
+          const {data:ins}=await db.from('agendamentos').insert([agDados]).select('*').single();
+          if(ins){
+            todosAg=todosAg.filter(a=>a.id!==agId); todosAg.unshift(ins); lsAgSalvar(todosAg);
+            // Atualiza referência no local com ID real do banco
+            const locIdx=locaisVistoria.findIndex(l=>l.id===rec.id);
+            if(locIdx>=0){ locaisVistoria[locIdx].agendamento_id=ins.id; await saveLocais(); }
+          }
+        }catch(e){ console.warn('[criarAgPlano]',e.message); }
+      })();
+    }
+    return agId;
+  }
+}
+
 async function salvarLocal(){
   const cli=(document.getElementById('loc-cli').value||'').trim();
   const end=(document.getElementById('loc-end').value||'').trim();
@@ -7360,6 +7420,7 @@ async function salvarLocal(){
   const editId=document.getElementById('loc-edit-id').value;
   const s=getSessao();
   const lojaId=s?.loja_id||getLojaFiltro()||CFG?.lojas?.[0]?.id||'default';
+  const existingLocal=editId?locaisVistoria.find(x=>x.id===editId):null;
   const rec={
     id: editId||('loc_'+Date.now()),
     loja_id: lojaId,
@@ -7369,7 +7430,8 @@ async function salvarLocal(){
     tecnico: document.getElementById('loc-tec').value||'',
     equipamentos: [..._locEquipSel],
     ativo: true,
-    created_at: editId ? (locaisVistoria.find(x=>x.id===editId)||{}).created_at||new Date().toISOString() : new Date().toISOString()
+    agendamento_id: existingLocal?.agendamento_id||'',
+    created_at: editId ? (existingLocal||{}).created_at||new Date().toISOString() : new Date().toISOString()
   };
   if(editId){
     const idx=locaisVistoria.findIndex(x=>x.id===editId);
@@ -7377,14 +7439,30 @@ async function salvarLocal(){
   } else {
     locaisVistoria.push(rec);
   }
+  // Vincula ao calendário: cria ou atualiza agendamento mensal
+  const agId=await criarOuAtualizarAgendamentoPlano(rec, !!editId && !!existingLocal?.agendamento_id);
+  if(agId && !rec.agendamento_id){
+    const idx=locaisVistoria.findIndex(x=>x.id===rec.id);
+    if(idx>=0) locaisVistoria[idx].agendamento_id=agId;
+  }
   await saveLocais();
   fecharLocForm();
   renderLocaisTab();
-  toast('✅ Local salvo!');
+  toast('✅ Local salvo! Visita mensal adicionada ao calendário 📅');
 }
 
 function excluirLocal(id){
   confirmar('Remover este local da lista de recorrentes?',async ()=>{
+    const loc=locaisVistoria.find(x=>x.id===id);
+    // Desativa o agendamento vinculado
+    if(loc?.agendamento_id){
+      const agIdx=todosAg.findIndex(a=>a.id===loc.agendamento_id);
+      if(agIdx>=0){ todosAg[agIdx].ativo=false; lsAgSalvar(todosAg); }
+      if(dbOk&&db){
+        db.from('agendamentos').update({ativo:false}).eq('id',loc.agendamento_id).then(()=>{}).catch(()=>{});
+        db.from('ordens_servico').update({status:'cancelado'}).eq('agendamento_id',loc.agendamento_id).eq('status','agendado').then(()=>{}).catch(()=>{});
+      }
+    }
     locaisVistoria=locaisVistoria.filter(x=>x.id!==id);
     await saveLocais();
     renderLocaisTab();
@@ -7396,6 +7474,17 @@ async function toggleLocalAtivo(id){
   const loc=locaisVistoria.find(x=>x.id===id);
   if(!loc) return;
   loc.ativo=!loc.ativo;
+  // Sincroniza estado do agendamento vinculado
+  if(loc.agendamento_id){
+    const agIdx=todosAg.findIndex(a=>a.id===loc.agendamento_id);
+    if(agIdx>=0){ todosAg[agIdx].ativo=loc.ativo; lsAgSalvar(todosAg); }
+    if(dbOk&&db){
+      db.from('agendamentos').update({ativo:loc.ativo}).eq('id',loc.agendamento_id).then(()=>{}).catch(()=>{});
+      if(!loc.ativo){
+        db.from('ordens_servico').update({status:'cancelado'}).eq('agendamento_id',loc.agendamento_id).eq('status','agendado').then(()=>{}).catch(()=>{});
+      }
+    }
+  }
   await saveLocais();
   renderLocaisTab();
 }
@@ -7466,6 +7555,18 @@ async function salvarConcluirVis(){
       const payload={...rec,equipamentos:JSON.stringify(rec.equipamentos)};
       await db.from('vistorias').insert([payload]);
     }catch(e){ console.warn('vis rápida Supabase:',e.message); }
+  }
+  // Marca a OS do agendamento deste mês como concluída
+  if(loc.agendamento_id){
+    const mesStr=data.slice(0,7); // YYYY-MM
+    const osLocal=JSON.parse(ls('fluxa_os_hist')||'[]');
+    const osIdx=osLocal.findIndex(o=>o.agendamento_id===loc.agendamento_id&&o.data_servico&&o.data_servico.startsWith(mesStr)&&o.status==='agendado');
+    if(osIdx>=0){
+      osLocal[osIdx].status='concluido';
+      osLocal[osIdx].obs_tecnica=(osLocal[osIdx].obs_tecnica?osLocal[osIdx].obs_tecnica+'\n':'')+obs;
+      lsSet('fluxa_os_hist',JSON.stringify(osLocal.slice(0,200)));
+      if(dbOk&&db){ db.from('ordens_servico').update({status:'concluido'}).eq('id',osLocal[osIdx].id).then(()=>{}).catch(()=>{}); }
+    }
   }
   fecharConcluirVis();
   renderLocaisTab();
