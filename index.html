@@ -3439,11 +3439,14 @@ function lsOrcProxNum(){ return lsOrcLer().reduce((a,o)=>Math.max(a,o.numero||0)
       const ok = await conectarDB(sbUrl, sbKey, false);
       if(ok){
         await carregarCFGremoto(); aplicarCFG(); initEmailJS();
+        loadLocais(); // carrega locais_vistoria que vieram no CFG
         await carregarClientesRemoto();
         await sincronizarSeedUsuarios();
         await carregarUsuarios();
         loadVistoriasRemoto();
         if(document.getElementById('login-overlay').style.display!=='none') renderLoginUsers();
+        // Atualiza aba Locais se estiver aberta
+        if(document.getElementById('vis-view-locais')?.style.display!=='none') renderLocaisTab();
       }
       else if(tentativa < 3) setTimeout(()=>tentarConectar(tentativa+1), tentativa===1?3000:15000);
     } catch(e) {
@@ -7259,11 +7262,30 @@ function lsVisSalvar(lista){ localStorage.setItem(LS_VIS, JSON.stringify(lista))
 
 /* ══ LOCAIS RECORRENTES ══ */
 function loadLocais(){
-  try{ locaisVistoria=JSON.parse(localStorage.getItem(LS_LOCAIS_VIS)||'[]'); }
-  catch(e){ locaisVistoria=[]; }
+  // Lê localStorage
+  let local=[];
+  try{ local=JSON.parse(localStorage.getItem(LS_LOCAIS_VIS)||'[]'); }catch(e){ console.warn('[loadLocais]',e); }
+  // Merge com dados do Supabase (vindos via CFG.locais_vistoria)
+  const remoto=CFG?.locais_vistoria||[];
+  if(remoto.length){
+    const merged=[...remoto];
+    local.forEach(l=>{ if(!merged.find(r=>r.id===l.id)) merged.push(l); });
+    locaisVistoria=merged;
+    localStorage.setItem(LS_LOCAIS_VIS, JSON.stringify(locaisVistoria));
+  } else {
+    locaisVistoria=local;
+  }
 }
-function saveLocais(){
+async function saveLocais(){
   localStorage.setItem(LS_LOCAIS_VIS, JSON.stringify(locaisVistoria));
+  // Persiste no Supabase via empresa_config (sem precisar de nova tabela)
+  CFG.locais_vistoria=locaisVistoria;
+  lsSet('empresa_cfg', JSON.stringify(CFG));
+  if(dbOk&&db){
+    try{
+      await db.from('empresa_config').upsert([{id:1, dados:CFG, updated_at:new Date().toISOString()}]);
+    }catch(e){ console.warn('saveLocais sync falhou:', e.message); }
+  }
 }
 
 function abrirLocForm(id){
@@ -7320,7 +7342,7 @@ function renderLocEquipChips(sel){
   });
 }
 
-function salvarLocal(){
+async function salvarLocal(){
   const cli=(document.getElementById('loc-cli').value||'').trim();
   const end=(document.getElementById('loc-end').value||'').trim();
   if(!cli||!end){ toast('⚠️ Preencha cliente e endereço'); return; }
@@ -7344,26 +7366,26 @@ function salvarLocal(){
   } else {
     locaisVistoria.push(rec);
   }
-  saveLocais();
+  await saveLocais();
   fecharLocForm();
   renderLocaisTab();
   toast('✅ Local salvo!');
 }
 
 function excluirLocal(id){
-  confirmar('Remover este local da lista de recorrentes?',()=>{
+  confirmar('Remover este local da lista de recorrentes?',async ()=>{
     locaisVistoria=locaisVistoria.filter(x=>x.id!==id);
-    saveLocais();
+    await saveLocais();
     renderLocaisTab();
     toast('Local removido');
   });
 }
 
-function toggleLocalAtivo(id){
+async function toggleLocalAtivo(id){
   const loc=locaisVistoria.find(x=>x.id===id);
   if(!loc) return;
   loc.ativo=!loc.ativo;
-  saveLocais();
+  await saveLocais();
   renderLocaisTab();
 }
 
