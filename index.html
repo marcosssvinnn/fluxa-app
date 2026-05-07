@@ -324,6 +324,8 @@
       .pdoc.print-active+.pdoc.print-active{page-break-before:always}
       html,body{background:white;font-family:'Inter',sans-serif;margin:0;padding:0}
       .hdr,.wrap,.toast,.modal-bg{display:none!important}
+      .sidebar,.sidebar-overlay{display:none!important}
+      body{padding-left:0!important}
       .pdoc{display:none!important}
       .pdoc.print-active{display:block!important;width:100%;font-family:'Inter',sans-serif;font-size:13px}
 
@@ -2435,7 +2437,7 @@
       <div class="card">
         <div class="ct">📝 Observações Gerais</div>
         <div class="row f1">
-          <div class="fl"><textarea id="vis-obs" rows="4" placeholder="Condições gerais do local, recomendações, pendências, produtos aplicados…"></textarea></div>
+          <div class="fl"><textarea id="vis-obs" rows="4" placeholder="Condições gerais do local, recomendações, pendências observadas nos equipamentos…"></textarea></div>
         </div>
       </div>
 
@@ -7360,8 +7362,11 @@ function renderLocaisTab(){
     const nome=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
     labelEl.textContent=nome[m-1]+' '+y;
   }
-  // filter locais for this loja
-  const locaisFiltrados=locaisVistoria.filter(l=>l.loja_id===lojaAtiva && l.ativo!==false);
+  // Perfil
+  const isTecnico = s?.perfil==='tecnico';
+  const nomeLogado = s?.nome||'';
+  // filter locais for this loja (técnico vê apenas os atribuídos a ele)
+  const locaisFiltrados=locaisVistoria.filter(l=>l.loja_id===lojaAtiva && l.ativo!==false && (!isTecnico || !l.tecnico || l.tecnico===nomeLogado));
   // get vistorias for this month+loja
   const vis=(JSON.parse(localStorage.getItem(LS_VIS)||'[]')).filter(v=>v.loja_id===lojaAtiva && v.mes_ref===locaisVisMesRef);
   // build tracking
@@ -7385,7 +7390,10 @@ function renderLocaisTab(){
   const listEl=document.getElementById('loc-tracking-list');
   if(listEl){
     if(locaisFiltrados.length===0){
-      listEl.innerHTML='<p style="color:var(--gray);font-size:13px;text-align:center;padding:20px 0">Nenhum local cadastrado. Adicione locais recorrentes abaixo.</p>';
+      const msgVazia = isTecnico
+        ? 'Nenhum local atribuído a você para este mês.'
+        : 'Nenhum local cadastrado. Adicione locais recorrentes abaixo.';
+      listEl.innerHTML=`<p style="color:var(--gray);font-size:13px;text-align:center;padding:20px 0">${msgVazia}</p>`;
     } else {
       // pendentes primeiro, depois feitas
       const sorted=[...tracking].sort((a,b)=>a.feita-b.feita);
@@ -7409,6 +7417,9 @@ function renderLocaisTab(){
       }).join('');
     }
   }
+  // Seção de gerenciamento: oculta para técnico (apenas gestor pode cadastrar/editar locais)
+  const gerCard=document.querySelector('#vis-view-locais .card:last-child');
+  if(gerCard) gerCard.style.display=isTecnico?'none':'';
   // gerenciar list
   const gerEl=document.getElementById('loc-gerenciar-list');
   if(gerEl){
