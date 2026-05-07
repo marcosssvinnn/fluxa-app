@@ -667,6 +667,19 @@
     .dash-chart-card{background:var(--white);border-radius:var(--r);padding:18px 20px;box-shadow:var(--sh);margin-bottom:20px}
     .dash-chart-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px}
     .dash-chart-titulo{font-size:13px;font-weight:700;color:var(--c2)}
+    /* ── ORÇAMENTOS: navegação de mês e mini KPIs ── */
+    .orc-mes-nav{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+    .orc-mes-btn{background:none;border:1.5px solid var(--gray-mid);border-radius:8px;padding:5px 11px;font-size:15px;cursor:pointer;color:var(--c2);font-family:'Inter',sans-serif;transition:all .12s}
+    .orc-mes-btn:hover{border-color:var(--c1);color:var(--c1)}
+    .orc-mes-lbl{font-size:15px;font-weight:800;color:var(--c2);min-width:140px;text-align:center;padding:0 4px}
+    .orc-todos-btn{padding:5px 14px;border-radius:50px;border:1.5px solid var(--gray-mid);background:var(--white);font-size:12px;font-weight:600;color:var(--gray);cursor:pointer;font-family:'Inter',sans-serif;transition:all .12s}
+    .orc-todos-btn.on{background:var(--c2);border-color:var(--c2);color:#fff}
+    .orc-mini-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+    .orc-mini-kpi{border-radius:10px;padding:12px 14px;border-left:4px solid transparent}
+    .orc-mini-kpi-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--gray);margin-bottom:4px}
+    .orc-mini-kpi-val{font-size:18px;font-weight:800;color:var(--c2);line-height:1.1}
+    .orc-mini-kpi-sub{font-size:11px;color:var(--gray);margin-top:2px}
+    @media(max-width:640px){.orc-mini-kpis{grid-template-columns:1fr 1fr}.orc-mes-lbl{min-width:110px;font-size:13px}}
     .dash-chart-wrap{position:relative;height:180px}
     @media(max-width:680px){.dash-chart-wrap{height:140px}}
 
@@ -1755,17 +1768,20 @@
     </div>
 
     <div class="card">
-      <div class="ct">Orçamentos <button class="btn-add" style="font-size:12px;padding:5px 11px;border-width:1.5px" onclick="loadHist()">↺</button></div>
-      <div class="hf" style="margin-bottom:8px">
-        <select class="fb" id="filtro-mes" onchange="filtrarPorPeriodo(this.value)" style="cursor:pointer">
-          <option value="">Todos os períodos</option>
-          <option value="mes-atual">Este mês</option>
-          <option value="mes-anterior">Mês anterior</option>
-          <option value="30d">Últimos 30 dias</option>
-          <option value="90d">Últimos 90 dias</option>
-          <option value="ano">Este ano</option>
-        </select>
+      <!-- ── Cabeçalho com navegação de mês ── -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+        <div style="font-size:17px;font-weight:800;color:var(--c2)">📋 Orçamentos</div>
+        <div class="orc-mes-nav">
+          <button class="orc-mes-btn" onclick="orcNavMes(-1)" title="Mês anterior">◀</button>
+          <span class="orc-mes-lbl" id="orc-mes-label">—</span>
+          <button class="orc-mes-btn" onclick="orcNavMes(1)" title="Próximo mês">▶</button>
+          <button class="orc-todos-btn" id="btn-orc-todos" onclick="orcVerTodos()">Ver todos</button>
+          <button class="btn-add" style="font-size:12px;padding:5px 10px;border-width:1.5px" onclick="loadHist()" title="Atualizar">↺</button>
+        </div>
       </div>
+      <!-- ── Mini KPIs do período selecionado ── -->
+      <div class="orc-mini-kpis" id="orc-mini-kpis"></div>
+      <!-- ── Filtros de status + busca ── -->
       <div class="hf">
         <button class="fb on" data-s="todos" onclick="filt(this)">Todos</button>
         <button class="fb" data-s="pendente" onclick="filt(this)">⏳ Pendente</button>
@@ -3015,7 +3031,7 @@ function trocarLojaAtiva(id){
   const paginaAtiva=document.querySelector('.page.on');
   if(!paginaAtiva) return;
   const pid=paginaAtiva.id.replace('page-','');
-  if(pid==='history') { atualizarDash(); renderTabela(); renderGraficoDash(); }
+  if(pid==='history') { initOrcMes(); atualizarDash(); renderTabela(); renderGraficoDash(); }
   else if(pid==='os-history') renderOSTabela();
   else if(pid==='clientes') renderClientes();
   else if(pid==='despesas') renderDespesas();
@@ -3415,7 +3431,8 @@ let svcs = [], editId = null;
 let osSvcs = [], modalOrcId = null, osOrcId = null; // osOrcId = ID do orçamento vinculado à OS
 let todosOrc = [], filtroSt = localStorage.getItem('fluxa_filtroSt')||'todos', busca = '';
 let todosOS = [], filtroOSSt = localStorage.getItem('fluxa_filtroOSSt')||'todos', buscaOS = '', filtroOSTec = '';
-let filtroPeriodo = '';
+let filtroPeriodo = ''; // legado — não mais usado na tabela principal
+let orcMesRef = ''; // YYYY-MM ou '' = todos os períodos
 let osFotos = ['','',''];
 let printMode = ''; // 'orc' | 'os' | 'both'
 
@@ -3975,7 +3992,7 @@ function go(p){
   const snb=document.getElementById('snb-'+p); if(snb){ snb.classList.add('on'); snb.setAttribute('aria-current','page'); }
   closeSidebar();
   if(p==='portal') { /* página gerenciada por checkPortalHash */ }
-  if(p==='history'){ loadHist(); setTimeout(renderGraficoDash,200); }
+  if(p==='history'){ initOrcMes(); loadHist(); setTimeout(renderGraficoDash,200); }
   if(p==='form') restaurarRascunho('form');
   if(p==='os-history') loadOSHist();
   if(p==='clientes') renderClientes();
@@ -4727,6 +4744,7 @@ function preencherDocOS(d, num){
 //  HISTÓRICO
 // ──────────────────────────────────────────────────
 async function loadHist(){
+  initOrcMes(); // garante que o mês de referência esteja definido
   // 1. SEMPRE mostra dados locais primeiro — sem depender do banco
   const local=lsOrcLer();
   if(local.length>0) todosOrc=local;
@@ -4770,13 +4788,16 @@ function verificarVencidos(){
 }
 
 function atualizarDash(){
-  const orcFiltrado=filtrarPorLoja(todosOrc);
+  // KPIs sempre refletem o período do mês selecionado (ou todos)
+  const orcFiltrado=_orcListaMes();
   const tot=orcFiltrado.length, soma=orcFiltrado.reduce((a,o)=>a+(o.total||0),0);
   const aprov=orcFiltrado.filter(o=>o.status==='aprovado');
   const somaA=aprov.reduce((a,o)=>a+(o.total||0),0);
   const aRec=aprov.reduce((a,o)=>a+(o.total||0)-(o.valor_recebido||0),0);
   const tick=tot>0?soma/tot:0;
-  setV_el('d-emit',brl(soma),'textContent'); setV_el('d-emit-q',tot+' orç.','textContent');
+  // Sub-label mostra o período
+  const periodoSub=orcMesRef?_renderOrcMesLabelStr():'Todos os períodos';
+  setV_el('d-emit',brl(soma),'textContent'); setV_el('d-emit-q',tot+' orç. · '+periodoSub,'textContent');
   setV_el('d-aprov',brl(somaA),'textContent'); setV_el('d-aprov-q',aprov.length+' aprovado'+(aprov.length!==1?'s':''),'textContent');
   setV_el('d-rec',brl(Math.max(0,aRec)),'textContent');
   setV_el('d-tick',tick>0?brl(tick):'—','textContent');
@@ -4878,34 +4899,118 @@ function renderGraficoDash(){
   });
 }
 
-function filtrarPorPeriodo(val){ filtroPeriodo=val; renderTabela(); }
+function filtrarPorPeriodo(val){ filtroPeriodo=val; renderTabela(); } // legado
+
+// ── NAVEGAÇÃO DE MÊS (orçamentos) ──────────────────────────────────────────
+const _MESES_ORC=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+function initOrcMes(){
+  if(!orcMesRef){
+    const n=new Date();
+    orcMesRef=n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0');
+  }
+  _renderOrcMesLabel();
+}
+
+function orcNavMes(delta){
+  if(!orcMesRef){ initOrcMes(); return; }
+  const [y,m]=orcMesRef.split('-').map(Number);
+  const d=new Date(y,m-1+delta,1);
+  orcMesRef=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+  _renderOrcMesLabel();
+  atualizarDash(); renderTabela();
+}
+
+function orcVerTodos(){
+  orcMesRef='';
+  _renderOrcMesLabel();
+  atualizarDash(); renderTabela();
+}
+
+function _renderOrcMesLabel(){
+  const lbl=document.getElementById('orc-mes-label');
+  const btn=document.getElementById('btn-orc-todos');
+  if(!orcMesRef){
+    if(lbl) lbl.textContent='Todos os períodos';
+    if(btn){ btn.classList.add('on'); }
+  } else {
+    const [y,m]=orcMesRef.split('-').map(Number);
+    if(lbl) lbl.textContent=_MESES_ORC[m-1]+' '+y;
+    if(btn){ btn.classList.remove('on'); }
+  }
+}
+
+function _renderOrcMesLabelStr(){
+  if(!orcMesRef) return 'todos os períodos';
+  const [y,m]=orcMesRef.split('-').map(Number);
+  return _MESES_ORC[m-1]+' '+y;
+}
+
+function _orcListaMes(){
+  let lista=filtrarPorLoja(todosOrc);
+  if(orcMesRef){
+    lista=lista.filter(o=>{
+      const d=o.data_criacao?new Date(o.data_criacao):null;
+      if(!d) return false;
+      return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')===orcMesRef;
+    });
+  }
+  return lista;
+}
+
+function renderOrcMiniKpis(lista){
+  const el=document.getElementById('orc-mini-kpis'); if(!el) return;
+  const ocultarFin=eVendas();
+  const total=lista.length;
+  const soma=lista.reduce((a,o)=>a+(o.total||0),0);
+  const aprov=lista.filter(o=>o.status==='aprovado');
+  const somaA=aprov.reduce((a,o)=>a+(o.total||0),0);
+  const pend=lista.filter(o=>o.status==='pendente').length;
+  const rec=lista.filter(o=>o.status==='recusado').length;
+  const venc=lista.filter(o=>o.status==='vencido').length;
+  const tick=total>0?soma/total:0;
+  el.innerHTML=`
+    <div class="orc-mini-kpi" style="background:#fff7ed;border-left-color:var(--c1)">
+      <div class="orc-mini-kpi-lbl">Total emitido</div>
+      <div class="orc-mini-kpi-val">${ocultarFin?total+' orç.':brl(soma)}</div>
+      <div class="orc-mini-kpi-sub">${total} orçamento${total!==1?'s':''}</div>
+    </div>
+    <div class="orc-mini-kpi" style="background:#f0fdf4;border-left-color:var(--green)">
+      <div class="orc-mini-kpi-lbl">✅ Aprovados</div>
+      <div class="orc-mini-kpi-val" style="color:var(--green)">${ocultarFin?aprov.length:brl(somaA)}</div>
+      <div class="orc-mini-kpi-sub">${aprov.length} aprovado${aprov.length!==1?'s':''}</div>
+    </div>
+    <div class="orc-mini-kpi" style="background:#fffbeb;border-left-color:var(--yellow)">
+      <div class="orc-mini-kpi-lbl">⏳ Pendentes</div>
+      <div class="orc-mini-kpi-val" style="color:var(--yellow)">${pend}</div>
+      <div class="orc-mini-kpi-sub">${ocultarFin?'':tick>0?'Ticket: '+brl(tick):''}</div>
+    </div>
+    <div class="orc-mini-kpi" style="background:#fef2f2;border-left-color:var(--red)">
+      <div class="orc-mini-kpi-lbl">❌ Recusados/Vencidos</div>
+      <div class="orc-mini-kpi-val" style="color:var(--red)">${rec+venc}</div>
+      <div class="orc-mini-kpi-sub">${rec} recusado${rec!==1?'s':''} · ${venc} vencido${venc!==1?'s':''}</div>
+    </div>`;
+}
 
 function renderTabela(){
   // auto-vence orçamentos pendentes com prazo expirado
   autoVencerOrc(todosOrc);
-  let lista=todosOrc;
-  // filtro loja ativa / grupo
-  lista=filtrarPorLoja(lista);
-  // filtro período
-  if(filtroPeriodo){
-    const agora=new Date(); agora.setHours(0,0,0,0);
-    lista=lista.filter(o=>{
-      const d=o.data_criacao?new Date(o.data_criacao):null; if(!d) return false;
-      if(filtroPeriodo==='mes-atual') return d.getFullYear()===agora.getFullYear()&&d.getMonth()===agora.getMonth();
-      if(filtroPeriodo==='mes-anterior'){ const m=new Date(agora.getFullYear(),agora.getMonth()-1,1); return d.getFullYear()===m.getFullYear()&&d.getMonth()===m.getMonth(); }
-      if(filtroPeriodo==='30d'){ const lim=new Date(agora); lim.setDate(lim.getDate()-30); return d>=lim; }
-      if(filtroPeriodo==='90d'){ const lim=new Date(agora); lim.setDate(lim.getDate()-90); return d>=lim; }
-      if(filtroPeriodo==='ano') return d.getFullYear()===agora.getFullYear();
-      return true;
-    });
-  }
+  // base: filtro por mês de vigência
+  let listaMes=_orcListaMes();
+  // Renderiza mini KPIs para o período selecionado (antes dos filtros de status/busca)
+  renderOrcMiniKpis(listaMes);
+  let lista=listaMes;
   if(filtroSt!=='todos') lista=lista.filter(o=>o.status===filtroSt);
   if(busca) lista=lista.filter(o=>
     (o.cliente||'').toLowerCase().includes(busca)||
     (o.local_servico||'').toLowerCase().includes(busca)||
     String(o.numero||'').includes(busca.replace('#',''))
   );
-  if(!lista.length){ document.getElementById('hist-body').innerHTML=`<div class="empty-st"><div class="ei">📭</div><p>Nenhum orçamento encontrado.</p><button class="btn-primary" style="margin-top:12px" onclick="novoOrc();go('form')">＋ Criar Orçamento</button></div>`; return; }
+  if(!lista.length){
+    const msgBusca=busca?`Nenhum resultado para "<strong>${esc(busca)}</strong>"`:
+      orcMesRef?`Nenhum orçamento em ${_renderOrcMesLabelStr()}.`:'Nenhum orçamento encontrado.';
+    document.getElementById('hist-body').innerHTML=`<div class="empty-st"><div class="ei">📭</div><p>${msgBusca}</p><button class="btn-primary" style="margin-top:12px" onclick="novoOrc();go('form')">＋ Criar Orçamento</button></div>`; return;
+  }
   const sopts=s=>['pendente','aprovado','recusado','vencido'].map(x=>`<option value="${x}" ${x===s?'selected':''}>${x.charAt(0).toUpperCase()+x.slice(1)}</option>`).join('');
   const ocultarFinanceiro=eVendas();
   let h=`<div class="htw"><table class="ht"><thead><tr><th>#</th><th>Cliente</th>${ocultarFinanceiro?'':'<th>Total / Recebido</th>'}<th>Data</th><th>Status</th><th>Ações</th></tr></thead><tbody>`;
