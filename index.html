@@ -3924,10 +3924,9 @@ function go(p){
   if(p==='minhas-os') loadMinhasOS();
   if(p==='visitas'){
     initVisitas();
-    // Técnico cai direto na aba Locais (onde estão as visitas atribuídas a ele)
-    // Gestor/vendas cai na Nova Vistoria (comportamento padrão)
-    const _sess=getSessao();
-    if(_sess?.perfil==='tecnico') visTab('locais');
+    // Todos os perfis caem direto na aba Locais (acompanhamento mensal)
+    // "Nova Vistoria" fica acessível pela aba, mas não é a tela inicial
+    visTab('locais');
   }
   // Atualiza técnicos disponíveis quando abre form de OS
   if(p==='os'){
@@ -8001,14 +8000,22 @@ function preencherRelatorioVistoria(vis){
   // Logo / initials
   const logoEl    = document.getElementById('pd-hdr-logo-vis');
   const initEl    = document.getElementById('pd-hdr-init-vis');
-  const logoSrc   = document.getElementById('hdr-logo-img')?.src||'';
-  if(logoEl){ logoEl.src=logoSrc; logoEl.className='pd-hdr-logo-img'+(logoSrc&&!logoSrc.endsWith('/')?' has-logo':''); }
-  if(initEl){ initEl.textContent=CFG?.nome_empresa?.charAt(0)||'F'; initEl.className='pd-hdr-logo-initials'+(logoSrc&&!logoSrc.endsWith('/')?' ':' show-init'); }
+  const nomePDF = CFG?.nome||'Empresa';
+  if(logoEl && initEl){
+    if(CFG?.logoB64){
+      logoEl.src=CFG.logoB64; logoEl.className='pd-hdr-logo-img has-logo';
+      initEl.className='pd-hdr-logo-initials';
+    } else {
+      logoEl.className='pd-hdr-logo-img';
+      initEl.textContent=nomePDF.charAt(0).toUpperCase();
+      initEl.className='pd-hdr-logo-initials show-init';
+    }
+  }
 
   // Nome empresa
-  const nm=document.getElementById('pd-nm-vis'); if(nm) nm.textContent=CFG?.nome_empresa||'Empresa';
-  const sb=document.getElementById('pd-sb-vis'); if(sb) sb.textContent=CFG?.slogan||'Serviços';
-  const tag=document.getElementById('pd-tag-vis'); if(tag) tag.textContent=CFG?.descricao||'';
+  const nm=document.getElementById('pd-nm-vis'); if(nm) nm.textContent=nomePDF;
+  const sb=document.getElementById('pd-sb-vis'); if(sb) sb.textContent=CFG?.sub||'Serviços';
+  const tag=document.getElementById('pd-tag-vis'); if(tag) tag.textContent='';
 
   // Doc number = data
   const numEl=document.getElementById('pd-num-vis');
@@ -8085,7 +8092,9 @@ function preencherRelatorioVistoria(vis){
 
   // Footer
   const tel=CFG?.tel||''; const email=CFG?.email||'';
-  if(footEl){ footEl.style.background=cor2; footEl.textContent=`${CFG?.nome_empresa||''}${tel?' · '+tel:''}${email?' · '+email:''}`; }
+  if(footEl){ footEl.style.background=cor2; footEl.textContent=`${CFG?.nome||''}${tel?' · '+tel:''}${email?' · '+email:''}`; }
+  const metaEl=document.getElementById('pd-meta-vis');
+  if(metaEl) metaEl.innerHTML=`${CFG?.nome||''}${tel?'<br>'+tel:''}`;
 }
 
 // ── Abrir a aba de visitas já preenchida com agendamento ──
@@ -8148,7 +8157,7 @@ async function enviarEmailVistoria(vis){
   const params = {
     to_email   : emailDest,
     to_name    : vis.cliente || 'Responsável',
-    empresa    : CFG.nome_empresa || CFG.nome || 'Empresa',
+    empresa    : CFG.nome || 'Empresa',
     tecnico    : vis.tecnico || '',
     mes_ref    : mesRef,
     data_visita: dataVisita,
