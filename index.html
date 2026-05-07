@@ -575,6 +575,36 @@
     .loc-empty{text-align:center;padding:40px 20px;color:var(--gray);font-size:13px}
     .loc-empty-icon{font-size:40px;margin-bottom:10px}
     .loc-empty-txt{margin-bottom:16px;line-height:1.6}
+    /* ── EQUIPAMENTOS NO FORMULÁRIO DO PLANO ── */
+    .loc-eq-row{display:grid;grid-template-columns:1.6fr 1fr 1fr auto;gap:8px;align-items:end;background:#fff;padding:10px;border-radius:8px;border:1.5px solid var(--gray-mid);margin-bottom:6px}
+    .loc-eq-row label{font-size:11px;font-weight:600;color:var(--gray);display:block;margin-bottom:3px}
+    .loc-eq-row input{width:100%;padding:7px 10px;border:1.5px solid var(--gray-mid);border-radius:7px;font-size:12px;font-family:'Inter',sans-serif;color:var(--c2);outline:none}
+    .loc-eq-row input:focus{border-color:var(--c1)}
+    .loc-eq-del{background:none;border:1.5px solid var(--red);border-radius:7px;color:var(--red);width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;flex-shrink:0}
+    /* ── EQUIPAMENTOS NO MODAL DE CONCLUSÃO ── */
+    .cv-eq-row{border:1.5px solid var(--gray-mid);border-radius:10px;padding:12px;margin-bottom:10px;transition:border-color .15s}
+    .cv-eq-row.st-bom{border-color:var(--green)}
+    .cv-eq-row.st-atencao{border-color:var(--yellow)}
+    .cv-eq-row.st-critico{border-color:var(--red)}
+    .cv-eq-hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;gap:8px}
+    .cv-eq-name{font-weight:700;font-size:13px;color:var(--c2)}
+    .cv-eq-sub{font-size:11px;color:var(--gray);margin-top:1px}
+    .cv-eq-badges{display:flex;gap:4px;flex-wrap:wrap;flex-shrink:0}
+    .cv-eq-badge{padding:3px 8px;border-radius:20px;font-size:10px;font-weight:700;cursor:pointer;border:1.5px solid transparent;transition:all .1s}
+    .cv-eq-badge.bom{background:#f0fdf4;color:var(--green);border-color:#bbf7d0}
+    .cv-eq-badge.bom.on{background:var(--green);color:#fff;border-color:var(--green)}
+    .cv-eq-badge.atencao{background:#fffbeb;color:var(--yellow);border-color:#fde68a}
+    .cv-eq-badge.atencao.on{background:var(--yellow);color:#fff;border-color:var(--yellow)}
+    .cv-eq-badge.critico{background:#fef2f2;color:var(--red);border-color:#fecaca}
+    .cv-eq-badge.critico.on{background:var(--red);color:#fff;border-color:var(--red)}
+    .cv-eq-badge.na{background:var(--gray-light);color:var(--gray);border-color:var(--gray-mid)}
+    .cv-eq-badge.na.on{background:var(--gray);color:#fff;border-color:var(--gray)}
+    .cv-eq-obs{width:100%;padding:8px 10px;border:1.5px solid var(--gray-mid);border-radius:7px;font-size:12px;font-family:'Inter',sans-serif;resize:none;outline:none;color:var(--c2);margin-top:8px}
+    .cv-eq-obs:focus{border-color:var(--c1)}
+    .cv-eq-fotos{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;align-items:center}
+    .cv-eq-thumb{width:60px;height:60px;object-fit:cover;border-radius:6px;border:1.5px solid var(--gray-mid);cursor:pointer}
+    .cv-eq-foto-btn{display:flex;align-items:center;gap:4px;padding:5px 10px;border-radius:7px;border:1.5px solid var(--blue);background:var(--blue-bg);color:var(--blue);font-size:11px;font-weight:700;cursor:pointer}
+    @media(max-width:640px){.loc-eq-row{grid-template-columns:1fr;gap:6px}}
 
     /* ── BOTTOM NAV (mobile) ── */
     .mob-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--c2);border-top:1px solid rgba(255,255,255,.12);z-index:300;padding-bottom:env(safe-area-inset-bottom)}
@@ -2521,10 +2551,17 @@
         <div class="ct">➕ Novo Plano de Acompanhamento</div>
         <div class="row"><div class="fl"><label class="req">Cliente / Nome do local</label><input type="text" id="loc-cli" placeholder="Ex: Condomínio Sol Nascente" autocomplete="off"></div><div class="fl"><label class="req">Endereço</label><input type="text" id="loc-end" placeholder="Rua, número, bairro"></div></div>
         <div class="row"><div class="fl"><label>E-mail responsável</label><input type="email" id="loc-email" placeholder="sindico@condominio.com.br"></div><div class="fl"><label>Técnico responsável</label><select id="loc-tec"><option value="">Qualquer técnico</option></select></div></div>
-        <div class="fl" style="margin-bottom:12px"><label>Equipamentos padrão</label><div id="loc-equip-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px"></div></div>
+        <div class="row"><div class="fl"><label>Dia de preferência (do mês)</label><select id="loc-dia-pref" style="width:100%;padding:9px 12px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;outline:none"><option value="">Qualquer dia</option></select></div><div class="fl"><label>Horário preferencial</label><input type="time" id="loc-hora-pref" value="08:00"></div></div>
+        <div class="fl" style="margin-bottom:4px">
+          <label style="display:flex;align-items:center;justify-content:space-between">
+            <span>🔧 Equipamentos do local <span style="font-weight:400;color:var(--gray)">(modelo, potência…)</span></span>
+            <button type="button" class="btn-sm" onclick="adicionarLocEquip()" style="font-size:11px;padding:4px 10px">＋ Adicionar</button>
+          </label>
+          <div id="loc-equip-list" style="margin-top:8px"></div>
+        </div>
         <input type="hidden" id="loc-edit-id">
-        <div style="display:flex;gap:8px">
-          <button class="btn-primary" onclick="salvarLocal()">💾 Salvar</button>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button class="btn-primary" onclick="salvarLocal()">💾 Salvar plano</button>
           <button class="btn-sm" onclick="fecharLocForm()" style="color:var(--c2)">Cancelar</button>
         </div>
       </div>
@@ -2643,30 +2680,41 @@
 
 <!-- ══ MODAL: Concluir Vistoria Rápida ══ -->
 <div class="modal-bg" id="concluir-vis-bg" role="dialog" aria-modal="true" onclick="if(event.target===this)fecharConcluirVis()">
-  <div class="modal" style="max-width:440px">
-    <h3 style="margin-bottom:4px">✅ Concluir visita</h3>
+  <div class="modal" style="max-width:520px;max-height:90vh;overflow-y:auto">
+    <h3 style="margin-bottom:4px">✅ Registrar visita</h3>
     <p id="concluir-vis-nome" style="font-size:13px;color:var(--gray);margin-bottom:16px;font-weight:600"></p>
     <input type="hidden" id="concluir-vis-id">
+    <!-- Data + hora + técnico -->
     <div class="row" style="margin-bottom:12px">
       <div class="fl">
         <label>Data da visita</label>
         <input type="date" id="concluir-vis-data" style="width:100%">
       </div>
       <div class="fl">
-        <label>Técnico</label>
-        <input type="text" id="concluir-vis-tec" placeholder="Nome do técnico" style="width:100%">
+        <label>Horário de chegada</label>
+        <input type="time" id="concluir-vis-hora" style="width:100%">
       </div>
     </div>
+    <div class="fl" style="margin-bottom:14px">
+      <label>Técnico responsável</label>
+      <input type="text" id="concluir-vis-tec" placeholder="Nome do técnico" style="width:100%">
+    </div>
+    <!-- Equipamentos cadastrados no plano -->
+    <div id="concluir-vis-equips-wrap" style="display:none;margin-bottom:14px">
+      <div style="font-size:13px;font-weight:700;color:var(--c2);margin-bottom:8px;display:flex;align-items:center;gap:6px">
+        🔧 Condição dos equipamentos
+        <span style="font-size:11px;font-weight:400;color:var(--gray)">(marque o status de cada um)</span>
+      </div>
+      <div id="concluir-vis-equip-list"></div>
+    </div>
+    <!-- Observação geral -->
     <div class="fl" style="margin-bottom:16px">
-      <label>Observações <span style="font-weight:400;color:var(--gray)">(opcional)</span></label>
-      <textarea id="concluir-vis-obs" rows="3" placeholder="Ex: Equipamentos verificados, pendências encontradas…" style="width:100%;resize:vertical;padding:9px 12px;border:1.5px solid var(--gray-mid);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;color:var(--c2);outline:none"></textarea>
+      <label>Observações gerais <span style="font-weight:400;color:var(--gray)">(opcional)</span></label>
+      <textarea id="concluir-vis-obs" rows="2" placeholder="Ex: Sistema funcionando normalmente, limpeza realizada…" style="width:100%;resize:vertical;padding:9px 12px;border:1.5px solid var(--gray-mid);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;color:var(--c2);outline:none"></textarea>
     </div>
     <div class="modal-acts">
       <button class="btn-sec" onclick="fecharConcluirVis()">Cancelar</button>
       <button class="btn-primary" onclick="salvarConcluirVis()" style="flex:1">✅ Confirmar visita</button>
-    </div>
-    <div style="margin-top:10px;text-align:center">
-      <button class="tb" onclick="concluirVisDetalhada()" style="font-size:12px;color:var(--gray)">🔍 Abrir formulário completo (equipamentos, fotos…)</button>
     </div>
   </div>
 </div>
@@ -7307,21 +7355,28 @@ async function saveLocais(){
   }
 }
 
+// ── LOCAIS: formulário de plano ──────────────────────────────────────────────
 function abrirLocForm(id){
   const f=document.getElementById('loc-add-form');
   f.style.display='';
-  // populate tec select
+  // técnico select
   const sel=document.getElementById('loc-tec');
   sel.innerHTML='<option value="">Qualquer técnico</option>';
-  const tecList = (typeof CFG !== 'undefined' && CFG.tecnicos) ? CFG.tecnicos : [];
+  const tecList=(typeof CFG!=='undefined'&&CFG.tecnicos)?CFG.tecnicos:[];
   tecList.forEach(t=>{ const o=document.createElement('option'); o.value=t; o.textContent=t; sel.appendChild(o); });
-  // populate equip chips
-  renderLocEquipChips([]);
+  // dia de preferência select (1-28)
+  const diaSel=document.getElementById('loc-dia-pref');
+  if(diaSel){ diaSel.innerHTML='<option value="">Qualquer dia</option>'; for(let i=1;i<=28;i++){ const o=document.createElement('option'); o.value=i; o.textContent='Dia '+i; diaSel.appendChild(o); } }
+  // reset campos
   document.getElementById('loc-edit-id').value='';
   document.getElementById('loc-cli').value='';
   document.getElementById('loc-end').value='';
   document.getElementById('loc-email').value='';
   sel.value='';
+  if(diaSel) diaSel.value='';
+  const horaPref=document.getElementById('loc-hora-pref'); if(horaPref) horaPref.value='08:00';
+  _locEquipCustom=[];
+  renderLocEquipList();
   if(id){
     const loc=locaisVistoria.find(x=>x.id===id);
     if(loc){
@@ -7330,35 +7385,126 @@ function abrirLocForm(id){
       document.getElementById('loc-end').value=loc.local||'';
       document.getElementById('loc-email').value=loc.email_responsavel||'';
       sel.value=loc.tecnico||'';
-      renderLocEquipChips(loc.equipamentos||[]);
+      if(diaSel) diaSel.value=loc.dia_pref||'';
+      if(horaPref) horaPref.value=loc.hora_pref||'08:00';
+      _locEquipCustom=normalizeLocEquips(loc.equipamentos||[]);
+      renderLocEquipList();
     }
   }
   f.scrollIntoView({behavior:'smooth',block:'start'});
 }
 function fecharLocForm(){
   document.getElementById('loc-add-form').style.display='none';
+  _locEquipCustom=[];
 }
 
-let _locEquipSel=[];
-function renderLocEquipChips(sel){
-  _locEquipSel=[...sel];
-  const c=document.getElementById('loc-equip-chips');
-  if(!c) return;
-  c.innerHTML='';
-  (VIS_EQUIPAMENTOS_DEFAULT||[]).forEach(eq=>{
-    const on=_locEquipSel.includes(eq.id);
-    const btn=document.createElement('button');
-    btn.type='button';
-    btn.className='chip'+(on?' chip-on':'');
-    btn.style.cssText=on?'background:var(--c1);color:#fff;border-color:var(--c1)':'';
-    btn.textContent=eq.emoji+' '+eq.nome;
-    btn.onclick=()=>{
-      if(_locEquipSel.includes(eq.id)) _locEquipSel=_locEquipSel.filter(x=>x!==eq.id);
-      else _locEquipSel.push(eq.id);
-      renderLocEquipChips(_locEquipSel);
-    };
-    c.appendChild(btn);
+// Converte formato antigo (array de IDs string) para novo formato (array de objetos)
+function normalizeLocEquips(equips){
+  if(!equips||!equips.length) return [];
+  if(typeof equips[0]==='string'){
+    return equips.map(id=>{ const def=VIS_EQUIPAMENTOS_DEFAULT.find(e=>e.id===id)||{nome:id,emoji:'⚙️'}; return {id:'eq_'+Date.now()+Math.random(),nome:def.nome,modelo:'',potencia:'',serie:''}; });
+  }
+  return equips.map(e=>({id:e.id||'eq_'+Date.now()+Math.random(),nome:e.nome||'',modelo:e.modelo||'',potencia:e.potencia||'',serie:e.serie||''}));
+}
+
+let _locEquipCustom=[]; // [{id, nome, modelo, potencia, serie}]
+
+function adicionarLocEquip(){
+  _locEquipCustom.push({id:'eq_'+Date.now(),nome:'',modelo:'',potencia:'',serie:''});
+  renderLocEquipList();
+  // foco no primeiro campo do novo item
+  setTimeout(()=>{
+    const rows=document.querySelectorAll('.loc-eq-row');
+    if(rows.length){ const inp=rows[rows.length-1].querySelector('input'); if(inp) inp.focus(); }
+  },60);
+}
+
+function removerLocEquip(idx){
+  _locEquipCustom.splice(idx,1);
+  renderLocEquipList();
+}
+
+function renderLocEquipList(){
+  const c=document.getElementById('loc-equip-list'); if(!c) return;
+  if(!_locEquipCustom.length){
+    c.innerHTML=`<div style="font-size:12px;color:var(--gray);padding:8px 0">Nenhum equipamento cadastrado. Clique em "＋ Adicionar" para cadastrar.</div>`;
+    return;
+  }
+  c.innerHTML=_locEquipCustom.map((eq,i)=>`
+    <div class="loc-eq-row">
+      <div><label>Tipo / Nome *</label><input type="text" value="${esc(eq.nome)}" oninput="_locEquipCustom[${i}].nome=this.value" placeholder="Ex: Motobomba, Filtro, Aquecedor…"></div>
+      <div><label>Modelo</label><input type="text" value="${esc(eq.modelo)}" oninput="_locEquipCustom[${i}].modelo=this.value" placeholder="Ex: Komeco KOM 15"></div>
+      <div><label>Potência / Cap.</label><input type="text" value="${esc(eq.potencia)}" oninput="_locEquipCustom[${i}].potencia=this.value" placeholder="Ex: 1.5 CV"></div>
+      <button class="loc-eq-del" onclick="removerLocEquip(${i})" title="Remover">🗑</button>
+    </div>
+  `).join('');
+}
+
+// ── CONCLUIR VISITA — equipamentos no modal ──────────────────────────────────
+let _cvEquipData={}; // {idx: {status, obs, fotos:[]}}
+
+function renderConcluirVisEquips(equips){
+  _cvEquipData={};
+  const wrap=document.getElementById('concluir-vis-equips-wrap');
+  const list=document.getElementById('concluir-vis-equip-list');
+  if(!wrap||!list) return;
+  if(!equips||!equips.length){ wrap.style.display='none'; return; }
+  wrap.style.display='';
+  equips.forEach((_,i)=>{ _cvEquipData[i]={status:'',obs:'',fotos:[]}; });
+  list.innerHTML=equips.map((eq,i)=>`
+    <div class="cv-eq-row" id="cv-eq-row-${i}">
+      <div class="cv-eq-hdr">
+        <div>
+          <div class="cv-eq-name">⚙️ ${esc(eq.nome||'Equipamento')}</div>
+          ${(eq.modelo||eq.potencia)?`<div class="cv-eq-sub">${[eq.modelo,eq.potencia].filter(Boolean).join(' · ')}</div>`:''}
+        </div>
+        <div class="cv-eq-badges">
+          <button class="cv-eq-badge bom" id="cv-eq-b-bom-${i}" onclick="setCvEquipStatus(${i},'bom')">✓ Bom</button>
+          <button class="cv-eq-badge atencao" id="cv-eq-b-atencao-${i}" onclick="setCvEquipStatus(${i},'atencao')">⚠ Atenção</button>
+          <button class="cv-eq-badge critico" id="cv-eq-b-critico-${i}" onclick="setCvEquipStatus(${i},'critico')">✕ Crítico</button>
+          <button class="cv-eq-badge na" id="cv-eq-b-na-${i}" onclick="setCvEquipStatus(${i},'na')">— N/A</button>
+        </div>
+      </div>
+      <textarea class="cv-eq-obs" rows="2" placeholder="Descrição da condição do equipamento…" oninput="_cvEquipData[${i}].obs=this.value" id="cv-eq-obs-${i}"></textarea>
+      <div class="cv-eq-fotos" id="cv-eq-fotos-${i}">
+        <input type="file" accept="image/*" capture="environment" id="cv-eq-file-${i}" style="display:none" onchange="cvCapturarFoto(${i},this)">
+        <button type="button" class="cv-eq-foto-btn" onclick="document.getElementById('cv-eq-file-${i}').click()">📷 Foto</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function setCvEquipStatus(idx,status){
+  _cvEquipData[idx].status=status;
+  ['bom','atencao','critico','na'].forEach(s=>{
+    const btn=document.getElementById(`cv-eq-b-${s}-${idx}`);
+    if(btn){ btn.classList.toggle('on',s===status); }
   });
+  const row=document.getElementById(`cv-eq-row-${idx}`);
+  if(row){ row.className='cv-eq-row'+(status&&status!=='na'?' st-'+status:''); }
+}
+
+function cvCapturarFoto(idx,input){
+  const files=input.files; if(!files||!files.length) return;
+  const file=files[0];
+  const reader=new FileReader();
+  reader.onload=e=>{
+    _cvEquipData[idx].fotos=_cvEquipData[idx].fotos||[];
+    _cvEquipData[idx].fotos.push(e.target.result);
+    const fotosDiv=document.getElementById(`cv-eq-fotos-${idx}`);
+    if(fotosDiv){
+      const img=document.createElement('img');
+      img.src=e.target.result; img.className='cv-eq-thumb';
+      img.title='Clique para remover';
+      const fotoIdx=_cvEquipData[idx].fotos.length-1;
+      img.onclick=()=>{ _cvEquipData[idx].fotos.splice(fotoIdx,1); img.remove(); };
+      // insere antes do botão de adicionar
+      const btn=fotosDiv.querySelector('.cv-eq-foto-btn');
+      fotosDiv.insertBefore(img,btn);
+    }
+    input.value=''; // reset para permitir nova foto
+  };
+  reader.readAsDataURL(file);
 }
 
 // Cria ou atualiza o agendamento mensal vinculado ao plano de acompanhamento
@@ -7370,8 +7516,8 @@ async function criarOuAtualizarAgendamentoPlano(rec, isEdit){
     tecnico: rec.tecnico||'',
     tipo_servico: 'Vistoria de Manutenção',
     periodicidade: 'mensal',
-    dia_semana: 1,
-    horario: '08:00',
+    dia_semana: parseInt(rec.dia_pref)||1,
+    horario: rec.hora_pref||'08:00',
     data_inicio: hoje,
     data_fim: null,
     obs: 'Plano de acompanhamento mensal',
@@ -7421,6 +7567,8 @@ async function salvarLocal(){
   const s=getSessao();
   const lojaId=s?.loja_id||getLojaFiltro()||CFG?.lojas?.[0]?.id||'default';
   const existingLocal=editId?locaisVistoria.find(x=>x.id===editId):null;
+  // valida ao menos nome de cada equipamento
+  const equipsValidos=_locEquipCustom.filter(e=>e.nome.trim());
   const rec={
     id: editId||('loc_'+Date.now()),
     loja_id: lojaId,
@@ -7428,7 +7576,9 @@ async function salvarLocal(){
     local: end,
     email_responsavel: (document.getElementById('loc-email').value||'').trim(),
     tecnico: document.getElementById('loc-tec').value||'',
-    equipamentos: [..._locEquipSel],
+    dia_pref: document.getElementById('loc-dia-pref')?.value||'',
+    hora_pref: document.getElementById('loc-hora-pref')?.value||'08:00',
+    equipamentos: equipsValidos,
     ativo: true,
     agendamento_id: existingLocal?.agendamento_id||'',
     created_at: editId ? (existingLocal||{}).created_at||new Date().toISOString() : new Date().toISOString()
@@ -7504,18 +7654,29 @@ function locVisMesProximo(){
   renderLocaisTab();
 }
 
-// Abre o mini-modal de conclusão rápida (sem sair da lista)
+// Abre o modal de conclusão de visita com todos os dados do plano pré-preenchidos
 function iniciarVistoriaLocal(id){
   const loc=locaisVistoria.find(x=>x.id===id);
   if(!loc) return;
   window._concluirVisLocalId=id;
-  // Preenche modal
+  const s=getSessao();
+  // Cabeçalho
   document.getElementById('concluir-vis-id').value=id;
   document.getElementById('concluir-vis-nome').textContent=loc.cliente+' — '+loc.local;
+  // Data = hoje
   document.getElementById('concluir-vis-data').value=new Date().toISOString().slice(0,10);
-  const s=getSessao();
+  // Horário = hora preferencial do plano, ou hora atual
+  const horaEl=document.getElementById('concluir-vis-hora');
+  if(horaEl) horaEl.value=loc.hora_pref||new Date().toTimeString().slice(0,5);
+  // Técnico = responsável do plano, ou técnico logado
   document.getElementById('concluir-vis-tec').value=loc.tecnico||s?.nome||'';
+  // Observações
   document.getElementById('concluir-vis-obs').value='';
+  // Equipamentos do plano
+  const equips=normalizeLocEquips(loc.equipamentos||[]);
+  renderConcluirVisEquips(equips);
+  // Guarda lista para salvar depois
+  window._concluirVisEquips=equips;
   document.getElementById('concluir-vis-bg').classList.add('on');
 }
 function fecharConcluirVis(){
@@ -7527,11 +7688,24 @@ async function salvarConcluirVis(){
   const loc=locaisVistoria.find(x=>x.id===id);
   if(!loc){ fecharConcluirVis(); return; }
   const data=document.getElementById('concluir-vis-data').value||new Date().toISOString().slice(0,10);
+  const hora=document.getElementById('concluir-vis-hora')?.value||new Date().toTimeString().slice(0,5);
   const tec=document.getElementById('concluir-vis-tec').value.trim();
   const obs=document.getElementById('concluir-vis-obs').value.trim();
   const s=getSessao();
   const lojaId=s?.loja_id||getLojaFiltro()||CFG?.lojas?.[0]?.id||'default';
-  const mes=locaisVisMesRef||new Date().toISOString().slice(0,7);
+  const mes=data.slice(0,7); // usa mês da data informada, não visMesRef
+  // Monta array de equipamentos com status/obs/fotos coletados no modal
+  const equipsBase=window._concluirVisEquips||[];
+  const equipamentos=equipsBase.map((eq,i)=>({
+    id:eq.id,
+    nome:eq.nome,
+    modelo:eq.modelo||'',
+    potencia:eq.potencia||'',
+    emoji:'⚙️',
+    status:(_cvEquipData[i]?.status)||'na',
+    obs:(_cvEquipData[i]?.obs)||'',
+    fotos:(_cvEquipData[i]?.fotos)||[]
+  }));
   const rec={
     id:'vis_'+Date.now(),
     loja_id:lojaId,
@@ -7539,12 +7713,14 @@ async function salvarConcluirVis(){
     cliente:loc.cliente,
     local:loc.local,
     data,
-    hora:new Date().toTimeString().slice(0,5),
+    hora,
+    hora_checkin:hora,
+    hora_checkout:'',
     tecnico:tec||s?.nome||'',
     mes_ref:mes,
     obs_geral:obs,
     email_responsavel:loc.email_responsavel||null,
-    equipamentos:[],
+    equipamentos,
     created_at:new Date().toISOString()
   };
   const lista=lsVisLer();
@@ -7584,14 +7760,25 @@ function concluirVisDetalhada(){
   fecharConcluirVis();
   const loc=locaisVistoria.find(x=>x.id===id);
   if(!loc) return;
-  visEquipSelecionados=[...(loc.equipamentos||[])];
+  // Converte equipamentos do plano para o formato do formulário completo
+  const equipsPlano=normalizeLocEquips(loc.equipamentos||[]);
+  visEquipSelecionados=equipsPlano.map(e=>e.id);
+  // Pré-carrega dados nos equipamentos do formulário (para mostrar modelo/potência)
+  visEquipDados={};
+  equipsPlano.forEach(e=>{ visEquipDados[e.id]={status:'',obs:'',fotos:[],modelo:e.modelo,potencia:e.potencia}; });
+  // Abre formulário completo com dados do local
   novaVistoria(loc.cliente, loc.local, loc.tecnico||'');
   setTimeout(()=>{
     const emailEl=document.getElementById('vis-email-resp');
     if(emailEl && loc.email_responsavel) emailEl.value=loc.email_responsavel;
     const mesEl=document.getElementById('vis-mes-ref');
-    if(mesEl && locaisVisMesRef) mesEl.value=locaisVisMesRef;
+    const mesData=new Date().toISOString().slice(0,7);
+    if(mesEl) mesEl.value=mesData;
+    const horaEl=document.getElementById('vis-hora');
+    if(horaEl && loc.hora_pref) horaEl.value=loc.hora_pref;
     window._visLocalId=id;
+    // Adiciona equipamentos customizados ao grid
+    _visEquipsCustom=equipsPlano;
     renderVisEquipGrid();
   }, 80);
 }
@@ -7714,7 +7901,7 @@ function renderLocaisTab(){
         <span class="loc-ucard-icon">${icon}</span>
         <div class="loc-ucard-info">
           <div class="loc-ucard-nome">${esc(loc.cliente)}</div>
-          <div class="loc-ucard-det">📍 ${esc(loc.local)}${loc.tecnico?' · 👤 '+esc(loc.tecnico):''}${loc.email_responsavel?' · ✉️ '+esc(loc.email_responsavel):''}</div>
+          <div class="loc-ucard-det">📍 ${esc(loc.local)}${loc.tecnico?' · 👤 '+esc(loc.tecnico):''}${loc.hora_pref?' · 🕐 '+esc(loc.hora_pref):''}${(()=>{const eq=normalizeLocEquips(loc.equipamentos||[]);return eq.length?' · 🔧 '+eq.length+' equip.':'';})()} </div>
           ${statusHtml}
         </div>
         <div class="loc-ucard-acts">${acoesHtml}</div>
@@ -7787,57 +7974,89 @@ function toggleVisEquip(id){
   if(card) card.style.display = visEquipSelecionados.length?'':'none';
 }
 
+let _visEquipsCustom=[]; // equipamentos vindos de um plano de acompanhamento
+
 // ── Grid de vistoria por equipamento ──
 function renderVisEquipGrid(){
   const el = document.getElementById('vis-equip-grid'); if(!el) return;
   el.innerHTML = '';
-  visEquipSelecionados.forEach(id=>{
-    const def = VIS_EQUIPAMENTOS_DEFAULT.find(x=>x.id===id);
-    if(!def) return;
-    const d = visEquipDados[id] || { status:'na', obs:'', fotos:[] };
-    const stClass = 'status-'+d.status;
-    const badgeMap = { bom:'badge-bom', atencao:'badge-atencao', critico:'badge-critico', na:'badge-na' };
-    const badgeTxt = { bom:'✅ Bom', atencao:'⚠️ Atenção', critico:'🔴 Crítico', na:'— N/A' };
-    const block = document.createElement('div');
-    block.className = `vis-equip-block ${stClass}`;
-    block.id = `vis-block-${id}`;
-    // 3 foto slots
-    const fotosHtml = [0,1,2].map(i=>{
-      const f = (d.fotos||[])[i];
-      return `<div class="vis-foto-slot${f?' filled':''}" onclick="visClickFotoSlot('${id}',${i})">
-        <input type="file" id="vis-f-${id}-${i}" accept="image/*" capture="environment" style="display:none"
-               onchange="visCarregarFoto(this,'${id}',${i})">
-        ${f?`<img src="${f}" alt="">`:'' }
-        <div class="vis-foto-slot-icon">📷</div>
-        <button class="vis-foto-rm" onclick="event.stopPropagation();visRemoverFoto('${id}',${i})" title="Remover">✕</button>
-      </div>`;
-    }).join('');
-    block.innerHTML = `
-      <div class="vis-equip-hdr" onclick="toggleVisEquipBody('${id}')">
-        <div class="vis-equip-emoji">${def.emoji}</div>
-        <div class="vis-equip-nome">${def.nome}</div>
-        <div class="vis-equip-badge ${badgeMap[d.status]}">${badgeTxt[d.status]}</div>
-        <div class="vis-equip-toggle" id="vis-arr-${id}">▼</div>
+  // Esconde/mostra o bloco de equipamentos
+  const card = document.getElementById('vis-equip-card');
+  const hasEquips=visEquipSelecionados.length>0||_visEquipsCustom.length>0;
+  if(card) card.style.display=hasEquips?'':'none';
+
+  // Renderiza equipamentos customizados do plano (se existirem)
+  const customIds=_visEquipsCustom.map(e=>e.id);
+  if(_visEquipsCustom.length){
+    const secTit=document.createElement('div');
+    secTit.style.cssText='font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--gray);margin-bottom:8px';
+    secTit.textContent='Equipamentos do plano';
+    el.appendChild(secTit);
+    _visEquipsCustom.forEach(ceq=>{
+      const id=ceq.id;
+      if(!visEquipDados[id]) visEquipDados[id]={status:'na',obs:'',fotos:[]};
+      const d=visEquipDados[id];
+      el.appendChild(buildEquipBlock(id,ceq.emoji||'⚙️',ceq.nome,d,ceq.modelo,ceq.potencia));
+    });
+  }
+
+  // Renderiza equipamentos padrão selecionados pelos chips
+  const stdIds=visEquipSelecionados.filter(id=>!customIds.includes(id));
+  if(stdIds.length){
+    const secTit2=document.createElement('div');
+    secTit2.style.cssText='font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--gray);margin:12px 0 8px';
+    secTit2.textContent='Outros equipamentos';
+    el.appendChild(secTit2);
+    stdIds.forEach(id=>{
+      const def=VIS_EQUIPAMENTOS_DEFAULT.find(x=>x.id===id);
+      if(!def) return;
+      const d=visEquipDados[id]||{status:'na',obs:'',fotos:[]};
+      el.appendChild(buildEquipBlock(id,def.emoji,def.nome,d,'',''));
+    });
+  }
+}
+
+function buildEquipBlock(id,emoji,nome,d,modelo,potencia){
+  const badgeMap={bom:'badge-bom',atencao:'badge-atencao',critico:'badge-critico',na:'badge-na'};
+  const badgeTxt={bom:'✅ Bom',atencao:'⚠️ Atenção',critico:'🔴 Crítico',na:'— N/A'};
+  const stClass='status-'+(d.status||'na');
+  const block=document.createElement('div');
+  block.className=`vis-equip-block ${stClass}`;
+  block.id=`vis-block-${id}`;
+  const fotosHtml=[0,1,2].map(i=>{
+    const f=(d.fotos||[])[i];
+    return `<div class="vis-foto-slot${f?' filled':''}" onclick="visClickFotoSlot('${id}',${i})">
+      <input type="file" id="vis-f-${id}-${i}" accept="image/*" capture="environment" style="display:none" onchange="visCarregarFoto(this,'${id}',${i})">
+      ${f?`<img src="${f}" alt="">`:''}
+      <div class="vis-foto-slot-icon">📷</div>
+      <button class="vis-foto-rm" onclick="event.stopPropagation();visRemoverFoto('${id}',${i})" title="Remover">✕</button>
+    </div>`;
+  }).join('');
+  const subInfo=modelo||potencia?`<div style="font-size:11px;color:var(--gray);margin-top:1px">${[modelo,potencia].filter(Boolean).join(' · ')}</div>`:'';
+  block.innerHTML=`
+    <div class="vis-equip-hdr" onclick="toggleVisEquipBody('${id}')">
+      <div class="vis-equip-emoji">${emoji}</div>
+      <div style="flex:1;min-width:0"><div class="vis-equip-nome">${esc(nome)}</div>${subInfo}</div>
+      <div class="vis-equip-badge ${badgeMap[d.status||'na']}">${badgeTxt[d.status||'na']}</div>
+      <div class="vis-equip-toggle" id="vis-arr-${id}">▼</div>
+    </div>
+    <div class="vis-equip-body open" id="vis-body-${id}">
+      <div style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Status</div>
+      <div class="vis-status-row">
+        <button class="vis-status-btn${d.status==='bom'?' sel-bom':''}" onclick="setVisEquipStatus('${id}','bom')">✅ Bom</button>
+        <button class="vis-status-btn${d.status==='atencao'?' sel-atencao':''}" onclick="setVisEquipStatus('${id}','atencao')">⚠️ Atenção</button>
+        <button class="vis-status-btn${d.status==='critico'?' sel-critico':''}" onclick="setVisEquipStatus('${id}','critico')">🔴 Crítico</button>
+        <button class="vis-status-btn${d.status==='na'?' sel-na':''}" onclick="setVisEquipStatus('${id}','na')">— N/A</button>
       </div>
-      <div class="vis-equip-body open" id="vis-body-${id}">
-        <div style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Status</div>
-        <div class="vis-status-row">
-          <button class="vis-status-btn${d.status==='bom'?' sel-bom':''}" onclick="setVisEquipStatus('${id}','bom')">✅ Bom</button>
-          <button class="vis-status-btn${d.status==='atencao'?' sel-atencao':''}" onclick="setVisEquipStatus('${id}','atencao')">⚠️ Atenção</button>
-          <button class="vis-status-btn${d.status==='critico'?' sel-critico':''}" onclick="setVisEquipStatus('${id}','critico')">🔴 Crítico</button>
-          <button class="vis-status-btn${d.status==='na'?' sel-na':''}" onclick="setVisEquipStatus('${id}','na')">— N/A</button>
-        </div>
-        <div class="fl" style="margin-bottom:8px">
-          <label>Observações</label>
-          <textarea rows="2" placeholder="Condições encontradas, medições, pendências…"
-            oninput="visUpdObs('${id}',this.value)"
-            style="width:100%;padding:8px 10px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;resize:vertical;outline:none">${esc(d.obs||'')}</textarea>
-        </div>
-        <div style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Fotos</div>
-        <div class="vis-fotos-row">${fotosHtml}</div>
-      </div>`;
-    el.appendChild(block);
-  });
+      <div class="fl" style="margin-bottom:8px">
+        <label>Observações</label>
+        <textarea rows="2" placeholder="Condições encontradas, medições, pendências…" oninput="visUpdObs('${id}',this.value)"
+          style="width:100%;padding:8px 10px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;resize:vertical;outline:none">${esc(d.obs||'')}</textarea>
+      </div>
+      <div style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Fotos</div>
+      <div class="vis-fotos-row">${fotosHtml}</div>
+    </div>`;
+  return block;
 }
 
 function toggleVisEquipBody(id){
@@ -7952,11 +8171,19 @@ async function salvarVistoria(){
   if(!cli){ toast('⚠️ Informe o cliente'); return; }
   const _btnVis=document.querySelector('button[onclick="salvarVistoria()"]');
   if(_btnVis){ _btnVis.disabled=true; _btnVis.textContent='Salvando…'; }
-  const equipamentos = visEquipSelecionados.map(id=>{
-    const def = VIS_EQUIPAMENTOS_DEFAULT.find(x=>x.id===id)||{id,nome:id,emoji:''};
-    const d   = visEquipDados[id]||{ status:'na', obs:'', fotos:[] };
-    return { id, nome:def.nome, emoji:def.emoji, status:d.status, obs:d.obs||'', fotos:(d.fotos||[]).filter(Boolean) };
-  });
+  // Monta lista de equipamentos: primeiro os do plano (custom), depois os chips padrão
+  const customIds=(_visEquipsCustom||[]).map(e=>e.id);
+  const equipamentos=[
+    ...(_visEquipsCustom||[]).map(ceq=>{
+      const d=visEquipDados[ceq.id]||{status:'na',obs:'',fotos:[]};
+      return {id:ceq.id,nome:ceq.nome,emoji:ceq.emoji||'⚙️',modelo:ceq.modelo||'',potencia:ceq.potencia||'',status:d.status,obs:d.obs||'',fotos:(d.fotos||[]).filter(Boolean)};
+    }),
+    ...visEquipSelecionados.filter(id=>!customIds.includes(id)).map(id=>{
+      const def=VIS_EQUIPAMENTOS_DEFAULT.find(x=>x.id===id)||{id,nome:id,emoji:''};
+      const d=visEquipDados[id]||{status:'na',obs:'',fotos:[]};
+      return {id,nome:def.nome,emoji:def.emoji,modelo:'',potencia:'',status:d.status,obs:d.obs||'',fotos:(d.fotos||[]).filter(Boolean)};
+    })
+  ];
   const s    = getSessao();
   const lojaId = s?.loja_id || getLojaFiltro() || CFG?.lojas?.[0]?.id || 'default';
   const id   = visEditId || 'vis_'+Date.now();
@@ -8217,9 +8444,10 @@ function preencherRelatorioVistoria(vis){
   // Summary table
   const sumTable=document.getElementById('pd-vis-sumtable');
   if(sumTable){
-    sumTable.innerHTML=`<thead><tr><th>Equipamento</th><th>Status</th><th>Observação</th></tr></thead>
+    sumTable.innerHTML=`<thead><tr><th>Equipamento</th><th>Modelo / Pot.</th><th>Status</th><th>Observação</th></tr></thead>
       <tbody>${equips.map(e=>`<tr>
         <td><strong>${esc(e.nome||e.id)}</strong></td>
+        <td style="font-size:11px;color:#6b7280">${[e.modelo,e.potencia].filter(Boolean).map(esc).join(' · ')||'—'}</td>
         <td><span class="st-dot ${dotCls[e.status]||'na'}"></span>${statusTxt[e.status]||'N/A'}</td>
         <td style="color:#6b7280;font-size:11px">${esc((e.obs||'').slice(0,80))}</td>
       </tr>`).join('')}</tbody>`;
@@ -8234,7 +8462,10 @@ function preencherRelatorioVistoria(vis){
       const obsHtml=e.obs?`<div class="pd-vis-equip-obs">${esc(e.obs)}</div>`:'';
       return `<div class="pd-vis-equip-item ${statusCls[e.status]||''}">
         <div class="pd-vis-equip-hdr ${statusCls[e.status]||'st-na'}">
-          <div class="pd-vis-equip-nm">${e.emoji||''} ${esc(e.nome||e.id)}</div>
+          <div>
+            <div class="pd-vis-equip-nm">${e.emoji||'⚙️'} ${esc(e.nome||e.id)}</div>
+            ${(e.modelo||e.potencia)?`<div style="font-size:10px;color:#6b7280;margin-top:2px">${[e.modelo,e.potencia].filter(Boolean).map(esc).join(' · ')}</div>`:''}
+          </div>
           <div class="pd-vis-equip-bd ${bdCls[e.status]||'bd-na'}">${statusTxt[e.status]||'N/A'}</div>
         </div>
         ${(obsHtml||fotosHtml)?`<div class="pd-vis-equip-body">${obsHtml}${fotosHtml}</div>`:''}
@@ -8265,6 +8496,7 @@ function preencherRelatorioVistoria(vis){
 function novaVistoria(cliNome, cliLocal, tecNome){
   visEquipSelecionados=[];
   visEquipDados={};
+  _visEquipsCustom=[];
   visCheckinTime=null;
   visCheckoutTime=null;
   visEditId=null;
