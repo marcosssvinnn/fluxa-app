@@ -4180,7 +4180,18 @@ function txtWA(){
   if(escopo) tx+=`📝 _${escopo}_\n\n`;
   if(vals.length){
     tx+=`🔧 *Serviços:*\n`;
-    vals.forEach((sv,i)=>{ const p=gP(sv); tx+=`  ${i+1}. ${sv.d.trim()}${p>0?' — *'+brl(p)+'*':''}\n`; });
+    const temMultiWA=vals.some(sv=>(parseInt(sv.qty)||1)>1);
+    vals.forEach((sv,i)=>{
+      const qty=parseInt(sv.qty)||1;
+      const pUnit=parseFloat(sv.p)||0;
+      const pTotal=gP(sv);
+      let detalhe='';
+      if(pTotal>0){
+        if(temMultiWA&&qty>1) detalhe=` — ${qty}× ${brl(pUnit)} = *${brl(pTotal)}*`;
+        else detalhe=` — *${brl(pTotal)}*`;
+      }
+      tx+=`  ${i+1}. ${sv.d.trim()}${detalhe}\n`;
+    });
     tx+=`\n`;
   }
   if(d>0){
