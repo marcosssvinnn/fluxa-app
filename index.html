@@ -2630,6 +2630,36 @@
   </div>
 </div>
 
+<!-- ══ MODAL: Concluir Vistoria Rápida ══ -->
+<div class="modal-bg" id="concluir-vis-bg" role="dialog" aria-modal="true" onclick="if(event.target===this)fecharConcluirVis()">
+  <div class="modal" style="max-width:440px">
+    <h3 style="margin-bottom:4px">✅ Concluir visita</h3>
+    <p id="concluir-vis-nome" style="font-size:13px;color:var(--gray);margin-bottom:16px;font-weight:600"></p>
+    <input type="hidden" id="concluir-vis-id">
+    <div class="row" style="margin-bottom:12px">
+      <div class="fl">
+        <label>Data da visita</label>
+        <input type="date" id="concluir-vis-data" style="width:100%">
+      </div>
+      <div class="fl">
+        <label>Técnico</label>
+        <input type="text" id="concluir-vis-tec" placeholder="Nome do técnico" style="width:100%">
+      </div>
+    </div>
+    <div class="fl" style="margin-bottom:16px">
+      <label>Observações <span style="font-weight:400;color:var(--gray)">(opcional)</span></label>
+      <textarea id="concluir-vis-obs" rows="3" placeholder="Ex: Equipamentos verificados, pendências encontradas…" style="width:100%;resize:vertical;padding:9px 12px;border:1.5px solid var(--gray-mid);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;color:var(--c2);outline:none"></textarea>
+    </div>
+    <div class="modal-acts">
+      <button class="btn-sec" onclick="fecharConcluirVis()">Cancelar</button>
+      <button class="btn-primary" onclick="salvarConcluirVis()" style="flex:1">✅ Confirmar visita</button>
+    </div>
+    <div style="margin-top:10px;text-align:center">
+      <button class="tb" onclick="concluirVisDetalhada()" style="font-size:12px;color:var(--gray)">🔍 Abrir formulário completo (equipamentos, fotos…)</button>
+    </div>
+  </div>
+</div>
+
 <!-- ══ MODAL: NF-e / NFS-e ══ -->
 <div class="nfe-modal-bg" id="nfe-modal-bg">
   <div class="nfe-modal">
@@ -7343,21 +7373,81 @@ function locVisMesProximo(){
   renderLocaisTab();
 }
 
+// Abre o mini-modal de conclusão rápida (sem sair da lista)
 function iniciarVistoriaLocal(id){
   const loc=locaisVistoria.find(x=>x.id===id);
   if(!loc) return;
-  // pre-select equipamentos
+  window._concluirVisLocalId=id;
+  // Preenche modal
+  document.getElementById('concluir-vis-id').value=id;
+  document.getElementById('concluir-vis-nome').textContent=loc.cliente+' — '+loc.local;
+  document.getElementById('concluir-vis-data').value=new Date().toISOString().slice(0,10);
+  const s=getSessao();
+  document.getElementById('concluir-vis-tec').value=loc.tecnico||s?.nome||'';
+  document.getElementById('concluir-vis-obs').value='';
+  document.getElementById('concluir-vis-bg').classList.add('on');
+}
+function fecharConcluirVis(){
+  document.getElementById('concluir-vis-bg').classList.remove('on');
+  window._concluirVisLocalId=null;
+}
+async function salvarConcluirVis(){
+  const id=window._concluirVisLocalId;
+  const loc=locaisVistoria.find(x=>x.id===id);
+  if(!loc){ fecharConcluirVis(); return; }
+  const data=document.getElementById('concluir-vis-data').value||new Date().toISOString().slice(0,10);
+  const tec=document.getElementById('concluir-vis-tec').value.trim();
+  const obs=document.getElementById('concluir-vis-obs').value.trim();
+  const s=getSessao();
+  const lojaId=s?.loja_id||getLojaFiltro()||CFG?.lojas?.[0]?.id||'default';
+  const mes=locaisVisMesRef||new Date().toISOString().slice(0,7);
+  const rec={
+    id:'vis_'+Date.now(),
+    loja_id:lojaId,
+    local_id:id,
+    cliente:loc.cliente,
+    local:loc.local,
+    data,
+    hora:new Date().toTimeString().slice(0,5),
+    tecnico:tec||s?.nome||'',
+    mes_ref:mes,
+    obs_geral:obs,
+    email_responsavel:loc.email_responsavel||null,
+    equipamentos:[],
+    created_at:new Date().toISOString()
+  };
+  const lista=lsVisLer();
+  lista.unshift(rec);
+  lsVisSalvar(lista);
+  if(dbOk&&db){
+    try{
+      const payload={...rec,equipamentos:JSON.stringify(rec.equipamentos)};
+      await db.from('vistorias').insert([payload]);
+    }catch(e){ console.warn('vis rápida Supabase:',e.message); }
+  }
+  fecharConcluirVis();
+  renderLocaisTab();
+  renderVisHistorico();
+  toast('✅ Visita registrada!');
+  // Envia e-mail se houver responsável
+  if(rec.email_responsavel && emailJSConfigurado()){
+    const ok=await enviarEmailVistoria(rec);
+    if(ok) toast('📧 Relatório enviado por e-mail');
+  }
+}
+// Abre formulário completo (equipamentos, fotos, checkin/checkout)
+function concluirVisDetalhada(){
+  const id=window._concluirVisLocalId;
+  fecharConcluirVis();
+  const loc=locaisVistoria.find(x=>x.id===id);
+  if(!loc) return;
   visEquipSelecionados=[...(loc.equipamentos||[])];
-  // switch to nova tab
   novaVistoria(loc.cliente, loc.local, loc.tecnico||'');
-  // fill extra fields after a tick
   setTimeout(()=>{
     const emailEl=document.getElementById('vis-email-resp');
     if(emailEl && loc.email_responsavel) emailEl.value=loc.email_responsavel;
-    // set reference month to current locaisVisMesRef
     const mesEl=document.getElementById('vis-mes-ref');
     if(mesEl && locaisVisMesRef) mesEl.value=locaisVisMesRef;
-    // store local_id for saving
     window._visLocalId=id;
     renderVisEquipGrid();
   }, 80);
@@ -7418,7 +7508,7 @@ function renderLocaisTab(){
         const acoes=feita
           ? `<button class="tb" onclick="abrirVisRelatorio('${vistoria.id}')" title="Ver PDF">📄 PDF</button>
              <button class="tb" onclick="reenviarEmailVistoria('${vistoria.id}')" title="Reenviar e-mail">✉️</button>`
-          : `<button class="btn-primary" style="padding:7px 14px;font-size:13px" onclick="iniciarVistoriaLocal('${loc.id}')">▶ Iniciar</button>`;
+          : `<button class="btn-primary" style="padding:7px 14px;font-size:13px" onclick="iniciarVistoriaLocal('${loc.id}')">✅ Concluir visita</button>`;
         const subInfo=feita
           ? `<div class="loc-card-sub">✅ Realizada em ${vistoria.data?vistoria.data.split('-').reverse().join('/'):'?'}${vistoria.tecnico?' — '+vistoria.tecnico:''}</div>`
           : `<div style="font-size:11px;color:var(--yellow);font-weight:600;margin-top:3px">⏳ Pendente para ${document.getElementById('loc-mes-label')?.textContent||''}</div>`;
