@@ -2972,7 +2972,13 @@ async function sincronizarSeedUsuarios(){
     const TECNICOS_PADRAO=['Marcos','Josimar','Eldecir','Bruno'];
     const payload=TECNICOS_PADRAO.map(nome=>({id:'tec_'+nome.toLowerCase(),nome,perfil:'tecnico',loja_id:null,loja_nome:null,pin:null,ativo:true}));
     const {data:ins}=await db.from('usuarios').insert(payload).select('*');
-    if(ins){ todosUsuarios=ins; lsSet('fluxa_usuarios',JSON.stringify(ins)); }
+    if(ins){
+      // Merge: preserva usuários já existentes (ex: vendedores criados offline)
+      const seedIds=payload.map(p=>p.id);
+      const naoSeed=todosUsuarios.filter(u=>!seedIds.includes(u.id));
+      todosUsuarios=[...naoSeed,...ins];
+      lsSet('fluxa_usuarios',JSON.stringify(todosUsuarios));
+    }
     lsSet('fluxa_usuarios_seed_pendente','');
   }catch(e){ console.warn('seed técnicos BD falhou:',e.message); }
 }
@@ -8115,8 +8121,22 @@ initOS();
 //  SERVICE WORKER (PWA — funciona quando hospedado)
 // ──────────────────────────────────────────────────
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('sw.js').then(()=>{
+  // Reload automático quando um novo SW assume o controle (nova versão deployada)
+  let _swRefreshing=false;
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{
+    if(!_swRefreshing){ _swRefreshing=true; location.reload(); }
+  });
+  navigator.serviceWorker.addEventListener('message',e=>{
+    if(e.data?.type==='NEW_VERSION'&&!_swRefreshing){
+      _swRefreshing=true;
+      toast('🔄 Nova versão disponível. Atualizando...');
+      setTimeout(()=>location.reload(),1800);
+    }
+  });
+  navigator.serviceWorker.register('sw.js').then(reg=>{
     console.log('Service Worker registrado');
+    // Verifica atualizações a cada 5 minutos (cobre abas abertas o dia todo)
+    setInterval(()=>reg.update(),5*60*1000);
   }).catch(()=>{});
 }
 </script>
