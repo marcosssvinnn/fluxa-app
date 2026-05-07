@@ -537,6 +537,34 @@
     .checkin-bar{background:var(--green-bg);border:1px solid var(--green);border-radius:10px;padding:12px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
     .checkin-timer{font-size:20px;font-weight:800;color:var(--green);font-variant-numeric:tabular-nums;min-width:70px}
 
+    /* ── LOCAIS VISTORIA ── */
+    .loc-tracking-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px}
+    .loc-mes-nav{display:flex;align-items:center;gap:8px}
+    .loc-mes-nav button{background:none;border:1.5px solid var(--gray-mid);border-radius:8px;padding:5px 11px;cursor:pointer;font-family:'Inter',sans-serif;font-size:14px;font-weight:700;color:var(--c2);transition:all .15s}
+    .loc-mes-nav button:hover{background:var(--gray-light)}
+    .loc-mes-label{font-size:15px;font-weight:800;color:var(--c2);min-width:110px;text-align:center}
+    .loc-stats-row{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+    .loc-stat{background:var(--white);border-radius:10px;padding:12px 18px;box-shadow:var(--sh);display:flex;align-items:center;gap:10px;flex:1;min-width:120px}
+    .loc-stat-icon{font-size:22px;line-height:1}
+    .loc-stat-info .loc-stat-val{font-size:20px;font-weight:800;color:var(--c2)}
+    .loc-stat-info .loc-stat-lbl{font-size:11px;color:var(--gray);font-weight:600}
+    .loc-card{background:var(--white);border-radius:var(--r);padding:16px 18px;box-shadow:var(--sh);margin-bottom:10px;display:flex;align-items:center;gap:14px;border-left:4px solid var(--gray-mid)}
+    .loc-card.feita{border-left-color:var(--green)}
+    .loc-card.pendente{border-left-color:var(--yellow)}
+    .loc-card-status{font-size:22px;flex-shrink:0}
+    .loc-card-info{flex:1;min-width:0}
+    .loc-card-nome{font-size:14px;font-weight:700;color:var(--c2)}
+    .loc-card-det{font-size:12px;color:var(--gray);margin-top:2px}
+    .loc-card-sub{font-size:11px;color:var(--green);font-weight:600;margin-top:3px}
+    .loc-card-acts{display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap}
+    .loc-add-form{background:var(--c1-light);border:2px dashed var(--c1);border-radius:var(--r);padding:20px;margin-bottom:16px}
+    .loc-add-form .ct{border-bottom-color:var(--c1-light)}
+    .loc-list-item{background:var(--white);border-radius:var(--r);padding:14px 16px;box-shadow:var(--sh);margin-bottom:8px;display:flex;align-items:center;gap:12px;justify-content:space-between}
+    .loc-list-item-info .loc-list-nome{font-size:14px;font-weight:700;color:var(--c2)}
+    .loc-list-item-info .loc-list-det{font-size:12px;color:var(--gray);margin-top:2px}
+    .loc-list-acts{display:flex;gap:6px;flex-shrink:0}
+    .loc-inactive{opacity:.5}
+
     /* ── BOTTOM NAV (mobile) ── */
     .mob-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--c2);border-top:1px solid rgba(255,255,255,.12);z-index:300;padding-bottom:env(safe-area-inset-bottom)}
     .mob-nb{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:10px 4px 12px;background:none;border:none;border-top:2px solid transparent;color:rgba(255,255,255,.45);font-size:10px;font-weight:700;font-family:'Inter',sans-serif;cursor:pointer;transition:all .15s;letter-spacing:.3px}
@@ -2332,6 +2360,7 @@
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="fb on" id="vis-tab-nova" onclick="visTab('nova')">📋 Nova Vistoria</button>
         <button class="fb" id="vis-tab-hist" onclick="visTab('hist')">📜 Histórico</button>
+        <button class="fb" id="vis-tab-locais" onclick="visTab('locais')">📋 Locais</button>
       </div>
     </div>
 
@@ -2453,6 +2482,44 @@
         <div id="vis-hist-body" style="min-height:80px"></div>
       </div>
     </div><!-- /vis-view-hist -->
+
+    <!-- Tab: Locais Recorrentes -->
+    <div id="vis-view-locais" style="display:none">
+
+      <!-- Tracking mensal -->
+      <div class="card">
+        <div class="loc-tracking-header">
+          <div class="ct" style="margin-bottom:0;border:none;padding:0">📋 Acompanhamento Mensal</div>
+          <div class="loc-mes-nav">
+            <button onclick="locVisMesAnterior()" title="Mês anterior">◀</button>
+            <span class="loc-mes-label" id="loc-mes-label">—</span>
+            <button onclick="locVisMesProximo()" title="Próximo mês">▶</button>
+          </div>
+        </div>
+        <div class="loc-stats-row" id="loc-stats-row"></div>
+        <div id="loc-tracking-list"></div>
+      </div>
+
+      <!-- Cadastrar novo local -->
+      <div class="loc-add-form" id="loc-add-form" style="display:none">
+        <div class="ct">➕ Novo Local Recorrente</div>
+        <div class="row"><div class="fl"><label class="req">Cliente / Nome do local</label><input type="text" id="loc-cli" placeholder="Ex: Condomínio Sol Nascente" autocomplete="off"></div><div class="fl"><label class="req">Endereço</label><input type="text" id="loc-end" placeholder="Rua, número, bairro"></div></div>
+        <div class="row"><div class="fl"><label>E-mail responsável</label><input type="email" id="loc-email" placeholder="sindico@condominio.com.br"></div><div class="fl"><label>Técnico responsável</label><select id="loc-tec"><option value="">Qualquer técnico</option></select></div></div>
+        <div class="fl" style="margin-bottom:12px"><label>Equipamentos padrão</label><div id="loc-equip-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px"></div></div>
+        <input type="hidden" id="loc-edit-id">
+        <div style="display:flex;gap:8px">
+          <button class="btn-primary" onclick="salvarLocal()">💾 Salvar Local</button>
+          <button class="btn-sm" onclick="fecharLocForm()">Cancelar</button>
+        </div>
+      </div>
+
+      <!-- Gerenciar locais -->
+      <div class="card">
+        <div class="ct">🗂️ Locais Cadastrados <button class="btn-sm" style="margin-left:auto;text-transform:none;font-size:12px;letter-spacing:0;color:var(--c2);background:white;border-color:var(--gray-mid)" onclick="abrirLocForm()">＋ Novo local</button></div>
+        <div id="loc-gerenciar-list"></div>
+      </div>
+
+    </div><!-- /vis-view-locais -->
 
   </div>
 </div>
@@ -7126,8 +7193,246 @@ let visCheckinInterval = null;
 let visEditId = null;          // id da vistoria sendo editada (null = nova)
 
 const LS_VIS = 'fluxa_visitas';
+const LS_LOCAIS_VIS = 'fluxa_locais_vistoria';
+let locaisVistoria = [];
+let locaisVisMesRef = '';  // currently viewed month in locais tab, e.g. '2026-05'
 function lsVisLer(){ try{ return JSON.parse(localStorage.getItem(LS_VIS)||'[]'); }catch(e){ return []; } }
 function lsVisSalvar(lista){ localStorage.setItem(LS_VIS, JSON.stringify(lista)); }
+
+/* ══ LOCAIS RECORRENTES ══ */
+function loadLocais(){
+  try{ locaisVistoria=JSON.parse(localStorage.getItem(LS_LOCAIS_VIS)||'[]'); }
+  catch(e){ locaisVistoria=[]; }
+}
+function saveLocais(){
+  localStorage.setItem(LS_LOCAIS_VIS, JSON.stringify(locaisVistoria));
+}
+
+function abrirLocForm(id){
+  const f=document.getElementById('loc-add-form');
+  f.style.display='';
+  // populate tec select
+  const sel=document.getElementById('loc-tec');
+  sel.innerHTML='<option value="">Qualquer técnico</option>';
+  const tecList = (typeof CFG !== 'undefined' && CFG.tecnicos) ? CFG.tecnicos : [];
+  tecList.forEach(t=>{ const o=document.createElement('option'); o.value=t; o.textContent=t; sel.appendChild(o); });
+  // populate equip chips
+  renderLocEquipChips([]);
+  document.getElementById('loc-edit-id').value='';
+  document.getElementById('loc-cli').value='';
+  document.getElementById('loc-end').value='';
+  document.getElementById('loc-email').value='';
+  sel.value='';
+  if(id){
+    const loc=locaisVistoria.find(x=>x.id===id);
+    if(loc){
+      document.getElementById('loc-edit-id').value=id;
+      document.getElementById('loc-cli').value=loc.cliente||'';
+      document.getElementById('loc-end').value=loc.local||'';
+      document.getElementById('loc-email').value=loc.email_responsavel||'';
+      sel.value=loc.tecnico||'';
+      renderLocEquipChips(loc.equipamentos||[]);
+    }
+  }
+  f.scrollIntoView({behavior:'smooth',block:'start'});
+}
+function fecharLocForm(){
+  document.getElementById('loc-add-form').style.display='none';
+}
+
+let _locEquipSel=[];
+function renderLocEquipChips(sel){
+  _locEquipSel=[...sel];
+  const c=document.getElementById('loc-equip-chips');
+  if(!c) return;
+  c.innerHTML='';
+  (VIS_EQUIPAMENTOS_DEFAULT||[]).forEach(eq=>{
+    const on=_locEquipSel.includes(eq.id);
+    const btn=document.createElement('button');
+    btn.type='button';
+    btn.className='chip'+(on?' chip-on':'');
+    btn.style.cssText=on?'background:var(--c1);color:#fff;border-color:var(--c1)':'';
+    btn.textContent=eq.emoji+' '+eq.nome;
+    btn.onclick=()=>{
+      if(_locEquipSel.includes(eq.id)) _locEquipSel=_locEquipSel.filter(x=>x!==eq.id);
+      else _locEquipSel.push(eq.id);
+      renderLocEquipChips(_locEquipSel);
+    };
+    c.appendChild(btn);
+  });
+}
+
+function salvarLocal(){
+  const cli=(document.getElementById('loc-cli').value||'').trim();
+  const end=(document.getElementById('loc-end').value||'').trim();
+  if(!cli||!end){ toast('⚠️ Preencha cliente e endereço'); return; }
+  const editId=document.getElementById('loc-edit-id').value;
+  const s=getSessao();
+  const lojaId=s?.loja_id||getLojaFiltro()||CFG?.lojas?.[0]?.id||'default';
+  const rec={
+    id: editId||('loc_'+Date.now()),
+    loja_id: lojaId,
+    cliente: cli,
+    local: end,
+    email_responsavel: (document.getElementById('loc-email').value||'').trim(),
+    tecnico: document.getElementById('loc-tec').value||'',
+    equipamentos: [..._locEquipSel],
+    ativo: true,
+    created_at: editId ? (locaisVistoria.find(x=>x.id===editId)||{}).created_at||new Date().toISOString() : new Date().toISOString()
+  };
+  if(editId){
+    const idx=locaisVistoria.findIndex(x=>x.id===editId);
+    if(idx>=0) locaisVistoria[idx]=rec; else locaisVistoria.push(rec);
+  } else {
+    locaisVistoria.push(rec);
+  }
+  saveLocais();
+  fecharLocForm();
+  renderLocaisTab();
+  toast('✅ Local salvo!');
+}
+
+function excluirLocal(id){
+  confirmar('Remover este local da lista de recorrentes?',()=>{
+    locaisVistoria=locaisVistoria.filter(x=>x.id!==id);
+    saveLocais();
+    renderLocaisTab();
+    toast('Local removido');
+  });
+}
+
+function toggleLocalAtivo(id){
+  const loc=locaisVistoria.find(x=>x.id===id);
+  if(!loc) return;
+  loc.ativo=!loc.ativo;
+  saveLocais();
+  renderLocaisTab();
+}
+
+function locVisMesAnterior(){
+  if(!locaisVisMesRef) return;
+  const [y,m]=locaisVisMesRef.split('-').map(Number);
+  const d=new Date(y,m-2,1);
+  locaisVisMesRef=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+  renderLocaisTab();
+}
+function locVisMesProximo(){
+  if(!locaisVisMesRef) return;
+  const [y,m]=locaisVisMesRef.split('-').map(Number);
+  const d=new Date(y,m,1);
+  locaisVisMesRef=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+  renderLocaisTab();
+}
+
+function iniciarVistoriaLocal(id){
+  const loc=locaisVistoria.find(x=>x.id===id);
+  if(!loc) return;
+  // pre-select equipamentos
+  visEquipSelecionados=[...(loc.equipamentos||[])];
+  // switch to nova tab
+  novaVistoria(loc.cliente, loc.local, loc.tecnico||'');
+  // fill extra fields after a tick
+  setTimeout(()=>{
+    const emailEl=document.getElementById('vis-email-resp');
+    if(emailEl && loc.email_responsavel) emailEl.value=loc.email_responsavel;
+    // set reference month to current locaisVisMesRef
+    const mesEl=document.getElementById('vis-mes-ref');
+    if(mesEl && locaisVisMesRef) mesEl.value=locaisVisMesRef;
+    // store local_id for saving
+    window._visLocalId=id;
+    renderVisEquipGrid();
+  }, 80);
+}
+
+function renderLocaisTab(){
+  loadLocais();
+  const s=getSessao();
+  const lojaAtiva=s?.loja_id||getLojaFiltro()||CFG?.lojas?.[0]?.id||'default';
+  // set default month
+  if(!locaisVisMesRef){
+    const now=new Date();
+    locaisVisMesRef=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  }
+  // update month label
+  const labelEl=document.getElementById('loc-mes-label');
+  if(labelEl){
+    const [y,m]=locaisVisMesRef.split('-').map(Number);
+    const nome=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+    labelEl.textContent=nome[m-1]+' '+y;
+  }
+  // filter locais for this loja
+  const locaisFiltrados=locaisVistoria.filter(l=>l.loja_id===lojaAtiva && l.ativo!==false);
+  // get vistorias for this month+loja
+  const vis=(JSON.parse(localStorage.getItem(LS_VIS)||'[]')).filter(v=>v.loja_id===lojaAtiva && v.mes_ref===locaisVisMesRef);
+  // build tracking
+  const tracking=locaisFiltrados.map(loc=>{
+    // match vistoria: by local_id (if set) or by cliente+local
+    const vistoria=vis.find(v=>(v.local_id && v.local_id===loc.id)||(v.cliente===loc.cliente && v.local===loc.local));
+    return {loc, vistoria, feita:!!vistoria};
+  });
+  const nFeitas=tracking.filter(x=>x.feita).length;
+  const nPend=tracking.filter(x=>!x.feita).length;
+  // stats
+  const statsEl=document.getElementById('loc-stats-row');
+  if(statsEl){
+    statsEl.innerHTML=`
+      <div class="loc-stat"><span class="loc-stat-icon">✅</span><div class="loc-stat-info"><div class="loc-stat-val">${nFeitas}</div><div class="loc-stat-lbl">Realizadas</div></div></div>
+      <div class="loc-stat"><span class="loc-stat-icon">⏳</span><div class="loc-stat-info"><div class="loc-stat-val">${nPend}</div><div class="loc-stat-lbl">Pendentes</div></div></div>
+      <div class="loc-stat"><span class="loc-stat-icon">📍</span><div class="loc-stat-info"><div class="loc-stat-val">${locaisFiltrados.length}</div><div class="loc-stat-lbl">Locais ativos</div></div></div>
+    `;
+  }
+  // tracking list
+  const listEl=document.getElementById('loc-tracking-list');
+  if(listEl){
+    if(locaisFiltrados.length===0){
+      listEl.innerHTML='<p style="color:var(--gray);font-size:13px;text-align:center;padding:20px 0">Nenhum local cadastrado. Adicione locais recorrentes abaixo.</p>';
+    } else {
+      // pendentes primeiro, depois feitas
+      const sorted=[...tracking].sort((a,b)=>a.feita-b.feita);
+      listEl.innerHTML=sorted.map(({loc,vistoria,feita})=>{
+        const acoes=feita
+          ? `<button class="tb" onclick="abrirVisRelatorio('${vistoria.id}')" title="Ver PDF">📄 PDF</button>
+             <button class="tb" onclick="reenviarEmailVistoria('${vistoria.id}')" title="Reenviar e-mail">✉️</button>`
+          : `<button class="btn-primary" style="padding:7px 14px;font-size:13px" onclick="iniciarVistoriaLocal('${loc.id}')">▶ Iniciar</button>`;
+        const subInfo=feita
+          ? `<div class="loc-card-sub">✅ Realizada em ${vistoria.data?vistoria.data.split('-').reverse().join('/'):'?'}${vistoria.tecnico?' — '+vistoria.tecnico:''}</div>`
+          : `<div style="font-size:11px;color:var(--yellow);font-weight:600;margin-top:3px">⏳ Pendente para ${document.getElementById('loc-mes-label')?.textContent||''}</div>`;
+        return `<div class="loc-card ${feita?'feita':'pendente'}">
+          <span class="loc-card-status">${feita?'✅':'⏳'}</span>
+          <div class="loc-card-info">
+            <div class="loc-card-nome">${loc.cliente}</div>
+            <div class="loc-card-det">📍 ${loc.local}${loc.tecnico?' &nbsp;·&nbsp; 👤 '+loc.tecnico:''}</div>
+            ${subInfo}
+          </div>
+          <div class="loc-card-acts">${acoes}</div>
+        </div>`;
+      }).join('');
+    }
+  }
+  // gerenciar list
+  const gerEl=document.getElementById('loc-gerenciar-list');
+  if(gerEl){
+    const todos=locaisVistoria.filter(l=>l.loja_id===lojaAtiva);
+    if(todos.length===0){
+      gerEl.innerHTML='<p style="color:var(--gray);font-size:13px;text-align:center;padding:16px 0">Nenhum local cadastrado ainda.</p>';
+    } else {
+      gerEl.innerHTML=todos.map(loc=>`
+        <div class="loc-list-item ${loc.ativo===false?'loc-inactive':''}">
+          <div class="loc-list-item-info">
+            <div class="loc-list-nome">${loc.cliente}</div>
+            <div class="loc-list-det">📍 ${loc.local}${loc.tecnico?' · 👤 '+loc.tecnico:''}${loc.email_responsavel?' · ✉️ '+loc.email_responsavel:''}</div>
+          </div>
+          <div class="loc-list-acts">
+            <button class="tb" onclick="abrirLocForm('${loc.id}')" title="Editar">✏️</button>
+            <button class="tb" onclick="toggleLocalAtivo('${loc.id}')" title="${loc.ativo===false?'Reativar':'Desativar'}">${loc.ativo===false?'▶':'⏸'}</button>
+            <button class="tb" style="color:var(--red)" onclick="excluirLocal('${loc.id}')" title="Excluir">🗑️</button>
+          </div>
+        </div>
+      `).join('');
+    }
+  }
+}
+/* ══ /LOCAIS RECORRENTES ══ */
 
 function initVisitas(){
   // Preenche técnicos no select
@@ -7153,14 +7458,18 @@ function initVisitas(){
       for(let o of sel.options){ if(o.text===sess.nome){ o.selected=true; break; } }
     }
   }
+  loadLocais();
 }
 
 function visTab(tab){
-  document.getElementById('vis-view-nova').style.display = tab==='nova'?'':'none';
-  document.getElementById('vis-view-hist').style.display = tab==='hist'?'':'none';
-  document.getElementById('vis-tab-nova').className = 'fb'+(tab==='nova'?' on':'');
-  document.getElementById('vis-tab-hist').className = 'fb'+(tab==='hist'?' on':'');
+  ['nova','hist','locais'].forEach(t=>{
+    const v=document.getElementById('vis-view-'+t);
+    const b=document.getElementById('vis-tab-'+t);
+    if(v) v.style.display = t===tab ? '' : 'none';
+    if(b){ b.classList.toggle('on', t===tab); }
+  });
   if(tab==='hist') renderVisHistorico();
+  if(tab==='locais') renderLocaisTab();
 }
 
 // ── Chips de seleção de equipamentos ──
@@ -7361,7 +7670,9 @@ async function salvarVistoria(){
   const lojaId = s?.loja_id || getLojaFiltro() || CFG?.lojas?.[0]?.id || 'default';
   const id   = visEditId || 'vis_'+Date.now();
   const rec  = {
-    id, loja_id:lojaId, cliente:cli, local:loc, data, hora,
+    id, loja_id:lojaId,
+    local_id: window._visLocalId||'',
+    cliente:cli, local:loc, data, hora,
     tecnico: tec || (s?.nome||''),
     mes_ref: mes,
     hora_checkin: visCheckinTime?visCheckinTime.toTimeString().slice(0,5):hora,
@@ -7371,6 +7682,7 @@ async function salvarVistoria(){
     equipamentos,
     created_at: new Date().toISOString()
   };
+  window._visLocalId = null;
   // Save local
   const lista = lsVisLer();
   const idx   = lista.findIndex(x=>x.id===id);
