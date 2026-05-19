@@ -920,11 +920,14 @@
     .login-av-badge.tecnico{background:#eff6ff;color:#2563eb}
     .login-av-arrow{font-size:14px;color:#d1d5db;flex-shrink:0;transition:color .15s}
     .login-av-btn:hover .login-av-arrow{color:var(--c1)}
-    /* Versão slim — técnicos: sem badge, sem seta, mais compacta */
+    /* Versão slim — técnicos */
     .login-av-btn.slim{padding:9px 12px;border-color:#f0f1f3}
     .login-av-btn.slim .login-av-circle{width:36px;height:36px;font-size:14px}
     .login-av-btn.slim .login-av-nome{font-size:12px}
     .login-av-btn.slim .login-av-sub{font-size:10px}
+    /* Toggle recolher técnicos */
+    .login-tec-toggle{width:100%;display:flex;align-items:center;gap:8px;padding:10px 14px;background:#f8f9fc;border:1.5px solid #eef0f3;border-radius:12px;font-size:13px;font-weight:600;color:var(--c2);cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s}
+    .login-tec-toggle:hover{border-color:var(--c1);background:var(--c1-light)}
     /* PIN step */
     .login-pin-step{display:none}
     .login-pin-step.show{display:block}
@@ -1067,10 +1070,14 @@
           <div class="login-user-list" id="login-grid-vendas"></div>
         </div>
 
-        <!-- Técnicos -->
-        <div class="login-section" id="login-tec-section" style="display:none">
-          <div class="login-section-label">Técnicos</div>
-          <div class="login-user-list" id="login-grid-tecs"></div>
+        <!-- Técnicos — recolhido por padrão -->
+        <div id="login-tec-section" style="display:none;margin-top:4px">
+          <button class="login-tec-toggle" id="login-tec-toggle" onclick="toggleLoginTecs()">
+            <span>🔧 Técnicos</span>
+            <span id="login-tec-count" style="color:var(--gray);font-weight:500"></span>
+            <span id="login-tec-arrow" style="margin-left:auto;font-size:11px;color:var(--gray)">▼</span>
+          </button>
+          <div class="login-user-list" id="login-grid-tecs" style="display:none;margin-top:6px"></div>
         </div>
       </div>
 
@@ -3200,6 +3207,16 @@ function atualizarDotsPIN(val){
   }
 }
 
+function toggleLoginTecs(){
+  const grid = document.getElementById('login-grid-tecs');
+  const arrow = document.getElementById('login-tec-arrow');
+  if(!grid) return;
+  const open = grid.style.display !== 'none';
+  grid.style.display = open ? 'none' : 'flex';
+  grid.style.flexDirection = 'column';
+  if(arrow) arrow.textContent = open ? '▼' : '▲';
+}
+
 function renderLoginUsers(){
   // ── Gestão ──
   const gestaoGrid = document.getElementById('login-grid-gestao');
@@ -3236,6 +3253,12 @@ function renderLoginUsers(){
   const tecsGrid = document.getElementById('login-grid-tecs');
   if(tecSection && tecsGrid){
     tecSection.style.display = tecsList.length ? '' : 'none';
+    // Conta e recolhe sempre que renderiza
+    tecsGrid.style.display = 'none';
+    const arrow = document.getElementById('login-tec-arrow');
+    if(arrow) arrow.textContent = '▼';
+    const countEl = document.getElementById('login-tec-count');
+    if(countEl) countEl.textContent = `(${tecsList.length})`;
     tecsGrid.innerHTML = tecsList.map(u=>{
       const loja = getLoja(u.loja_id);
       const sub = loja?.nome || u.loja_nome || 'Técnico';
