@@ -3791,12 +3791,12 @@ CREATE TABLE IF NOT EXISTS usuarios (
   data_criacao timestamptz DEFAULT now()
 );
 
-ALTER TABLE orcamentos     ADD COLUMN IF NOT EXISTS loja_id uuid;
-ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS loja_id uuid;
-ALTER TABLE clientes       ADD COLUMN IF NOT EXISTS loja_id uuid;
-ALTER TABLE agendamentos   ADD COLUMN IF NOT EXISTS loja_id uuid;
-ALTER TABLE equipamentos   ADD COLUMN IF NOT EXISTS loja_id uuid;
-ALTER TABLE despesas       ADD COLUMN IF NOT EXISTS loja_id uuid;
+ALTER TABLE orcamentos     ADD COLUMN IF NOT EXISTS loja_id text; -- fix #B: text, não uuid (valores são strings como 'fortemp-camboriu')
+ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS loja_id text;
+ALTER TABLE clientes       ADD COLUMN IF NOT EXISTS loja_id text;
+ALTER TABLE agendamentos   ADD COLUMN IF NOT EXISTS loja_id text;
+ALTER TABLE equipamentos   ADD COLUMN IF NOT EXISTS loja_id text;
+ALTER TABLE despesas       ADD COLUMN IF NOT EXISTS loja_id text;
 
 -- ══ NOTA FISCAL ══
 CREATE TABLE IF NOT EXISTS notas_fiscais (
@@ -6233,11 +6233,12 @@ async function renderPortal(cli){
   document.getElementById('portal-loading').style.display='none';
   document.getElementById('portal-content').style.display='block';
 
-  // Header empresa
-  document.getElementById('portal-empresa-nome').textContent=CFG.nome||'';
-  document.getElementById('portal-empresa-sub').textContent=CFG.sub||'';
+  // fix #C: usa branding da loja do cliente, não o CFG global
+  const LC = getLojaConfig(cli.loja_id);
+  document.getElementById('portal-empresa-nome').textContent=LC.nome||'';
+  document.getElementById('portal-empresa-sub').textContent=LC.sub||'';
   const logo=document.getElementById('portal-logo');
-  if(CFG.logoB64){ logo.src=CFG.logoB64; logo.classList.add('has-logo'); }
+  if(LC.logoB64){ logo.src=LC.logoB64; logo.classList.add('has-logo'); }
   document.getElementById('portal-cli-nome').textContent='Olá, '+cli.nome+' 👋';
 
   // Próxima visita (busca OS agendadas do cliente)
@@ -6279,8 +6280,18 @@ async function renderPortal(cli){
       </div>`).join('');
   }
 
-  // Orçamentos pendentes
+  // Orçamentos pendentes — fix #D: busca do Supabase se todosOrc estiver vazio (portal aberto sem login prévio)
   let orcsCliente=todosOrc.filter(o=>(o.cliente||'').toLowerCase()===cli.nome.toLowerCase()&&o.status==='pendente');
+  if(!orcsCliente.length && dbOk && db){
+    try{
+      const {data:orcDb}=await db.from('orcamentos').select('*').ilike('cliente',cli.nome).eq('status','pendente').order('data_criacao',{ascending:false});
+      if(orcDb&&orcDb.length){
+        orcsCliente=orcDb;
+        // Adiciona ao cache em memória para aprovarOrcPortal funcionar
+        orcDb.forEach(o=>{ if(!todosOrc.find(x=>x.id===o.id)) todosOrc.unshift(o); });
+      }
+    }catch(e){ console.warn('[portal:orcs]', e?.message||e); }
+  }
   const secOrc=document.getElementById('portal-sec-orc');
   if(orcsCliente.length){
     secOrc.style.display='block';
@@ -6491,12 +6502,19 @@ async function loadProdutividade(){
   const tecs=CFG.tecnicos||[];
   el.innerHTML='<option value="">Todos os técnicos</option>'+tecs.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join('');
   // Carrega OS do Supabase se disponível
+  // fix #E: não sobrescrever o cache inteiro — fazer merge para preservar OS de outras lojas no cache local
   if(dbOk&&db){
     try{
       let qProd=db.from('ordens_servico').select('*').order('data_criacao',{ascending:false}).limit(500);
       if(lojaAtiva) qProd=qProd.eq('loja_id',lojaAtiva);
       const {data}=await qProd;
-      if(data){ lsSet('fluxa_os_hist',JSON.stringify(data)); }
+      if(data&&data.length){
+        const local=JSON.parse(ls('fluxa_os_hist')||'[]');
+        // Merge: remotas prevalecem, locais de outras lojas são preservadas
+        const merged=[...data];
+        local.forEach(l=>{ if(!merged.find(r=>r.id===l.id)) merged.push(l); });
+        lsSet('fluxa_os_hist',JSON.stringify(merged.slice(0,600)));
+      }
     }catch(e){ console.warn('[loadProdutividade]', e?.message||e); }
   }
   renderProd();
@@ -6858,7 +6876,8 @@ async function gerarOSdoAgendamento(ag, agId){
       cliente:ag.cliente, local_servico:ag.local_servico,
       data_servico:dataStr, hora:ag.horario, tecnico:ag.tecnico,
       servicos:[ag.tipo_servico], materiais:'', obs_tecnica:ag.obs||'',
-      total:0, status:'agendado', agendamento_id:agId
+      total:0, status:'agendado', agendamento_id:agId,
+      loja_id:ag.loja_id||lojaAtiva||LOJA_PADRAO_ID // fix #A: OS do plano herda loja_id do agendamento
     };
     const num=(parseInt(ls('fluxa_os_num')||'0'))+1; lsSet('fluxa_os_num',num);
     const rec={...osDados, id:'os_ag_'+Date.now()+Math.random(), numero:num, data_criacao:new Date().toISOString()};
