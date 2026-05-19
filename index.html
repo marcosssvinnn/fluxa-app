@@ -4390,6 +4390,25 @@ function gP(s){ return (parseFloat(s.p)||0)*(parseInt(s.qty)||1); }
 //  FOTO
 // ──────────────────────────────────────────────────
 const FOTO_MAX_BYTES = 2 * 1024 * 1024; // 2 MB
+
+// fix #5: comprime imagem antes de armazenar como base64 (evita payloads gigantes no banco)
+// maxW: largura máxima em px; quality: 0–1 JPEG
+function compressImage(dataUrl, maxW=1200, quality=0.75){
+  return new Promise(resolve=>{
+    const img=new Image();
+    img.onload=()=>{
+      const scale=Math.min(1, maxW/img.width);
+      const w=Math.round(img.width*scale);
+      const h=Math.round(img.height*scale);
+      const canvas=document.createElement('canvas');
+      canvas.width=w; canvas.height=h;
+      canvas.getContext('2d').drawImage(img,0,0,w,h);
+      resolve(canvas.toDataURL('image/jpeg',quality));
+    };
+    img.onerror=()=>resolve(dataUrl); // fallback: retorna original se falhar
+    img.src=dataUrl;
+  });
+}
 function renderFotosOrcSlots(){
   const grid=document.getElementById('fotos-orc-grid'); if(!grid) return;
   grid.innerHTML='';
@@ -4410,7 +4429,7 @@ function carregarFotoOrc(inp, idx){
   const f=inp.files[0]; if(!f) return;
   if(f.size > FOTO_MAX_BYTES){ toast('⚠️ Foto muito grande (máx 2 MB).'); inp.value=''; return; }
   const r=new FileReader();
-  r.onload=e=>{ fotosB64[idx]=e.target.result; renderFotosOrcSlots(); };
+  r.onload=async e=>{ fotosB64[idx]=await compressImage(e.target.result); renderFotosOrcSlots(); }; // fix #5: comprime antes de armazenar
   r.readAsDataURL(f);
 }
 function removerFotoOrc(idx){
@@ -4701,7 +4720,7 @@ function coletarForm(){
 }
 
 function preencherDocOrc(d, num){
-  const LC=getLojaConfig(d.loja_id);
+  const LC=getLojaConfig(d.loja_id||lojaAtiva); // fix #4: fallback para loja ativa se registro antigo sem loja_id
   const c1=LC.cor, c2=LC.cor2;
   // header
   document.getElementById('pd-header-orc').style.background=c1;
@@ -4894,7 +4913,7 @@ async function gerarOSPDF(modo='os'){
 }
 
 function preencherDocOS(d, num){
-  const LC=getLojaConfig(d.loja_id);
+  const LC=getLojaConfig(d.loja_id||lojaAtiva); // fix #4: fallback para loja ativa se registro antigo sem loja_id
   const c1=LC.cor, c2=LC.cor2;
   document.getElementById('pd-header-os').style.background=c2;
   document.getElementById('pd-thead-os').style.background=c2;
@@ -5271,7 +5290,7 @@ function abrirOrc(id){
   const o=todosOrc.find(x=>x.id===id); if(!o) return;
   editId=id;
   setV('cli',o.cliente||''); setV('loc',o.local_servico||''); setV('tel-cli',o.tel_cliente||''); setV('cnpj-cli',o.cnpj||'');
-  setV('orc-loja',o.loja_id||LOJA_PADRAO_ID);
+  setV('orc-loja',o.loja_id||lojaAtiva||LOJA_PADRAO_ID); // fix #4: lojaAtiva como fallback para registros antigos
   setV('pag',o.pagamento||'A combinar'); updPag(); setV('val',String(o.validade_dias||5));
   setV('obs',o.obs||''); setV('escopo',o.escopo||''); setV('data-svc',o.data_servico||'');
   setV('nota-interna',o.nota_interna||'');
@@ -5311,7 +5330,7 @@ function gerarOS_deOrc(id){
   const o=todosOrc.find(x=>x.id===id); if(!o) return;
   osOrcId = id; // guarda o vínculo
   setV('os-cli',o.cliente||''); setV('os-loc',o.local_servico||''); setV('os-cnpj',o.cnpj||'');
-  setV('os-loja',o.loja_id||LOJA_PADRAO_ID);
+  setV('os-loja',o.loja_id||lojaAtiva||LOJA_PADRAO_ID); // fix #4: lojaAtiva como fallback para registros antigos
   setV('os-data',o.data_servico||''); setV('os-total',String(o.total||0));
   osSvcs=(o.servicos||[]).map(s=>({id:Date.now()+Math.random(),d:s.desc}));
   if(!osSvcs.length) osSvcs=[{id:Date.now(),d:''}];
@@ -5465,7 +5484,7 @@ function editarOS(id){
   setV('os-tec',o.tecnico||''); setV('os-total',String(o.total||0));
   setV('os-mat',o.materiais||''); setV('os-obs',o.obs_tecnica||'');
   setV('os-video-link',o.video_link||'');
-  setV('os-loja',o.loja_id||LOJA_PADRAO_ID);
+  setV('os-loja',o.loja_id||lojaAtiva||LOJA_PADRAO_ID); // fix #4: lojaAtiva como fallback para registros antigos
   osSvcs=(o.servicos||[]).map(s=>({id:Date.now()+Math.random(),d:typeof s==='string'?s:s.desc||''}));
   if(!osSvcs.length) osSvcs=[{id:Date.now(),d:''}];
   osFotos=(o.fotos||[]).concat(['','','']).slice(0,3);
@@ -6799,13 +6818,33 @@ function proximasOcorrencias(ag, qtd=6){
   const datas=[];
   const inicio=new Date(ag.data_inicio+'T12:00:00');
   const fim=ag.data_fim?new Date(ag.data_fim+'T12:00:00'):null;
-  let cur=new Date(inicio);
+  const diaMes=(ag.dia_semana>=1&&ag.dia_semana<=31)?ag.dia_semana:0; // dia_semana armazena dia-do-mês para planos mensais
+  let cur;
+  if(ag.periodicidade==='mensal'&&diaMes){
+    // Pinamos no dia preferido do mês — evita derivar para o dia da criação
+    cur=new Date(inicio.getFullYear(),inicio.getMonth(),1,12,0,0);
+    const maxD1=new Date(cur.getFullYear(),cur.getMonth()+1,0).getDate();
+    cur.setDate(Math.min(diaMes,maxD1));
+    if(cur<inicio){ // se o dia deste mês já passou, vai pro próximo
+      cur.setMonth(cur.getMonth()+1);
+      const maxD2=new Date(cur.getFullYear(),cur.getMonth()+1,0).getDate();
+      cur.setDate(Math.min(diaMes,maxD2));
+    }
+  } else {
+    cur=new Date(inicio);
+  }
   while(datas.length<qtd){
     if(fim&&cur>fim) break;
-    if(cur>=inicio) datas.push(new Date(cur));
+    datas.push(new Date(cur));
     if(ag.periodicidade==='semanal') cur.setDate(cur.getDate()+7);
     else if(ag.periodicidade==='quinzenal') cur.setDate(cur.getDate()+14);
-    else { cur.setMonth(cur.getMonth()+1); }
+    else {
+      cur.setMonth(cur.getMonth()+1);
+      if(diaMes){ // re-pina no dia preferido após avançar o mês
+        const maxD=new Date(cur.getFullYear(),cur.getMonth()+1,0).getDate();
+        cur.setDate(Math.min(diaMes,maxD));
+      }
+    }
     if(datas.length>100) break;
   }
   return datas;
@@ -7795,13 +7834,14 @@ function cvCapturarFoto(idx,input){
   const files=input.files; if(!files||!files.length) return;
   const file=files[0];
   const reader=new FileReader();
-  reader.onload=e=>{
+  reader.onload=async e=>{
+    const compressed=await compressImage(e.target.result); // fix #5: comprime antes de armazenar
     _cvEquipData[idx].fotos=_cvEquipData[idx].fotos||[];
-    _cvEquipData[idx].fotos.push(e.target.result);
+    _cvEquipData[idx].fotos.push(compressed);
     const fotosDiv=document.getElementById(`cv-eq-fotos-${idx}`);
     if(fotosDiv){
       const img=document.createElement('img');
-      img.src=e.target.result; img.className='cv-eq-thumb';
+      img.src=compressed; img.className='cv-eq-thumb';
       img.title='Clique para remover';
       const fotoIdx=_cvEquipData[idx].fotos.length-1;
       img.onclick=()=>{ _cvEquipData[idx].fotos.splice(fotoIdx,1); img.remove(); };
@@ -7999,7 +8039,7 @@ async function salvarConcluirVis(){
   const tec=document.getElementById('concluir-vis-tec').value.trim();
   const obs=document.getElementById('concluir-vis-obs').value.trim();
   const s=getSessao();
-  const lojaId=s?.loja_id||getLojaFiltro()||CFG?.lojas?.[0]?.id||'default';
+  const lojaId=loc.loja_id||s?.loja_id||getLojaFiltro()||CFG?.lojas?.[0]?.id||'default'; // fix #2: usa loja do plano, não do usuário logado
   const mes=data.slice(0,7); // usa mês da data informada, não visMesRef
   // Monta array de equipamentos com status/obs/fotos coletados no modal
   const equipsBase=window._concluirVisEquips||[];
@@ -8035,8 +8075,7 @@ async function salvarConcluirVis(){
   lsVisSalvar(lista);
   if(dbOk&&db){
     try{
-      const payload={...rec,equipamentos:JSON.stringify(rec.equipamentos)};
-      await db.from('vistorias').insert([payload]);
+      await db.from('vistorias').insert([rec]); // fix #3: equipamentos é jsonb — não serializar com JSON.stringify
     }catch(e){ console.warn('vis rápida Supabase:',e.message); }
   }
   // Marca a OS do agendamento deste mês como concluída
@@ -8393,10 +8432,11 @@ function visCarregarFoto(inp, id, idx){
   const f = inp.files[0]; if(!f) return;
   if(f.size > FOTO_MAX_BYTES){ toast('⚠️ Foto muito grande (máx 2 MB)'); inp.value=''; return; }
   const r = new FileReader();
-  r.onload = e => {
+  r.onload = async e => {
+    const compressed=await compressImage(e.target.result); // fix #5: comprime antes de armazenar
     if(!visEquipDados[id]) visEquipDados[id]={ status:'na', obs:'', fotos:[] };
     if(!visEquipDados[id].fotos) visEquipDados[id].fotos=[];
-    visEquipDados[id].fotos[idx] = e.target.result;
+    visEquipDados[id].fotos[idx] = compressed;
     renderVisEquipGrid();
   };
   r.readAsDataURL(f);
@@ -8516,9 +8556,9 @@ async function salvarVistoria(){
   // Save Supabase
   if(dbOk&&db){
     try{
-      const payload={...rec, equipamentos:JSON.stringify(rec.equipamentos)};
-      if(visEditId) await db.from('vistorias').update(payload).eq('id',id);
-      else          await db.from('vistorias').insert([payload]);
+      // fix #3: equipamentos é jsonb — Supabase JS aceita array nativo, não string
+      if(visEditId) await db.from('vistorias').update(rec).eq('id',id);
+      else          await db.from('vistorias').insert([rec]);
     }catch(e){ console.warn('Visita Supabase err:',e.message); }
   }
   toast('✅ Vistoria salva!');
