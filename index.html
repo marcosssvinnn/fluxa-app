@@ -3544,8 +3544,8 @@ function lsOrcProxNum(){ return lsOrcLer().reduce((a,o)=>Math.max(a,o.numero||0)
   atualizarSQL();
   initForm();
   todosOrc = lsOrcLer();
-  // Carrega branding extra de lojas do cache local (sobrescreverá quando remoto carregar)
-  try{ const lec=ls('fluxa_lojas_extra_cfg'); if(lec) lojasExtraConfig={...JSON.parse(lec)}; }catch(e){ console.warn('[boot:lojasExtraConfig]',e?.message||e); }
+  // CFG local já foi carregado por carregarCFGlocal() — inicializa lojas_extra a partir dele
+  loadLojasExtraConfig();
 
   // ── Seed técnicos iniciais (roda 1x se não houver usuários) ──
   seedTecnicosIniciais();
@@ -3830,14 +3830,10 @@ async function carregarCFGremoto(){
   }catch(e){ console.warn('[carregarCFGremoto]', e?.message||e); }
 }
 
-async function loadLojasExtraConfig(){
-  if(!dbOk||!db) return;
-  try{
-    const {data} = await db.from('empresa_config').select('*');
-    // Filtra: ignora a linha global (id=1 ou '1'), guarda apenas linhas de lojas específicas
-    if(data) data.forEach(row=>{ if(row.id && String(row.id)!=='1' && row.dados) lojasExtraConfig[String(row.id)]=row.dados; });
-    lsSet('fluxa_lojas_extra_cfg', JSON.stringify(lojasExtraConfig));
-  }catch(e){ console.warn('[loadLojasExtraConfig]', e?.message||e); }
+// loadLojasExtraConfig: lê de CFG.lojas_extra (já carregado junto com CFG global)
+function loadLojasExtraConfig(){
+  lojasExtraConfig = CFG.lojas_extra || {};
+  lsSet('fluxa_lojas_extra_cfg', JSON.stringify(lojasExtraConfig));
 }
 
 function getLojaConfig(lojaId){
@@ -3869,14 +3865,19 @@ async function salvarLojaConfig(lojaId){
     cor2:    (document.getElementById('loja-cfg-cor2-'+lojaId)?.value)||'',
     logoB64: lojasExtraConfig[lojaId]?.logoB64||''
   };
-  // strip blanks so they fall back to global CFG
+  // campos vazios → fallback para CFG global (não sobrescreve com vazio)
   Object.keys(dados).forEach(k=>{ if(!dados[k]) delete dados[k]; });
+  // guarda dentro do CFG, na chave lojas_extra
+  if(!CFG.lojas_extra) CFG.lojas_extra={};
+  CFG.lojas_extra[lojaId] = dados;
   lojasExtraConfig[lojaId] = dados;
+  lsSet('empresa_cfg', JSON.stringify(CFG)); // persiste local
   lsSet('fluxa_lojas_extra_cfg', JSON.stringify(lojasExtraConfig));
   if(dbOk && db){
     try{
-      await db.from('empresa_config').upsert([{id:lojaId, dados, updated_at:new Date().toISOString()}]);
-      toast('✅ Branding da empresa salvo!');
+      // salva tudo junto no registro global id=1 — mesma estratégia do salvarEmpresa
+      await db.from('empresa_config').upsert([{id:1, dados:CFG, updated_at:new Date().toISOString()}]);
+      toast('✅ Branding da '+getLojaNome(lojaId)+' salvo!');
     }catch(e){
       console.warn('[salvarLojaConfig]', e?.message||e);
       toast('✅ Salvo localmente (sync falhou)');
@@ -3892,6 +3893,10 @@ function uploadLojaLogo(input, lojaId){
   r.onload = e => {
     if(!lojasExtraConfig[lojaId]) lojasExtraConfig[lojaId]={};
     lojasExtraConfig[lojaId].logoB64 = e.target.result;
+    // sincroniza com CFG.lojas_extra para persistência posterior
+    if(!CFG.lojas_extra) CFG.lojas_extra={};
+    if(!CFG.lojas_extra[lojaId]) CFG.lojas_extra[lojaId]={};
+    CFG.lojas_extra[lojaId].logoB64 = e.target.result;
     const prev = document.getElementById('loja-logo-preview-'+lojaId);
     if(prev){ prev.src=e.target.result; prev.style.display='block'; }
   };
@@ -4035,6 +4040,7 @@ function renderLojasBrandingUI(){
 function removerLojaLogo(lojaId){
   if(!lojasExtraConfig[lojaId]) lojasExtraConfig[lojaId]={};
   lojasExtraConfig[lojaId].logoB64='';
+  if(CFG.lojas_extra?.[lojaId]) CFG.lojas_extra[lojaId].logoB64='';
   const prev=document.getElementById('loja-logo-preview-'+lojaId);
   if(prev){ prev.src=''; prev.style.display='none'; }
   renderLojasBrandingUI();
