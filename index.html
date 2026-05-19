@@ -3086,6 +3086,7 @@ function populaLojaSelect(){
 
 function trocarLojaAtiva(id){
   lojaAtiva=id;
+  atualizarHeaderLoja();
   // Re-renderiza a página atual
   const paginaAtiva=document.querySelector('.page.on');
   if(!paginaAtiva) return;
@@ -3096,6 +3097,25 @@ function trocarLojaAtiva(id){
   else if(pid==='despesas') renderDespesas();
   else if(pid==='produtividade') loadProdutividade();
   else if(pid==='agendamentos') renderAgLista(); renderCal();
+}
+
+function atualizarHeaderLoja(){
+  const LC = getLojaConfig(lojaAtiva);
+  document.documentElement.style.setProperty('--c1', LC.cor||CFG.cor);
+  document.documentElement.style.setProperty('--c1-light', hexA(LC.cor||CFG.cor, .1));
+  document.documentElement.style.setProperty('--c1-mid',  hexA(LC.cor||CFG.cor, .2));
+  document.documentElement.style.setProperty('--c2', LC.cor2||CFG.cor2);
+  const hNome=document.getElementById('hdr-nome');
+  const hSub =document.getElementById('hdr-sub');
+  if(hNome) hNome.textContent = LC.nome||CFG.nome||'';
+  if(hSub)  hSub.textContent  = LC.sub ||CFG.sub ||'Serviços';
+  const img=document.getElementById('hdr-logo-img');
+  if(img){
+    img.alt = LC.nome||CFG.nome||'Logo';
+    if(LC.logoB64){ img.src=LC.logoB64; img.classList.add('has-logo'); }
+    else { img.classList.remove('has-logo'); }
+  }
+  document.title=(LC.nome||CFG.nome||'Fluxa')+' — Orçamentos';
 }
 
 // Atualiza o select de técnicos de acordo com a loja selecionada no form
@@ -3373,14 +3393,17 @@ async function fazerLogin(){
       document.getElementById('login-overlay').style.display = 'none';
       atualizarBadgeUsuario();
       aplicarPermissoesPerfil();
+      atualizarHeaderLoja();
+      go('history');
     } else {
-      // Técnico → lojaAtiva = sua empresa
+      // Técnico/Vendas → lojaAtiva = sua empresa
       lojaAtiva = loginUserSelecionado.loja_id || '';
       const sessao = {perfil:loginUserSelecionado.perfil, loja_id:loginUserSelecionado.loja_id, nome:loginUserSelecionado.nome};
       setSessao(sessao);
       document.getElementById('login-overlay').style.display = 'none';
       atualizarBadgeUsuario();
       aplicarPermissoesPerfil();
+      atualizarHeaderLoja();
     }
   } else {
     loginAttempts++;
@@ -3442,6 +3465,7 @@ function confirmarLojaGestor(lojaId){
   document.getElementById('login-step-loja').classList.remove('show');
   atualizarBadgeUsuario();
   aplicarPermissoesPerfil();
+  atualizarHeaderLoja();
   go('history');
 }
 
@@ -3949,14 +3973,17 @@ function aplicarCFG(){
   populaTecSelects(); populaTecCheckIn();
   atualizarBadgeUsuario();
   aplicarPermissoesPerfil();
+  atualizarHeaderLoja(); // sobrescreve header/cores com config da loja ativa
 }
 
 function preencherFormEmpresa(){
-  setV('cfg-nome',CFG.nome); setV('cfg-sub',CFG.sub);
-  setV('cfg-tagline',CFG.tagline||'');
-  setV('cfg-tel',CFG.tel); setV('cfg-cidades',CFG.cidades);
-  setV('cfg-cor',CFG.cor); setV('cfg-cor-txt',CFG.cor);
-  setV('cfg-cor2',CFG.cor2); setV('cfg-cor2-txt',CFG.cor2);
+  // Para gestores de empresa específica, exibe os dados da sua loja
+  const LC = (lojaAtiva && !isMainGestor()) ? getLojaConfig(lojaAtiva) : CFG;
+  setV('cfg-nome',LC.nome||CFG.nome); setV('cfg-sub',LC.sub||CFG.sub);
+  setV('cfg-tagline',LC.tagline!==undefined?LC.tagline:(CFG.tagline||''));
+  setV('cfg-tel',LC.tel||CFG.tel); setV('cfg-cidades',LC.cidades||CFG.cidades);
+  setV('cfg-cor',LC.cor||CFG.cor); setV('cfg-cor-txt',LC.cor||CFG.cor);
+  setV('cfg-cor2',LC.cor2||CFG.cor2); setV('cfg-cor2-txt',LC.cor2||CFG.cor2);
   setV('cfg-servicos', (CFG.svcs||[]).join('\n'));
   setV('cfg-tecnicos', (CFG.tecnicos||[]).join('\n'));
   setV('cfg-pin', ''); // não exibir hash; usuário digita novo PIN para alterar
@@ -3976,7 +4003,8 @@ function preencherFormEmpresa(){
   const ejsSt=document.getElementById('ejs-status');
   if(ejsSt) ejsSt.textContent=emailJSConfigurado()?'✅ EmailJS configurado':'';
   const lp = document.getElementById('logo-preview');
-  if(CFG.logoB64){ lp.src=CFG.logoB64; lp.style.display='block'; }
+  const logoAtivo = LC.logoB64||CFG.logoB64;
+  if(logoAtivo){ lp.src=logoAtivo; lp.style.display='block'; } else { lp.style.display='none'; }
   // Per-loja branding — só para gestor principal
   const brandCard=document.getElementById('lojas-branding-card');
   if(brandCard) brandCard.style.display=isMainGestor()?'block':'none';
@@ -4058,11 +4086,53 @@ function previewCfg(){
 function uploadLogo(input){
   const f=input.files[0]; if(!f) return;
   const r=new FileReader();
-  r.onload=e=>{ CFG.logoB64=e.target.result; const lp=document.getElementById('logo-preview'); lp.src=e.target.result; lp.style.display='block'; };
+  r.onload=async e=>{
+    const raw=e.target.result;
+    const dataUrl=await compressImage(raw,1200,0.75);
+    if(lojaAtiva && !isMainGestor()){
+      // Gestor de empresa específica → salva logo na sua loja
+      if(!lojasExtraConfig[lojaAtiva]) lojasExtraConfig[lojaAtiva]={};
+      lojasExtraConfig[lojaAtiva].logoB64=dataUrl;
+      if(!CFG.lojas_extra) CFG.lojas_extra={};
+      if(!CFG.lojas_extra[lojaAtiva]) CFG.lojas_extra[lojaAtiva]={};
+      CFG.lojas_extra[lojaAtiva].logoB64=dataUrl;
+    } else {
+      CFG.logoB64=dataUrl;
+    }
+    const lp=document.getElementById('logo-preview'); lp.src=dataUrl; lp.style.display='block';
+  };
   r.readAsDataURL(f);
 }
 
 async function salvarEmpresa(){
+  // Gestor de empresa específica → salva branding somente da sua loja
+  if(lojaAtiva && !isMainGestor()){
+    if(!CFG.lojas_extra) CFG.lojas_extra={};
+    if(!lojasExtraConfig[lojaAtiva]) lojasExtraConfig[lojaAtiva]={};
+    const dadosLoja={
+      nome:    gV('cfg-nome')||'',
+      sub:     gV('cfg-sub')||'',
+      tagline: gV('cfg-tagline')||'',
+      tel:     gV('cfg-tel')||'',
+      cidades: gV('cfg-cidades')||'',
+      cor:     gV('cfg-cor')||CFG.cor,
+      cor2:    gV('cfg-cor2')||CFG.cor2,
+      logoB64: lojasExtraConfig[lojaAtiva]?.logoB64||''
+    };
+    Object.keys(dadosLoja).forEach(k=>{ if(k!=='logoB64'&&!dadosLoja[k]) delete dadosLoja[k]; });
+    CFG.lojas_extra[lojaAtiva]=dadosLoja;
+    lojasExtraConfig[lojaAtiva]=dadosLoja;
+    lsSet('empresa_cfg',JSON.stringify(CFG));
+    lsSet('fluxa_lojas_extra_cfg',JSON.stringify(lojasExtraConfig));
+    if(dbOk&&db){
+      try{ await db.from('empresa_config').upsert([{id:1,dados:CFG,updated_at:new Date().toISOString()}]); }
+      catch(e){ console.warn('[salvarEmpresa:loja]',e?.message||e); toast('✅ Configurações salvas localmente (sync falhou)'); atualizarHeaderLoja(); return; }
+    }
+    atualizarHeaderLoja();
+    toast('✅ Configurações salvas!');
+    return;
+  }
+  // Gestor principal → salva no CFG global
   CFG.nome = gV('cfg-nome')||CFG_DEF.nome;
   CFG.sub  = gV('cfg-sub');
   CFG.tagline = gV('cfg-tagline')||'';
