@@ -269,6 +269,15 @@
     .logo-upload{border:2px dashed var(--gray-mid);border-radius:10px;padding:20px;text-align:center;cursor:pointer;transition:all .2s;position:relative}
     .logo-upload:hover{border-color:var(--c1);background:var(--c1-light)}
     .logo-upload input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+    .loja-cfg-block{border:1.5px solid var(--gray-mid);border-radius:12px;padding:16px;margin-bottom:14px;transition:border-color .15s}
+    .loja-cfg-block:focus-within{border-color:var(--c1)}
+    .loja-cfg-hdr{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+    .loja-cfg-badge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;background:var(--c1-light);color:var(--c1)}
+    .loja-cfg-title{font-size:14px;font-weight:700;color:var(--c2)}
+    .loja-logo-sm{width:40px;height:40px;object-fit:contain;border-radius:6px;border:1.5px solid var(--gray-mid);display:none}
+    .loja-logo-upload-sm{border:2px dashed var(--gray-mid);border-radius:8px;padding:10px;text-align:center;cursor:pointer;transition:all .2s;position:relative;font-size:12px;color:var(--gray)}
+    .loja-logo-upload-sm:hover{border-color:var(--c1);background:var(--c1-light)}
+    .loja-logo-upload-sm input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
     .logo-preview{max-height:64px;max-width:200px;margin-top:10px;display:none;border-radius:6px}
     .seg-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
     .seg-btn{padding:10px;border:2px solid var(--gray-mid);border-radius:10px;background:var(--white);font-family:'Inter',sans-serif;font-size:13px;font-weight:600;cursor:pointer;text-align:center;transition:all .15s}
@@ -1348,6 +1357,13 @@
         <button class="ba" style="background:var(--gray-light);color:var(--c2);padding:9px 14px;font-size:13px" onclick="testarEmailJS()">📨 Testar Envio</button>
         <span id="ejs-status" style="font-size:12px;color:var(--gray)"></span>
       </div>
+    </div>
+
+    <!-- ══ BRANDING POR EMPRESA ══ -->
+    <div class="card" id="lojas-branding-card" style="display:none">
+      <div class="ct">🏢 Identidade por Empresa</div>
+      <p style="font-size:13px;color:var(--gray);margin-bottom:16px">Configure logo e dados independentes para cada empresa. O que for preenchido aqui sobrescreve as configurações globais <strong>somente nos documentos daquela empresa</strong> (orçamentos, OS, relatórios de vistoria).</p>
+      <div id="lojas-branding-body"></div>
     </div>
 
   </div>
@@ -3426,6 +3442,7 @@ const CFG_DEF = {
   emailjs_template: 'template_s9fo89b'
 };
 let CFG = { ...CFG_DEF };
+let lojasExtraConfig = {}; // { lojaId: { nome, sub, logoB64, tel, cidades, cor, cor2, tagline } }
 let db = null, dbOk = false;
 let svcs = [], editId = null;
 let osSvcs = [], modalOrcId = null, osOrcId = null; // osOrcId = ID do orçamento vinculado à OS
@@ -3488,6 +3505,8 @@ function lsOrcProxNum(){ return lsOrcLer().reduce((a,o)=>Math.max(a,o.numero||0)
   atualizarSQL();
   initForm();
   todosOrc = lsOrcLer();
+  // Carrega branding extra de lojas do cache local (sobrescreverá quando remoto carregar)
+  try{ const lec=ls('fluxa_lojas_extra_cfg'); if(lec) lojasExtraConfig={...JSON.parse(lec)}; }catch(e){ console.warn('[boot:lojasExtraConfig]',e?.message||e); }
 
   // ── Seed técnicos iniciais (roda 1x se não houver usuários) ──
   seedTecnicosIniciais();
@@ -3515,6 +3534,7 @@ function lsOrcProxNum(){ return lsOrcLer().reduce((a,o)=>Math.max(a,o.numero||0)
       const ok = await conectarDB(sbUrl, sbKey, false);
       if(ok){
         await carregarCFGremoto(); aplicarCFG(); initEmailJS();
+        loadLojasExtraConfig();
         loadLocais(); // carrega locais_vistoria que vieram no CFG
         await carregarClientesRemoto();
         await sincronizarSeedUsuarios();
@@ -3771,6 +3791,74 @@ async function carregarCFGremoto(){
   }catch(e){ console.warn('[carregarCFGremoto]', e?.message||e); }
 }
 
+async function loadLojasExtraConfig(){
+  if(!dbOk||!db) return;
+  try{
+    const {data} = await db.from('empresa_config').select('*');
+    // Filtra: ignora a linha global (id=1 ou '1'), guarda apenas linhas de lojas específicas
+    if(data) data.forEach(row=>{ if(row.id && String(row.id)!=='1' && row.dados) lojasExtraConfig[String(row.id)]=row.dados; });
+    lsSet('fluxa_lojas_extra_cfg', JSON.stringify(lojasExtraConfig));
+  }catch(e){ console.warn('[loadLojasExtraConfig]', e?.message||e); }
+}
+
+function getLojaConfig(lojaId){
+  if(!lojaId) return CFG;
+  const extra = lojasExtraConfig[lojaId];
+  if(!extra) return CFG;
+  return {
+    ...CFG,
+    nome:    extra.nome    || CFG.nome,
+    sub:     extra.sub     || CFG.sub,
+    logoB64: extra.logoB64 || CFG.logoB64,
+    cor:     extra.cor     || CFG.cor,
+    cor2:    extra.cor2    || CFG.cor2,
+    tel:     extra.tel     || CFG.tel,
+    cidades: extra.cidades || CFG.cidades,
+    tagline: extra.tagline !== undefined ? extra.tagline : CFG.tagline
+  };
+}
+
+async function salvarLojaConfig(lojaId){
+  if(!lojaId) return;
+  const dados = {
+    nome:    gV('loja-cfg-nome-'+lojaId)||'',
+    sub:     gV('loja-cfg-sub-'+lojaId)||'',
+    tagline: gV('loja-cfg-tagline-'+lojaId)||'',
+    tel:     gV('loja-cfg-tel-'+lojaId)||'',
+    cidades: gV('loja-cfg-cidades-'+lojaId)||'',
+    cor:     (document.getElementById('loja-cfg-cor-'+lojaId)?.value)||'',
+    cor2:    (document.getElementById('loja-cfg-cor2-'+lojaId)?.value)||'',
+    logoB64: lojasExtraConfig[lojaId]?.logoB64||''
+  };
+  // strip blanks so they fall back to global CFG
+  Object.keys(dados).forEach(k=>{ if(!dados[k]) delete dados[k]; });
+  lojasExtraConfig[lojaId] = dados;
+  lsSet('fluxa_lojas_extra_cfg', JSON.stringify(lojasExtraConfig));
+  if(dbOk && db){
+    try{
+      await db.from('empresa_config').upsert([{id:lojaId, dados, updated_at:new Date().toISOString()}]);
+      toast('✅ Branding da empresa salvo!');
+    }catch(e){
+      console.warn('[salvarLojaConfig]', e?.message||e);
+      toast('✅ Salvo localmente (sync falhou)');
+    }
+  } else {
+    toast('✅ Branding salvo localmente');
+  }
+}
+
+function uploadLojaLogo(input, lojaId){
+  const file = input.files[0]; if(!file) return;
+  const r = new FileReader();
+  r.onload = e => {
+    if(!lojasExtraConfig[lojaId]) lojasExtraConfig[lojaId]={};
+    lojasExtraConfig[lojaId].logoB64 = e.target.result;
+    const prev = document.getElementById('loja-logo-preview-'+lojaId);
+    if(prev){ prev.src=e.target.result; prev.style.display='block'; }
+  };
+  r.readAsDataURL(file);
+}
+
 async function carregarClientesRemoto(){
   if(!dbOk||!db) return;
   try{
@@ -3845,6 +3933,72 @@ function preencherFormEmpresa(){
   if(ejsSt) ejsSt.textContent=emailJSConfigurado()?'✅ EmailJS configurado':'';
   const lp = document.getElementById('logo-preview');
   if(CFG.logoB64){ lp.src=CFG.logoB64; lp.style.display='block'; }
+  // Per-loja branding — só para gestor principal
+  const brandCard=document.getElementById('lojas-branding-card');
+  if(brandCard) brandCard.style.display=isMainGestor()?'block':'none';
+  if(isMainGestor()) renderLojasBrandingUI();
+}
+
+function renderLojasBrandingUI(){
+  const body=document.getElementById('lojas-branding-body'); if(!body) return;
+  body.innerHTML=LOJAS.map(loja=>{
+    const ec=lojasExtraConfig[loja.id]||{};
+    const idN=loja.id.replace(/[^a-z0-9]/g,'-');
+    return `
+    <div class="loja-cfg-block">
+      <div class="loja-cfg-hdr">
+        <img id="loja-logo-preview-${loja.id}" src="${esc(ec.logoB64||'')}" class="loja-logo-sm" style="display:${ec.logoB64?'block':'none'}">
+        <div>
+          <div class="loja-cfg-title">${esc(loja.nome)}</div>
+          <div class="loja-cfg-badge">${loja.id}</div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="fl"><label>Nome nos documentos</label><input type="text" id="loja-cfg-nome-${loja.id}" value="${esc(ec.nome||'')}" placeholder="${esc(loja.nome)}"></div>
+        <div class="fl"><label>Subtítulo / Segmento</label><input type="text" id="loja-cfg-sub-${loja.id}" value="${esc(ec.sub||'')}" placeholder="${esc(CFG.sub||'Manutenção de Piscinas')}"></div>
+      </div>
+      <div class="row f1">
+        <div class="fl"><label>Slogan / Tagline <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--gray)">(opcional)</span></label><input type="text" id="loja-cfg-tagline-${loja.id}" value="${esc(ec.tagline||'')}" placeholder="${esc(CFG.tagline||'')}"></div>
+      </div>
+      <div class="row">
+        <div class="fl"><label>Telefone / WhatsApp</label><input type="text" id="loja-cfg-tel-${loja.id}" value="${esc(ec.tel||'')}" placeholder="${esc(CFG.tel||'')}"></div>
+        <div class="fl"><label>Cidades / Regiões</label><input type="text" id="loja-cfg-cidades-${loja.id}" value="${esc(ec.cidades||'')}" placeholder="${esc(CFG.cidades||'')}"></div>
+      </div>
+      <div class="row">
+        <div class="fl"><label>Cor principal</label>
+          <div class="color-row">
+            <input type="color" id="loja-cfg-cor-${loja.id}" value="${ec.cor||CFG.cor||'#C45E0A'}">
+            <input type="text" value="${ec.cor||CFG.cor||'#C45E0A'}" oninput="document.getElementById('loja-cfg-cor-${loja.id}').value=this.value" placeholder="#C45E0A">
+          </div>
+        </div>
+        <div class="fl"><label>Cor secundária</label>
+          <div class="color-row">
+            <input type="color" id="loja-cfg-cor2-${loja.id}" value="${ec.cor2||CFG.cor2||'#2B3244'}">
+            <input type="text" value="${ec.cor2||CFG.cor2||'#2B3244'}" oninput="document.getElementById('loja-cfg-cor2-${loja.id}').value=this.value" placeholder="#2B3244">
+          </div>
+        </div>
+      </div>
+      <div class="fl" style="margin-bottom:10px">
+        <label>Logo exclusiva</label>
+        <div class="loja-logo-upload-sm">
+          <input type="file" accept="image/*" onchange="uploadLojaLogo(this,'${loja.id}')">
+          🖼️ Clique para enviar logo (PNG ou JPG)
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <button class="btn-primary" style="padding:8px 18px;font-size:13px" onclick="salvarLojaConfig('${loja.id}')">💾 Salvar ${esc(loja.nome)}</button>
+        ${ec.logoB64?`<button class="btn-sec" style="padding:8px 14px;font-size:12px;color:var(--red);border-color:var(--red)" onclick="removerLojaLogo('${loja.id}')">🗑 Remover logo</button>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function removerLojaLogo(lojaId){
+  if(!lojasExtraConfig[lojaId]) lojasExtraConfig[lojaId]={};
+  lojasExtraConfig[lojaId].logoB64='';
+  const prev=document.getElementById('loja-logo-preview-'+lojaId);
+  if(prev){ prev.src=''; prev.style.display='none'; }
+  renderLojasBrandingUI();
 }
 
 function syncCor(v){ if(/^#[0-9a-fA-F]{6}$/.test(v)) document.getElementById('cfg-cor').value=v; previewCfg(); }
@@ -4075,7 +4229,7 @@ async function criarOSjunto(dados, orcNum){
     // Preenche ambos docs e imprime juntos
     const numOrcStr=String(orcNum||0).padStart(3,'0');
     preencherDocOrc(dados, numOrcStr);
-    const osDados={ cli:dados.cli, loc:dados.loc, data, hora, tec, tot:dados.tot, mat:'', obs:'', svcs:osSvcsData };
+    const osDados={ cli:dados.cli, loc:dados.loc, data, hora, tec, tot:dados.tot, mat:'', obs:'', svcs:osSvcsData, loja_id:dados.loja_id||LOJA_PADRAO_ID };
     preencherDocOS(osDados, numStr);
     printMode='both'; window.print();
   }catch(e){ console.error('criarOSjunto:',e); toast('⚠️ Erro ao gerar OS: '+e.message); }
@@ -4502,7 +4656,8 @@ function coletarForm(){
 }
 
 function preencherDocOrc(d, num){
-  const c1=CFG.cor, c2=CFG.cor2;
+  const LC=getLojaConfig(d.loja_id);
+  const c1=LC.cor, c2=LC.cor2;
   // header
   document.getElementById('pd-header-orc').style.background=c1;
   document.getElementById('pd-thead-orc').style.background=c2;
@@ -4510,14 +4665,14 @@ function preencherDocOrc(d, num){
   document.getElementById('pd-cli-bar-orc').style.background=c1;
   // logo or initials
   const logoEl=document.getElementById('pd-hdr-logo-orc'), initEl=document.getElementById('pd-hdr-init-orc');
-  if(CFG.logoB64){ logoEl.src=CFG.logoB64; logoEl.className='pd-hdr-logo-img has-logo'; initEl.className='pd-hdr-logo-initials'; }
-  else { logoEl.className='pd-hdr-logo-img'; initEl.textContent=CFG.nome.charAt(0).toUpperCase(); initEl.className='pd-hdr-logo-initials show-init'; }
+  if(LC.logoB64){ logoEl.src=LC.logoB64; logoEl.className='pd-hdr-logo-img has-logo'; initEl.className='pd-hdr-logo-initials'; }
+  else { logoEl.className='pd-hdr-logo-img'; initEl.textContent=LC.nome.charAt(0).toUpperCase(); initEl.className='pd-hdr-logo-initials show-init'; }
   // names + tagline
-  setV_el('pd-nm-orc',CFG.nome,'textContent');
-  setV_el('pd-sb-orc',CFG.sub,'textContent');
-  const tagOrc=document.getElementById('pd-tag-orc'); if(tagOrc){ tagOrc.textContent=CFG.tagline||''; tagOrc.style.display=CFG.tagline?'block':'none'; }
-  const contato=[CFG.tel,CFG.cidades].filter(Boolean).join('  ·  ');
-  setV_el('pd-cont-orc',contato||CFG.nome,'textContent');
+  setV_el('pd-nm-orc',LC.nome,'textContent');
+  setV_el('pd-sb-orc',LC.sub,'textContent');
+  const tagOrc=document.getElementById('pd-tag-orc'); if(tagOrc){ tagOrc.textContent=LC.tagline||''; tagOrc.style.display=LC.tagline?'block':'none'; }
+  const contato=[LC.tel,LC.cidades].filter(Boolean).join('  ·  ');
+  setV_el('pd-cont-orc',contato||LC.nome,'textContent');
   setV_el('pd-num-orc','#'+num,'textContent');
   const validStr=d.vData?`Válido até ${d.vData}`:`${d.dias} dias de validade`;
   document.getElementById('pd-meta-orc').innerHTML=`Data de emissão: <strong>${d.dataStr}</strong><br>${validStr}`;
@@ -4525,8 +4680,8 @@ function preencherDocOrc(d, num){
   setV_el('pd-cli-loc-orc',d.loc||'','textContent');
   setV_el('pd-pag-orc',d.pagFormatado||d.pag,'textContent');
   setV_el('pd-val-orc',d.dias+' dias'+(d.vData?' · até '+d.vData:''),'textContent');
-  setV_el('pd-sign-resp-orc',CFG.nome+' — Responsável Técnico','textContent');
-  setV_el('pd-foot-orc',CFG.nome+(CFG.tel?'   ·   '+CFG.tel:'')+(CFG.cidades?'   ·   '+CFG.cidades:''),'textContent');
+  setV_el('pd-sign-resp-orc',LC.nome+' — Responsável Técnico','textContent');
+  setV_el('pd-foot-orc',LC.nome+(LC.tel?'   ·   '+LC.tel:'')+(LC.cidades?'   ·   '+LC.cidades:''),'textContent');
   // table body
   const tb=document.getElementById('pd-tbody-orc'); tb.innerHTML='';
   const temMulti=d.svcs.some(s=>(parseInt(s.qty)||1)>1);
@@ -4653,7 +4808,8 @@ async function gerarOSPDF(modo='os'){
     mat:gV('os-mat'), obs:gV('os-obs'),
     svcs:osSvcs.filter(s=>s.d.trim()).map(s=>s.d.trim()),
     fotos:osFotos.filter(Boolean), videoLink:gV('os-video-link'),
-    checklist: osChecklist.filter(x=>x.checked)
+    checklist: osChecklist.filter(x=>x.checked),
+    loja_id: gV('os-loja')||LOJA_PADRAO_ID
   };
   let numStr='???';
   if(dbOk&&db){
@@ -4678,7 +4834,7 @@ async function gerarOSPDF(modo='os'){
         dias:o.validade_dias||5, obs:o.obs||'', dataSvc:o.data_servico||'',
         dataStr:new Date(o.data_criacao||Date.now()).toLocaleDateString('pt-BR'),
         vData:o.validade_data||'', sub:o.subtotal||0, desc:o.desconto||0, tot:o.total||0,
-        svcs:o.servicos||[]
+        svcs:o.servicos||[], loja_id:o.loja_id||LOJA_PADRAO_ID
       };
       const savedFotos=[...fotosB64];
       try{ const raw=o.foto_base64||''; fotosB64=raw.startsWith('[')?JSON.parse(raw):(raw?[raw]:[]); }catch(e){ fotosB64=[]; }
@@ -4693,30 +4849,31 @@ async function gerarOSPDF(modo='os'){
 }
 
 function preencherDocOS(d, num){
-  const c1=CFG.cor, c2=CFG.cor2;
+  const LC=getLojaConfig(d.loja_id);
+  const c1=LC.cor, c2=LC.cor2;
   document.getElementById('pd-header-os').style.background=c2;
   document.getElementById('pd-thead-os').style.background=c2;
   document.getElementById('pd-foot-os').style.background=c2;
   document.getElementById('pd-cli-bar-os').style.background=c1;
   // logo or initials
   const logoEl=document.getElementById('pd-hdr-logo-os'), initEl=document.getElementById('pd-hdr-init-os');
-  if(CFG.logoB64){ logoEl.src=CFG.logoB64; logoEl.className='pd-hdr-logo-img has-logo'; initEl.className='pd-hdr-logo-initials'; }
-  else { logoEl.className='pd-hdr-logo-img'; initEl.textContent=CFG.nome.charAt(0).toUpperCase(); initEl.className='pd-hdr-logo-initials show-init'; }
-  setV_el('pd-nm-os',CFG.nome,'textContent');
-  setV_el('pd-sb-os',CFG.sub,'textContent');
-  const tagOs=document.getElementById('pd-tag-os'); if(tagOs){ tagOs.textContent=CFG.tagline||''; tagOs.style.display=CFG.tagline?'block':'none'; }
-  const contato=[CFG.tel,CFG.cidades].filter(Boolean).join('  ·  ');
-  setV_el('pd-cont-os',contato||CFG.nome,'textContent');
+  if(LC.logoB64){ logoEl.src=LC.logoB64; logoEl.className='pd-hdr-logo-img has-logo'; initEl.className='pd-hdr-logo-initials'; }
+  else { logoEl.className='pd-hdr-logo-img'; initEl.textContent=LC.nome.charAt(0).toUpperCase(); initEl.className='pd-hdr-logo-initials show-init'; }
+  setV_el('pd-nm-os',LC.nome,'textContent');
+  setV_el('pd-sb-os',LC.sub,'textContent');
+  const tagOs=document.getElementById('pd-tag-os'); if(tagOs){ tagOs.textContent=LC.tagline||''; tagOs.style.display=LC.tagline?'block':'none'; }
+  const contato=[LC.tel,LC.cidades].filter(Boolean).join('  ·  ');
+  setV_el('pd-cont-os',contato||LC.nome,'textContent');
   setV_el('pd-num-os','#'+num,'textContent');
   document.getElementById('pd-meta-os').innerHTML=`Emitida em: <strong>${new Date().toLocaleDateString('pt-BR')}</strong>`;
   setV_el('pd-cli-nm-os',d.cli,'textContent');
   setV_el('pd-cli-loc-os',d.loc||'','textContent');
   setV_el('pd-data-os',d.data?new Date(d.data+'T12:00:00').toLocaleDateString('pt-BR'):'—','textContent');
   setV_el('pd-hora-os',d.hora||'—','textContent');
-  setV_el('pd-tec-os',d.tec||CFG.nome,'textContent');
+  setV_el('pd-tec-os',d.tec||LC.nome,'textContent');
   setV_el('pd-tot-os',d.tot>0?brl(d.tot):'A definir','textContent');
-  setV_el('pd-sign-resp-os',CFG.nome+' — Responsável Técnico','textContent');
-  setV_el('pd-foot-os',CFG.nome+(CFG.tel?'   ·   '+CFG.tel:'')+(CFG.cidades?'   ·   '+CFG.cidades:''),'textContent');
+  setV_el('pd-sign-resp-os',LC.nome+' — Responsável Técnico','textContent');
+  setV_el('pd-foot-os',LC.nome+(LC.tel?'   ·   '+LC.tel:'')+(LC.cidades?'   ·   '+LC.cidades:''),'textContent');
   const tb=document.getElementById('pd-tbody-os'); tb.innerHTML='';
   d.svcs.forEach((s,i)=>{ const tr=document.createElement('tr'); tr.innerHTML=`<td>${i+1}</td><td>${esc(s)}</td>`; tb.appendChild(tr); });
   const mb=document.getElementById('pd-mat-os');
@@ -8473,6 +8630,7 @@ function gerarRelatorioVistoria(){
     hora_checkout: visCheckoutTime?visCheckoutTime.toTimeString().slice(0,5):null,
     obs_geral: obs,
     equipamentos,
+    loja_id: s?.loja_id || lojaAtiva || LOJA_PADRAO_ID
   };
   preencherRelatorioVistoria(vis);
   window.print();
@@ -8485,8 +8643,9 @@ function preencherRelatorioVistoria(vis){
   if(!pdoc) return;
   pdoc.classList.add('print-active');
 
-  const cor = getComputedStyle(document.documentElement).getPropertyValue('--c1').trim()||'#C45E0A';
-  const cor2 = getComputedStyle(document.documentElement).getPropertyValue('--c2').trim()||'#2B3244';
+  const LC = getLojaConfig(vis.loja_id);
+  const cor  = LC.cor  || getComputedStyle(document.documentElement).getPropertyValue('--c1').trim()||'#C45E0A';
+  const cor2 = LC.cor2 || getComputedStyle(document.documentElement).getPropertyValue('--c2').trim()||'#2B3244';
 
   // Header branding
   const hdr = document.getElementById('pd-header-vis');
@@ -8496,10 +8655,10 @@ function preencherRelatorioVistoria(vis){
   // Logo / initials
   const logoEl    = document.getElementById('pd-hdr-logo-vis');
   const initEl    = document.getElementById('pd-hdr-init-vis');
-  const nomePDF = CFG?.nome||'Empresa';
+  const nomePDF = LC.nome||'Empresa';
   if(logoEl && initEl){
-    if(CFG?.logoB64){
-      logoEl.src=CFG.logoB64; logoEl.className='pd-hdr-logo-img has-logo';
+    if(LC.logoB64){
+      logoEl.src=LC.logoB64; logoEl.className='pd-hdr-logo-img has-logo';
       initEl.className='pd-hdr-logo-initials';
     } else {
       logoEl.className='pd-hdr-logo-img';
@@ -8510,8 +8669,8 @@ function preencherRelatorioVistoria(vis){
 
   // Nome empresa
   const nm=document.getElementById('pd-nm-vis'); if(nm) nm.textContent=nomePDF;
-  const sb=document.getElementById('pd-sb-vis'); if(sb) sb.textContent=CFG?.sub||'Serviços';
-  const tag=document.getElementById('pd-tag-vis'); if(tag) tag.textContent='';
+  const sb=document.getElementById('pd-sb-vis'); if(sb) sb.textContent=LC.sub||'Serviços';
+  const tag=document.getElementById('pd-tag-vis'); if(tag){ tag.textContent=LC.tagline||''; tag.style.display=LC.tagline?'block':'none'; }
 
   // Doc number = data
   const numEl=document.getElementById('pd-num-vis');
@@ -8521,7 +8680,7 @@ function preencherRelatorioVistoria(vis){
   const cont=document.getElementById('pd-cont-vis');
   if(cont){ const mRef=vis.mes_ref?new Date(vis.mes_ref+'-01').toLocaleDateString('pt-BR',{month:'long',year:'numeric'}):''; cont.textContent=`Referência: ${mRef}`; }
   const meta=document.getElementById('pd-meta-vis');
-  if(meta){ const tel=CFG?.tel||''; meta.innerHTML=`${CFG?.nome_empresa||''}<br>${tel}`; }
+  if(meta){ const tel=LC.tel||''; meta.innerHTML=`${LC.nome||''}<br>${tel}`; }
 
   // Client card
   const cliBar=document.getElementById('pd-cli-bar-vis'); if(cliBar) cliBar.style.background=cor;
@@ -8591,10 +8750,10 @@ function preencherRelatorioVistoria(vis){
   if(signTec) signTec.textContent=(vis.tecnico||'Técnico Responsável');
 
   // Footer
-  const tel=CFG?.tel||''; const email=CFG?.email||'';
-  if(footEl){ footEl.style.background=cor2; footEl.textContent=`${CFG?.nome||''}${tel?' · '+tel:''}${email?' · '+email:''}`; }
+  const tel=LC.tel||''; const email=LC.email||'';
+  if(footEl){ footEl.style.background=cor2; footEl.textContent=`${LC.nome||''}${tel?' · '+tel:''}${email?' · '+email:''}`; }
   const metaEl=document.getElementById('pd-meta-vis');
-  if(metaEl) metaEl.innerHTML=`${CFG?.nome||''}${tel?'<br>'+tel:''}`;
+  if(metaEl) metaEl.innerHTML=`${LC.nome||''}${tel?'<br>'+tel:''}`;
 }
 
 // ── Abrir a aba de visitas já preenchida com agendamento ──
