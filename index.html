@@ -3577,6 +3577,8 @@ function lsOrcProxNum(){ return lsOrcLer().reduce((a,o)=>Math.max(a,o.numero||0)
   // ── Login check ──
   const sessaoExistente = getSessao();
   if(sessaoExistente){
+    // Restaura loja ativa da sessão (gestor de empresa específica tem loja_id na sessão)
+    if(sessaoExistente.loja_id) lojaAtiva = sessaoExistente.loja_id;
     document.getElementById('login-overlay').style.display='none';
     atualizarBadgeUsuario();
     aplicarPermissoesPerfil();
@@ -3598,6 +3600,9 @@ function lsOrcProxNum(){ return lsOrcLer().reduce((a,o)=>Math.max(a,o.numero||0)
       if(ok){
         await carregarCFGremoto(); aplicarCFG(); initEmailJS();
         loadLojasExtraConfig();
+        atualizarHeaderLoja(); // re-aplica após lojas_extra carregado do Supabase
+        // Sincroniza select de loja no form de orçamento (pode estar desatualizado do boot)
+        if(lojaAtiva && !editId) setV('orc-loja', lojaAtiva);
         loadLocais(); // carrega locais_vistoria que vieram no CFG
         await carregarClientesRemoto();
         await sincronizarSeedUsuarios();
@@ -4262,7 +4267,11 @@ function go(p){
   closeSidebar();
   if(p==='portal') { /* página gerenciada por checkPortalHash */ }
   if(p==='history'){ initOrcMes(); loadHist(); setTimeout(renderGraficoDash,200); }
-  if(p==='form') restaurarRascunho('form');
+  if(p==='form'){
+    restaurarRascunho('form');
+    // Garante que o select de empresa reflete a loja ativa ao entrar na tela
+    if(!editId && lojaAtiva) setV('orc-loja', lojaAtiva);
+  }
   if(p==='os-history') loadOSHist();
   if(p==='clientes') renderClientes();
   if(p==='empresa') preencherFormEmpresa();
