@@ -920,6 +920,11 @@
     .login-av-badge.tecnico{background:#eff6ff;color:#2563eb}
     .login-av-arrow{font-size:14px;color:#d1d5db;flex-shrink:0;transition:color .15s}
     .login-av-btn:hover .login-av-arrow{color:var(--c1)}
+    /* Versão slim — técnicos: sem badge, sem seta, mais compacta */
+    .login-av-btn.slim{padding:9px 12px;border-color:#f0f1f3}
+    .login-av-btn.slim .login-av-circle{width:36px;height:36px;font-size:14px}
+    .login-av-btn.slim .login-av-nome{font-size:12px}
+    .login-av-btn.slim .login-av-sub{font-size:10px}
     /* PIN step */
     .login-pin-step{display:none}
     .login-pin-step.show{display:block}
@@ -3173,18 +3178,18 @@ async function carregarUsuarios(){
 }
 
 // ── Renderiza botão de usuário no login (layout horizontal) ──
-function avBtn(id, perfil, nome, sub, cor, lojaId){
+// slim=true → sem badge e sem seta (usado nos técnicos)
+function avBtn(id, perfil, nome, sub, cor, lojaId, slim=false){
   const lojaParam = lojaId ? `'${lojaId}'` : 'null';
   const inicial = nome.charAt(0).toUpperCase();
   const badgeLbl = perfil==='gestor'?'Gestão':perfil==='vendas'?'Vendas':'Técnico';
-  return `<button class="login-av-btn" onclick="selecionarUserLogin(this,'${id}','${perfil}','${esc(nome)}',${lojaParam})">
+  return `<button class="login-av-btn${slim?' slim':''}" onclick="selecionarUserLogin(this,'${id}','${perfil}','${esc(nome)}',${lojaParam})">
     <div class="login-av-circle" style="background:${cor}">${inicial}</div>
     <div class="login-av-info">
       <div class="login-av-nome">${esc(nome)}</div>
       <div class="login-av-sub">${esc(sub)}</div>
     </div>
-    <span class="login-av-badge ${perfil}">${badgeLbl}</span>
-    <span class="login-av-arrow">›</span>
+    ${slim?'':`<span class="login-av-badge ${perfil}">${badgeLbl}</span><span class="login-av-arrow">›</span>`}
   </button>`;
 }
 
@@ -3234,7 +3239,7 @@ function renderLoginUsers(){
     tecsGrid.innerHTML = tecsList.map(u=>{
       const loja = getLoja(u.loja_id);
       const sub = loja?.nome || u.loja_nome || 'Técnico';
-      return avBtn(u.id,'tecnico',u.nome,sub,'var(--c2)',u.loja_id||null);
+      return avBtn(u.id,'tecnico',u.nome,sub,'var(--c2)',u.loja_id||null,true);
     }).join('');
   }
 }
