@@ -882,49 +882,60 @@
 
     /* ── NOVO LOGIN ── */
     /* ══ LOGIN ══ */
-    .login-overlay{position:fixed;inset:0;z-index:9000;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:40px 20px 40px;overflow-y:auto;background:var(--c2)}
-    .login-overlay::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 30% 20%,rgba(255,255,255,.06) 0%,transparent 60%),radial-gradient(ellipse at 80% 80%,rgba(var(--c1-rgb,240,120,32),.15) 0%,transparent 50%);pointer-events:none}
-    /* Brand topo */
-    .login-brand{text-align:center;margin-bottom:32px;position:relative}
-    .login-brand-logo{width:64px;height:64px;border-radius:18px;object-fit:cover;margin:0 auto 12px;display:block;box-shadow:0 8px 24px rgba(0,0,0,.3)}
-    .login-brand-initials{width:64px;height:64px;border-radius:18px;background:rgba(255,255,255,.12);margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:900;color:white;backdrop-filter:blur(10px);border:1.5px solid rgba(255,255,255,.15)}
-    .login-brand-name{font-size:22px;font-weight:800;color:white;letter-spacing:-.5px}
-    .login-brand-sub{font-size:13px;color:rgba(255,255,255,.45);margin-top:3px;font-weight:500}
-    /* Card branco */
-    .login-card{background:white;border-radius:20px;padding:24px;width:100%;max-width:380px;box-shadow:0 24px 60px rgba(0,0,0,.35);position:relative}
-    .login-prompt{font-size:13px;font-weight:700;color:var(--c2);margin-bottom:16px;text-align:center;letter-spacing:.2px}
-    /* Grade de avatares */
-    .login-avatar-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:4px}
-    .login-avatar-grid.two-col{grid-template-columns:repeat(2,1fr)}
-    .login-avatar-grid.four-col{grid-template-columns:repeat(4,1fr)}
-    .login-av-btn{display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 6px;border:2px solid transparent;border-radius:14px;background:#f8f9fc;cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s;position:relative}
-    .login-av-btn:hover{background:#f0f2ff;border-color:var(--c1)}
+    /* ══ LOGIN OVERLAY ══ */
+    .login-overlay{position:fixed;inset:0;z-index:9000;display:flex;align-items:stretch;overflow:hidden;background:var(--c2)}
+    /* Painel esquerdo — branding */
+    .login-left{flex:0 0 300px;background:linear-gradient(160deg,var(--c2) 0%,color-mix(in srgb,var(--c2) 80%,black) 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 32px;position:relative;overflow:hidden}
+    .login-left::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 30% 30%,rgba(255,255,255,.07) 0%,transparent 60%)}
+    .login-left::after{content:'';position:absolute;bottom:-80px;right:-80px;width:260px;height:260px;border-radius:50%;background:rgba(255,255,255,.04)}
+    .login-brand{text-align:center;position:relative;z-index:1;display:flex;flex-direction:column;align-items:center}
+    .login-brand-logo{width:80px;height:80px;border-radius:22px;object-fit:cover;margin:0 0 16px;display:block;box-shadow:0 12px 32px rgba(0,0,0,.4)}
+    .login-brand-initials{width:80px;height:80px;border-radius:22px;background:rgba(255,255,255,.13);margin:0 0 16px;display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:900;color:white;border:1.5px solid rgba(255,255,255,.18)}
+    .login-brand-name{font-size:20px;font-weight:800;color:white;letter-spacing:-.3px;line-height:1.2}
+    .login-brand-sub{font-size:12px;color:rgba(255,255,255,.4);margin-top:6px;font-weight:500}
+    .login-brand-tagline{font-size:11px;color:rgba(255,255,255,.25);margin-top:28px;line-height:1.6;font-style:italic;text-align:center;position:relative;z-index:1}
+    /* Painel direito — form */
+    .login-right{flex:1;overflow-y:auto;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:40px 28px;background:#f4f5f7}
+    .login-card{background:white;border-radius:18px;padding:28px;width:100%;max-width:400px;box-shadow:0 4px 24px rgba(0,0,0,.08);border:1px solid #e9ecef}
+    .login-card-title{font-size:18px;font-weight:800;color:var(--c2);margin-bottom:4px}
+    .login-card-sub{font-size:13px;color:var(--gray);margin-bottom:22px;font-weight:400}
+    /* Seção de usuários */
+    .login-section{margin-bottom:16px}
+    .login-section:last-child{margin-bottom:0}
+    .login-section-label{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--gray);margin-bottom:8px;display:flex;align-items:center;gap:8px}
+    .login-section-label::after{content:'';flex:1;height:1px;background:#f0f0f0}
+    /* Card de usuário — horizontal */
+    .login-user-list{display:flex;flex-direction:column;gap:6px}
+    .login-av-btn{display:flex;align-items:center;gap:14px;padding:11px 14px;border:1.5px solid #eef0f3;border-radius:12px;background:#fafbfc;cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s;text-align:left;width:100%}
+    .login-av-btn:hover{background:var(--c1-light);border-color:var(--c1);transform:translateX(2px)}
+    .login-av-btn:active{transform:translateX(0)}
     .login-av-btn.selected{background:var(--c1-light);border-color:var(--c1)}
-    .login-av-circle{width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;color:white;margin-bottom:2px;box-shadow:0 4px 12px rgba(0,0,0,.18)}
-    .login-av-nome{font-size:11px;font-weight:700;color:var(--c2);text-align:center;line-height:1.2;max-width:72px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-    .login-av-sub{font-size:9px;color:var(--gray);font-weight:500;text-align:center}
-    /* Técnicos — expandir */
-    .login-tec-toggle{width:100%;margin-top:10px;padding:9px;background:#f8f9fc;border:1.5px dashed #d1d5db;border-radius:12px;font-size:12px;font-weight:700;color:var(--gray);cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:6px}
-    .login-tec-toggle:hover{border-color:var(--c1);color:var(--c1);background:#f0f2ff}
-    .login-tec-grid{display:none;margin-top:10px}
-    .login-tec-grid.open{display:grid}
+    .login-av-circle{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:800;color:white;flex-shrink:0;box-shadow:0 3px 10px rgba(0,0,0,.15)}
+    .login-av-info{flex:1;min-width:0}
+    .login-av-nome{font-size:13px;font-weight:700;color:var(--c2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .login-av-sub{font-size:11px;color:var(--gray);font-weight:400;margin-top:1px}
+    .login-av-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;flex-shrink:0;letter-spacing:.2px}
+    .login-av-badge.gestor{background:var(--c1-light);color:var(--c1)}
+    .login-av-badge.vendas{background:#fef3c7;color:#d97706}
+    .login-av-badge.tecnico{background:#eff6ff;color:#2563eb}
+    .login-av-arrow{font-size:14px;color:#d1d5db;flex-shrink:0;transition:color .15s}
+    .login-av-btn:hover .login-av-arrow{color:var(--c1)}
     /* PIN step */
     .login-pin-step{display:none}
     .login-pin-step.show{display:block}
-    .login-pin-back{background:none;border:none;font-size:12px;color:var(--gray);cursor:pointer;font-family:'Inter',sans-serif;font-weight:700;padding:0;margin-bottom:16px;display:flex;align-items:center;gap:5px;letter-spacing:.2px}
+    .login-pin-back{background:none;border:none;font-size:12px;color:var(--gray);cursor:pointer;font-family:'Inter',sans-serif;font-weight:700;padding:0;margin-bottom:20px;display:flex;align-items:center;gap:5px}
     .login-pin-back:hover{color:var(--c2)}
-    .login-pin-user{display:flex;align-items:center;gap:12px;padding:12px 14px;background:#f8f9fc;border-radius:12px;margin-bottom:20px}
-    .login-pin-user-info .login-av-nome{font-size:14px;max-width:none}
-    .login-pin-user-info .login-av-sub{font-size:11px}
+    .login-pin-user{display:flex;align-items:center;gap:14px;padding:14px 16px;background:#f8f9fc;border-radius:14px;margin-bottom:24px;border:1.5px solid #eef0f3}
+    .login-pin-user-info .login-av-nome{font-size:14px}
+    .login-pin-user-info .login-av-sub{font-size:12px}
     /* Dots PIN */
-    .login-pin-dots{display:flex;gap:12px;justify-content:center;margin-bottom:6px}
-    .login-pin-dot{width:14px;height:14px;border-radius:50%;background:#e5e7eb;transition:background .15s}
-    .login-pin-dot.filled{background:var(--c1)}
-    .pin-input-hidden{position:absolute;opacity:0;width:1px;height:1px;pointer-events:none}
-    .login-pin-tap{width:100%;padding:13px;background:#f8f9fc;border:2px solid #e5e7eb;border-radius:12px;font-size:14px;font-weight:600;color:var(--c2);text-align:center;cursor:text;margin-bottom:10px;letter-spacing:8px;font-family:monospace}
-    .login-pin-tap:focus,.login-pin-tap.active{border-color:var(--c1);outline:none;background:var(--c1-light)}
-    .login-err{font-size:12px;color:var(--red);font-weight:600;min-height:16px;margin-bottom:8px;text-align:center}
-    .login-btn{width:100%;padding:13px;background:var(--c1);color:white;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;transition:opacity .15s;letter-spacing:.2px}
+    .login-pin-dots{display:flex;gap:14px;justify-content:center;margin-bottom:8px}
+    .login-pin-dot{width:14px;height:14px;border-radius:50%;background:#e5e7eb;transition:all .2s}
+    .login-pin-dot.filled{background:var(--c1);transform:scale(1.1)}
+    .login-pin-tap{width:100%;padding:14px;background:#f8f9fc;border:2px solid #e5e7eb;border-radius:12px;font-size:15px;font-weight:700;color:var(--c2);text-align:center;cursor:text;margin-bottom:12px;letter-spacing:10px;font-family:monospace;transition:border-color .15s}
+    .login-pin-tap:focus{border-color:var(--c1);outline:none;background:var(--c1-light)}
+    .login-err{font-size:12px;color:var(--red);font-weight:600;min-height:18px;margin-bottom:10px;text-align:center}
+    .login-btn{width:100%;padding:14px;background:var(--c1);color:white;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;transition:opacity .15s;letter-spacing:.2px}
     .login-btn:hover{opacity:.88}
     .login-btn:disabled{opacity:.4;cursor:default}
     /* Picker empresa */
@@ -936,11 +947,17 @@
     .login-loja-circle{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;color:white;flex-shrink:0}
     .login-loja-info-nome{font-size:13px;font-weight:700;color:var(--c2)}
     .login-loja-info-sub{font-size:11px;color:var(--gray);margin-top:1px}
-    /* Seção label dentro do card */
-    .login-section-label{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--gray);margin-bottom:8px;padding-left:2px}
-    /* Utils */
-    .login-section-body.hidden{display:none!important}
-    .login-section-arrow{font-size:9px;color:var(--gray);margin-left:4px}
+    /* Mobile: empilha */
+    @media(max-width:620px){
+      .login-overlay{flex-direction:column}
+      .login-left{flex:0 0 auto;padding:28px 24px 24px;flex-direction:row;gap:16px;justify-content:flex-start}
+      .login-brand{display:flex;flex-direction:row;align-items:center;gap:14px;text-align:left}
+      .login-brand-logo,.login-brand-initials{width:52px;height:52px;border-radius:14px;margin:0;font-size:22px}
+      .login-brand-name{font-size:16px}
+      .login-brand-sub{font-size:11px;margin-top:2px}
+      .login-brand-tagline{display:none}
+      .login-right{padding:20px 16px 40px;justify-content:flex-start}
+    }
 
     /* ── HEADER USER BADGE ── */
     .hdr-user{display:flex;align-items:center;gap:6px;padding:0 10px;border-left:1px solid rgba(255,255,255,.1);cursor:pointer}
@@ -1011,68 +1028,82 @@
 <!-- ══ LOGIN OVERLAY ══ -->
 <div class="login-overlay" id="login-overlay">
 
-  <!-- Marca -->
-  <div class="login-brand">
-    <img id="login-logo-img" class="login-brand-logo" alt="" style="display:none">
-    <div class="login-brand-initials" id="login-brand-initials">F</div>
-    <div class="login-brand-name" id="login-brand-name">Fluxa</div>
-    <div class="login-brand-sub">Sistema de gestão</div>
+  <!-- Esquerda: branding -->
+  <div class="login-left">
+    <div class="login-brand">
+      <img id="login-logo-img" class="login-brand-logo" alt="" style="display:none">
+      <div class="login-brand-initials" id="login-brand-initials">F</div>
+      <div>
+        <div class="login-brand-name" id="login-brand-name">Fluxa</div>
+        <div class="login-brand-sub">Sistema de gestão</div>
+      </div>
+    </div>
+    <div class="login-brand-tagline" id="login-brand-tagline"></div>
   </div>
 
-  <!-- Card -->
-  <div class="login-card">
+  <!-- Direita: form -->
+  <div class="login-right">
+    <div class="login-card">
 
-    <!-- PASSO 1 — seleção de perfil -->
-    <div id="login-step-users">
-      <div class="login-prompt">Quem está acessando?</div>
+      <!-- PASSO 1 — seleção de perfil -->
+      <div id="login-step-users">
+        <div class="login-card-title">Bem-vindo 👋</div>
+        <div class="login-card-sub">Selecione seu perfil para continuar</div>
 
-      <div class="login-section-label">Gestão</div>
-      <div class="login-avatar-grid" id="login-grid-gestao"></div>
+        <!-- Gestão -->
+        <div class="login-section">
+          <div class="login-section-label">Gestão</div>
+          <div class="login-user-list" id="login-grid-gestao"></div>
+        </div>
 
-      <div id="login-vendas-section" style="display:none">
-        <div class="login-section-label" style="margin-top:14px">Vendas</div>
-        <div class="login-avatar-grid" id="login-grid-vendas"></div>
-      </div>
+        <!-- Vendas -->
+        <div class="login-section" id="login-vendas-section" style="display:none">
+          <div class="login-section-label">Vendas</div>
+          <div class="login-user-list" id="login-grid-vendas"></div>
+        </div>
 
-      <button class="login-tec-toggle" id="login-tec-toggle" onclick="toggleLoginTecs()" style="display:none">
-        🔧 <span id="login-tec-label">Técnicos</span> <span id="login-tec-arrow">▶</span>
-      </button>
-      <div class="login-tec-grid login-avatar-grid" id="login-grid-tecs"></div>
-    </div>
-
-    <!-- PASSO 2 — PIN -->
-    <div class="login-pin-step" id="login-step-pin">
-      <button class="login-pin-back" onclick="deselecionarUser()">← Voltar</button>
-      <div class="login-pin-user">
-        <div class="login-av-circle" id="login-pin-avatar" style="font-size:22px">?</div>
-        <div class="login-pin-user-info">
-          <div class="login-av-nome" id="login-pin-nome">—</div>
-          <div class="login-av-sub" id="login-pin-perfil">—</div>
+        <!-- Técnicos -->
+        <div class="login-section" id="login-tec-section" style="display:none">
+          <div class="login-section-label">Técnicos</div>
+          <div class="login-user-list" id="login-grid-tecs"></div>
         </div>
       </div>
-      <div class="login-pin-dots">
-        <div class="login-pin-dot" id="dot-0"></div>
-        <div class="login-pin-dot" id="dot-1"></div>
-        <div class="login-pin-dot" id="dot-2"></div>
-        <div class="login-pin-dot" id="dot-3"></div>
+
+      <!-- PASSO 2 — PIN -->
+      <div class="login-pin-step" id="login-step-pin">
+        <button class="login-pin-back" onclick="deselecionarUser()">← Voltar</button>
+        <div class="login-pin-user">
+          <div class="login-av-circle" id="login-pin-avatar">?</div>
+          <div class="login-pin-user-info">
+            <div class="login-av-nome" id="login-pin-nome">—</div>
+            <div class="login-av-sub" id="login-pin-perfil">—</div>
+          </div>
+        </div>
+        <div class="login-pin-dots">
+          <div class="login-pin-dot" id="dot-0"></div>
+          <div class="login-pin-dot" id="dot-1"></div>
+          <div class="login-pin-dot" id="dot-2"></div>
+          <div class="login-pin-dot" id="dot-3"></div>
+        </div>
+        <input class="login-pin-tap" type="password" id="pin-input" maxlength="4"
+          inputmode="numeric" placeholder="••••"
+          aria-label="Senha PIN de 4 dígitos"
+          oninput="atualizarDotsPIN(this.value)"
+          onkeydown="if(event.key==='Enter')fazerLogin()">
+        <div class="login-err" id="login-err"></div>
+        <button class="login-btn" onclick="fazerLogin()">Entrar →</button>
       </div>
-      <input class="login-pin-tap" type="password" id="pin-input" maxlength="4"
-        inputmode="numeric" placeholder="••••"
-        aria-label="Senha PIN de 4 dígitos"
-        oninput="atualizarDotsPIN(this.value)"
-        onkeydown="if(event.key==='Enter')fazerLogin()">
-      <div class="login-err" id="login-err"></div>
-      <button class="login-btn" onclick="fazerLogin()">Entrar →</button>
-    </div>
 
-    <!-- PASSO 3 — escolha de empresa (gestor principal) -->
-    <div class="login-loja-step" id="login-step-loja">
-      <button class="login-pin-back" onclick="voltarParaPin()">← Voltar</button>
-      <div class="login-prompt" style="margin-bottom:14px">Qual empresa gerenciar?</div>
-      <div class="login-loja-grid" id="login-loja-list"></div>
-    </div>
+      <!-- PASSO 3 — escolha de empresa (gestor principal) -->
+      <div class="login-loja-step" id="login-step-loja">
+        <button class="login-pin-back" onclick="voltarParaPin()">← Voltar</button>
+        <div class="login-card-title" style="margin-bottom:4px">Qual empresa?</div>
+        <div class="login-card-sub">Escolha a empresa para gerenciar</div>
+        <div class="login-loja-grid" id="login-loja-list"></div>
+      </div>
 
-  </div><!-- /login-card -->
+    </div><!-- /login-card -->
+  </div><!-- /login-right -->
 </div>
 
 <!-- ══ HEADER ══ -->
@@ -3141,13 +3172,19 @@ async function carregarUsuarios(){
   todosUsuarios=local;
 }
 
-// ── Renderiza lista de usuários no login ──
-function avBtn(id, perfil, nome, sub, cor, icon, lojaId){
+// ── Renderiza botão de usuário no login (layout horizontal) ──
+function avBtn(id, perfil, nome, sub, cor, lojaId){
   const lojaParam = lojaId ? `'${lojaId}'` : 'null';
+  const inicial = nome.charAt(0).toUpperCase();
+  const badgeLbl = perfil==='gestor'?'Gestão':perfil==='vendas'?'Vendas':'Técnico';
   return `<button class="login-av-btn" onclick="selecionarUserLogin(this,'${id}','${perfil}','${esc(nome)}',${lojaParam})">
-    <div class="login-av-circle" style="background:${cor}">${icon}</div>
-    <div class="login-av-nome">${esc(nome)}</div>
-    <div class="login-av-sub">${esc(sub)}</div>
+    <div class="login-av-circle" style="background:${cor}">${inicial}</div>
+    <div class="login-av-info">
+      <div class="login-av-nome">${esc(nome)}</div>
+      <div class="login-av-sub">${esc(sub)}</div>
+    </div>
+    <span class="login-av-badge ${perfil}">${badgeLbl}</span>
+    <span class="login-av-arrow">›</span>
   </button>`;
 }
 
@@ -3158,72 +3195,47 @@ function atualizarDotsPIN(val){
   }
 }
 
-function toggleLoginTecs(){
-  const grid=document.getElementById('login-grid-tecs');
-  const arrow=document.getElementById('login-tec-arrow');
-  if(!grid) return;
-  const isOpen=grid.classList.contains('open');
-  grid.classList.toggle('open',!isOpen);
-  if(arrow) arrow.textContent = isOpen ? '▶' : '▼';
-}
-
 function renderLoginUsers(){
   // ── Gestão ──
   const gestaoGrid = document.getElementById('login-grid-gestao');
   if(gestaoGrid){
     const gestores = [];
-    gestores.push(avBtn('__gestor__','gestor','Gestor','Acesso completo','var(--c1)','👑', null));
-    todosUsuarios.filter(u=>u.perfil==='gestor'&&u.loja_id).forEach(u=>{
+    // Gestor principal (sem loja_id — acesso a tudo)
+    gestores.push(avBtn('__gestor__','gestor','Gestor','Acesso completo','var(--c1)',null));
+    // Gestores por loja cadastrados no banco
+    todosUsuarios.filter(u=>u.perfil==='gestor'&&u.ativo!==false&&u.loja_id).forEach(u=>{
       const loja = getLoja(u.loja_id);
       const cor = loja?.grupo==='aquamotor' ? '#16a34a' : 'var(--c1)';
       const sub = loja?.nome || u.loja_nome || 'Gestor';
-      gestores.push(avBtn(u.id,'gestor',u.nome,sub,cor,u.nome.charAt(0).toUpperCase(),u.loja_id));
+      gestores.push(avBtn(u.id,'gestor',u.nome,sub,cor,u.loja_id));
     });
     gestaoGrid.innerHTML = gestores.join('');
-    const n = gestores.length;
-    gestaoGrid.style.gridTemplateColumns = n===1?'1fr':n===2?'repeat(2,1fr)':'repeat(3,1fr)';
   }
 
   // ── Vendas ──
-  const vendasList = todosUsuarios.filter(u=>u.perfil==='vendas');
+  const vendasList = todosUsuarios.filter(u=>u.perfil==='vendas'&&u.ativo!==false);
   const vendasSection = document.getElementById('login-vendas-section');
   const vendasGrid = document.getElementById('login-grid-vendas');
   if(vendasSection && vendasGrid){
-    if(vendasList.length){
-      vendasSection.style.display='';
-      vendasGrid.innerHTML = vendasList.map(u=>{
-        const loja = getLoja(u.loja_id);
-        const sub = loja?.nome || u.loja_nome || 'Vendas';
-        return avBtn(u.id,'vendas',u.nome,sub,'#f59e0b','💼',u.loja_id||null);
-      }).join('');
-      const n = vendasList.length;
-      vendasGrid.style.gridTemplateColumns = n===1?'1fr':n===2?'repeat(2,1fr)':'repeat(3,1fr)';
-    } else {
-      vendasSection.style.display='none';
-    }
+    vendasSection.style.display = vendasList.length ? '' : 'none';
+    vendasGrid.innerHTML = vendasList.map(u=>{
+      const loja = getLoja(u.loja_id);
+      const sub = loja?.nome || u.loja_nome || 'Vendas';
+      return avBtn(u.id,'vendas',u.nome,sub,'#f59e0b',u.loja_id||null);
+    }).join('');
   }
 
   // ── Técnicos ──
-  const tecsList = todosUsuarios.filter(u=>u.perfil==='tecnico'||(!u.perfil&&u.id!=='__gestor__'));
-  const tecToggle = document.getElementById('login-tec-toggle');
+  const tecsList = todosUsuarios.filter(u=>(u.perfil==='tecnico'||(!u.perfil&&u.id!=='__gestor__'))&&u.ativo!==false);
+  const tecSection = document.getElementById('login-tec-section');
   const tecsGrid = document.getElementById('login-grid-tecs');
-  const tecLabel = document.getElementById('login-tec-label');
-  if(tecsGrid){
-    if(tecsList.length){
-      if(tecToggle) tecToggle.style.display='';
-      if(tecLabel) tecLabel.textContent=`Técnicos (${tecsList.length})`;
-      // reset toggle state
-      tecsGrid.classList.remove('open');
-      const arrow=document.getElementById('login-tec-arrow');
-      if(arrow) arrow.textContent='▶';
-      tecsGrid.innerHTML = tecsList.map(u=>{
-        const loja = getLoja(u.loja_id);
-        const sub = loja?.nome || u.loja_nome || 'Técnico';
-        return avBtn(u.id,'tecnico',u.nome,sub,'var(--c2)',u.nome.charAt(0).toUpperCase(),u.loja_id||null);
-      }).join('');
-    } else {
-      if(tecToggle) tecToggle.style.display='none';
-    }
+  if(tecSection && tecsGrid){
+    tecSection.style.display = tecsList.length ? '' : 'none';
+    tecsGrid.innerHTML = tecsList.map(u=>{
+      const loja = getLoja(u.loja_id);
+      const sub = loja?.nome || u.loja_nome || 'Técnico';
+      return avBtn(u.id,'tecnico',u.nome,sub,'var(--c2)',u.loja_id||null);
+    }).join('');
   }
 }
 
@@ -3236,11 +3248,10 @@ function selecionarUserLogin(btn, id, perfil, nome, lojaId){
   const nomeEl=document.getElementById('login-pin-nome');
   const perfilEl=document.getElementById('login-pin-perfil');
   if(avatarEl){
-    const icone={gestor:'👑',vendas:'💼'};
     const cor={gestor:'var(--c1)',vendas:'#f59e0b',tecnico:'var(--c2)'};
-    avatarEl.textContent=icone[perfil]||nome.charAt(0).toUpperCase();
+    avatarEl.textContent=nome.charAt(0).toUpperCase();
     avatarEl.style.background=cor[perfil]||'var(--c2)';
-    avatarEl.style.fontSize=perfil==='gestor'||perfil==='vendas'?'22px':'18px';
+    avatarEl.style.fontSize='18px';
   }
   if(nomeEl) nomeEl.textContent=nome;
   if(perfilEl) perfilEl.textContent=perfil==='gestor'?'Acesso completo':perfil==='vendas'?'Vendas':'Técnico';
@@ -3540,7 +3551,7 @@ function lsOrcProxNum(){ return lsOrcLer().reduce((a,o)=>Math.max(a,o.numero||0)
         await sincronizarSeedUsuarios();
         await carregarUsuarios();
         loadVistoriasRemoto();
-        if(document.getElementById('login-overlay').style.display!=='none') renderLoginUsers();
+        renderLoginUsers(); // sempre atualiza lista de usuários após carregar do banco
         // Atualiza aba Locais se estiver aberta
         if(document.getElementById('vis-view-locais')?.style.display!=='none') renderLocaisTab();
       }
@@ -3895,9 +3906,9 @@ function aplicarCFG(){
     if(CFG.logoB64){ loginLogoImg.src=CFG.logoB64; loginLogoImg.style.display='block'; loginInitials.style.display='none'; }
     else { loginLogoImg.style.display='none'; loginInitials.style.display='flex'; loginInitials.textContent=(CFG.nome||'F').charAt(0).toUpperCase(); }
   }
-  // Atualiza gradiente do login brand com cores da empresa
-  const loginBrand=document.querySelector('.login-brand');
-  if(loginBrand) loginBrand.style.background=`linear-gradient(135deg,${CFG.cor2||'#2B3244'},${hexA(CFG.cor2||'#2B3244',.8)})`;
+  // Tagline no painel lateral do login
+  const loginTagline=document.getElementById('login-brand-tagline');
+  if(loginTagline) loginTagline.textContent=CFG.tagline||'';
   document.title = CFG.nome + ' — Orçamentos';
   renderPresets();
   preencherFormEmpresa();
