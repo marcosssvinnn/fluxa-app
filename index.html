@@ -6009,24 +6009,38 @@ let _printTitleBackup='';
 window.addEventListener('beforeprint',()=>{
   const showOrc = printMode==='orc' || printMode==='both';
   const showOs  = printMode==='os'  || printMode==='both';
+  const showVis = printMode==='vis';
   document.getElementById('pdoc-orc').classList.toggle('print-active', showOrc);
   document.getElementById('pdoc-os').classList.toggle('print-active',  showOs);
+  // pdoc-visita: se n\u00E3o for modo vis, garante que n\u00E3o aparece
+  const pdocVis = document.getElementById('pdoc-visita');
+  if(pdocVis && !showVis) pdocVis.classList.remove('print-active');
   // Auto-name the PDF file
   _printTitleBackup = document.title;
   try{
-    const refMode = printMode==='os' ? 'os' : 'orc';
-    const numEl = document.getElementById('pd-num-'+refMode);
-    const cliEl = document.getElementById('pd-cli-nm-'+refMode);
-    const num = (numEl?.textContent||'').replace(/[^0-9]/g,'').padStart(3,'0');
-    const cli = (cliEl?.textContent||'').replace(/[^a-zA-Z0-9\u00C0-\u024F\s]/g,'').trim().replace(/\s+/g,'_');
-    const prefix = printMode==='os'?'OS':printMode==='both'?'ORC+OS':'ORC';
-    if(cli && num) document.title = `${cli}_${prefix}${num}`;
-    else if(num) document.title = `${prefix}${num}`;
+    if(showVis){
+      // Nome: VISTORIA_NomeCliente_dd-mm-aaaa
+      const cliEl = document.getElementById('pd-cli-nm-vis');
+      const numEl = document.getElementById('pd-num-vis');
+      const cli = (cliEl?.textContent||'').replace(/[^a-zA-Z0-9\u00C0-\u024F\s]/g,'').trim().replace(/\s+/g,'_');
+      const dt  = (numEl?.textContent||'').replace(/\//g,'-');
+      document.title = cli ? `Vistoria_${cli}_${dt}` : `Vistoria_${dt||'relatorio'}`;
+    } else {
+      const refMode = printMode==='os' ? 'os' : 'orc';
+      const numEl = document.getElementById('pd-num-'+refMode);
+      const cliEl = document.getElementById('pd-cli-nm-'+refMode);
+      const num = (numEl?.textContent||'').replace(/[^0-9]/g,'').padStart(3,'0');
+      const cli = (cliEl?.textContent||'').replace(/[^a-zA-Z0-9\u00C0-\u024F\s]/g,'').trim().replace(/\s+/g,'_');
+      const prefix = printMode==='os'?'OS':printMode==='both'?'ORC+OS':'ORC';
+      if(cli && num) document.title = `${cli}_${prefix}${num}`;
+      else if(num) document.title = `${prefix}${num}`;
+    }
   }catch(e){}
 });
 window.addEventListener('afterprint',()=>{
   document.getElementById('pdoc-orc').classList.remove('print-active');
   document.getElementById('pdoc-os').classList.remove('print-active');
+  document.getElementById('pdoc-visita')?.classList.remove('print-active');
   document.title = _printTitleBackup || 'Sistema de Orçamentos';
 });
 
@@ -8630,7 +8644,7 @@ async function salvarVistoria(){
     })
   ];
   const s    = getSessao();
-  const lojaId = s?.loja_id || getLojaFiltro() || CFG?.lojas?.[0]?.id || 'default';
+  const lojaId = s?.loja_id || lojaAtiva || LOJA_PADRAO_ID;
   const id   = visEditId || 'vis_'+Date.now();
   const rec  = {
     id, loja_id:lojaId,
@@ -8787,6 +8801,7 @@ function abrirVisRelatorio(id){
   const vis = lista.find(x=>x.id===id);
   if(!vis){ toast('⚠️ Vistoria não encontrada'); return; }
   preencherRelatorioVistoria(vis);
+  printMode = 'vis';
   window.print();
 }
 
@@ -8816,6 +8831,7 @@ function gerarRelatorioVistoria(){
     loja_id: s?.loja_id || lojaAtiva || LOJA_PADRAO_ID
   };
   preencherRelatorioVistoria(vis);
+  printMode = 'vis';
   window.print();
 }
 
