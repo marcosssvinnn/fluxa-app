@@ -756,6 +756,18 @@
     .vis-hist-badges{display:flex;gap:5px;flex-wrap:wrap}
     .vis-hist-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:50px}
     @media(max-width:680px){.vis-status-row .vis-status-btn{font-size:11px;padding:7px 4px}.vis-fotos-row{grid-template-columns:repeat(3,1fr)}}
+    @media(max-width:520px){.vis-status-btn{min-height:44px;font-size:13px!important;padding:10px 6px!important}}
+    .vis-obs-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;margin-bottom:8px}
+    .vis-obs-chip{display:inline-block;padding:4px 10px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:11px;cursor:pointer;background:var(--white);color:var(--c2);font-family:'Inter',sans-serif;transition:all .15s;font-weight:600;user-select:none}
+    .vis-obs-chip:hover{background:var(--c1-light);border-color:var(--c1);color:var(--c1)}
+    .vis-precarga-banner{background:var(--c1-light);border:1.5px solid var(--c1);border-radius:12px;padding:12px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+    .vis-precarga-banner .vpc-info{flex:1;min-width:0;font-size:13px;font-weight:600;color:var(--c2)}
+    .vis-precarga-banner .vpc-sub{font-size:11px;font-weight:400;color:var(--gray);margin-top:2px}
+    .vis-alerta-criticos{border-radius:12px;overflow:hidden;margin-bottom:14px}
+    .vis-alerta-hdr{display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--red-bg);border-bottom:1.5px solid var(--red);font-size:12px;font-weight:700;color:var(--red)}
+    .vis-alerta-item{display:flex;align-items:center;justify-content:space-between;padding:9px 14px;background:var(--white);border:1.5px solid var(--red);border-top:none;cursor:pointer;transition:background .15s;font-size:13px}
+    .vis-alerta-item:hover{background:var(--red-bg)}
+    .vis-alerta-item:not(:last-child){border-bottom:none}
 
     /* ── HISTÓRICO DO CLIENTE ── */
     .cli-hist-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:900;display:flex;align-items:flex-end;justify-content:center;padding:0}
@@ -2483,6 +2495,19 @@
     <!-- ── ABA: NOVA VISTORIA ── -->
     <div id="vis-view-nova">
 
+      <!-- Pre-carga última vistoria -->
+      <div id="vis-precarga-banner" style="display:none" class="vis-precarga-banner">
+        <div style="font-size:22px">📋</div>
+        <div class="vpc-info">
+          <div id="vis-precarga-txt">Vistoria anterior encontrada</div>
+          <div class="vpc-sub" id="vis-precarga-sub">Carregar equipamentos da última visita?</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-shrink:0">
+          <button class="ba" style="background:var(--c1);color:white;padding:7px 14px;font-size:12px" onclick="confirmarPreCarga()">✅ Carregar</button>
+          <button class="ba" style="background:var(--gray-light);color:var(--c2);padding:7px 14px;font-size:12px" onclick="dispensarPreCarga()">Não</button>
+        </div>
+      </div>
+
       <!-- Dados gerais -->
       <div class="card">
         <div class="ct">Dados da Visita</div>
@@ -2587,6 +2612,16 @@
           <option value="">Todos os técnicos</option>
         </select>
       </div>
+
+      <!-- Filtro por status -->
+      <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+        <button class="fb on" id="vis-fst-todos" onclick="filtVisStatus('')">Todos</button>
+        <button class="fb" id="vis-fst-critico" onclick="filtVisStatus('critico')">🔴 Com Crítico</button>
+        <button class="fb" id="vis-fst-atencao" onclick="filtVisStatus('atencao')">⚠️ Com Atenção</button>
+      </div>
+
+      <!-- Painel de alertas críticos -->
+      <div id="vis-alerta-criticos-panel" style="display:none"></div>
 
       <!-- Ranking de técnicos -->
       <div class="card" id="vis-ranking-card" style="margin-bottom:14px;display:none">
@@ -7798,6 +7833,7 @@ let visCheckinTime = null;
 let visCheckoutTime = null;
 let visCheckinInterval = null;
 let visEditId = null;          // id da vistoria sendo editada (null = nova)
+let visHistStatusFilt = '';    // filtro de status no histórico: ''|'critico'|'atencao'
 
 const LS_VIS = 'fluxa_visitas';
 const LS_LOCAIS_VIS = 'fluxa_locais_vistoria';
@@ -8529,7 +8565,10 @@ function buildEquipBlock(id,emoji,nome,d,modelo,potencia){
       </div>
       <div class="fl" style="margin-bottom:8px">
         <label>Observações</label>
-        <textarea rows="2" placeholder="Condições encontradas, medições, pendências…" oninput="visUpdObs('${id}',this.value)"
+        <div class="vis-obs-chips">
+          ${['OK – funcionando','Limpeza realizada','Vazando','Barulho anormal','Pressão baixa','Necessita troca de peça','Filtro sujo'].map(t=>`<span class="vis-obs-chip" onclick="visAddObs('${id}','${t.replace(/'/g,'\\x27')}',this)">${t}</span>`).join('')}
+        </div>
+        <textarea id="vis-obs-${id}" rows="2" placeholder="Condições encontradas, medições, pendências…" oninput="visUpdObs('${id}',this.value)"
           style="width:100%;padding:8px 10px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;resize:vertical;outline:none">${esc(d.obs||'')}</textarea>
       </div>
       <div style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Fotos</div>
@@ -8556,6 +8595,17 @@ function setVisEquipStatus(id, status){
 function visUpdObs(id, val){
   if(!visEquipDados[id]) visEquipDados[id]={ status:'na', obs:'', fotos:[] };
   visEquipDados[id].obs = val;
+}
+
+function visAddObs(id, txt, chipEl){
+  if(!visEquipDados[id]) visEquipDados[id]={ status:'na', obs:'', fotos:[] };
+  const ta = document.getElementById('vis-obs-'+id);
+  const cur = (ta ? ta.value : visEquipDados[id].obs||'').trim();
+  const novo = cur ? cur+'. '+txt : txt;
+  visEquipDados[id].obs = novo;
+  if(ta) ta.value = novo;
+  // Visual feedback: highlight chip briefly
+  if(chipEl){ chipEl.style.background='var(--c1-light)'; chipEl.style.borderColor='var(--c1)'; setTimeout(()=>{ chipEl.style.background=''; chipEl.style.borderColor=''; },600); }
 }
 
 function visClickFotoSlot(id, idx){
@@ -8636,6 +8686,53 @@ function selecionarCliVis(nome, local){
     if(st) st.textContent=`📧 ${cli.email_responsavel} (do cadastro)`;
   }
   hideSugCliVis();
+  // ── Pré-carga: checar se há vistoria anterior para este cliente ──
+  if(!visEditId){
+    const todasVis = lsVisLer().filter(v=>(v.cliente||'').toLowerCase()===nome.toLowerCase() && v.equipamentos);
+    if(todasVis.length){
+      todasVis.sort((a,b)=>(b.data||'').localeCompare(a.data||''));
+      const ultima = todasVis[0];
+      window._visPreCargaRec = ultima;
+      const dataFmt = ultima.data ? new Date(ultima.data+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'}) : '';
+      const equips=(typeof ultima.equipamentos==='string'?JSON.parse(ultima.equipamentos||'[]'):ultima.equipamentos)||[];
+      const txtEl=document.getElementById('vis-precarga-txt');
+      const subEl=document.getElementById('vis-precarga-sub');
+      if(txtEl) txtEl.textContent=`Vistoria de ${dataFmt} encontrada (${equips.length} equipamentos)`;
+      if(subEl) subEl.textContent='Carregar lista de equipamentos desta visita?';
+      const banner=document.getElementById('vis-precarga-banner');
+      if(banner) banner.style.display='flex';
+    } else {
+      dispensarPreCarga();
+    }
+  }
+}
+
+function confirmarPreCarga(){
+  const vis = window._visPreCargaRec;
+  if(!vis){ dispensarPreCarga(); return; }
+  const equips=(typeof vis.equipamentos==='string'?JSON.parse(vis.equipamentos||'[]'):vis.equipamentos)||[];
+  // Separa custom (não está no VIS_EQUIPAMENTOS_DEFAULT) de padrão
+  const stdDefs = VIS_EQUIPAMENTOS_DEFAULT.map(x=>x.id);
+  const stdEquips = equips.filter(e=>stdDefs.includes(e.id));
+  const customEquips = equips.filter(e=>!stdDefs.includes(e.id));
+  // Reset estado
+  visEquipSelecionados = stdEquips.map(e=>e.id);
+  _visEquipsCustom = customEquips.map(e=>({id:e.id, nome:e.nome, emoji:e.emoji||'⚙️', modelo:e.modelo||'', potencia:e.potencia||''}));
+  // Status todos reset para 'na' — técnico preenche de novo
+  visEquipDados = {};
+  equips.forEach(e=>{ visEquipDados[e.id]={status:'na',obs:'',fotos:[]}; });
+  renderVisChips();
+  renderVisEquipGrid();
+  const card=document.getElementById('vis-equip-card');
+  if(card) card.style.display=(visEquipSelecionados.length||_visEquipsCustom.length)?'':'none';
+  dispensarPreCarga();
+  toast('✅ Equipamentos carregados da última vistoria');
+}
+
+function dispensarPreCarga(){
+  const banner=document.getElementById('vis-precarga-banner');
+  if(banner) banner.style.display='none';
+  window._visPreCargaRec = null;
 }
 
 // ── Salvar vistoria ──
@@ -8724,10 +8821,17 @@ function renderVisHistorico(){
   const tecFilt = document.getElementById('vis-hist-tec')?.value||'';
   let listaTotal = lsVisLer();
   let lista = listaTotal;
-  // Filtros
+  // Filtros textuais + mês + técnico
   if(busca) lista = lista.filter(v=>(v.cliente||'').toLowerCase().includes(busca)||(v.local||'').toLowerCase().includes(busca));
   if(mes)   lista = lista.filter(v=>(v.mes_ref||v.data||'').startsWith(mes));
   if(tecFilt) lista = lista.filter(v=>(v.tecnico||'')=== tecFilt);
+  // Filtro por status
+  if(visHistStatusFilt){
+    lista = lista.filter(v=>{
+      const equips=(typeof v.equipamentos==='string'?JSON.parse(v.equipamentos||'[]'):v.equipamentos)||[];
+      return equips.some(e=>e.status===visHistStatusFilt);
+    });
+  }
   // Sort desc
   lista.sort((a,b)=>(b.data||'').localeCompare(a.data||''));
 
@@ -8745,6 +8849,31 @@ function renderVisHistorico(){
     });
     const statCard=(val,lbl,cor,bg)=>`<div style="background:${bg};border-radius:12px;padding:14px 10px;text-align:center"><div style="font-size:24px;font-weight:800;color:${cor}">${val}</div><div style="font-size:10px;font-weight:600;color:${cor};opacity:.8;text-transform:uppercase;letter-spacing:.5px;margin-top:2px">${lbl}</div></div>`;
     statsEl.innerHTML=statCard(total,'Vistorias','var(--c2)','var(--white)')+statCard(comAtencao,'c/ Atenção','var(--yellow)','var(--yellow-bg)')+statCard(comCritico,'c/ Crítico','var(--red)','var(--red-bg)');
+  }
+
+  // ── Painel de alertas críticos (clientes com ≥1 item crítico, mês atual se sem filtro) ──
+  const alertPanel = document.getElementById('vis-alerta-criticos-panel');
+  if(alertPanel){
+    const mesAlerta = mes || new Date().toISOString().slice(0,7);
+    const scopeAlerta = listaTotal.filter(v=>(v.mes_ref||v.data||'').startsWith(mesAlerta));
+    const criticos = scopeAlerta.filter(v=>{
+      const equips=(typeof v.equipamentos==='string'?JSON.parse(v.equipamentos||'[]'):v.equipamentos)||[];
+      return equips.some(e=>e.status==='critico');
+    });
+    if(criticos.length){
+      alertPanel.style.display='block';
+      const mesNome = new Date(mesAlerta+'-02').toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+      alertPanel.innerHTML=`<div class="vis-alerta-criticos"><div class="vis-alerta-hdr">🔴 ${criticos.length} cliente${criticos.length>1?'s':''} com itens críticos em ${mesNome}</div>${criticos.map(v=>{
+        const equips=(typeof v.equipamentos==='string'?JSON.parse(v.equipamentos||'[]'):v.equipamentos)||[];
+        const criticoItems=equips.filter(e=>e.status==='critico').map(e=>e.nome||e.id);
+        return `<div class="vis-alerta-item" onclick="abrirVisRelatorio('${v.id}')">
+          <div><div style="font-weight:700;color:var(--c2);font-size:13px">${esc(v.cliente||'')}</div><div style="font-size:11px;color:var(--red);margin-top:2px">${criticoItems.map(esc).join(', ')}</div></div>
+          <div style="font-size:11px;color:var(--gray)">${v.data?new Date(v.data+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short'}):''} →</div>
+        </div>`;
+      }).join('')}</div>`;
+    } else {
+      alertPanel.style.display='none';
+    }
   }
 
   // ── Popula select de técnicos ──
@@ -8804,6 +8933,7 @@ function renderVisHistorico(){
         </div>
         <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end">
           ${v.email_responsavel?`<button class="tb" title="Reenviar e-mail" onclick="event.stopPropagation();reenviarEmailVistoria('${v.id}')" style="font-size:11px;background:var(--blue-bg);color:var(--blue);border-color:var(--blue-bg)">📧</button>`:''}
+          <button class="tb" title="Enviar resumo via WhatsApp" onclick="event.stopPropagation();enviarWAResumoVistoria('${v.id}')" style="font-size:11px;background:var(--wa-light,#dcfce7);color:var(--wa);border-color:var(--wa-light,#dcfce7)">💬</button>
           <button class="tb" title="Gerar PDF" onclick="event.stopPropagation();abrirVisRelatorio('${v.id}')" style="font-size:11px">📄 PDF</button>
           <button class="tb" title="Excluir" onclick="event.stopPropagation();excluirVistoria('${v.id}')" style="background:var(--red-bg);color:var(--red);border-color:var(--red-bg);font-size:11px">✕</button>
         </div>
@@ -8814,6 +8944,35 @@ function renderVisHistorico(){
 
 function excluirVistoria(id){
   confirmar('Excluir esta vistoria?', ()=>{ lsVisSalvar(lsVisLer().filter(x=>x.id!==id)); if(dbOk&&db) db.from('vistorias').delete().eq('id',id).then(()=>{}).catch(()=>{}); renderVisHistorico(); toast('Vistoria excluída'); }, 'Excluir Vistoria');
+}
+
+function filtVisStatus(st){
+  visHistStatusFilt = st;
+  ['todos','critico','atencao'].forEach(s=>{
+    const btn=document.getElementById('vis-fst-'+s);
+    if(btn) btn.classList.toggle('on', s===(st||'todos'));
+  });
+  renderVisHistorico();
+}
+
+function enviarWAResumoVistoria(id){
+  const vis = lsVisLer().find(x=>x.id===id);
+  if(!vis){ toast('⚠️ Vistoria não encontrada'); return; }
+  const equips=(typeof vis.equipamentos==='string'?JSON.parse(vis.equipamentos||'[]'):vis.equipamentos)||[];
+  const dataFmt = vis.data?new Date(vis.data+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric'}):'';
+  const statusTxt={bom:'✅ Bom',atencao:'⚠️ Atenção',critico:'🔴 Crítico'};
+  const linhas = equips.filter(e=>e.status&&e.status!=='na').map(e=>`  • ${e.nome}: ${statusTxt[e.status]||e.status}${e.obs?' – '+e.obs:''}`);
+  const temCritico = equips.some(e=>e.status==='critico');
+  const temAtencao = equips.some(e=>e.status==='atencao');
+  const statusGeral = temCritico ? '🔴 Ação necessária' : temAtencao ? '⚠️ Requer atenção' : '✅ Tudo em ordem';
+  const LC = getLojaConfig(vis.loja_id||lojaAtiva);
+  const msg = `*Relatório de Vistoria – ${LC.nome||''}*\n📅 ${dataFmt}\n👤 Técnico: ${vis.tecnico||''}\n📍 ${vis.cliente||''}${vis.local?' – '+vis.local:''}\n\n*Status geral: ${statusGeral}*\n\n${linhas.join('\n')||'Nenhum equipamento avaliado'}${vis.obs_geral?'\n\n📝 Obs: '+vis.obs_geral:''}\n\n_${LC.nome||''} · ${LC.tel||''}_`;
+  // Tenta abrir WhatsApp com telefone do cliente, senão abre sem destino
+  const clientes=JSON.parse(ls('fluxa_clientes_full')||'[]');
+  const cli=clientes.find(c=>(c.nome||'').toLowerCase()===(vis.cliente||'').toLowerCase());
+  const tel=(cli?.tel||'').replace(/\D/g,'');
+  const url=`https://wa.me/${tel?'55'+tel:''}?text=${encodeURIComponent(msg)}`;
+  window.open(url,'_blank');
 }
 
 // ── Gerar PDF do relatório ──
