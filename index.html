@@ -3086,6 +3086,7 @@ function populaLojaSelect(){
 
 function trocarLojaAtiva(id){
   lojaAtiva=id;
+  sessionStorage.setItem('fluxa_loja_ativa', id||'');
   atualizarHeaderLoja();
   // Re-renderiza a página atual
   const paginaAtiva=document.querySelector('.page.on');
@@ -3388,6 +3389,7 @@ async function fazerLogin(){
     } else if(loginUserSelecionado.perfil === 'gestor' && loginUserSelecionado.loja_id){
       // Gestor de empresa específica (ex: Acquamotor) → entra direto na sua empresa
       lojaAtiva = loginUserSelecionado.loja_id;
+      sessionStorage.setItem('fluxa_loja_ativa', lojaAtiva);
       const sessao = {perfil:'gestor', loja_id:loginUserSelecionado.loja_id, nome:loginUserSelecionado.nome};
       setSessao(sessao);
       document.getElementById('login-overlay').style.display = 'none';
@@ -3457,6 +3459,7 @@ function mostrarSelecaoLojaGestor(){
 
 function confirmarLojaGestor(lojaId){
   lojaAtiva=lojaId;
+  sessionStorage.setItem('fluxa_loja_ativa', lojaId||'');
   const loja=getLoja(lojaId);
   const nomeGestor=loja?'Gestor '+loja.nome:'Gestor';
   const sessao={perfil:'gestor',loja_id:null,nome:nomeGestor};
@@ -3577,8 +3580,10 @@ function lsOrcProxNum(){ return lsOrcLer().reduce((a,o)=>Math.max(a,o.numero||0)
   // ── Login check ──
   const sessaoExistente = getSessao();
   if(sessaoExistente){
-    // Restaura loja ativa da sessão (gestor de empresa específica tem loja_id na sessão)
+    // Restaura loja ativa: gestor específico usa loja_id da sessão;
+    // gestor principal usa o valor salvo no sessionStorage (persiste em F5)
     if(sessaoExistente.loja_id) lojaAtiva = sessaoExistente.loja_id;
+    else { const sal=sessionStorage.getItem('fluxa_loja_ativa'); if(sal) lojaAtiva=sal; }
     document.getElementById('login-overlay').style.display='none';
     atualizarBadgeUsuario();
     aplicarPermissoesPerfil();
@@ -3850,6 +3855,15 @@ CREATE TABLE IF NOT EXISTS notas_fiscais (
 // ──────────────────────────────────────────────────
 function carregarCFGlocal(){
   try { const s=ls('empresa_cfg'); if(s) CFG={...CFG_DEF,...JSON.parse(s)}; } catch(e){}
+  // Carrega lojasExtraConfig do cache dedicado (mais confiável que depender do CFG.lojas_extra)
+  try {
+    const cached=ls('fluxa_lojas_extra_cfg');
+    if(cached){ const ex=JSON.parse(cached); if(ex&&Object.keys(ex).length) lojasExtraConfig=ex; }
+  } catch(e){ console.warn('[carregarCFGlocal:extra]',e?.message||e); }
+  // Merge com CFG.lojas_extra caso tenha dados mais recentes
+  if(CFG.lojas_extra && Object.keys(CFG.lojas_extra).length){
+    lojasExtraConfig={...lojasExtraConfig,...CFG.lojas_extra};
+  }
 }
 async function carregarCFGremoto(){
   if(!dbOk||!db) return;
@@ -3867,6 +3881,13 @@ function loadLojasExtraConfig(){
 
 function getLojaConfig(lojaId){
   if(!lojaId) return CFG;
+  // Se lojasExtraConfig estiver vazio, tenta carregar do cache localStorage
+  if(!Object.keys(lojasExtraConfig).length){
+    try{
+      const cached=ls('fluxa_lojas_extra_cfg');
+      if(cached){ const ex=JSON.parse(cached); if(ex&&Object.keys(ex).length) lojasExtraConfig=ex; }
+    }catch(e){ console.warn('[getLojaConfig:lazy]',e?.message||e); }
+  }
   const extra = lojasExtraConfig[lojaId];
   if(!extra) return CFG;
   return {
@@ -8800,6 +8821,8 @@ function abrirVisRelatorio(id){
   const lista = lsVisLer();
   const vis = lista.find(x=>x.id===id);
   if(!vis){ toast('⚠️ Vistoria não encontrada'); return; }
+  // Corrige loja_id legado (gravado como 'default' ou vazio antes da correção)
+  if(!vis.loja_id || vis.loja_id==='default') vis.loja_id = lojaAtiva || LOJA_PADRAO_ID;
   preencherRelatorioVistoria(vis);
   printMode = 'vis';
   window.print();
