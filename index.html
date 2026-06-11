@@ -451,8 +451,8 @@
       .bd-na{background:#f3f4f6;color:#6b7280}
       .pd-vis-equip-body{padding:10px 14px;background:white}
       .pd-vis-equip-obs{font-size:12px;color:#374151;line-height:1.5;margin-bottom:8px;white-space:pre-wrap}
-      .pd-vis-equip-fotos{display:grid!important;grid-template-columns:repeat(3,1fr);gap:6px}
-      .pd-vis-equip-fotos img{width:100%;max-height:100px;object-fit:cover;border-radius:6px;background:#f9fafb}
+      .pd-vis-equip-fotos{display:grid!important;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:6px}
+      .pd-vis-equip-fotos img{width:100%;height:160px;object-fit:cover;border-radius:6px;background:#f9fafb;display:block!important}
       .pd-vis-sumtable{width:100%;border-collapse:collapse;margin-bottom:16px}
       .pd-vis-sumtable th{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:8px 12px;background:#f8f9fb;text-align:left;border-bottom:1.5px solid #e9ecef}
       .pd-vis-sumtable td{font-size:11.5px;padding:7px 12px;border-bottom:1px solid #f3f4f6;vertical-align:middle}
@@ -9027,11 +9027,19 @@ function gerarRelatorioVistoria(){
   const tec  = document.getElementById('vis-tec')?.value||'';
   const mes  = document.getElementById('vis-mes-ref')?.value||'';
   const obs  = document.getElementById('vis-obs')?.value||'';
-  const equipamentos = visEquipSelecionados.map(id=>{
-    const def = VIS_EQUIPAMENTOS_DEFAULT.find(x=>x.id===id)||{id,nome:id,emoji:''};
-    const d   = visEquipDados[id]||{ status:'na', obs:'', fotos:[] };
-    return { id, nome:def.nome, emoji:def.emoji, status:d.status, obs:d.obs||'', fotos:(d.fotos||[]).filter(Boolean) };
-  });
+  // Inclui tanto equipamentos do plano quanto chips padrão (mesmo lógica de salvarVistoria)
+  const customIds = (_visEquipsCustom||[]).map(e=>e.id);
+  const equipamentos = [
+    ...(_visEquipsCustom||[]).map(ceq=>{
+      const d = visEquipDados[ceq.id]||{status:'na',obs:'',fotos:[]};
+      return {id:ceq.id, nome:ceq.nome, emoji:ceq.emoji||'⚙️', modelo:ceq.modelo||'', potencia:ceq.potencia||'', status:d.status, obs:d.obs||'', fotos:(d.fotos||[]).filter(Boolean)};
+    }),
+    ...visEquipSelecionados.filter(id=>!customIds.includes(id)).map(id=>{
+      const def = VIS_EQUIPAMENTOS_DEFAULT.find(x=>x.id===id)||{id,nome:id,emoji:''};
+      const d   = visEquipDados[id]||{ status:'na', obs:'', fotos:[] };
+      return { id, nome:def.nome, emoji:def.emoji, modelo:'', potencia:'', status:d.status, obs:d.obs||'', fotos:(d.fotos||[]).filter(Boolean) };
+    })
+  ];
   const s = getSessao();
   const vis = {
     id:'preview', cliente:cli, local:loc, data, hora,
@@ -9129,10 +9137,10 @@ function preencherRelatorioVistoria(vis){
       </tr>`).join('')}</tbody>`;
   }
 
-  // Detailed list
+  // Detailed list — mostra equipamentos com status definido OU com fotos
   const detList=document.getElementById('pd-vis-equip-list');
   if(detList){
-    detList.innerHTML=equips.filter(e=>e.status!=='na').map(e=>{
+    detList.innerHTML=equips.filter(e=>e.status!=='na'||(e.fotos||[]).some(Boolean)).map(e=>{
       const fotosArr=(e.fotos||[]).filter(Boolean);
       const fotosHtml=fotosArr.length?`<div class="pd-vis-equip-fotos">${fotosArr.map(f=>`<img src="${f}" alt="">`).join('')}</div>`:'';
       const obsHtml=e.obs?`<div class="pd-vis-equip-obs">${esc(e.obs)}</div>`:'';
