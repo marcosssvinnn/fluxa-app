@@ -6172,6 +6172,7 @@ window.addEventListener('afterprint',()=>{
   document.getElementById('pdoc-os').classList.remove('print-active');
   document.getElementById('pdoc-visita')?.classList.remove('print-active');
   document.title = _printTitleBackup || 'Sistema de Orçamentos';
+  printMode = '';
 });
 
 // ──────────────────────────────────────────────────
@@ -8613,6 +8614,7 @@ function visTab(tab){
     if(v) v.style.display = t===tab ? '' : 'none';
     if(b){ b.classList.toggle('on', t===tab); }
   });
+  if(tab!=='nova') window._visPreCargaRec = null; // limpa pré-carga ao sair da aba
   if(tab==='hist') renderVisHistorico();
   if(tab==='locais') renderLocaisTab();
 }
@@ -8817,6 +8819,7 @@ function visCheckin(){
   },1000);
 }
 function visCheckout(){
+  if(visCheckoutTime) return; // já registrado
   visCheckoutTime = new Date();
   if(visCheckinInterval){ clearInterval(visCheckinInterval); visCheckinInterval=null; }
   const bar  = document.getElementById('vis-checkin-bar');
@@ -8854,7 +8857,7 @@ function selecionarCliVis(nome, local){
   }
   hideSugCliVis();
   // ── Pré-carga: checar se há vistoria anterior para este cliente ──
-  if(!visEditId){
+  if(!visEditId && !window._visLocalId){ // não mostrar se veio de um plano
     const todasVis = lsVisLer().filter(v=>(v.cliente||'').toLowerCase()===nome.toLowerCase() && v.equipamentos);
     if(todasVis.length){
       todasVis.sort((a,b)=>(b.data||'').localeCompare(a.data||''));
@@ -8914,6 +8917,7 @@ async function salvarVistoria(){
   const obs  = document.getElementById('vis-obs')?.value||'';
   const emailResp = (document.getElementById('vis-email-resp')?.value||'').trim();
   if(!cli){ toast('⚠️ Informe o cliente'); return; }
+  if(emailResp && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailResp)){ toast('⚠️ E-mail inválido — corrija ou deixe em branco'); return; }
   const _btnVis=document.querySelector('button[onclick="salvarVistoria()"]');
   if(_btnVis){ _btnVis.disabled=true; _btnVis.textContent='Salvando…'; }
   // Monta lista de equipamentos: primeiro os do plano (custom), depois os chips padrão
@@ -8932,6 +8936,7 @@ async function salvarVistoria(){
   const s    = getSessao();
   const lojaId = s?.loja_id || lojaAtiva || LOJA_PADRAO_ID;
   const id   = visEditId || 'vis_'+Date.now();
+  const veioDoPlano = !!(window._visLocalId); // lido ANTES de ser zerado
   const rec  = {
     id, loja_id:lojaId,
     local_id: window._visLocalId||'',
@@ -8963,7 +8968,6 @@ async function salvarVistoria(){
   visEditId = null;
   renderVisHistorico();
   // Se veio de um plano, volta para a aba de Planos (onde o técnico vê o ✅ atualizado)
-  const veioDoPlano = !!(window._visLocalId);
   window._visLocalId = null;
   const planoBanner = document.getElementById('vis-plano-banner');
   if(planoBanner) planoBanner.style.display='none';
@@ -9150,7 +9154,7 @@ async function baixarPDFVistoria(id, btn){
       .from(el)
       .save();
 
-    el.setAttribute('style', prevStyle);
+    el.setAttribute('style', prevStyle || 'display:none');
     toast('✅ PDF baixado!');
   }catch(e){
     console.warn('baixarPDFVistoria error:', e);
@@ -9405,6 +9409,7 @@ function novaVistoria(cliNome, cliLocal, tecNome){
   visCheckinTime=null;
   visCheckoutTime=null;
   visEditId=null;
+  if(visCheckinInterval){ clearInterval(visCheckinInterval); visCheckinInterval=null; }
   go('visitas');
   visTab('nova');
   const hoje=new Date();
