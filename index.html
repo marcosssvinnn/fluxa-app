@@ -8780,6 +8780,21 @@ function visRemoverFoto(id, idx){
 }
 
 // ── Check-in / Check-out ──
+function autoCheckoutSeNecessario(){
+  if(visCheckoutTime) return; // já foi feito manualmente
+  visCheckoutTime = new Date();
+  if(visCheckinInterval){ clearInterval(visCheckinInterval); visCheckinInterval=null; }
+  const bar  = document.getElementById('vis-checkin-bar');
+  const info = document.getElementById('vis-checkin-info');
+  if(bar) bar.style.display='none';
+  if(info && visCheckinTime){
+    const entradaTxt = visCheckinTime.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+    const saidaTxt   = visCheckoutTime.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+    const diff = Math.floor((visCheckoutTime-visCheckinTime)/60000);
+    info.textContent = `✅ Check-in: ${entradaTxt}  ·  Check-out: ${saidaTxt}${diff>0?' · '+diff+' min':''}`;
+  }
+}
+
 function visCheckin(){
   visCheckinTime = new Date();
   const info = document.getElementById('vis-checkin-info');
@@ -8887,6 +8902,7 @@ function dispensarPreCarga(){
 
 // ── Salvar vistoria ──
 async function salvarVistoria(){
+  autoCheckoutSeNecessario();
   const cli  = (document.getElementById('vis-cli')?.value||'').trim();
   const loc  = (document.getElementById('vis-loc')?.value||'').trim();
   const data = document.getElementById('vis-data')?.value||new Date().toISOString().slice(0,10);
@@ -9186,6 +9202,7 @@ function abrirVisRelatorio(id){
 }
 
 function gerarRelatorioVistoria(){
+  autoCheckoutSeNecessario();
   // Usa dados atuais do formulário
   const cli  = (document.getElementById('vis-cli')?.value||'').trim()||'—';
   const loc  = document.getElementById('vis-loc')?.value||'';
