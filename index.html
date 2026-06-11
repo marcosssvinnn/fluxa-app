@@ -1594,6 +1594,26 @@
       <div class="row f4">
         <div class="fl" style="grid-column:1/3"><label>Data prevista do serviço</label><input type="date" id="data-svc" oninput="upd()"></div>
       </div>
+      <div class="row">
+        <div class="fl">
+          <label class="req">De onde veio este cliente?</label>
+          <select id="origem-cli" onchange="updOrigemCli();upd()">
+            <option value="">— Selecione —</option>
+            <option value="Já é cliente">✅ Já é cliente nosso</option>
+            <option value="Indicação">🗣️ Indicação de cliente</option>
+            <option value="Anúncio Google">🔎 Anúncio do Google</option>
+            <option value="Instagram / Facebook">📱 Instagram / Facebook</option>
+            <option value="WhatsApp direto">💬 WhatsApp direto</option>
+            <option value="Passou na loja / Fachada">🏪 Passou na loja / Fachada</option>
+            <option value="Parceiro / Construtora">🤝 Parceiro / Construtora</option>
+            <option value="outro">✏️ Outro (digitar)</option>
+          </select>
+        </div>
+        <div class="fl" id="origem-cli-outro-wrap" style="display:none">
+          <label>Qual a origem?</label>
+          <input type="text" id="origem-cli-outro" placeholder="Digite a origem do cliente" oninput="upd()">
+        </div>
+      </div>
     </div>
 
     <!-- SERVIÇOS -->
@@ -1873,6 +1893,20 @@
       <div class="dash-chart-wrap">
         <canvas id="dash-chart"></canvas>
       </div>
+    </div>
+
+    <!-- ── Origem dos clientes ── -->
+    <div class="dash-chart-card" id="dash-origem-card" style="display:none">
+      <div class="dash-chart-hdr">
+        <div class="dash-chart-titulo">📣 Origem dos Clientes</div>
+        <select id="dash-origem-periodo" onchange="renderOrigemDash()" style="padding:5px 10px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Inter',sans-serif;outline:none;cursor:pointer">
+          <option value="mes">Este mês</option>
+          <option value="3">3 meses</option>
+          <option value="12" selected>12 meses</option>
+          <option value="tudo">Tudo</option>
+        </select>
+      </div>
+      <div id="dash-origem-body"></div>
     </div>
 
     <div class="card">
@@ -3820,6 +3854,7 @@ ALTER TABLE agendamentos ADD COLUMN IF NOT EXISTS local_id text;
 ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS checkin_at timestamptz;
 ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS checkout_at timestamptz;
 ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS duracao_min integer;
+ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS origem_cliente text;
 ALTER PUBLICATION supabase_realtime ADD TABLE agendamentos;
 
 CREATE TABLE IF NOT EXISTS vistorias (
@@ -4468,7 +4503,8 @@ async function criarOSjunto(dados, orcNum){
 function novoOrc(){
   editId=null; fotosB64=[];
   svcs=[{id:Date.now(),d:'',p:''}];
-  ['cli','loc','tel-cli','obs','escopo','data-svc','data-orc','nota-interna'].forEach(id=>setV(id,''));
+  ['cli','loc','tel-cli','obs','escopo','data-svc','data-orc','nota-interna','origem-cli','origem-cli-outro'].forEach(id=>setV(id,''));
+  updOrigemCli();
   setV('pag','A combinar'); setV('val','5'); setV('desc','0'); setV('disc-tp','R$');
   setV('orc-loja', lojaAtiva||LOJA_PADRAO_ID);
   renderSvcs(); upd();
@@ -4750,6 +4786,7 @@ async function salvarApenas(){
   const btn=document.getElementById('btn-salvar');
   const dados=coletarForm();
   if(!dados.cli||dados.cli==='—'){ toast('⚠️ Informe o nome do cliente'); return; }
+  if(!dados.origem){ toast('⚠️ Informe de onde veio o cliente'); document.getElementById('origem-cli')?.focus(); document.getElementById('origem-cli')?.scrollIntoView({behavior:'smooth',block:'center'}); return; }
   btn.disabled=true; btn.textContent='Salvando…';
   let savedNum=null;
   try{
@@ -4757,6 +4794,7 @@ async function salvarApenas(){
     const camposBase={
       cliente:dados.cli, local_servico:dados.loc, tel_cliente:dados.tel, cnpj:dados.cnpj||null,
       loja_id:dados.loja_id||LOJA_PADRAO_ID,
+      origem_cliente:dados.origem||null,
       servicos:dados.svcs, subtotal:dados.sub, desconto:dados.desc, total:dados.tot,
       pagamento:dados.pag, validade_dias:dados.dias, validade_data:dados.vData,
       data_servico:dados.dataSvc, escopo:dados.escopo, obs:dados.obs,
@@ -4832,12 +4870,15 @@ function mostrarBannerNovo(num){
 // ──────────────────────────────────────────────────
 async function gerarPDF(){
   const btn=document.getElementById('btn-pdf');
+  const dadosPre=coletarForm();
+  if(!dadosPre.origem){ toast('⚠️ Informe de onde veio o cliente'); document.getElementById('origem-cli')?.focus(); document.getElementById('origem-cli')?.scrollIntoView({behavior:'smooth',block:'center'}); return; }
   btn.disabled=true; btn.textContent='Gerando…';
-  const dados=coletarForm();
+  const dados=dadosPre;
   const now=new Date().toISOString();
   const camposBase={
     cliente:dados.cli, local_servico:dados.loc, tel_cliente:dados.tel, cnpj:dados.cnpj||null,
     loja_id:dados.loja_id||LOJA_PADRAO_ID,
+    origem_cliente:dados.origem||null,
     servicos:dados.svcs, subtotal:dados.sub, desconto:dados.desc, total:dados.tot,
     pagamento:dados.pag, validade_dias:dados.dias, validade_data:dados.vData,
     data_servico:dados.dataSvc, escopo:dados.escopo, obs:dados.obs,
@@ -4893,12 +4934,33 @@ async function gerarPDF(){
   }
 }
 
+function updOrigemCli(){
+  const sel=gV('origem-cli');
+  const wrap=document.getElementById('origem-cli-outro-wrap');
+  if(wrap) wrap.style.display=(sel==='outro')?'':'none';
+}
+function setOrigemCli(valor){
+  const sel=document.getElementById('origem-cli');
+  if(!sel) return;
+  if(!valor){ sel.value=''; setV('origem-cli-outro',''); updOrigemCli(); return; }
+  const opcao=[...sel.options].find(o=>o.value===valor);
+  if(opcao){ sel.value=valor; setV('origem-cli-outro',''); }
+  else { sel.value='outro'; setV('origem-cli-outro',valor); }
+  updOrigemCli();
+}
+function getOrigemCli(){
+  const sel=gV('origem-cli');
+  if(sel==='outro') return (gV('origem-cli-outro')||'').trim();
+  return sel||'';
+}
+
 function coletarForm(){
   const base=gV('data-orc'), dias=parseInt(gV('val'))||5;
   let dataStr=new Date().toLocaleDateString('pt-BR'), vData='';
   if(base){ dataStr=new Date(base+'T12:00:00').toLocaleDateString('pt-BR'); const dv=new Date(base+'T12:00:00'); dv.setDate(dv.getDate()+dias); vData=dv.toLocaleDateString('pt-BR'); }
   return { cli:gV('cli')||'—', loc:gV('loc'), tel:gV('tel-cli'), cnpj:gV('cnpj-cli'),
     loja_id:gV('orc-loja')||LOJA_PADRAO_ID,
+    origem:getOrigemCli(),
     pag:gV('pag'), pagFormatado:formatPagamento(gV('pag'),tot()), dias, obs:gV('obs'),
     escopo:gV('escopo'), dataSvc:gV('data-svc'), dataStr, vData, sub:sub(), desc:disc(sub()), tot:tot(),
     svcs:svcs.filter(s=>s.d.trim()).map(s=>({desc:s.d.trim(),preco:gP(s),precoUnit:parseFloat(s.p)||0,qty:parseInt(s.qty)||1})) };
@@ -5207,6 +5269,56 @@ function atualizarDash(){
   setV_el('d-aprov',brl(somaA),'textContent'); setV_el('d-aprov-q',aprov.length+' aprovado'+(aprov.length!==1?'s':''),'textContent');
   setV_el('d-rec',brl(Math.max(0,aRec)),'textContent');
   setV_el('d-tick',tick>0?brl(tick):'—','textContent');
+  renderOrigemDash();
+}
+
+// ── Origem dos clientes (métricas de captação) ──
+function renderOrigemDash(){
+  const card=document.getElementById('dash-origem-card');
+  const body=document.getElementById('dash-origem-body');
+  if(!card||!body) return;
+  const periodo=(document.getElementById('dash-origem-periodo')||{value:'12'}).value;
+  const hoje=new Date();
+  let lista=filtrarPorLoja(todosOrc).filter(o=>o.origem_cliente);
+  if(periodo==='mes'){
+    lista=lista.filter(o=>{ const d=_orcData(o); return d&&d.getFullYear()===hoje.getFullYear()&&d.getMonth()===hoje.getMonth(); });
+  } else if(periodo!=='tudo'){
+    const lim=new Date(hoje.getFullYear(),hoje.getMonth()-parseInt(periodo)+1,1);
+    lista=lista.filter(o=>{ const d=_orcData(o); return d&&d>=lim; });
+  }
+  if(!lista.length){ card.style.display='none'; return; }
+  card.style.display='';
+  // Agrupa por origem
+  const counts={}, valores={}, aprovados={};
+  lista.forEach(o=>{
+    const k=o.origem_cliente;
+    counts[k]=(counts[k]||0)+1;
+    valores[k]=(valores[k]||0)+(o.total||0);
+    if(o.status==='aprovado') aprovados[k]=(aprovados[k]||0)+1;
+  });
+  const sorted=Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+  const max=sorted[0]?.[1]||1;
+  const emojis={'Já é cliente':'✅','Indicação':'🗣️','Anúncio Google':'🔎','Instagram / Facebook':'📱','WhatsApp direto':'💬','Passou na loja / Fachada':'🏪','Parceiro / Construtora':'🤝'};
+  body.innerHTML=sorted.map(([orig,cnt])=>{
+    const pct=Math.round(cnt/lista.length*100);
+    const apr=aprovados[orig]||0;
+    return `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--gray-light)">
+      <div style="font-size:16px;flex-shrink:0;width:24px;text-align:center">${emojis[orig]||'✏️'}</div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;justify-content:space-between;font-size:12.5px;font-weight:600;color:var(--c2);margin-bottom:3px">
+          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(orig)}</span>
+          <span style="flex-shrink:0;margin-left:8px">${cnt} <span style="color:var(--gray);font-weight:400">(${pct}%)</span></span>
+        </div>
+        <div style="height:6px;background:var(--gray-light);border-radius:50px;overflow:hidden">
+          <div style="height:100%;background:var(--c1);border-radius:50px;width:${Math.round(cnt/max*100)}%"></div>
+        </div>
+      </div>
+      <div style="flex-shrink:0;text-align:right;min-width:90px">
+        <div style="font-size:12px;font-weight:700;color:var(--c2)">${brl(valores[orig]||0)}</div>
+        <div style="font-size:10px;color:var(--gray)">${apr} aprovado${apr!==1?'s':''}</div>
+      </div>
+    </div>`;
+  }).join('')+`<div style="font-size:11px;color:var(--gray);padding-top:8px;text-align:right">${lista.length} orçamento${lista.length!==1?'s':''} com origem informada</div>`;
 }
 
 function filt(btn){
@@ -5480,6 +5592,7 @@ function abrirOrc(id){
   setV('pag',o.pagamento||'A combinar'); updPag(); setV('val',String(o.validade_dias||5));
   setV('obs',o.obs||''); setV('escopo',o.escopo||''); setV('data-svc',o.data_servico||'');
   setV('nota-interna',o.nota_interna||'');
+  setOrigemCli(o.origem_cliente||'');
   svcs=(o.servicos||[]).map(s=>({id:Date.now()+Math.random(),d:s.desc,p:String(s.precoUnit||s.preco||''),qty:s.qty||1}));
   if(!svcs.length) svcs=[{id:Date.now(),d:'',p:''}];
   // Compatibilidade: antigo=string, novo=JSON array
@@ -5523,6 +5636,7 @@ function duplicarOrc(id){
   setV('obs',o.obs||''); setV('escopo',o.escopo||'');
   setV('nota-interna',''); // não copia nota interna
   setV('data-svc','');
+  setOrigemCli(o.origem_cliente||'');
   setV('orc-loja',o.loja_id||LOJA_PADRAO_ID);
   document.getElementById('data-orc').valueAsDate=new Date();
   setV('disc-v',String(o.desconto||0)); setV('disc-t','R$');
@@ -6001,6 +6115,8 @@ function mostrarSugestoesCli(val){
 }
 function selecionarSugestaoCli(nome,end,tel,cnpj){
   setV('cli',nome); if(end) setV('loc',end); if(tel) setV('tel-cli',tel); if(cnpj) setV('cnpj-cli',cnpj);
+  // Cliente da base → pré-sugere origem "Já é cliente" (editável)
+  if(!gV('origem-cli')) setOrigemCli('Já é cliente');
   document.getElementById('cli-suggestions').style.display='none'; upd();
 }
 function hideSugCli(){ const b=document.getElementById('cli-suggestions'); if(b) b.style.display='none'; }
@@ -6076,6 +6192,8 @@ function selecionarCliModal(nome, end, tel, cnpj){
     if(end) setV('loc', end);
     if(tel) setV('tel-cli', tel);
     if(cnpj) setV('cnpj-cli', cnpj);
+    // Cliente da base → pré-sugere origem "Já é cliente" (editável)
+    if(!gV('origem-cli')) setOrigemCli('Já é cliente');
     upd();
   }
   fecharBuscaCli();
@@ -6265,8 +6383,9 @@ function salvarRascunho(pagina){
   try{
     if(pagina === 'form'){
       const dados = {
-        cli: gV('cli'), loc: gV('loc'), tel: gV('tel'), obs: gV('obs'),
-        escopo: gV('escopo'), nota_interna: gV('nota-interna'),
+        cli: gV('cli'), loc: gV('loc'), 'tel-cli': gV('tel-cli'), obs: gV('obs'),
+        escopo: gV('escopo'), 'nota-interna': gV('nota-interna'),
+        'origem-cli': gV('origem-cli'), 'origem-cli-outro': gV('origem-cli-outro'),
       };
       lsSet(DRAFT_KEYS.form, JSON.stringify(dados));
     } else if(pagina === 'os'){
@@ -6283,6 +6402,7 @@ function restaurarRascunho(pagina){
     const raw = ls(DRAFT_KEYS[pagina]); if(!raw) return;
     const dados = JSON.parse(raw);
     Object.entries(dados).forEach(([k,v])=>setV(k,v));
+    if(pagina==='form') updOrigemCli();
   }catch(e){}
 }
 function limparRascunho(pagina){
