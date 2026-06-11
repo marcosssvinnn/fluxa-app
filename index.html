@@ -2492,7 +2492,7 @@
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
       <div style="font-size:18px;font-weight:800;color:var(--c2)">🔍 Vistorias de Manutenção</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="fb on" id="vis-tab-nova" onclick="visTab('nova')">📋 Nova Vistoria</button>
+        <button class="fb on" id="vis-tab-nova" onclick="visTab('nova');window._visLocalId=null;document.getElementById('vis-plano-banner').style.display='none'">📋 Nova Vistoria</button>
         <button class="fb" id="vis-tab-hist" onclick="visTab('hist')">📜 Histórico</button>
         <button class="fb" id="vis-tab-locais" onclick="visTab('locais')">📍 Meus Locais</button>
       </div>
@@ -2500,6 +2500,16 @@
 
     <!-- ── ABA: NOVA VISTORIA ── -->
     <div id="vis-view-nova">
+
+      <!-- Banner: contexto do plano (aparece quando aberto via "Fazer Vistoria") -->
+      <div id="vis-plano-banner" style="display:none;align-items:center;gap:10px;padding:10px 14px;background:var(--c2);border-radius:12px;margin-bottom:12px;color:white">
+        <button onclick="visTab('locais')" style="background:rgba(255,255,255,.15);border:none;cursor:pointer;color:white;font-size:12px;font-weight:700;padding:5px 10px;border-radius:50px;font-family:'Inter',sans-serif;flex-shrink:0">← Planos</button>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:700" id="vis-plano-nome"></div>
+          <div style="font-size:11px;opacity:.75" id="vis-plano-sub"></div>
+        </div>
+        <div style="font-size:20px">🔍</div>
+      </div>
 
       <!-- Pre-carga última vistoria -->
       <div id="vis-precarga-banner" style="display:none" class="vis-precarga-banner">
@@ -8230,6 +8240,84 @@ function fecharConcluirVis(){
   document.getElementById('concluir-vis-bg').classList.remove('on');
   window._concluirVisLocalId=null;
 }
+
+// Abre o formulário COMPLETO de vistoria pré-preenchido com os dados do plano
+function iniciarVistoriaPlena(locId){
+  const loc=locaisVistoria.find(x=>x.id===locId);
+  if(!loc) return;
+
+  // Reset estado
+  visEquipSelecionados=[];
+  visEquipDados={};
+  _visEquipsCustom=[];
+  visCheckinTime=null;
+  visCheckoutTime=null;
+  if(visCheckinInterval){ clearInterval(visCheckinInterval); visCheckinInterval=null; }
+  visEditId=null;
+  window._visLocalId=locId;
+
+  // Navega para a aba Nova Vistoria
+  visTab('nova');
+
+  // Esconde o banner de pré-carga (não faz sentido junto com o banner do plano)
+  const precarga=document.getElementById('vis-precarga-banner');
+  if(precarga) precarga.style.display='none';
+
+  // Mostra banner do plano
+  const planoBanner=document.getElementById('vis-plano-banner');
+  const planoNome=document.getElementById('vis-plano-nome');
+  const planoSub=document.getElementById('vis-plano-sub');
+  if(planoBanner){ planoBanner.style.display='flex'; }
+  if(planoNome) planoNome.textContent=loc.cliente||'';
+  if(planoSub){
+    const equips=normalizeLocEquips(loc.equipamentos||[]);
+    planoSub.textContent=`📍 ${loc.local||''}${equips.length?' · 🔧 '+equips.length+' equipamentos':''}`;
+  }
+
+  // Preenche data e mês de referência
+  const hoje=new Date();
+  const ddEl=document.getElementById('vis-data'); if(ddEl) ddEl.value=hoje.toISOString().slice(0,10);
+  const mmEl=document.getElementById('vis-mes-ref'); if(mmEl) mmEl.value=hoje.toISOString().slice(0,7);
+
+  // Preenche cliente e local
+  const cliInp=document.getElementById('vis-cli'); if(cliInp) cliInp.value=loc.cliente||'';
+  const locInp=document.getElementById('vis-loc'); if(locInp) locInp.value=loc.local||'';
+
+  // Preenche e-mail do responsável
+  if(loc.email_responsavel){
+    const emEl=document.getElementById('vis-email-resp'); if(emEl) emEl.value=loc.email_responsavel;
+    const stEl=document.getElementById('vis-email-status');
+    if(stEl) stEl.textContent=`📧 ${loc.email_responsavel} (do plano)`;
+  }
+
+  // Preenche horário preferencial
+  if(loc.hora_pref){ const hEl=document.getElementById('vis-hora'); if(hEl) hEl.value=loc.hora_pref; }
+
+  // Preenche técnico
+  const tecSel=document.getElementById('vis-tec');
+  if(tecSel){
+    const tNome=loc.tecnico||(getSessao()?.nome||'');
+    if(tNome){ for(const o of tecSel.options){ if(o.text===tNome||o.value===tNome){ o.selected=true; break; } } }
+  }
+
+  // Carrega equipamentos do plano como _visEquipsCustom (com modelo/potência)
+  const equips=normalizeLocEquips(loc.equipamentos||[]);
+  if(equips.length){
+    _visEquipsCustom=equips.map(e=>({id:e.id,nome:e.nome,emoji:e.emoji||'⚙️',modelo:e.modelo||'',potencia:e.potencia||''}));
+    equips.forEach(e=>{ visEquipDados[e.id]={status:'na',obs:'',fotos:[]}; });
+  }
+
+  renderVisChips();
+  renderVisEquipGrid();
+  const card=document.getElementById('vis-equip-card');
+  if(card) card.style.display=equips.length?'':'none';
+
+  // Inicia check-in automaticamente
+  visCheckin();
+
+  // Scroll para o topo
+  window.scrollTo({top:0,behavior:'smooth'});
+}
 async function salvarConcluirVis(){
   const id=window._concluirVisLocalId;
   const loc=locaisVistoria.find(x=>x.id===id);
@@ -8431,7 +8519,7 @@ function renderLocaisTab(){
         <button class="tb" onclick="abrirVisRelatorio('${vistoria.id}')" title="Ver relatório PDF" style="font-size:12px;padding:5px 10px">📄 Relatório</button>
         <button class="tb" onclick="reenviarEmailVistoria('${vistoria.id}')" title="Reenviar e-mail">✉️</button>`;
     } else if(ativo){
-      acoesHtml=`<button class="btn-primary" style="padding:7px 14px;font-size:13px;white-space:nowrap" onclick="iniciarVistoriaLocal('${loc.id}')">✅ Concluir</button>`;
+      acoesHtml=`<button class="btn-primary" style="padding:7px 14px;font-size:13px;white-space:nowrap" onclick="iniciarVistoriaPlena('${loc.id}')">🔍 Fazer Vistoria</button>`;
     }
 
     // Rodapé com ações de gestão (só gestor)
@@ -8825,6 +8913,12 @@ async function salvarVistoria(){
   toast('✅ Vistoria salva!');
   visEditId = null;
   renderVisHistorico();
+  // Se veio de um plano, volta para a aba de Planos (onde o técnico vê o ✅ atualizado)
+  const veioDoPlano = !!(window._visLocalId);
+  window._visLocalId = null;
+  const planoBanner = document.getElementById('vis-plano-banner');
+  if(planoBanner) planoBanner.style.display='none';
+  if(veioDoPlano){ setTimeout(()=>visTab('locais'), 600); }
 
   // ── Auto-envio de e-mail ──
   if(emailResp && emailJSConfigurado()){
