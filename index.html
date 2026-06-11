@@ -14,6 +14,8 @@
   <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"
           integrity="sha384-SALc35EccAf6RzGw4iNsyj7kTPr33K7RoGzYu+7heZhT8s0GZouafRiCg1qy44AS"
           crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"
+          crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"
           integrity="sha384-e6nUZLBkQ86NJ6TVVKAeSaK8jWa3NhkYWZFomE39AvDbQWeie9PlQqM3pmYW5d1g"
           crossorigin="anonymous"></script>
@@ -432,27 +434,45 @@
 
       /* ── VISIT REPORT ── */
       .pd-vis-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#9ca3af;margin-bottom:12px;padding-bottom:6px;border-bottom:1.5px solid #e9ecef}
-      .pd-vis-info-grid{display:grid!important;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px}
-      .pd-vis-equip-list{display:flex!important;flex-direction:column;gap:12px;margin-bottom:16px}
-      .pd-vis-equip-item{border:1.5px solid #e9ecef;border-radius:10px;overflow:hidden;page-break-inside:avoid}
+      /* stats summary row */
+      .pd-vis-stats-row{display:grid!important;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px}
+      .pd-vis-stat{border-radius:10px;padding:10px 12px;text-align:center;border:1.5px solid transparent}
+      .pd-vis-stat-n{font-size:24px;font-weight:800;line-height:1}
+      .pd-vis-stat-l{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-top:4px;opacity:.8}
+      .pd-vis-stat.s-total{background:#f8f9fb;border-color:#e9ecef;color:#374151}
+      .pd-vis-stat.s-bom{background:#dcfce7;border-color:#bbf7d0;color:#16a34a}
+      .pd-vis-stat.s-atencao{background:#fef3c7;border-color:#fde68a;color:#d97706}
+      .pd-vis-stat.s-critico{background:#fee2e2;border-color:#fecaca;color:#ef4444}
+      /* info grid – 4 cols */
+      .pd-vis-info-grid{display:grid!important;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px}
+      .pd-vis-equip-list{display:flex!important;flex-direction:column;gap:14px;margin-bottom:16px}
+      .pd-vis-equip-item{border:1.5px solid #e9ecef;border-radius:10px;overflow:hidden;page-break-inside:avoid;break-inside:avoid}
       .pd-vis-equip-item.st-bom{border-color:#16a34a}
       .pd-vis-equip-item.st-atencao{border-color:#d97706}
       .pd-vis-equip-item.st-critico{border-color:#ef4444}
-      .pd-vis-equip-hdr{display:flex!important;align-items:center;gap:10px;padding:9px 14px}
+      .pd-vis-equip-hdr{display:flex!important;align-items:center;gap:10px;padding:10px 14px}
       .pd-vis-equip-hdr.st-bom{background:#dcfce7}
       .pd-vis-equip-hdr.st-atencao{background:#fef3c7}
       .pd-vis-equip-hdr.st-critico{background:#fee2e2}
       .pd-vis-equip-hdr.st-na{background:#f3f4f6}
       .pd-vis-equip-nm{font-size:13px;font-weight:700;color:#111827;flex:1}
-      .pd-vis-equip-bd{font-size:10px;font-weight:700;padding:2px 9px;border-radius:50px}
-      .bd-bom{background:#dcfce7;color:#16a34a}
-      .bd-atencao{background:#fef3c7;color:#d97706}
-      .bd-critico{background:#fee2e2;color:#ef4444}
-      .bd-na{background:#f3f4f6;color:#6b7280}
-      .pd-vis-equip-body{padding:10px 14px;background:white}
-      .pd-vis-equip-obs{font-size:12px;color:#374151;line-height:1.5;margin-bottom:8px;white-space:pre-wrap}
-      .pd-vis-equip-fotos{display:grid!important;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:6px}
-      .pd-vis-equip-fotos img{width:100%;height:160px;object-fit:cover;border-radius:6px;background:#f9fafb;display:block!important}
+      .pd-vis-equip-sub{font-size:10px;color:#6b7280;margin-top:2px;font-weight:400}
+      .pd-vis-equip-bd{font-size:10px;font-weight:700;padding:3px 10px;border-radius:50px;flex-shrink:0}
+      .bd-bom{background:#dcfce7;color:#16a34a;border:1px solid #bbf7d0}
+      .bd-atencao{background:#fef3c7;color:#d97706;border:1px solid #fde68a}
+      .bd-critico{background:#fee2e2;color:#ef4444;border:1px solid #fecaca}
+      .bd-na{background:#f3f4f6;color:#6b7280;border:1px solid #e9ecef}
+      .pd-vis-equip-body{padding:12px 14px;background:white}
+      .pd-vis-equip-obs{font-size:12px;color:#374151;line-height:1.6;margin-bottom:10px;white-space:pre-wrap;padding:8px 10px;background:#f8f9fb;border-radius:6px;border-left:3px solid #e9ecef}
+      .pd-vis-equip-obs.obs-critico{border-left-color:#ef4444;background:#fff7f7}
+      .pd-vis-equip-obs.obs-atencao{border-left-color:#d97706;background:#fffbf0}
+      .pd-vis-equip-obs.obs-bom{border-left-color:#16a34a;background:#f7fdf9}
+      /* fotos – 2 colunas, maior */
+      .pd-vis-equip-fotos{display:grid!important;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:8px}
+      .pd-vis-foto-item{display:flex;flex-direction:column;break-inside:avoid}
+      .pd-vis-foto-item img{width:100%;height:210px;object-fit:cover;border-radius:8px;background:#f9fafb;display:block!important;border:1px solid #e9ecef}
+      .pd-vis-foto-lbl{font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#9ca3af;margin-top:4px;text-align:center}
+      /* summary table */
       .pd-vis-sumtable{width:100%;border-collapse:collapse;margin-bottom:16px}
       .pd-vis-sumtable th{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:8px 12px;background:#f8f9fb;text-align:left;border-bottom:1.5px solid #e9ecef}
       .pd-vis-sumtable td{font-size:11.5px;padding:7px 12px;border-bottom:1px solid #f3f4f6;vertical-align:middle}
@@ -1391,7 +1411,7 @@
         Crie uma conta gratuita em <a href="https://www.emailjs.com" target="_blank" style="color:var(--c1)">emailjs.com</a>
         (200 e-mails/mês grátis), crie um serviço de e-mail e um template, então preencha abaixo.
       </p>
-      <div style="background:var(--c1-light);border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:12px;color:var(--c2);line-height:1.7">
+      <div style="background:var(--c1-light);border-radius:8px;padding:12px 14px;margin-bottom:10px;font-size:12px;color:var(--c2);line-height:1.8">
         <strong>Variáveis do template EmailJS:</strong><br>
         <code>{{to_email}}</code> — e-mail do responsável &nbsp;·&nbsp;
         <code>{{to_name}}</code> — nome do cliente &nbsp;·&nbsp;
@@ -1399,8 +1419,17 @@
         <code>{{tecnico}}</code> — técnico responsável &nbsp;·&nbsp;
         <code>{{mes_ref}}</code> — mês de referência &nbsp;·&nbsp;
         <code>{{data_visita}}</code> — data da vistoria<br>
-        <code>{{resumo}}</code> — resumo dos equipamentos &nbsp;·&nbsp;
-        <code>{{obs_geral}}</code> — observações gerais
+        <code>{{hora_checkin}}</code> — entrada &nbsp;·&nbsp; <code>{{hora_checkout}}</code> — saída &nbsp;·&nbsp; <code>{{duracao}}</code> — tempo de visita<br>
+        <code>{{resumo}}</code> — lista de equipamentos &nbsp;·&nbsp;
+        <code>{{status_geral}}</code> — resumo (✅ / ⚠️ / 🔴)<br>
+        <code>{{obs_geral}}</code> — observações gerais &nbsp;·&nbsp;
+        <code>{{link_relatorio}}</code> — URL do PDF &nbsp;·&nbsp; <code>{{link_pdf}}</code> — texto com link
+      </div>
+      <div style="background:#fff3cd;border:1.5px solid #ffc107;border-radius:8px;padding:11px 14px;margin-bottom:14px;font-size:12px;color:#856404;line-height:1.7">
+        <strong>📎 Para o e-mail sair com o PDF anexado:</strong><br>
+        1. No painel do Supabase → <strong>Storage</strong> → crie um bucket chamado <code>vistorias-pdf</code> (marcar como <em>Public</em>).<br>
+        2. Vá em <strong>Storage → Policies</strong> e crie uma policy de INSERT para <code>authenticated</code> e SELECT para <code>public</code>.<br>
+        3. No template do EmailJS, adicione o link: <code>{{link_pdf}}</code> — será um link direto para baixar o PDF gerado.
       </div>
       <div class="row f3">
         <div class="fl"><label>Public Key (User ID)</label><input type="text" id="cfg-ejs-pubkey" placeholder="xxxxxxxxxxxxxxxx"></div>
@@ -2244,6 +2273,8 @@
         <div class="pd-cli-loc" id="pd-cli-loc-vis"></div>
       </div>
     </div>
+    <!-- STATS ROW -->
+    <div class="pd-vis-stats-row" id="pd-vis-stats-row"></div>
     <!-- VISIT INFO -->
     <div class="pd-vis-info-grid" id="pd-vis-info-grid"></div>
     <!-- SUMMARY TABLE -->
@@ -9150,8 +9181,16 @@ function gerarRelatorioVistoria(){
   window.print();
 }
 
+function calcDuracao(cin, cout){
+  if(!cin||!cout) return null;
+  const p=t=>{ const [h,m]=(t||'').split(':').map(Number); return isNaN(h)||isNaN(m)?null:h*60+m; };
+  const t1=p(cin),t2=p(cout); if(t1===null||t2===null) return null;
+  let d=t2-t1; if(d<0) d+=24*60; if(d===0||d>600) return null;
+  const h=Math.floor(d/60),m=d%60;
+  return h>0?(m>0?`${h}h ${m}min`:`${h}h`):`${m}min`;
+}
+
 function preencherRelatorioVistoria(vis){
-  // Desativa todos pdocs, ativa só este
   document.querySelectorAll('.pdoc').forEach(d=>d.classList.remove('print-active'));
   const pdoc = document.getElementById('pdoc-visita');
   if(!pdoc) return;
@@ -9167,8 +9206,8 @@ function preencherRelatorioVistoria(vis){
   const footEl = document.getElementById('pd-foot-vis');
 
   // Logo / initials
-  const logoEl    = document.getElementById('pd-hdr-logo-vis');
-  const initEl    = document.getElementById('pd-hdr-init-vis');
+  const logoEl = document.getElementById('pd-hdr-logo-vis');
+  const initEl = document.getElementById('pd-hdr-init-vis');
   const nomePDF = LC.nome||'Empresa';
   if(logoEl && initEl){
     if(LC.logoB64){
@@ -9201,23 +9240,41 @@ function preencherRelatorioVistoria(vis){
   const cliNm=document.getElementById('pd-cli-nm-vis'); if(cliNm) cliNm.textContent=vis.cliente||'—';
   const cliLoc=document.getElementById('pd-cli-loc-vis'); if(cliLoc) cliLoc.textContent=vis.local||'';
 
-  // Visit info grid (3 cells: técnico, data, checkin-checkout)
-  const infoGrid=document.getElementById('pd-vis-info-grid');
-  if(infoGrid){
-    const dataFmt=vis.data?new Date(vis.data+'T12:00:00').toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}):'—';
-    const checkinTxt=(vis.hora_checkin||vis.hora||'—')+' → '+(vis.hora_checkout||'—');
-    infoGrid.innerHTML=`
-      <div class="pd-g2card"><div class="pd-g2lbl">Técnico Responsável</div><div class="pd-g2val">👤 ${esc(vis.tecnico||'—')}</div></div>
-      <div class="pd-g2card"><div class="pd-g2lbl">Data da Vistoria</div><div class="pd-g2val">📅 ${dataFmt}</div></div>
-      <div class="pd-g2card"><div class="pd-g2lbl">Entrada → Saída</div><div class="pd-g2val">⏱ ${checkinTxt}</div></div>`;
-  }
-
   // Equipamentos
   const equips = (typeof vis.equipamentos==='string'?JSON.parse(vis.equipamentos||'[]'):vis.equipamentos)||[];
   const statusTxt = { bom:'Bom', atencao:'Atenção', critico:'Crítico', na:'N/A' };
   const statusCls = { bom:'st-bom', atencao:'st-atencao', critico:'st-critico', na:'st-na' };
   const bdCls     = { bom:'bd-bom', atencao:'bd-atencao', critico:'bd-critico', na:'bd-na' };
   const dotCls    = { bom:'bom', atencao:'atencao', critico:'critico', na:'na' };
+
+  // Stats summary row
+  const statsRow=document.getElementById('pd-vis-stats-row');
+  if(statsRow){
+    const nBom    = equips.filter(e=>e.status==='bom').length;
+    const nAtencao= equips.filter(e=>e.status==='atencao').length;
+    const nCritico= equips.filter(e=>e.status==='critico').length;
+    const nTotal  = equips.filter(e=>e.status!=='na').length;
+    statsRow.innerHTML=`
+      <div class="pd-vis-stat s-total"><div class="pd-vis-stat-n">${nTotal}</div><div class="pd-vis-stat-l">Vistoriados</div></div>
+      <div class="pd-vis-stat s-bom"><div class="pd-vis-stat-n">${nBom}</div><div class="pd-vis-stat-l">✅ Bom estado</div></div>
+      <div class="pd-vis-stat s-atencao"><div class="pd-vis-stat-n">${nAtencao}</div><div class="pd-vis-stat-l">⚠️ Atenção</div></div>
+      <div class="pd-vis-stat s-critico"><div class="pd-vis-stat-n">${nCritico}</div><div class="pd-vis-stat-l">🔴 Crítico</div></div>`;
+  }
+
+  // Visit info grid — 4 cells: técnico, data, horário, duração
+  const infoGrid=document.getElementById('pd-vis-info-grid');
+  if(infoGrid){
+    const cin  = vis.hora_checkin||vis.hora||'';
+    const cout = vis.hora_checkout||'';
+    const dur  = calcDuracao(cin, cout);
+    const dataFmt=vis.data?new Date(vis.data+'T12:00:00').toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}):'—';
+    const horaTxt = cin?(cin+(cout?' → '+cout:'')):'—';
+    infoGrid.innerHTML=`
+      <div class="pd-g2card"><div class="pd-g2lbl">Técnico Responsável</div><div class="pd-g2val">👤 ${esc(vis.tecnico||'—')}</div></div>
+      <div class="pd-g2card"><div class="pd-g2lbl">Data da Vistoria</div><div class="pd-g2val">📅 ${dataFmt}</div></div>
+      <div class="pd-g2card"><div class="pd-g2lbl">Entrada → Saída</div><div class="pd-g2val">⏰ ${esc(horaTxt)}</div></div>
+      <div class="pd-g2card"><div class="pd-g2lbl">Duração da Visita</div><div class="pd-g2val">⏱ ${esc(dur||'—')}</div></div>`;
+  }
 
   // Summary table
   const sumTable=document.getElementById('pd-vis-sumtable');
@@ -9227,22 +9284,31 @@ function preencherRelatorioVistoria(vis){
         <td><strong>${esc(e.nome||e.id)}</strong></td>
         <td style="font-size:11px;color:#6b7280">${[e.modelo,e.potencia].filter(Boolean).map(esc).join(' · ')||'—'}</td>
         <td><span class="st-dot ${dotCls[e.status]||'na'}"></span>${statusTxt[e.status]||'N/A'}</td>
-        <td style="color:#6b7280;font-size:11px">${esc((e.obs||'').slice(0,80))}</td>
+        <td style="color:#6b7280;font-size:11px">${esc((e.obs||'').slice(0,90))}</td>
       </tr>`).join('')}</tbody>`;
   }
 
-  // Detailed list — mostra equipamentos com status definido OU com fotos
+  // Detailed list — equipamentos com status definido OU com fotos
   const detList=document.getElementById('pd-vis-equip-list');
   if(detList){
     detList.innerHTML=equips.filter(e=>e.status!=='na'||(e.fotos||[]).some(Boolean)).map(e=>{
       const fotosArr=(e.fotos||[]).filter(Boolean);
-      const fotosHtml=fotosArr.length?`<div class="pd-vis-equip-fotos">${fotosArr.map(f=>`<img src="${f}" alt="">`).join('')}</div>`:'';
-      const obsHtml=e.obs?`<div class="pd-vis-equip-obs">${esc(e.obs)}</div>`:'';
+      const fotosHtml=fotosArr.length
+        ?`<div class="pd-vis-equip-fotos">${fotosArr.map((f,i)=>`
+            <div class="pd-vis-foto-item">
+              <img src="${f}" alt="Foto ${i+1}">
+              <div class="pd-vis-foto-lbl">Foto ${i+1}${e.nome?' — '+e.nome:''}</div>
+            </div>`).join('')}</div>`
+        :'';
+      const obsCls=e.status==='critico'?'obs-critico':e.status==='atencao'?'obs-atencao':e.status==='bom'?'obs-bom':'';
+      const obsHtml=e.obs?`<div class="pd-vis-equip-obs ${obsCls}">${esc(e.obs)}</div>`:'';
+      const subInfo=[e.modelo,e.potencia].filter(Boolean).map(esc).join(' · ');
       return `<div class="pd-vis-equip-item ${statusCls[e.status]||''}">
         <div class="pd-vis-equip-hdr ${statusCls[e.status]||'st-na'}">
-          <div>
+          <div style="flex:1;min-width:0">
             <div class="pd-vis-equip-nm">${e.emoji||'⚙️'} ${esc(e.nome||e.id)}</div>
-            ${(e.modelo||e.potencia)?`<div style="font-size:10px;color:#6b7280;margin-top:2px">${[e.modelo,e.potencia].filter(Boolean).map(esc).join(' · ')}</div>`:''}
+            ${subInfo?`<div class="pd-vis-equip-sub">${subInfo}${fotosArr.length?' · 📷 '+fotosArr.length+' foto'+(fotosArr.length>1?'s':''):''}</div>`
+                     :fotosArr.length?`<div class="pd-vis-equip-sub">📷 ${fotosArr.length} foto${fotosArr.length>1?'s':''}</div>`:''}
           </div>
           <div class="pd-vis-equip-bd ${bdCls[e.status]||'bd-na'}">${statusTxt[e.status]||'N/A'}</div>
         </div>
@@ -9307,6 +9373,38 @@ function initEmailJS(){
   }
 }
 
+async function gerarEUploadPDFVistoria(vis){
+  if(typeof html2pdf === 'undefined') return null;
+  try{
+    preencherRelatorioVistoria(vis);
+    await new Promise(r=>setTimeout(r,400));
+    const element = document.getElementById('pdoc-visita');
+    if(!element) return null;
+    const blob = await html2pdf()
+      .set({
+        margin: 0,
+        filename: `vistoria-${(vis.cliente||'').replace(/[^a-z0-9]/gi,'-')}-${vis.data||''}.pdf`,
+        image: { type:'jpeg', quality:0.88 },
+        html2canvas: { scale:2, useCORS:true, allowTaint:true, logging:false },
+        jsPDF: { unit:'mm', format:'a4', orientation:'portrait' }
+      })
+      .from(element)
+      .output('blob');
+
+    if(!db) return null;
+    const filename = `${vis.loja_id||'fluxa'}/${vis.id||Date.now()}.pdf`;
+    const { error } = await db.storage.from('vistorias-pdf').upload(filename, blob, {
+      contentType:'application/pdf', upsert:true
+    });
+    if(error){ console.warn('Storage upload error:', error.message); return null; }
+    const { data:{ publicUrl } } = db.storage.from('vistorias-pdf').getPublicUrl(filename);
+    return publicUrl || null;
+  }catch(e){
+    console.warn('gerarEUploadPDFVistoria error:', e);
+    return null;
+  }
+}
+
 async function enviarEmailVistoria(vis){
   if(!emailJSConfigurado()){
     console.log('EmailJS não configurado, pulando envio automático');
@@ -9327,21 +9425,29 @@ async function enviarEmailVistoria(vis){
   const temCritico = equips.some(e=>e.status==='critico');
   const temAtencao = equips.some(e=>e.status==='atencao');
   const statusGeral = temCritico ? '🔴 Ação necessária' : temAtencao ? '⚠️ Verificar pontos' : '✅ Tudo em ordem';
+  const duracao = calcDuracao(vis.hora_checkin||vis.hora, vis.hora_checkout);
+
+  // Tenta gerar e fazer upload do PDF para Supabase Storage
+  let pdfUrl = '';
+  try{ pdfUrl = await gerarEUploadPDFVistoria(vis) || ''; }catch(e){ console.warn('[email] PDF upload falhou', e); }
 
   const params = {
-    to_email   : emailDest,
-    to_name    : vis.cliente || 'Responsável',
-    empresa    : CFG.nome || 'Empresa',
-    tecnico    : vis.tecnico || '',
-    mes_ref    : mesRef,
-    data_visita: dataVisita,
+    to_email    : emailDest,
+    to_name     : vis.cliente || 'Responsável',
+    empresa     : CFG.nome || 'Empresa',
+    tecnico     : vis.tecnico || '',
+    mes_ref     : mesRef,
+    data_visita : dataVisita,
     hora_checkin: vis.hora_checkin || vis.hora || '',
     hora_checkout: vis.hora_checkout || '',
-    resumo     : resumo,
-    obs_geral  : vis.obs_geral || '',
+    duracao     : duracao || '',
+    resumo      : resumo,
+    obs_geral   : vis.obs_geral || '',
     status_geral: statusGeral,
-    tel_empresa: CFG.tel || '',
-    reply_to   : CFG.emailjs_reply_to || '',
+    tel_empresa : CFG.tel || '',
+    reply_to    : CFG.emailjs_reply_to || '',
+    link_relatorio: pdfUrl || '',
+    link_pdf    : pdfUrl ? `🔗 Ver relatório completo em PDF: ${pdfUrl}` : '',
   };
 
   try{
