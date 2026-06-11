@@ -4505,7 +4505,7 @@ function novoOrc(){
   svcs=[{id:Date.now(),d:'',p:''}];
   ['cli','loc','tel-cli','obs','escopo','data-svc','data-orc','nota-interna','origem-cli','origem-cli-outro'].forEach(id=>setV(id,''));
   updOrigemCli();
-  setV('pag','A combinar'); setV('val','5'); setV('desc','0'); setV('disc-tp','R$');
+  setV('pag','A combinar'); setV('val','5'); setV('disc-v',''); setV('disc-t','R$');
   setV('orc-loja', lojaAtiva||LOJA_PADRAO_ID);
   renderSvcs(); upd();
   renderFotosOrcSlots();
@@ -4926,6 +4926,7 @@ async function gerarPDF(){
   const numStr=String(num).padStart(3,'0');
   preencherDocOrc(dados, numStr);
   salvarChip();
+  limparRascunho('form'); // orçamento salvo → rascunho não deve vazar para o próximo
   btn.disabled=false; btn.textContent='Gerar PDF';
   if(document.getElementById('toggle-os')?.checked){
     await criarOSjunto(dados, num);
@@ -5131,7 +5132,7 @@ async function gerarOSPDF(modo='os'){
       const lojaIdOS=gV('os-loja')||LOJA_PADRAO_ID;
       await db.from('ordens_servico').insert([{numero:num,orcamento_id:orcId,loja_id:lojaIdOS,cliente:dados.cli,local_servico:dados.loc,cnpj:dados.cnpj||null,data_servico:dados.data,hora:dados.hora,tecnico:dados.tec,servicos:dados.svcs,materiais:dados.mat,obs_tecnica:dados.obs,total:dados.tot,status:'agendado',fotos:dados.fotos,video_link:dados.videoLink||null,checklist:dados.checklist.length?JSON.stringify(dados.checklist):null}]);
       numStr=String(num).padStart(3,'0');
-    }catch(e){ numStr='???'; }
+    }catch(e){ numStr='???'; console.warn('[gerarOSPDF] falha ao salvar OS no banco:', e?.message||e); toast('⚠️ OS não foi salva no banco — verifique a conexão'); }
   } else { const n=(parseInt(ls('fluxa_os_num')||'0'))+1; lsSet('fluxa_os_num',n); numStr=String(n).padStart(3,'0'); }
 
   // Se modo 'both', preenche também o orçamento vinculado
@@ -5157,6 +5158,8 @@ async function gerarOSPDF(modo='os'){
   autoSalvarClienteDoOrc({cli:dados.cli, loc:dados.loc, tel:dados.tel||'', cnpj:dados.cnpj||''});
   preencherDocOS({...dados, fotos:dados.fotos, videoLink:dados.videoLink}, numStr);
   printMode=modo; window.print();
+  // OS salva → limpa o rascunho para não vazar dados na próxima OS
+  if(numStr!=='???') limparRascunho('os');
 }
 
 function preencherDocOS(d, num){
@@ -5593,6 +5596,8 @@ function abrirOrc(id){
   setV('obs',o.obs||''); setV('escopo',o.escopo||''); setV('data-svc',o.data_servico||'');
   setV('nota-interna',o.nota_interna||'');
   setOrigemCli(o.origem_cliente||'');
+  // Restaura desconto salvo (bug: antes o desconto sumia ao editar e salvar)
+  setV('disc-v',o.desconto>0?String(o.desconto):''); setV('disc-t','R$');
   svcs=(o.servicos||[]).map(s=>({id:Date.now()+Math.random(),d:s.desc,p:String(s.precoUnit||s.preco||''),qty:s.qty||1}));
   if(!svcs.length) svcs=[{id:Date.now(),d:'',p:''}];
   // Compatibilidade: antigo=string, novo=JSON array
@@ -5693,6 +5698,11 @@ function novaOS(){
   // Reseta checklist
   osChecklist = OS_CHECKLIST_DEFAULT.map(x=>({...x}));
   renderOsChecklist();
+  // Limpa campos de texto (bug: dados da OS anterior ficavam no formulário)
+  ['os-cli','os-loc','os-cnpj','os-obs','os-mat','os-total','os-tec'].forEach(id=>setV(id,''));
+  setV('os-data', new Date().toISOString().slice(0,10));
+  setV('os-hora','08:00');
+  osSvcs=[{id:Date.now(),d:''}]; renderOSSvcs();
 }
 
 // ── MODAL PAGAMENTO ──
@@ -5940,7 +5950,7 @@ function renderClientes(){
   let lista=lsCliLer();
   lista=filtrarPorLoja(lista);
   const el=document.getElementById('clientes-lista');
-  if(!lista.length){ el.innerHTML='<div class="empty-st"><div class="ei">👥</div><p>Nenhum cliente cadastrado.</p><button class="btn-primary" style="margin-top:12px" onclick="abrirFormCliente()">＋ Cadastrar Cliente</button></div>'; return; }
+  if(!lista.length){ el.innerHTML='<div class="empty-st"><div class="ei">👥</div><p>Nenhum cliente cadastrado.</p><button class="btn-primary" style="margin-top:12px" onclick="mostrarFormCliente()">＋ Cadastrar Cliente</button></div>'; return; }
   el.innerHTML=lista.map(c=>`
     <div class="cli-card">
       <div class="cli-card-info">

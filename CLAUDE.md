@@ -561,7 +561,7 @@ loja_id: gV('orc-loja') || lojaAtiva || 'fortemp-camboriu'
 
 ### Fotos — limite e formato
 ```js
-const FOTO_MAX_BYTES = 2 * 1024 * 1024; // 2 MB por foto
+const FOTO_MAX_BYTES = 20 * 1024 * 1024; // 20 MB por foto (compressImage reduz antes de salvar)
 // Armazenadas como base64 diretamente no banco (sem Supabase Storage)
 // OS: array osFotos[3] (slots 0,1,2)
 // Orçamento: array fotosB64[] (até 6 slots)
@@ -766,9 +766,35 @@ Checklist completo WCAG: `docs/acessibilidade.md`
 
 ---
 
+## Sessão 2026-06-11 — mudanças desta sessão
+
+1. **Vistorias** — fluxo plano→vistoria: botão "🔍 Fazer Vistoria" abre form completo pré-preenchido (`iniciarVistoriaPlena`); check-out automático ao salvar/gerar PDF (`autoCheckoutSeNecessario`); relatório PDF redesenhado (stats row, duração, fotos 2 colunas com legenda); botão 📥 baixa PDF via html2pdf.js (`baixarPDFVistoria`); e-mail enviado direto sem geração de PDF inline (era a causa de falha de envio).
+2. **Origem do cliente (NOVO, obrigatório)** — select `origem-cli` no form de orçamento com 7 opções + "Outro" texto livre; validação bloqueia salvar/gerar PDF; coluna `origem_cliente` em `orcamentos`; card "📣 Origem dos Clientes" no dashboard (`renderOrigemDash`); autocomplete de cliente da base pré-sugere "Já é cliente".
+3. **Mobile** — botão "🔓 Trocar usuário" no fim da sidebar (acessível pelo ☰ Mais).
+4. **Bugs corrigidos na revisão geral:**
+   - `novoOrc()` usava ids errados `desc`/`disc-tp` → desconto nunca era limpo ao criar novo orçamento (ids corretos: `disc-v`/`disc-t`)
+   - `abrirOrc()` não carregava o desconto salvo → editar e salvar apagava o desconto
+   - `novaOS()` não limpava campos de texto nem `osSvcs` → dados da OS anterior vazavam
+   - Rascunho de OS nunca era limpo após salvar (agora `limparRascunho('os')` no `gerarOSPDF`)
+   - `gerarPDF()` de orçamento não limpava rascunho
+   - Rascunho do form: `gV('tel')` → `tel-cli`; chave `nota_interna` → `nota-interna` (campos nunca restaurados)
+   - Botão "＋ Cadastrar Cliente" do estado vazio chamava `abrirFormCliente()` (inexistente) → `mostrarFormCliente()`
+   - Falha ao salvar OS no banco agora mostra toast (antes só "#???" silencioso)
+
+### ⚠️ SQL PENDENTE de rodar no Supabase:
+```sql
+ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS origem_cliente text;
+```
+Sem essa coluna, o INSERT em background falha e o orçamento fica salvo apenas localmente.
+
+### Storage pendente (para link de PDF no e-mail, opcional):
+Bucket `vistorias-pdf` público + policies (instruções na tela Empresa → E-mail Automático).
+
+---
+
 ## Perguntas em aberto (aguardando Marcos responder)
 
 1. **CNPJs reais** das 3 empresas — para preencher tabela `lojas` e emissão de NF
 2. **Tokens Focus NFe** — um por CNPJ (homologação e produção)
-3. **Template EmailJS** — Marcos precisa criar a conta no emailjs.com e configurar o template usando as variáveis documentadas acima
+3. **Template EmailJS** — adicionar novas variáveis `{{duracao}}`, `{{status_geral}}`, `{{link_pdf}}` ao template
 - [ ] **PIN legado:** ainda existe algum usuário com PIN em texto plano (não-hash)? Se não, remover o branch de fallback em `pinValido()` e a nota de retrocompatibilidade.
