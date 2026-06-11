@@ -9090,7 +9090,8 @@ function renderVisHistorico(){
         <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end">
           ${v.email_responsavel?`<button class="tb" title="Reenviar e-mail" onclick="event.stopPropagation();reenviarEmailVistoria('${v.id}')" style="font-size:11px;background:var(--blue-bg);color:var(--blue);border-color:var(--blue-bg)">📧</button>`:''}
           <button class="tb" title="Enviar resumo via WhatsApp" onclick="event.stopPropagation();enviarWAResumoVistoria('${v.id}')" style="font-size:11px;background:var(--wa-light,#dcfce7);color:var(--wa);border-color:var(--wa-light,#dcfce7)">💬</button>
-          <button class="tb" title="Gerar PDF" onclick="event.stopPropagation();abrirVisRelatorio('${v.id}')" style="font-size:11px">📄 PDF</button>
+          <button class="tb" title="Gerar PDF (imprimir)" onclick="event.stopPropagation();abrirVisRelatorio('${v.id}')" style="font-size:11px">📄 PDF</button>
+          <button class="tb" title="Baixar PDF" onclick="event.stopPropagation();baixarPDFVistoria('${v.id}',this)" style="font-size:11px;background:var(--c1-light);color:var(--c1);border-color:var(--c1-light)">📥</button>
           <button class="tb" title="Excluir" onclick="event.stopPropagation();excluirVistoria('${v.id}')" style="background:var(--red-bg);color:var(--red);border-color:var(--red-bg);font-size:11px">✕</button>
         </div>
       </div>
@@ -9100,6 +9101,47 @@ function renderVisHistorico(){
 
 function excluirVistoria(id){
   confirmar('Excluir esta vistoria?', ()=>{ lsVisSalvar(lsVisLer().filter(x=>x.id!==id)); if(dbOk&&db) db.from('vistorias').delete().eq('id',id).then(()=>{}).catch(()=>{}); renderVisHistorico(); toast('Vistoria excluída'); }, 'Excluir Vistoria');
+}
+
+async function baixarPDFVistoria(id, btn){
+  if(typeof html2pdf === 'undefined'){ toast('⚠️ html2pdf não carregado, tente novamente em instantes'); return; }
+  const vis = lsVisLer().find(x=>x.id===id);
+  if(!vis){ toast('Vistoria não encontrada'); return; }
+
+  const origTxt = btn ? btn.textContent : '';
+  if(btn){ btn.disabled=true; btn.textContent='⏳'; }
+  toast('⏳ Gerando PDF…');
+
+  try{
+    preencherRelatorioVistoria(vis);
+    const el = document.getElementById('pdoc-visita');
+    // Torna o elemento visível temporariamente (fora da tela) para o html2canvas capturar
+    const prevStyle = el.getAttribute('style') || '';
+    el.setAttribute('style', 'display:block!important;position:fixed;top:0;left:-9999px;width:794px;z-index:-1');
+    await new Promise(r => setTimeout(r, 350));
+
+    const nomeArq = `Vistoria-${(vis.cliente||'').replace(/[^a-z0-9]/gi,'-')}-${vis.data||new Date().toISOString().slice(0,10)}.pdf`;
+    await html2pdf()
+      .set({
+        margin: 0,
+        filename: nomeArq,
+        image: { type:'jpeg', quality:0.88 },
+        html2canvas: { scale:2, useCORS:true, allowTaint:true, logging:false, width:794 },
+        jsPDF: { unit:'mm', format:'a4', orientation:'portrait' }
+      })
+      .from(el)
+      .save();
+
+    el.setAttribute('style', prevStyle);
+    toast('✅ PDF baixado!');
+  }catch(e){
+    console.warn('baixarPDFVistoria error:', e);
+    toast('❌ Falha ao gerar PDF — tente pelo botão 📄 PDF (imprimir)');
+    const el = document.getElementById('pdoc-visita');
+    if(el) el.setAttribute('style','display:none');
+  }finally{
+    if(btn){ btn.disabled=false; btn.textContent=origTxt; }
+  }
 }
 
 function filtVisStatus(st){
@@ -9427,10 +9469,6 @@ async function enviarEmailVistoria(vis){
   const statusGeral = temCritico ? '🔴 Ação necessária' : temAtencao ? '⚠️ Verificar pontos' : '✅ Tudo em ordem';
   const duracao = calcDuracao(vis.hora_checkin||vis.hora, vis.hora_checkout);
 
-  // Tenta gerar e fazer upload do PDF para Supabase Storage
-  let pdfUrl = '';
-  try{ pdfUrl = await gerarEUploadPDFVistoria(vis) || ''; }catch(e){ console.warn('[email] PDF upload falhou', e); }
-
   const params = {
     to_email    : emailDest,
     to_name     : vis.cliente || 'Responsável',
@@ -9446,8 +9484,6 @@ async function enviarEmailVistoria(vis){
     status_geral: statusGeral,
     tel_empresa : CFG.tel || '',
     reply_to    : CFG.emailjs_reply_to || '',
-    link_relatorio: pdfUrl || '',
-    link_pdf    : pdfUrl ? `🔗 Ver relatório completo em PDF: ${pdfUrl}` : '',
   };
 
   try{
