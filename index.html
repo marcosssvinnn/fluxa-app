@@ -334,6 +334,7 @@
       html,body{background:white;font-family:'Inter',sans-serif;margin:0;padding:0}
       .hdr,.wrap,.toast,.modal-bg{display:none!important}
       .sidebar,.sidebar-overlay{display:none!important}
+      .mob-nav,#mob-nav{display:none!important}
       body{padding-left:0!important}
       .pdoc{display:none!important}
       .pdoc.print-active{display:block!important;width:100%;font-family:'Inter',sans-serif;font-size:13px}
@@ -1480,6 +1481,11 @@
 <!-- ══ PAGE: FORM ══ -->
 <div class="page" id="page-form">
   <div class="wrap">
+    <!-- Voltar ao histórico (visível só ao editar) -->
+    <div id="form-back-bar" style="display:none;align-items:center;justify-content:space-between;margin-bottom:10px;padding-top:4px">
+      <button onclick="go('history')" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:13px;font-weight:600;font-family:'Inter',sans-serif;display:flex;align-items:center;gap:5px">← Voltar ao Histórico</button>
+      <span id="form-back-label" style="font-size:12px;color:var(--gray)"></span>
+    </div>
     <!-- CLIENTE -->
     <div class="card">
       <div class="ct">Dados do Cliente</div>
@@ -4428,6 +4434,7 @@ function novoOrc(){
   const tog=document.getElementById('toggle-os'); if(tog) tog.checked=false;
   const osf=document.getElementById('os-inline-fields'); if(osf) osf.style.display='none';
   ['os-inline-data','os-inline-hora','os-inline-tec'].forEach(id=>{const el=document.getElementById(id);if(el){el.value=id==='os-inline-hora'?'08:00':'';}});
+  const bb=document.getElementById('form-back-bar'); if(bb) bb.style.display='none';
   go('form');
 }
 
@@ -4524,7 +4531,7 @@ function gP(s){ return (parseFloat(s.p)||0)*(parseInt(s.qty)||1); }
 // ──────────────────────────────────────────────────
 //  FOTO
 // ──────────────────────────────────────────────────
-const FOTO_MAX_BYTES = 2 * 1024 * 1024; // 2 MB
+const FOTO_MAX_BYTES = 20 * 1024 * 1024; // 20 MB — compressImage reduz antes de salvar
 
 // fix #5: comprime imagem antes de armazenar como base64 (evita payloads gigantes no banco)
 // maxW: largura máxima em px; quality: 0–1 JPEG
@@ -4562,7 +4569,7 @@ function renderFotosOrcSlots(){
 }
 function carregarFotoOrc(inp, idx){
   const f=inp.files[0]; if(!f) return;
-  if(f.size > FOTO_MAX_BYTES){ toast('⚠️ Foto muito grande (máx 2 MB).'); inp.value=''; return; }
+  if(f.size > FOTO_MAX_BYTES){ toast('⚠️ Foto muito grande (máx 20 MB).'); inp.value=''; return; }
   const r=new FileReader();
   r.onload=async e=>{ fotosB64[idx]=await compressImage(e.target.result); renderFotosOrcSlots(); }; // fix #5: comprime antes de armazenar
   r.readAsDataURL(f);
@@ -5386,6 +5393,7 @@ function renderTabela(){
       <td><span class="odt">${dt}</span></td>
       <td><select class="ss ${o.status||'pendente'}" onchange="mudarSt('${o.id}',this)">${sopts(o.status||'pendente')}</select></td>
       <td><div class="ta">
+        <button class="tb" title="Ver PDF" onclick="verOrcPDF('${o.id}')">👁</button>
         <button class="tb" title="Editar" onclick="abrirOrc('${o.id}')">✎</button>
         <button class="tb" title="Duplicar" onclick="duplicarOrc('${o.id}')">⧉</button>
         <button class="tb" title="Gerar OS" onclick="gerarOS_deOrc('${o.id}')">📋</button>
@@ -5438,7 +5446,30 @@ function abrirOrc(id){
   }catch(e){ fotosB64=[]; }
   renderFotosOrcSlots();
   renderSvcs(); upd(); go('form');
+  const bb=document.getElementById('form-back-bar');
+  const bl=document.getElementById('form-back-label');
+  if(bb){ bb.style.display='flex'; }
+  if(bl){ bl.textContent='Editando ORC #'+String(o.numero).padStart(3,'0'); }
   toast('✏️ Editando Orçamento #'+String(o.numero).padStart(3,'0'));
+}
+
+function verOrcPDF(id){
+  const o=todosOrc.find(x=>x.id===id); if(!o) return;
+  const numStr=String(o.numero||'').padStart(3,'0');
+  const dadosOrc={
+    cli:o.cliente||'—', loc:o.local_servico||'', tel:o.tel_cliente||'', cnpj:o.cnpj||'',
+    pag:o.pagamento||'A combinar', pagFormatado:o.pagamento||'A combinar',
+    dias:o.validade_dias||5, obs:o.obs||'', escopo:o.escopo||'',
+    dataSvc:o.data_servico||'', vData:o.validade_data||'',
+    dataStr:new Date(o.data_criacao||Date.now()).toLocaleDateString('pt-BR'),
+    sub:o.subtotal||0, desc:o.desconto||0, tot:o.total||0,
+    svcs:o.servicos||[], loja_id:o.loja_id||LOJA_PADRAO_ID
+  };
+  const savedFotos=[...fotosB64];
+  try{ const raw=o.foto_base64||''; fotosB64=raw.startsWith('[')?JSON.parse(raw):(raw?[raw]:[]); }catch(e){ fotosB64=[]; }
+  preencherDocOrc(dadosOrc, numStr);
+  fotosB64=savedFotos;
+  printMode='orc'; window.print();
 }
 
 function duplicarOrc(id){
@@ -5715,7 +5746,7 @@ function filtTecOS(btn){
 // ──────────────────────────────────────────────────
 function carregarOSFoto(inp, idx){
   const f=inp.files[0]; if(!f) return;
-  if(f.size > FOTO_MAX_BYTES){ toast('⚠️ Foto muito grande (máx 2 MB). Reduza a resolução.'); inp.value=''; return; }
+  if(f.size > FOTO_MAX_BYTES){ toast('⚠️ Foto muito grande (máx 20 MB).'); inp.value=''; return; }
   const r=new FileReader();
   r.onload=e=>{
     osFotos[idx]=e.target.result;
@@ -6799,7 +6830,7 @@ function filtrarOSDesp(v){
 
 function carregarFotoDesp(inp){
   const f=inp.files[0]; if(!f) return;
-  if(f.size > FOTO_MAX_BYTES){ toast('⚠️ Foto muito grande (máx 2 MB). Reduza a resolução.'); inp.value=''; return; }
+  if(f.size > FOTO_MAX_BYTES){ toast('⚠️ Foto muito grande (máx 20 MB).'); inp.value=''; return; }
   const r=new FileReader();
   r.onload=e=>{ despFotoB64=e.target.result;
     const prev=document.getElementById('desp-foto-prev'); prev.src=e.target.result; prev.style.display='block';
@@ -7303,7 +7334,7 @@ document.addEventListener('input', e=>{
 
 function carregarFotoEq(inp){
   const f=inp.files[0]; if(!f) return;
-  if(f.size > FOTO_MAX_BYTES){ toast('⚠️ Foto muito grande (máx 2 MB). Reduza a resolução.'); inp.value=''; return; }
+  if(f.size > FOTO_MAX_BYTES){ toast('⚠️ Foto muito grande (máx 20 MB).'); inp.value=''; return; }
   const r=new FileReader();
   r.onload=e=>{ eqFotoB64=e.target.result;
     const prev=document.getElementById('eq-foto-prev'); prev.src=e.target.result; prev.style.display='block';
@@ -8613,7 +8644,7 @@ function visClickFotoSlot(id, idx){
 }
 function visCarregarFoto(inp, id, idx){
   const f = inp.files[0]; if(!f) return;
-  if(f.size > FOTO_MAX_BYTES){ toast('⚠️ Foto muito grande (máx 2 MB)'); inp.value=''; return; }
+  if(f.size > FOTO_MAX_BYTES){ toast('⚠️ Foto muito grande (máx 20 MB).'); inp.value=''; return; }
   const r = new FileReader();
   r.onload = async e => {
     const compressed=await compressImage(e.target.result); // fix #5: comprime antes de armazenar
