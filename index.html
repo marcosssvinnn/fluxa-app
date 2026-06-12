@@ -4408,7 +4408,11 @@ function go(p){
   if(p==='portal') { /* página gerenciada por checkPortalHash */ }
   if(p==='history'){ initOrcMes(); loadHist(); setTimeout(renderGraficoDash,200); }
   if(p==='form'){
-    restaurarRascunho('form');
+    // Restaura rascunho APENAS quando se navega direto para a tela (nav/menu).
+    // Nunca ao editar (abrirOrc), criar novo (novoOrc) ou duplicar — esses fluxos
+    // já preencheram os campos e o rascunho antigo sobrescrevia com dados de outro orçamento.
+    if(!editId && !window._skipDraftForm) restaurarRascunho('form');
+    window._skipDraftForm=false;
     // Garante que o select de empresa reflete a loja ativa ao entrar na tela
     if(!editId && lojaAtiva) setV('orc-loja', lojaAtiva);
   }
@@ -4502,6 +4506,7 @@ async function criarOSjunto(dados, orcNum){
 // Limpar formulário para novo orçamento
 function novoOrc(){
   editId=null; fotosB64=[];
+  limparRascunho('form'); window._skipDraftForm=true; // novo orçamento = começar do zero, sem rascunho antigo
   svcs=[{id:Date.now(),d:'',p:''}];
   ['cli','loc','tel-cli','obs','escopo','data-svc','data-orc','nota-interna','origem-cli','origem-cli-outro'].forEach(id=>setV(id,''));
   updOrigemCli();
@@ -5650,6 +5655,7 @@ function duplicarOrc(id){
   renderFotosOrcSlots();
   const tog=document.getElementById('toggle-os'); if(tog) tog.checked=false;
   const osf=document.getElementById('os-inline-fields'); if(osf) osf.style.display='none';
+  limparRascunho('form'); window._skipDraftForm=true; // não deixar rascunho antigo sobrescrever os dados duplicados
   renderSvcs(); upd(); go('form');
   toast('📋 Orçamento duplicado — edite e salve como novo');
 }
@@ -5975,6 +5981,7 @@ function novoOrcParaCliente(id){
     if(c.end)  setV('loc', c.end);
     if(c.tel)  setV('tel-cli', c.tel);
     if(c.cnpj) setV('cnpj-cli', c.cnpj);
+    setOrigemCli('Já é cliente'); // veio da ficha do cliente cadastrado
     go('form');
   }, 50);
 }
