@@ -2,6 +2,34 @@
 
 ---
 
+## 🛡️ PROTOCOLO DE VERIFICAÇÃO — OBRIGATÓRIO ANTES DE ENTREGAR QUALQUER MUDANÇA
+
+> **Regra do Marcos:** *"sempre verificar todos os ângulos e brechas do código para não aparecer bug no futuro."*
+> Não basta a funcionalidade "funcionar no caminho feliz". Antes de commitar/deployar QUALQUER feature ou correção, percorra mentalmente TODOS os ângulos abaixo. Esta seção tem precedência — se faltar tempo, corte escopo, não corte verificação.
+
+### Checklist obrigatório (rode item a item, não pule)
+
+1. **Schema do banco** — todo campo novo que o código grava (`insert`/`update`) EXISTE no Supabase? Confirme com `curl ".../rest/v1/TABELA?select=COLUNA&limit=1"`. Coluna ausente = Supabase rejeita a operação INTEIRA e o registro para de sincronizar **em silêncio**. Use SEMPRE `dbInsert`/`dbUpdate` (wrappers resilientes), nunca `db.from().insert()` cru. Ver "REGRA DE OURO" abaixo.
+2. **Ciclo de vida completo** — testou os 4 caminhos? **Criar / Editar / Visualizar / Resetar (novo)**. A maioria dos bugs desta base foi estado residual vazando entre eles (ex.: desconto, rascunho, campos de OS). Ao abrir um registro, mostra só os dados dele? Ao criar novo, limpa tudo?
+3. **Persistência dupla** — o dado salva no **localStorage E no Supabase**, e os dois batem? Registros presos só no local (`local_*`, `vis_*`) são reenviados no `load*`? App offline → online não perde nada?
+4. **Falha silenciosa proibida** — nenhum `catch(e){}` vazio. Todo erro de banco/rede loga (`console.warn`) e, quando afeta o usuário, mostra `toast`. Se algo "não salvou", o usuário PRECISA saber.
+5. **Multi-loja** — a feature respeita `filtrarPorLoja()`? Loja específica mostra SÓ os dados daquela loja; "Todas" mostra o grupo. Não vaza dado de uma loja na outra.
+6. **Perfis** — gestor / vendas / técnico veem o que devem? Lembre que `go()`/`eGestor()` são guardrails de UI, não de servidor.
+7. **Mobile E desktop** — testou nos dois? Nav inferior (mobile) vs sidebar (desktop); PDF não pode sair com a barra de atalhos; foto grande de celular é aceita.
+8. **PDF / impressão** — CSS novo de tela NÃO pode estar dentro do `@media print` (e vice-versa). É o bug mais comum aqui.
+9. **Auto-update** — mudou algo que o usuário precisa ver na hora? O app se atualiza sozinho via ETag, mas confirme que não quebrou o `index.html` (network-first).
+10. **Sintaxe** — validou o JS inteiro antes do commit? (`new Function(script)` via JXA, ou equivalente.)
+
+### Quando criar uma feature NOVA, pergunte explicitamente:
+- "Que coluna/tabela isso grava? Ela existe?"
+- "O que acontece se o banco estiver offline? E se a coluna faltar?"
+- "Isso aparece corretamente em TODOS os lugares que leem esse dado (histórico, dashboard, PDF, e-mail, WhatsApp)?"
+- "Algum estado fica sujo entre uma operação e outra?"
+
+Se a resposta de qualquer uma for "não sei", **verifique antes de entregar** — não deixe brecha silenciosa.
+
+---
+
 ## ⚠️ PROTOCOLO OBRIGATÓRIO — LEIA ANTES DE QUALQUER COISA
 
 Este arquivo é o **canal de comunicação entre todos os devs e instâncias do Claude** que trabalham neste projeto. Pode haver mais de um dev trabalhando simultaneamente. Para que todos falem a mesma língua, siga estas regras:
