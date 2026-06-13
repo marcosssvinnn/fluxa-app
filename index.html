@@ -3858,8 +3858,8 @@ CREATE TABLE IF NOT EXISTS agendamentos (
 );
 ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS agendamento_id uuid;
 ALTER TABLE agendamentos ADD COLUMN IF NOT EXISTS local_id text;
-ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS checkin_at timestamptz;
-ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS checkout_at timestamptz;
+ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS checkin_time timestamptz;
+ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS checkout_time timestamptz;
 ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS duracao_min integer;
 ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS origem_cliente text;
 ALTER PUBLICATION supabase_realtime ADD TABLE agendamentos;
@@ -4795,34 +4795,54 @@ function enviarWA(){
 //  SALVAR ORÇAMENTO (sem PDF)
 // ──────────────────────────────────────────────────
 
-// ── Sincronização resiliente com Supabase ──
-// Se a coluna origem_cliente ainda não existir no banco (ALTER TABLE não rodado),
-// o insert/update NÃO pode falhar silenciosamente e travar a sincronização de
-// TODOS os orçamentos. Detecta o erro de coluna e repete a operação sem o campo.
-let _temColunaOrigem = true;
-function _erroColunaOrigem(err){
-  if(!err) return false;
-  return err.code==='42703' || /origem_cliente/i.test(err.message||'') || /column.*does not exist/i.test(err.message||'');
+// ════════════════════════════════════════════════════════════════════
+//  SINCRONIZAÇÃO RESILIENTE COM SUPABASE (proteção contra coluna ausente)
+// ────────────────────────────────────────────────────────────────────
+//  Se o código gravar uma coluna que ainda não existe no banco, o Supabase
+//  rejeita a operação INTEIRA — e, se ignorarmos o erro, o registro deixa de
+//  sincronizar SEM avisar ninguém (foi o que aconteceu com origem_cliente e
+//  derrubou todos os orçamentos). Estes wrappers detectam a coluna que falta,
+//  removem do payload e reenviam — registrando um aviso claro no console.
+//  Use SEMPRE dbInsert/dbUpdate para gravar em tabelas, nunca db.from().insert direto.
+function _colunaFaltante(err){
+  if(!err) return null;
+  const msg=((err.message||'')+' '+(err.details||'')+' '+(err.hint||''));
+  // formatos comuns:
+  //  PostgREST select: column "x" of relation "t" does not exist  /  column t.x does not exist
+  //  PostgREST insert (schema cache): Could not find the 'x' column of 't' in the schema cache
+  let m=msg.match(/column "?([a-z_][a-z0-9_]*)"? of relation/i)
+       || msg.match(/find the '([a-z_][a-z0-9_]*)' column/i)
+       || msg.match(/column ["']?[a-z_]+\.([a-z_][a-z0-9_]*)["']? does not exist/i)
+       || msg.match(/column ["']?([a-z_][a-z0-9_]*)["']? does not exist/i);
+  return m?m[1]:null;
 }
-function _stripOrigem(obj){ const c={...obj}; delete c.origem_cliente; return c; }
-async function orcSyncInsert(payload){
-  let r=await db.from('orcamentos').insert([payload]).select('*').single();
-  if(r.error && _erroColunaOrigem(r.error)){
-    _temColunaOrigem=false;
-    console.warn('[orcSyncInsert] coluna origem_cliente ausente no banco — sincronizando sem ela. Rode: ALTER TABLE orcamentos ADD COLUMN origem_cliente text;');
-    r=await db.from('orcamentos').insert([_stripOrigem(payload)]).select('*').single();
+async function dbInsert(table, payload, select){
+  let p={...payload};
+  for(let i=0;i<8;i++){
+    let q=db.from(table).insert([p]);
+    if(select) q=q.select(select).single(); else q=q.select('*').single();
+    const r=await q;
+    if(!r.error) return r;
+    const col=_colunaFaltante(r.error);
+    if(col && (col in p)){ delete p[col]; console.warn(`[dbInsert ${table}] coluna "${col}" não existe no banco — reenviando sem ela. Crie a coluna no Supabase.`); continue; }
+    return r; // outro erro: devolve para o chamador tratar
   }
-  return r;
+  return { data:null, error:{ message:'dbInsert: colunas faltantes demais em '+table } };
 }
-async function orcSyncUpdate(id, payload){
-  let r=await db.from('orcamentos').update(payload).eq('id',id);
-  if(r.error && _erroColunaOrigem(r.error)){
-    _temColunaOrigem=false;
-    console.warn('[orcSyncUpdate] coluna origem_cliente ausente no banco — sincronizando sem ela.');
-    r=await db.from('orcamentos').update(_stripOrigem(payload)).eq('id',id);
+async function dbUpdate(table, payload, idCol, idVal){
+  let p={...payload};
+  for(let i=0;i<8;i++){
+    const r=await db.from(table).update(p).eq(idCol,idVal);
+    if(!r.error) return r;
+    const col=_colunaFaltante(r.error);
+    if(col && (col in p)){ delete p[col]; console.warn(`[dbUpdate ${table}] coluna "${col}" não existe no banco — reenviando sem ela.`); continue; }
+    return r;
   }
-  return r;
+  return { error:{ message:'dbUpdate: colunas faltantes demais em '+table } };
 }
+// Compat: helpers de orçamento agora delegam ao wrapper genérico
+async function orcSyncInsert(payload){ return dbInsert('orcamentos', payload); }
+async function orcSyncUpdate(id, payload){ return dbUpdate('orcamentos', payload, 'id', id); }
 // Reenvia ao banco orçamentos que ficaram presos só no aparelho (id local_*),
 // ex.: criados enquanto o insert falhava pela coluna origem_cliente ausente.
 async function _reenviarOrcamentosLocais(soLocal){
@@ -7543,13 +7563,14 @@ function _fazerCheckoutConfirmado(){
   document.getElementById('checkin-form').style.display='flex';
   document.getElementById('checkin-info').textContent=`✅ Duração: ${duracaoMin} min (${checkinAt.toLocaleTimeString('pt-BR')} → ${checkout.toLocaleTimeString('pt-BR')})`;
   if(dbOk&&db&&osCheckinId&&!String(osCheckinId).startsWith('local_')){
-    db.from('ordens_servico').update({
-      checkin_at:checkinAt.toISOString(),
-      checkout_at:checkout.toISOString(),
+    // checkin_time/checkout_time são os nomes reais das colunas no banco
+    dbUpdate('ordens_servico', {
+      checkin_time:checkinAt.toISOString(),
+      checkout_time:checkout.toISOString(),
       duracao_min:duracaoMin,
       status:'concluido',
       tecnico:gV('os-tec-checkin')
-    }).eq('id',osCheckinId).then(()=>{}).catch(()=>{});
+    }, 'id', osCheckinId).then(r=>{ if(r.error) console.warn('[checkout OS] sync falhou:', r.error.message); }).catch(e=>console.warn('[checkout OS]', e?.message||e));
   }
   checkinAt=null; osCheckinId=null;
   toast(`✅ Check-out! Duração: ${duracaoMin} min`);
@@ -8351,8 +8372,8 @@ async function criarOuAtualizarAgendamentoPlano(rec, isEdit){
     const agIdx=todosAg.findIndex(a=>a.id===rec.agendamento_id);
     if(agIdx>=0){ todosAg[agIdx]={...todosAg[agIdx],...agDados}; lsAgSalvar(todosAg); }
     if(dbOk&&db){
-      try{ await db.from('agendamentos').update(agDados).eq('id',rec.agendamento_id); }
-      catch(e){ console.warn('[atualizarAgPlano]',e.message); }
+      try{ const r=await dbUpdate('agendamentos', agDados, 'id', rec.agendamento_id); if(r.error) console.warn('[atualizarAgPlano]', r.error.message); }
+      catch(e){ console.warn('[atualizarAgPlano]',e?.message||e); }
     }
     return rec.agendamento_id;
   } else {
@@ -8366,7 +8387,8 @@ async function criarOuAtualizarAgendamentoPlano(rec, isEdit){
     if(dbOk&&db){
       (async()=>{
         try{
-          const {data:ins}=await db.from('agendamentos').insert([agDados]).select('*').single();
+          const {data:ins,error:agErr}=await dbInsert('agendamentos', agDados);
+          if(agErr){ console.warn('[criarAgPlano] sync falhou:', agErr.message); return; }
           if(ins){
             todosAg=todosAg.filter(a=>a.id!==agId); todosAg.unshift(ins); lsAgSalvar(todosAg);
             // Atualiza referência no local com ID real do banco
@@ -8627,8 +8649,9 @@ async function salvarConcluirVis(){
   lsVisSalvar(lista);
   if(dbOk&&db){
     try{
-      await db.from('vistorias').insert([rec]); // fix #3: equipamentos é jsonb — não serializar com JSON.stringify
-    }catch(e){ console.warn('vis rápida Supabase:',e.message); }
+      const r=await dbInsert('vistorias', rec); // resiliente a coluna ausente; equipamentos é jsonb (array nativo)
+      if(r.error) console.warn('vis rápida Supabase:', r.error.message);
+    }catch(e){ console.warn('vis rápida Supabase:',e?.message||e); }
   }
   // Marca a OS do agendamento deste mês como concluída
   if(loc.agendamento_id){
@@ -9186,13 +9209,14 @@ async function salvarVistoria(){
   const idx   = lista.findIndex(x=>x.id===id);
   if(idx>=0) lista[idx]=rec; else lista.unshift(rec);
   lsVisSalvar(lista);
-  // Save Supabase
+  // Save Supabase (resiliente: se alguma coluna não existir, sincroniza sem ela)
   if(dbOk&&db){
     try{
       // fix #3: equipamentos é jsonb — Supabase JS aceita array nativo, não string
-      if(visEditId) await db.from('vistorias').update(rec).eq('id',id);
-      else          await db.from('vistorias').insert([rec]);
-    }catch(e){ console.warn('Visita Supabase err:',e.message); }
+      const r = visEditId ? await dbUpdate('vistorias', rec, 'id', id)
+                          : await dbInsert('vistorias', rec);
+      if(r.error) console.warn('Visita Supabase err:', r.error.message);
+    }catch(e){ console.warn('Visita Supabase err:',e?.message||e); }
   }
   toast('✅ Vistoria salva!');
   visEditId = null;
@@ -9793,10 +9817,20 @@ async function loadVistoriasRemoto(){
     const lojaFiltro = getLojaFiltro();
     if(lojaFiltro) q = q.eq('loja_id', lojaFiltro);
     const {data} = await q;
-    if(!data?.length) return;
+    const remoto = data||[];
     const local = lsVisLer();
+    // Reenvia ao banco as vistorias presas só no aparelho (nunca sincronizadas)
+    const remotoIds = new Set(remoto.map(r=>r.id));
+    const soLocal = local.filter(l=>!remotoIds.has(l.id));
+    if(soLocal.length){
+      for(const v of soLocal){
+        try{ const r=await dbInsert('vistorias', v); if(r.error) console.warn('[reenvioVistoria] '+v.id+':', r.error.message); }
+        catch(e){ console.warn('[reenvioVistoria]', e?.message||e); }
+      }
+    }
+    if(!remoto.length && !soLocal.length) return;
     // Merge: remoto prevalece, mantém locais que não estão no remoto
-    const merged = [...data.map(r=>({...r, equipamentos: typeof r.equipamentos==='string'?JSON.parse(r.equipamentos||'[]'):r.equipamentos}))];
+    const merged = [...remoto.map(r=>({...r, equipamentos: typeof r.equipamentos==='string'?JSON.parse(r.equipamentos||'[]'):r.equipamentos}))];
     local.forEach(l=>{ if(!merged.find(r=>r.id===l.id)) merged.push(l); });
     lsVisSalvar(merged);
     // Atualiza view se estiver visível
