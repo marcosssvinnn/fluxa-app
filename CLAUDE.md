@@ -766,6 +766,48 @@ Checklist completo WCAG: `docs/acessibilidade.md`
 
 ---
 
+## ⚠️ REGRA DE OURO — gravar coluna nova no Supabase
+
+**Antes de adicionar QUALQUER campo novo a um `INSERT`/`UPDATE`, confirme que a coluna existe no banco.** O Supabase rejeita a operação INTEIRA se uma coluna não existir (erro `42703` ou `PGRST204`) — e, se o erro for ignorado, o registro **para de sincronizar sem avisar** (fica só no localStorage). Isso já derrubou orçamentos (`origem_cliente`), OS (`checkin_at`) e vistorias/agendamentos (`local_id`).
+
+**Sempre use os wrappers resilientes (nunca `db.from().insert()` cru para gravar):**
+```js
+await dbInsert('tabela', payload);              // insert resiliente
+await dbUpdate('tabela', payload, 'id', idVal); // update resiliente
+```
+Eles detectam a coluna ausente, removem do payload e reenviam, logando aviso. `orcSyncInsert/orcSyncUpdate` delegam a eles.
+
+**Conferir schema real (anon key, leitura):**
+```bash
+curl "https://lbxwclwzeqqtnwvlxsxs.supabase.co/rest/v1/TABELA?select=COLUNA&limit=1" \
+  -H "apikey: <anon>" -H "Authorization: Bearer <anon>"
+# "...does not exist" = coluna falta → rodar ALTER TABLE e atualizar o SQL de setup
+```
+
+### Colunas REAIS confirmadas (auditoria 2026-06-13)
+- `ordens_servico`: check-in/out são **`checkin_time` / `checkout_time`** (timestamptz), NÃO checkin_at/checkout_at.
+- `vistorias.local_id` e `agendamentos.local_id`: **ainda NÃO existem** no banco de produção (código grava via wrapper resiliente; rodar ALTER para persistir).
+- `orcamentos.origem_cliente`: criada em 2026-06-13. ✅
+
+### SQL pendente de rodar no Supabase (produção)
+```sql
+ALTER TABLE vistorias    ADD COLUMN IF NOT EXISTS local_id text;
+ALTER TABLE agendamentos ADD COLUMN IF NOT EXISTS local_id text;
+```
+Sem isso, vistorias/planos sincronizam SEM o vínculo local_id (degradado, mas não perdem o registro).
+
+---
+
+## Sessão 2026-06-13 — auditoria de schema + correções de sync
+
+- **Auditoria completa** das colunas gravadas vs reais (todas as tabelas). 4 brechas da mesma classe encontradas e corrigidas:
+  - `orcamentos.origem_cliente` (coluna criada + wrapper)
+  - `ordens_servico` check-in/out: código corrigido para `checkin_time/checkout_time`
+  - `vistorias.local_id` e `agendamentos.local_id`: wrapper resiliente + SQL pendente
+- **Wrappers `dbInsert`/`dbUpdate`** com detector `_colunaFaltante` (testado contra 42703 e PGRST204).
+- **Recuperação automática**: `loadHist` reenvia orçamentos `local_*` presos; `loadVistoriasRemoto` reenvia vistorias presas.
+- **Auto-update por ETag** (não depende mais de bumpar sw.js); separação estrita por loja em `filtrarPorLoja`; origem no histórico (badge) e placar de leads por categoria no dashboard.
+
 ## Sessão 2026-06-11 — mudanças desta sessão
 
 1. **Vistorias** — fluxo plano→vistoria: botão "🔍 Fazer Vistoria" abre form completo pré-preenchido (`iniciarVistoriaPlena`); check-out automático ao salvar/gerar PDF (`autoCheckoutSeNecessario`); relatório PDF redesenhado (stats row, duração, fotos 2 colunas com legenda); botão 📥 baixa PDF via html2pdf.js (`baixarPDFVistoria`); e-mail enviado direto sem geração de PDF inline (era a causa de falha de envio).
