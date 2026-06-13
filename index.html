@@ -4794,6 +4794,56 @@ function enviarWA(){
 // ──────────────────────────────────────────────────
 //  SALVAR ORÇAMENTO (sem PDF)
 // ──────────────────────────────────────────────────
+
+// ── Sincronização resiliente com Supabase ──
+// Se a coluna origem_cliente ainda não existir no banco (ALTER TABLE não rodado),
+// o insert/update NÃO pode falhar silenciosamente e travar a sincronização de
+// TODOS os orçamentos. Detecta o erro de coluna e repete a operação sem o campo.
+let _temColunaOrigem = true;
+function _erroColunaOrigem(err){
+  if(!err) return false;
+  return err.code==='42703' || /origem_cliente/i.test(err.message||'') || /column.*does not exist/i.test(err.message||'');
+}
+function _stripOrigem(obj){ const c={...obj}; delete c.origem_cliente; return c; }
+async function orcSyncInsert(payload){
+  let r=await db.from('orcamentos').insert([payload]).select('*').single();
+  if(r.error && _erroColunaOrigem(r.error)){
+    _temColunaOrigem=false;
+    console.warn('[orcSyncInsert] coluna origem_cliente ausente no banco — sincronizando sem ela. Rode: ALTER TABLE orcamentos ADD COLUMN origem_cliente text;');
+    r=await db.from('orcamentos').insert([_stripOrigem(payload)]).select('*').single();
+  }
+  return r;
+}
+async function orcSyncUpdate(id, payload){
+  let r=await db.from('orcamentos').update(payload).eq('id',id);
+  if(r.error && _erroColunaOrigem(r.error)){
+    _temColunaOrigem=false;
+    console.warn('[orcSyncUpdate] coluna origem_cliente ausente no banco — sincronizando sem ela.');
+    r=await db.from('orcamentos').update(_stripOrigem(payload)).eq('id',id);
+  }
+  return r;
+}
+// Reenvia ao banco orçamentos que ficaram presos só no aparelho (id local_*),
+// ex.: criados enquanto o insert falhava pela coluna origem_cliente ausente.
+async function _reenviarOrcamentosLocais(soLocal){
+  if(!dbOk||!db||!soLocal||!soLocal.length) return false;
+  let mudou=false;
+  for(const rec of soLocal){
+    try{
+      const payload={...rec}; delete payload.id; // banco gera o id definitivo
+      const {data:ins,error}=await orcSyncInsert(payload);
+      if(error){ console.warn('[reenvioLocal] falhou #'+(rec.numero||'?')+':', error.message); continue; }
+      if(ins){
+        lsOrcRemover(rec.id); lsOrcUpsert(ins);
+        todosOrc=todosOrc.filter(x=>x.id!==rec.id);
+        todosOrc.unshift(ins);
+        mudou=true;
+      }
+    }catch(e){ console.warn('[reenvioLocal] erro:', e?.message||e); }
+  }
+  return mudou;
+}
+
 async function salvarApenas(){
   const btn=document.getElementById('btn-salvar');
   const dados=coletarForm();
@@ -4824,7 +4874,7 @@ async function salvarApenas(){
       if(idx>=0) todosOrc[idx]=updated; else todosOrc.unshift(updated);
       // 2. Tenta sincronizar com BD (sem bloquear)
       if(dbOk&&db&&!String(editId).startsWith('local_'))
-        db.from('orcamentos').update(camposBase).eq('id',editId).then(()=>{}).catch(()=>{});
+        orcSyncUpdate(editId, camposBase).then(r=>{ if(r.error) console.warn('[salvarApenas] update falhou:', r.error.message); }).catch(e=>console.warn('[salvarApenas] update erro:', e?.message||e));
       toast('✅ Orçamento atualizado!');
     } else {
       // ── NOVO ──
@@ -4842,7 +4892,8 @@ async function salvarApenas(){
           try{
             const {data:rows}=await db.from('orcamentos').select('numero').order('numero',{ascending:false}).limit(1);
             const dbNum=rows&&rows.length?(rows[0].numero||0)+1:num;
-            const {data:ins}=await db.from('orcamentos').insert([{...camposBase,numero:dbNum,status:'pendente'}]).select('*').single();
+            const {data:ins,error:insErr}=await orcSyncInsert({...camposBase,numero:dbNum,status:'pendente'});
+            if(insErr){ console.warn('Sync BD falhou — orçamento permanece local:', insErr.message); return; }
             if(ins){
               lsOrcRemover(tempId);
               lsOrcUpsert(ins);
@@ -4851,7 +4902,7 @@ async function salvarApenas(){
               editId=ins.id; savedNum=ins.numero;
               atualizarDash(); renderTabela();
             }
-          }catch(e){ console.warn('Sync BD falhou — salvo local:', e.message); }
+          }catch(e){ console.warn('Sync BD falhou — salvo local:', e?.message||e); }
         })();
       }
     }
@@ -4907,7 +4958,7 @@ async function gerarPDF(){
     const idx=todosOrc.findIndex(x=>x.id===editId);
     if(idx>=0) todosOrc[idx]=updated;
     if(dbOk&&db&&!String(editId).startsWith('local_'))
-      db.from('orcamentos').update(camposBase).eq('id',editId).then(()=>{}).catch(()=>{});
+      orcSyncUpdate(editId, camposBase).then(r=>{ if(r.error) console.warn('[gerarPDF] update falhou:', r.error.message); }).catch(e=>console.warn('[gerarPDF] update erro:', e?.message||e));
   } else {
     // Novo: salva local primeiro, depois sincroniza BD
     num=lsOrcProxNum();
@@ -4921,7 +4972,8 @@ async function gerarPDF(){
         try{
           const {data:rows}=await db.from('orcamentos').select('numero').order('numero',{ascending:false}).limit(1);
           const dbNum=rows&&rows.length?(rows[0].numero||0)+1:num;
-          const {data:ins}=await db.from('orcamentos').insert([{...camposBase,numero:dbNum,status:'pendente'}]).select('*').single();
+          const {data:ins,error:insErr}=await orcSyncInsert({...camposBase,numero:dbNum,status:'pendente'});
+          if(insErr){ console.warn('gerarPDF: sync BD falhou — orçamento permanece local:', insErr.message); return; }
           if(ins){
             lsOrcRemover(tempId);
             lsOrcUpsert(ins);
@@ -4930,7 +4982,7 @@ async function gerarPDF(){
             editId=ins.id; num=ins.numero;
             atualizarDash(); renderTabela();
           }
-        }catch(e){ console.warn('gerarPDF: sync BD falhou:', e.message); }
+        }catch(e){ console.warn('gerarPDF: sync BD falhou:', e?.message||e); }
       })();
     }
   }
@@ -5246,7 +5298,12 @@ async function loadHist(){
       lsOrcSalvar(todosOrc);
       verificarVencidos();
       atualizarDash(); renderTabela();
-    }catch(e){ console.warn('Sync do histórico falhou:', e.message); }
+      // Recupera orçamentos presos só no aparelho (não sincronizados) → reenvia ao banco
+      if(soLocal.length){
+        const mudou=await _reenviarOrcamentosLocais(soLocal);
+        if(mudou){ lsOrcSalvar(todosOrc); verificarVencidos(); atualizarDash(); renderTabela(); }
+      }
+    }catch(e){ console.warn('Sync do histórico falhou:', e?.message||e); }
   }
 }
 
