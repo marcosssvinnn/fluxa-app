@@ -1017,6 +1017,7 @@
     .loja-badge.loja-0{background:#fde8d0;color:#c2550a}
     .loja-badge.loja-1{background:#dbeafe;color:#1d4ed8}
     .loja-badge.loja-2{background:#dcfce7;color:#166534}
+    .origem-badge{display:inline-block;padding:2px 8px;border-radius:50px;font-size:10px;font-weight:600;white-space:nowrap;background:#f3e8ff;color:#7c3aed;border:1px solid #e9d5ff}
 
     /* ── VISTA DO TÉCNICO ── */
     .tec-os-card{background:var(--white);border-radius:var(--r);padding:16px 18px;box-shadow:var(--sh);margin-bottom:10px;border-left:4px solid var(--c1)}
@@ -3170,12 +3171,11 @@ function isMainGestor(){ const s=getSessao(); return s?.perfil==='gestor'&&!s?.l
 // Filtra lista pelo contexto de loja/grupo ativo
 function filtrarPorLoja(lista, campo='loja_id'){
   if(lojaAtiva){
-    const loja=getLoja(lojaAtiva);
-    if(loja?.grupo==='forthemp'){
-      // Forthemp específico: inclui registros sem loja_id (legados)
-      return lista.filter(o=>(o[campo]||'')===lojaAtiva||!o[campo]);
-    }
-    // Acquamotor ou outro grupo: filtro estrito
+    // Loja específica selecionada → mostra SOMENTE os registros daquela loja.
+    // Registros sem loja_id (legados/órfãos) NÃO entram aqui — apareciam nas duas
+    // lojas Forthemp ao mesmo tempo e bagunçavam os totais. Eles só aparecem na
+    // visão "Todas". Registros novos sempre recebem loja_id, então isto só afeta
+    // dados antigos.
     return lista.filter(o=>(o[campo]||'')===lojaAtiva);
   }
   if(isMainGestor()) return lista.filter(o=>GRUPO_FORTHEMP.includes(o[campo])||!o[campo]);
@@ -3188,6 +3188,13 @@ function getLojaNome(id){ return getLoja(id)?.nome || id || '—'; }
 function getLojaBadge(id){
   const l=getLoja(id); if(!l) return '';
   return `<span class="loja-badge ${l.cor}">${l.nome}</span>`;
+}
+// Emoji por origem do lead (captação)
+const ORIGEM_EMOJI={'Já é cliente':'✅','Indicação':'🗣️','Anúncio Google':'🔎','Instagram / Facebook':'📱','WhatsApp direto':'💬','Passou na loja / Fachada':'🏪','Parceiro / Construtora':'🤝'};
+function getOrigemBadge(origem){
+  if(!origem) return '';
+  const emoji=ORIGEM_EMOJI[origem]||'✏️';
+  return `<span class="origem-badge" title="Origem do cliente">${emoji} ${esc(origem)}</span>`;
 }
 
 // Preenche o <select> do header com todas as lojas (gestor principal vê tudo)
@@ -5551,7 +5558,7 @@ function renderTabela(){
     const notaIcon=o.nota_interna?` <span title="${esc(o.nota_interna)}" style="cursor:help">📝</span>`:'';
     h+=`<tr>
       <td><span class="on">#${num}</span></td>
-      <td><div class="ocl">${esc(o.cliente||'—')}${notaIcon}</div><div class="oloc">${esc(o.local_servico||'')}</div><div class="osvc" title="${esc(svs)}">${esc(svs)}</div><div style="margin-top:3px">${getLojaBadge(o.loja_id)}</div></td>
+      <td><div class="ocl">${esc(o.cliente||'—')}${notaIcon}</div><div class="oloc">${esc(o.local_servico||'')}</div><div class="osvc" title="${esc(svs)}">${esc(svs)}</div><div style="margin-top:3px;display:flex;gap:5px;flex-wrap:wrap;align-items:center">${getLojaBadge(o.loja_id)}${getOrigemBadge(o.origem_cliente)}</div></td>
       ${ocultarFinanceiro?'':'<td><span class="otot">'+brl(ttl)+'</span><br><span class="'+recCl+'" style="font-size:11px">'+recTxt+'</span></td>'}
       <td><span class="odt">${dt}</span></td>
       <td><select class="ss ${o.status||'pendente'}" onchange="mudarSt('${o.id}',this)">${sopts(o.status||'pendente')}</select></td>
@@ -9717,25 +9724,48 @@ initOS();
 // ──────────────────────────────────────────────────
 //  SERVICE WORKER (PWA — funciona quando hospedado)
 // ──────────────────────────────────────────────────
+let _swRefreshing=false;
+function _forcarAtualizacao(){
+  if(_swRefreshing) return;
+  _swRefreshing=true;
+  toast('🔄 Nova versão disponível. Atualizando...');
+  setTimeout(()=>location.reload(),1500);
+}
+
 if('serviceWorker' in navigator){
   // Reload automático quando um novo SW assume o controle (nova versão deployada)
-  let _swRefreshing=false;
   navigator.serviceWorker.addEventListener('controllerchange',()=>{
     if(!_swRefreshing){ _swRefreshing=true; location.reload(); }
   });
   navigator.serviceWorker.addEventListener('message',e=>{
-    if(e.data?.type==='NEW_VERSION'&&!_swRefreshing){
-      _swRefreshing=true;
-      toast('🔄 Nova versão disponível. Atualizando...');
-      setTimeout(()=>location.reload(),1800);
-    }
+    if(e.data?.type==='NEW_VERSION') _forcarAtualizacao();
   });
   navigator.serviceWorker.register('sw.js').then(reg=>{
     console.log('Service Worker registrado');
-    // Verifica atualizações a cada 5 minutos (cobre abas abertas o dia todo)
     setInterval(()=>reg.update(),5*60*1000);
   }).catch(()=>{});
 }
+
+// ── Detector de nova versão por ETag/Last-Modified ──
+// Não depende de bumpar o sw.js: pergunta ao servidor se o index.html mudou.
+// Assim, qualquer deploy aparece sozinho nas abas abertas (mobile e desktop).
+let _appTag=null;
+async function _verificarVersaoApp(){
+  if(_swRefreshing) return;
+  try{
+    const res=await fetch(location.pathname+'?_v='+Date.now(),{method:'HEAD',cache:'no-store'});
+    if(!res.ok) return;
+    const tag=res.headers.get('ETag')||res.headers.get('Last-Modified');
+    if(!tag) return;
+    if(_appTag===null){ _appTag=tag; return; } // primeira leitura: só guarda
+    if(tag!==_appTag){ _appTag=tag; _forcarAtualizacao(); }
+  }catch(e){ /* offline — ignora silenciosamente */ }
+}
+// Primeira checagem após 30s e depois a cada 3 min
+setTimeout(_verificarVersaoApp,30*1000);
+setInterval(_verificarVersaoApp,3*60*1000);
+// Verifica também quando a aba volta ao foco (técnico reabre o app no celular)
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') _verificarVersaoApp(); });
 </script>
 </body>
 </html>
