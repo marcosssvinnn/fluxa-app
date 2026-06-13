@@ -1901,9 +1901,9 @@
       <div class="dash-chart-hdr">
         <div class="dash-chart-titulo">📣 Origem dos Clientes</div>
         <select id="dash-origem-periodo" onchange="renderOrigemDash()" style="padding:5px 10px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Inter',sans-serif;outline:none;cursor:pointer">
-          <option value="mes">Este mês</option>
+          <option value="mes" selected>Este mês</option>
           <option value="3">3 meses</option>
-          <option value="12" selected>12 meses</option>
+          <option value="12">12 meses</option>
           <option value="tudo">Tudo</option>
         </select>
       </div>
@@ -5292,16 +5292,18 @@ function renderOrigemDash(){
   const card=document.getElementById('dash-origem-card');
   const body=document.getElementById('dash-origem-body');
   if(!card||!body) return;
-  const periodo=(document.getElementById('dash-origem-periodo')||{value:'12'}).value;
+  const periodo=(document.getElementById('dash-origem-periodo')||{value:'mes'}).value;
   const hoje=new Date();
-  let lista=filtrarPorLoja(todosOrc).filter(o=>o.origem_cliente);
+  const comOrigem=filtrarPorLoja(todosOrc).filter(o=>o.origem_cliente);
+  // Sem nenhum histórico de origem em toda a base → esconde o card por completo
+  if(!comOrigem.length){ card.style.display='none'; return; }
+  let lista=comOrigem;
   if(periodo==='mes'){
     lista=lista.filter(o=>{ const d=_orcData(o); return d&&d.getFullYear()===hoje.getFullYear()&&d.getMonth()===hoje.getMonth(); });
   } else if(periodo!=='tudo'){
     const lim=new Date(hoje.getFullYear(),hoje.getMonth()-parseInt(periodo)+1,1);
     lista=lista.filter(o=>{ const d=_orcData(o); return d&&d>=lim; });
   }
-  if(!lista.length){ card.style.display='none'; return; }
   card.style.display='';
   // Agrupa por origem
   const counts={}, valores={}, aprovados={};
@@ -5313,8 +5315,35 @@ function renderOrigemDash(){
   });
   const sorted=Object.entries(counts).sort((a,b)=>b[1]-a[1]);
   const max=sorted[0]?.[1]||1;
-  const emojis={'Já é cliente':'✅','Indicação':'🗣️','Anúncio Google':'🔎','Instagram / Facebook':'📱','WhatsApp direto':'💬','Passou na loja / Fachada':'🏪','Parceiro / Construtora':'🤝'};
-  body.innerHTML=sorted.map(([orig,cnt])=>{
+  const emojis=ORIGEM_EMOJI;
+  // ── Placar de contadores: categorias padrão (sempre) + personalizadas presentes ──
+  const padrao=Object.keys(ORIGEM_EMOJI);
+  const custom=Object.keys(counts).filter(k=>!padrao.includes(k));
+  const ordemCounter=[...padrao,...custom];
+  const periodoLbl={mes:'este mês','3':'últimos 3 meses','12':'últimos 12 meses',tudo:'todo o período'}[periodo]||'';
+  const counterHtml=`
+    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">
+      <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--gray)">Leads por categoria</span>
+      <span style="font-size:11px;color:var(--gray)">${esc(periodoLbl)}</span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;margin-bottom:16px">
+      ${ordemCounter.map(cat=>{
+        const n=counts[cat]||0;
+        const ativo=n>0;
+        return `<div style="border:1.5px solid ${ativo?'var(--c1)':'var(--gray-light)'};border-radius:12px;padding:10px 8px;text-align:center;background:${ativo?'var(--c1-light)':'var(--white)'};opacity:${ativo?'1':'.55'}">
+          <div style="font-size:20px;line-height:1">${emojis[cat]||'✏️'}</div>
+          <div style="font-size:24px;font-weight:800;line-height:1.1;margin-top:4px;color:${ativo?'var(--c1)':'var(--gray)'}">${n}</div>
+          <div style="font-size:10px;font-weight:600;color:var(--c2);margin-top:3px;line-height:1.2">${esc(cat)}</div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  // Mês/período sem nenhum lead → mostra só o placar zerado + aviso amigável
+  if(!lista.length){
+    body.innerHTML=counterHtml+`<div style="text-align:center;color:var(--gray);font-size:12px;padding:6px 0">Nenhum lead com origem registrada ${periodo==='mes'?'neste mês':'neste período'} ainda.</div>`;
+    return;
+  }
+  const detalheHtml=`<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--gray);margin-bottom:6px">Detalhamento</div>`;
+  body.innerHTML=counterHtml+detalheHtml+sorted.map(([orig,cnt])=>{
     const pct=Math.round(cnt/lista.length*100);
     const apr=aprovados[orig]||0;
     return `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--gray-light)">
