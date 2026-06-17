@@ -4840,6 +4840,19 @@ async function dbUpdate(table, payload, idCol, idVal){
   }
   return { error:{ message:'dbUpdate: colunas faltantes demais em '+table } };
 }
+// Upsert resiliente — insere ou atualiza pela PK; ideal p/ tabelas com id texto (vistorias).
+// Remove coluna ausente e reenvia, como dbInsert/dbUpdate.
+async function dbUpsert(table, payload){
+  let p={...payload};
+  for(let i=0;i<8;i++){
+    const r=await db.from(table).upsert([p]).select('*').single();
+    if(!r.error) return r;
+    const col=_colunaFaltante(r.error);
+    if(col && (col in p)){ delete p[col]; console.warn(`[dbUpsert ${table}] coluna "${col}" não existe no banco — reenviando sem ela.`); continue; }
+    return r;
+  }
+  return { data:null, error:{ message:'dbUpsert: colunas faltantes demais em '+table } };
+}
 // Compat: helpers de orçamento agora delegam ao wrapper genérico
 async function orcSyncInsert(payload){ return dbInsert('orcamentos', payload); }
 async function orcSyncUpdate(id, payload){ return dbUpdate('orcamentos', payload, 'id', id); }
@@ -8159,7 +8172,17 @@ let visCheckinTime = null;
 let visCheckoutTime = null;
 let visCheckinInterval = null;
 let visEditId = null;          // id da vistoria sendo editada (null = nova)
+let _visDraftId = null;        // id da vistoria atual em edição no form (compartilhado entre Salvar e Gerar PDF, evita duplicata)
 let visHistStatusFilt = '';    // filtro de status no histórico: ''|'critico'|'atencao'
+
+// Promise com timeout — evita que uma chamada de rede travada (Supabase/EmailJS)
+// deixe a UI pendurada para sempre. Rejeita após `ms` se não resolver.
+function _comTimeout(promise, ms, rotulo){
+  return Promise.race([
+    Promise.resolve(promise),
+    new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout '+(rotulo||'')+' ('+ms+'ms)')), ms))
+  ]);
+}
 
 const LS_VIS = 'fluxa_visitas';
 const LS_LOCAIS_VIS = 'fluxa_locais_vistoria';
@@ -8540,6 +8563,7 @@ function iniciarVistoriaPlena(locId){
   visCheckoutTime=null;
   if(visCheckinInterval){ clearInterval(visCheckinInterval); visCheckinInterval=null; }
   visEditId=null;
+  _visDraftId=null;
   window._visLocalId=locId;
 
   // Navega para a aba Nova Vistoria
@@ -8648,10 +8672,11 @@ async function salvarConcluirVis(){
   lista.unshift(rec);
   lsVisSalvar(lista);
   if(dbOk&&db){
-    try{
-      const r=await dbInsert('vistorias', rec); // resiliente a coluna ausente; equipamentos é jsonb (array nativo)
-      if(r.error) console.warn('vis rápida Supabase:', r.error.message);
-    }catch(e){ console.warn('vis rápida Supabase:',e?.message||e); }
+    // Sincroniza em background (não trava o fechamento do modal)
+    (async()=>{
+      try{ const r=await _comTimeout(dbUpsert('vistorias', rec), 20000, 'vis rápida'); if(r&&r.error) console.warn('vis rápida Supabase:', r.error.message); }
+      catch(e){ console.warn('vis rápida Supabase (bg):',e?.message||e); }
+    })();
   }
   // Marca a OS do agendamento deste mês como concluída
   if(loc.agendamento_id){
@@ -9158,24 +9183,10 @@ function dispensarPreCarga(){
   window._visPreCargaRec = null;
 }
 
-// ── Salvar vistoria ──
-async function salvarVistoria(){
-  autoCheckoutSeNecessario();
-  const cli  = (document.getElementById('vis-cli')?.value||'').trim();
-  const loc  = (document.getElementById('vis-loc')?.value||'').trim();
-  const data = document.getElementById('vis-data')?.value||new Date().toISOString().slice(0,10);
-  const hora = document.getElementById('vis-hora')?.value||'';
-  const tec  = document.getElementById('vis-tec')?.value||gV('vis-tec')||'';
-  const mes  = document.getElementById('vis-mes-ref')?.value||new Date().toISOString().slice(0,7);
-  const obs  = document.getElementById('vis-obs')?.value||'';
-  const emailResp = (document.getElementById('vis-email-resp')?.value||'').trim();
-  if(!cli){ toast('⚠️ Informe o cliente'); return; }
-  if(emailResp && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailResp)){ toast('⚠️ E-mail inválido — corrija ou deixe em branco'); return; }
-  const _btnVis=document.querySelector('button[onclick="salvarVistoria()"]');
-  if(_btnVis){ _btnVis.disabled=true; _btnVis.textContent='Salvando…'; }
-  // Monta lista de equipamentos: primeiro os do plano (custom), depois os chips padrão
+// Monta a lista de equipamentos do form (planos custom + chips padrão)
+function _montarEquipamentosVistoria(){
   const customIds=(_visEquipsCustom||[]).map(e=>e.id);
-  const equipamentos=[
+  return [
     ...(_visEquipsCustom||[]).map(ceq=>{
       const d=visEquipDados[ceq.id]||{status:'na',obs:'',fotos:[]};
       return {id:ceq.id,nome:ceq.nome,emoji:ceq.emoji||'⚙️',modelo:ceq.modelo||'',potencia:ceq.potencia||'',status:d.status,obs:d.obs||'',fotos:(d.fotos||[]).filter(Boolean)};
@@ -9186,63 +9197,94 @@ async function salvarVistoria(){
       return {id,nome:def.nome,emoji:def.emoji,modelo:'',potencia:'',status:d.status,obs:d.obs||'',fotos:(d.fotos||[]).filter(Boolean)};
     })
   ];
-  const s    = getSessao();
-  const lojaId = s?.loja_id || lojaAtiva || LOJA_PADRAO_ID;
-  const id   = visEditId || 'vis_'+Date.now();
-  const veioDoPlano = !!(window._visLocalId); // lido ANTES de ser zerado
-  const rec  = {
-    id, loja_id:lojaId,
+}
+// Monta o registro da vistoria a partir do formulário. Reusa o mesmo id durante
+// toda a edição (visEditId ou _visDraftId) — Salvar e Gerar PDF gravam o MESMO
+// registro, sem criar duplicata.
+function _montarRecVistoria(){
+  const s=getSessao();
+  const id=visEditId||_visDraftId||('vis_'+Date.now());
+  const hora=document.getElementById('vis-hora')?.value||'';
+  return {
+    id,
+    loja_id: s?.loja_id||lojaAtiva||LOJA_PADRAO_ID,
     local_id: window._visLocalId||'',
-    cliente:cli, local:loc, data, hora,
-    tecnico: tec || (s?.nome||''),
-    mes_ref: mes,
+    cliente:(document.getElementById('vis-cli')?.value||'').trim(),
+    local:(document.getElementById('vis-loc')?.value||'').trim(),
+    data: document.getElementById('vis-data')?.value||new Date().toISOString().slice(0,10),
+    hora,
+    tecnico: (document.getElementById('vis-tec')?.value||'')||(s?.nome||''),
+    mes_ref: document.getElementById('vis-mes-ref')?.value||new Date().toISOString().slice(0,7),
     hora_checkin: visCheckinTime?visCheckinTime.toTimeString().slice(0,5):hora,
     hora_checkout: visCheckoutTime?visCheckoutTime.toTimeString().slice(0,5):null,
-    obs_geral: obs,
-    email_responsavel: emailResp||null,
-    equipamentos,
+    obs_geral: document.getElementById('vis-obs')?.value||'',
+    email_responsavel: (document.getElementById('vis-email-resp')?.value||'').trim()||null,
+    equipamentos: _montarEquipamentosVistoria(),
     created_at: new Date().toISOString()
   };
-  window._visLocalId = null;
-  // Save local
-  const lista = lsVisLer();
-  const idx   = lista.findIndex(x=>x.id===id);
-  if(idx>=0) lista[idx]=rec; else lista.unshift(rec);
+}
+// Salva a vistoria: LOCAL na hora (rápido), nuvem em BACKGROUND com timeout.
+// A UI nunca trava esperando rede. Usado por Salvar e por Gerar PDF.
+function _persistVistoria(rec){
+  const lista=lsVisLer();
+  const idx=lista.findIndex(x=>x.id===rec.id);
+  if(idx>=0){ rec.created_at = lista[idx].created_at || rec.created_at; lista[idx]=rec; } // preserva data original na atualização
+  else lista.unshift(rec);
   lsVisSalvar(lista);
-  // Save Supabase (resiliente: se alguma coluna não existir, sincroniza sem ela)
+  _visDraftId = rec.id; // marca: este form já tem registro → próximas gravações atualizam o mesmo
   if(dbOk&&db){
-    try{
-      // fix #3: equipamentos é jsonb — Supabase JS aceita array nativo, não string
-      const r = visEditId ? await dbUpdate('vistorias', rec, 'id', id)
-                          : await dbInsert('vistorias', rec);
-      if(r.error) console.warn('Visita Supabase err:', r.error.message);
-    }catch(e){ console.warn('Visita Supabase err:',e?.message||e); }
+    (async()=>{
+      try{
+        const r=await _comTimeout(dbUpsert('vistorias', rec), 20000, 'sync vistoria');
+        if(r&&r.error) console.warn('Visita Supabase err:', r.error.message);
+      }catch(e){ console.warn('Visita Supabase sync (bg):', e?.message||e); }
+    })();
   }
+}
+
+// ── Salvar vistoria (não-bloqueante: local imediato, rede em background) ──
+async function salvarVistoria(){
+  autoCheckoutSeNecessario();
+  const cli  = (document.getElementById('vis-cli')?.value||'').trim();
+  const emailResp = (document.getElementById('vis-email-resp')?.value||'').trim();
+  if(!cli){ toast('⚠️ Informe o cliente'); return; }
+  if(emailResp && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailResp)){ toast('⚠️ E-mail inválido — corrija ou deixe em branco'); return; }
+  const _btnVis=document.querySelector('button[onclick="salvarVistoria()"]');
+  if(_btnVis){ _btnVis.disabled=true; _btnVis.textContent='Salvando…'; }
+
+  const veioDoPlano = !!(window._visLocalId); // lido ANTES de zerar
+  const rec = _montarRecVistoria();
+  _persistVistoria(rec);          // local imediato + nuvem em background
+  window._visLocalId = null;
+
+  // Feedback IMEDIATO — não espera a rede. O botão volta na hora.
   toast('✅ Vistoria salva!');
   visEditId = null;
   renderVisHistorico();
-  // Se veio de um plano, volta para a aba de Planos (onde o técnico vê o ✅ atualizado)
-  window._visLocalId = null;
   const planoBanner = document.getElementById('vis-plano-banner');
   if(planoBanner) planoBanner.style.display='none';
+  if(_btnVis){ _btnVis.disabled=false; _btnVis.textContent='💾 Salvar Relatório'; }
   if(veioDoPlano){ setTimeout(()=>visTab('locais'), 600); }
 
-  // ── Auto-envio de e-mail ──
+  // ── Auto-envio de e-mail em BACKGROUND (com timeout — nunca trava a tela) ──
+  const stEl = document.getElementById('vis-email-status');
   if(emailResp && emailJSConfigurado()){
-    const stEl = document.getElementById('vis-email-status');
     if(stEl) stEl.textContent = '📨 Enviando e-mail…';
-    const ok = await enviarEmailVistoria(rec);
-    if(stEl) stEl.textContent = ok
-      ? `✅ E-mail enviado para ${emailResp}`
-      : '❌ Falha no envio do e-mail (ver console)';
-    if(ok) toast(`📧 Relatório enviado para ${emailResp}`);
-    else   toast('⚠️ Vistoria salva, mas e-mail falhou');
+    (async()=>{
+      try{
+        const ok = await _comTimeout(enviarEmailVistoria(rec), 40000, 'email vistoria');
+        if(stEl) stEl.textContent = ok ? `✅ E-mail enviado para ${emailResp}` : '❌ Falha no envio do e-mail (ver console)';
+        toast(ok ? `📧 Relatório enviado para ${emailResp}` : '⚠️ E-mail não enviado (confira Empresa → E-mail)');
+      }catch(e){
+        console.warn('[email vistoria]', e?.message||e);
+        if(stEl) stEl.textContent = '❌ E-mail demorou demais ou falhou';
+        toast('⚠️ E-mail não enviado — verifique a conexão');
+      }
+    })();
   } else if(emailResp && !emailJSConfigurado()){
-    const stEl = document.getElementById('vis-email-status');
     if(stEl) stEl.textContent = '⚠️ Configure o EmailJS em Empresa → E-mail Automático para enviar';
     toast('⚠️ EmailJS não configurado — e-mail não enviado');
   }
-  if(_btnVis){ _btnVis.disabled=false; _btnVis.textContent='💾 Salvar Relatório'; }
 }
 
 // ── Histórico ──
@@ -9463,41 +9505,16 @@ function abrirVisRelatorio(id){
 
 function gerarRelatorioVistoria(){
   autoCheckoutSeNecessario();
-  // Usa dados atuais do formulário
-  const cli  = (document.getElementById('vis-cli')?.value||'').trim()||'—';
-  const loc  = document.getElementById('vis-loc')?.value||'';
-  const data = document.getElementById('vis-data')?.value||'';
-  const hora = document.getElementById('vis-hora')?.value||'';
-  const tec  = document.getElementById('vis-tec')?.value||'';
-  const mes  = document.getElementById('vis-mes-ref')?.value||'';
-  const obs  = document.getElementById('vis-obs')?.value||'';
-  // Inclui tanto equipamentos do plano quanto chips padrão (mesmo lógica de salvarVistoria)
-  const customIds = (_visEquipsCustom||[]).map(e=>e.id);
-  const equipamentos = [
-    ...(_visEquipsCustom||[]).map(ceq=>{
-      const d = visEquipDados[ceq.id]||{status:'na',obs:'',fotos:[]};
-      return {id:ceq.id, nome:ceq.nome, emoji:ceq.emoji||'⚙️', modelo:ceq.modelo||'', potencia:ceq.potencia||'', status:d.status, obs:d.obs||'', fotos:(d.fotos||[]).filter(Boolean)};
-    }),
-    ...visEquipSelecionados.filter(id=>!customIds.includes(id)).map(id=>{
-      const def = VIS_EQUIPAMENTOS_DEFAULT.find(x=>x.id===id)||{id,nome:id,emoji:''};
-      const d   = visEquipDados[id]||{ status:'na', obs:'', fotos:[] };
-      return { id, nome:def.nome, emoji:def.emoji, modelo:'', potencia:'', status:d.status, obs:d.obs||'', fotos:(d.fotos||[]).filter(Boolean) };
-    })
-  ];
-  const s = getSessao();
-  const vis = {
-    id:'preview', cliente:cli, local:loc, data, hora,
-    tecnico: tec || (s?.nome||''),
-    mes_ref: mes,
-    hora_checkin: visCheckinTime?visCheckinTime.toTimeString().slice(0,5):hora,
-    hora_checkout: visCheckoutTime?visCheckoutTime.toTimeString().slice(0,5):null,
-    obs_geral: obs,
-    equipamentos,
-    loja_id: s?.loja_id || lojaAtiva || LOJA_PADRAO_ID
-  };
-  preencherRelatorioVistoria(vis);
-  printMode = 'vis';
+  const cli=(document.getElementById('vis-cli')?.value||'').trim();
+  if(!cli){ toast('⚠️ Informe o cliente antes de gerar o PDF'); return; }
+  // Gerar PDF TAMBÉM salva a vistoria (mesmo registro do botão Salvar, sem duplicar)
+  const rec=_montarRecVistoria();
+  _persistVistoria(rec);
+  renderVisHistorico();
+  preencherRelatorioVistoria(rec);
+  printMode='vis';
   window.print();
+  toast('✅ Vistoria salva — gerando PDF');
 }
 
 function calcDuracao(cin, cout){
@@ -9663,6 +9680,7 @@ function novaVistoria(cliNome, cliLocal, tecNome){
   visCheckinTime=null;
   visCheckoutTime=null;
   visEditId=null;
+  _visDraftId=null;
   if(visCheckinInterval){ clearInterval(visCheckinInterval); visCheckinInterval=null; }
   go('visitas');
   visTab('nova');
@@ -9824,7 +9842,7 @@ async function loadVistoriasRemoto(){
     const soLocal = local.filter(l=>!remotoIds.has(l.id));
     if(soLocal.length){
       for(const v of soLocal){
-        try{ const r=await dbInsert('vistorias', v); if(r.error) console.warn('[reenvioVistoria] '+v.id+':', r.error.message); }
+        try{ const r=await _comTimeout(dbUpsert('vistorias', v), 20000, 'reenvio vistoria'); if(r&&r.error) console.warn('[reenvioVistoria] '+v.id+':', r.error.message); }
         catch(e){ console.warn('[reenvioVistoria]', e?.message||e); }
       }
     }
