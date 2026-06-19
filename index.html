@@ -9272,7 +9272,7 @@ async function salvarVistoria(){
     if(stEl) stEl.textContent = '📨 Enviando e-mail…';
     (async()=>{
       try{
-        const ok = await _comTimeout(enviarEmailVistoria(rec), 40000, 'email vistoria');
+        const ok = await _comTimeout(enviarEmailVistoria(rec), 60000, 'email vistoria');
         if(stEl) stEl.textContent = ok ? `✅ E-mail enviado para ${emailResp}` : '❌ Falha no envio do e-mail (ver console)';
         toast(ok ? `📧 Relatório enviado para ${emailResp}` : '⚠️ E-mail não enviado (confira Empresa → E-mail)');
       }catch(e){
@@ -9711,34 +9711,48 @@ function initEmailJS(){
   }
 }
 
+// Gera o PDF da vistoria e sobe no Storage; retorna a URL pública (ou null em falha).
+// Resiliente: qualquer erro (bucket/policy faltando, html2pdf, rede) → null, e o
+// e-mail segue só com o texto. Nunca lança.
+let _pdfStorageOk = null; // null=desconhecido, true=bucket ok, false=bucket/policy faltando (não gerar PDF à toa)
 async function gerarEUploadPDFVistoria(vis){
-  if(typeof html2pdf === 'undefined') return null;
+  if(typeof html2pdf === 'undefined' || !db) return null;
+  if(_pdfStorageOk === false) return null; // já sabemos que o Storage não está pronto — evita gerar PDF em vão
+  const element = document.getElementById('pdoc-visita');
+  if(!element) return null;
+  const prevStyle = element.getAttribute('style') || '';
   try{
     preencherRelatorioVistoria(vis);
-    await new Promise(r=>setTimeout(r,400));
-    const element = document.getElementById('pdoc-visita');
-    if(!element) return null;
+    // Torna visível fora da tela — html2canvas não captura display:none (PDF sairia em branco)
+    element.setAttribute('style', 'display:block!important;position:fixed;top:0;left:-9999px;width:794px;z-index:-1');
+    await new Promise(r=>setTimeout(r,350));
     const blob = await html2pdf()
       .set({
         margin: 0,
         filename: `vistoria-${(vis.cliente||'').replace(/[^a-z0-9]/gi,'-')}-${vis.data||''}.pdf`,
-        image: { type:'jpeg', quality:0.88 },
-        html2canvas: { scale:2, useCORS:true, allowTaint:true, logging:false },
+        image: { type:'jpeg', quality:0.85 },
+        html2canvas: { scale:2, useCORS:true, allowTaint:true, logging:false, width:794 },
         jsPDF: { unit:'mm', format:'a4', orientation:'portrait' }
       })
       .from(element)
       .output('blob');
+    element.setAttribute('style', prevStyle || 'display:none');
 
-    if(!db) return null;
     const filename = `${vis.loja_id||'fluxa'}/${vis.id||Date.now()}.pdf`;
     const { error } = await db.storage.from('vistorias-pdf').upload(filename, blob, {
       contentType:'application/pdf', upsert:true
     });
-    if(error){ console.warn('Storage upload error:', error.message); return null; }
-    const { data:{ publicUrl } } = db.storage.from('vistorias-pdf').getPublicUrl(filename);
-    return publicUrl || null;
+    if(error){
+      console.warn('[PDF vistoria] upload falhou (bucket/policy?):', error.message);
+      if(/not found|bucket|policy|row-level|denied|unauthor/i.test(error.message||'')) _pdfStorageOk=false;
+      return null;
+    }
+    _pdfStorageOk=true;
+    const { data } = db.storage.from('vistorias-pdf').getPublicUrl(filename);
+    return data?.publicUrl || null;
   }catch(e){
-    console.warn('gerarEUploadPDFVistoria error:', e);
+    console.warn('[PDF vistoria] erro ao gerar/subir:', e?.message||e);
+    element.setAttribute('style', prevStyle || 'display:none');
     return null;
   }
 }
@@ -9765,6 +9779,12 @@ async function enviarEmailVistoria(vis){
   const statusGeral = temCritico ? '🔴 Ação necessária' : temAtencao ? '⚠️ Verificar pontos' : '✅ Tudo em ordem';
   const duracao = calcDuracao(vis.hora_checkin||vis.hora, vis.hora_checkout);
 
+  // Gera o PDF e sobe no Storage para anexar o link no e-mail.
+  // Se o bucket/policy ainda não estiver pronto, retorna null e o e-mail vai só com o texto.
+  let pdfUrl = '';
+  try{ pdfUrl = (await gerarEUploadPDFVistoria(vis)) || ''; }
+  catch(e){ console.warn('[email vistoria] PDF não anexado:', e?.message||e); }
+
   const params = {
     to_email    : emailDest,
     to_name     : vis.cliente || 'Responsável',
@@ -9780,6 +9800,8 @@ async function enviarEmailVistoria(vis){
     status_geral: statusGeral,
     tel_empresa : CFG.tel || '',
     reply_to    : CFG.emailjs_reply_to || '',
+    link_relatorio: pdfUrl,
+    link_pdf    : pdfUrl ? `📄 Baixar o relatório completo em PDF: ${pdfUrl}` : '',
   };
 
   try{
