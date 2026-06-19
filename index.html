@@ -2602,6 +2602,15 @@
   </div>
 </div>
 
+<!-- Modal: selecionar produto para o item do orçamento -->
+<div class="qr-modal-bg" id="prodpicker-modal" style="display:none">
+  <div class="card" style="max-width:460px;width:92%;max-height:80vh;overflow:auto">
+    <div class="ct">Vincular produto <button onclick="fecharPickerProduto()" aria-label="Fechar" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;float:right;line-height:1">×</button></div>
+    <input class="hsrch" type="text" id="prodpicker-busca" placeholder="🔍 Buscar produto…" oninput="renderPickerProduto(this.value)" style="width:100%;margin-bottom:8px">
+    <div id="prodpicker-body"></div>
+  </div>
+</div>
+
 <!-- Modal: histórico do produto -->
 <div class="qr-modal-bg" id="hist-prod-modal" style="display:none">
   <div class="card" style="max-width:480px;width:92%;max-height:80vh;overflow:auto">
@@ -4692,6 +4701,10 @@ function renderSvcs(){
     const v=parseFloat(s.p)||0;
     const qty=parseInt(s.qty)||1;
     const r=document.createElement('div'); r.className='srow';
+    const prod = s.produto_id ? produtoById(s.produto_id) : null;
+    const prodBadge = s.produto_id
+      ? `<span title="Vinculado ao estoque — dá baixa quando aprovado" style="display:inline-flex;align-items:center;gap:4px;background:var(--c1-light);color:var(--c1);border:1px solid var(--c1);border-radius:50px;padding:2px 8px;font-size:11px;font-weight:600">📦 ${esc(prod?prod.nome:'produto')}<span onclick="desvincularProdutoSvc(${s.id})" style="cursor:pointer;font-weight:700" title="Desvincular">✕</span></span>`
+      : `<button type="button" onclick="abrirPickerProduto(${s.id})" style="background:none;border:1px dashed var(--gray-mid);border-radius:50px;padding:3px 10px;font-size:11px;color:var(--gray);cursor:pointer;font-family:'Inter',sans-serif">📦 Vincular produto do estoque</button>`;
     r.innerHTML=`<div class="srow-t">
       <input type="number" class="qty-f" placeholder="1" min="1" value="${qty}" data-id="${s.id}" data-f="qty" oninput="updSvcQty(this)" title="Quantidade">
       <input type="text" placeholder="Descrição do serviço ou produto" value="${esc(s.d)}" data-id="${s.id}" data-f="d" oninput="updSvc(this)" style="flex:1">
@@ -4701,6 +4714,7 @@ function renderSvcs(){
       <span class="plabel">Valor unit. (R$):</span>
       <input type="text" inputmode="decimal" class="pf" placeholder="0,00" value="${v>0?v.toFixed(2).replace('.',','):''}" data-id="${s.id}" oninput="updSvcP(this)" onblur="fmtP(this)">
       ${qty>1?`<span class="plabel" style="margin-left:8px">= ${brl(v*qty)}</span>`:''}
+      <span style="margin-left:auto">${prodBadge}</span>
     </div>`;
     el.appendChild(r);
   });
@@ -4722,6 +4736,52 @@ function fmtP(inp){
   renderSvcs(); upd();
 }
 function gP(s){ return (parseFloat(s.p)||0)*(parseInt(s.qty)||1); }
+
+// ── Vincular item do orçamento a um produto do estoque ──
+let _pickerSvcId=null;
+function abrirPickerProduto(svcId){
+  _pickerSvcId=svcId;
+  if(!todosProdutos.length) loadEstoque(); // garante catálogo carregado
+  setV('prodpicker-busca','');
+  renderPickerProduto('');
+  document.getElementById('prodpicker-modal').style.display='flex';
+  setTimeout(()=>document.getElementById('prodpicker-busca')?.focus(),80);
+}
+function fecharPickerProduto(){ document.getElementById('prodpicker-modal').style.display='none'; }
+function renderPickerProduto(q){
+  const body=document.getElementById('prodpicker-body'); if(!body) return;
+  q=(q||'').toLowerCase();
+  const lista=filtrarPorLoja(todosProdutos.filter(p=>p.ativo!==false))
+    .filter(p=>!q||(p.nome||'').toLowerCase().includes(q)||(p.codigo||'').toLowerCase().includes(q))
+    .sort((a,b)=>(a.nome||'').localeCompare(b.nome||'')).slice(0,50);
+  if(!lista.length){
+    body.innerHTML=`<div style="padding:18px;text-align:center;color:var(--gray);font-size:13px">Nenhum produto.${todosProdutos.length?'':' Cadastre em Estoque primeiro.'}</div>`;
+    return;
+  }
+  body.innerHTML=lista.map(p=>{
+    const saldo=saldoProduto(p.id);
+    return `<div class="modal-cli-item" onmousedown="vincularProdutoSvc('${p.id}')">
+      <div class="mcn">${esc(p.nome)} <span style="font-weight:400;color:var(--gray);font-size:12px">${brl(p.preco_venda||0)}</span></div>
+      <div class="mcd">${[p.codigo,'saldo: '+fmtQtd(saldo)+' '+(p.unidade||'')].filter(Boolean).map(esc).join(' · ')}</div>
+    </div>`;
+  }).join('');
+}
+function vincularProdutoSvc(produtoId){
+  const p=produtoById(produtoId); if(!p) return;
+  const s=svcs.find(x=>x.id===_pickerSvcId);
+  if(s){
+    s.produto_id=produtoId;
+    if(!s.d || !s.d.trim()) s.d=p.nome;       // preenche descrição se vazia
+    if(!s.p || parseFloat(s.p)===0) s.p=String(p.preco_venda||0); // preenche preço se vazio
+  }
+  fecharPickerProduto();
+  renderSvcs(); upd();
+  toast('📦 Produto vinculado — dá baixa ao aprovar');
+}
+function desvincularProdutoSvc(svcId){
+  const s=svcs.find(x=>x.id===svcId); if(s) s.produto_id=null;
+  renderSvcs(); upd();
+}
 
 // ──────────────────────────────────────────────────
 //  FOTO
@@ -5045,6 +5105,8 @@ async function salvarApenas(){
     }
     salvarChip();
     autoSalvarClienteDoOrc(dados);
+    // Se o orçamento editado já está aprovado, reconcilia o estoque (qtd/produtos podem ter mudado)
+    { const _o=todosOrc.find(x=>x.id===editId); if(_o&&_o.status==='aprovado') sincronizarBaixaOrcamento(_o); }
     atualizarDash(); renderTabela();
     if(document.getElementById('toggle-os')?.checked) await criarOSjunto(dados, savedNum);
     limparRascunho('form');
@@ -5127,6 +5189,7 @@ async function gerarPDF(){
   const numStr=String(num).padStart(3,'0');
   preencherDocOrc(dados, numStr);
   salvarChip();
+  { const _o=todosOrc.find(x=>x.id===editId); if(_o&&_o.status==='aprovado') sincronizarBaixaOrcamento(_o); }
   limparRascunho('form'); // orçamento salvo → rascunho não deve vazar para o próximo
   btn.disabled=false; btn.textContent='Gerar PDF';
   if(document.getElementById('toggle-os')?.checked){
@@ -5165,7 +5228,7 @@ function coletarForm(){
     origem:getOrigemCli(),
     pag:gV('pag'), pagFormatado:formatPagamento(gV('pag'),tot()), dias, obs:gV('obs'),
     escopo:gV('escopo'), dataSvc:gV('data-svc'), dataStr, vData, sub:sub(), desc:disc(sub()), tot:tot(),
-    svcs:svcs.filter(s=>s.d.trim()).map(s=>({desc:s.d.trim(),preco:gP(s),precoUnit:parseFloat(s.p)||0,qty:parseInt(s.qty)||1})) };
+    svcs:svcs.filter(s=>s.d.trim()).map(s=>({desc:s.d.trim(),preco:gP(s),precoUnit:parseFloat(s.p)||0,qty:parseInt(s.qty)||1,produto_id:s.produto_id||null})) };
 }
 
 function preencherDocOrc(d, num){
@@ -5805,6 +5868,7 @@ async function mudarSt(id, sel){
   const st=sel.value; sel.className='ss '+st;
   const o=todosOrc.find(x=>x.id===id); if(o) o.status=st;
   lsOrcAtualizar(id,{status:st}); // persiste local
+  if(o) sincronizarBaixaOrcamento(o); // baixa ao aprovar / estorna ao reverter
   atualizarDash();
   if(dbOk&&db&&!String(id).startsWith('local_'))
     db.from('orcamentos').update({status:st}).eq('id',id).then(()=>{}).catch(()=>{});
@@ -5815,6 +5879,8 @@ function excluirOrc(id){
   confirmar('Excluir este orçamento?', ()=>_excluirOrcConfirmado(id), 'Excluir Orçamento');
 }
 async function _excluirOrcConfirmado(id){
+  const o=todosOrc.find(x=>x.id===id);
+  if(o) sincronizarBaixaOrcamento({...o, status:'excluido'}); // devolve ao estoque o que foi baixado
   lsOrcRemover(id); // remove local
   if(dbOk&&db&&!String(id).startsWith('local_'))
     db.from('orcamentos').delete().eq('id',id).then(()=>{}).catch(()=>{});
@@ -5833,7 +5899,7 @@ function abrirOrc(id){
   setOrigemCli(o.origem_cliente||'');
   // Restaura desconto salvo (bug: antes o desconto sumia ao editar e salvar)
   setV('disc-v',o.desconto>0?String(o.desconto):''); setV('disc-t','R$');
-  svcs=(o.servicos||[]).map(s=>({id:Date.now()+Math.random(),d:s.desc,p:String(s.precoUnit||s.preco||''),qty:s.qty||1}));
+  svcs=(o.servicos||[]).map(s=>({id:Date.now()+Math.random(),d:s.desc,p:String(s.precoUnit||s.preco||''),qty:s.qty||1,produto_id:s.produto_id||null}));
   if(!svcs.length) svcs=[{id:Date.now(),d:'',p:''}];
   // Compatibilidade: antigo=string, novo=JSON array
   try{
@@ -5880,7 +5946,7 @@ function duplicarOrc(id){
   setV('orc-loja',o.loja_id||LOJA_PADRAO_ID);
   document.getElementById('data-orc').valueAsDate=new Date();
   setV('disc-v',String(o.desconto||0)); setV('disc-t','R$');
-  svcs=(o.servicos||[]).map(s=>({id:Date.now()+Math.random(),d:s.desc,p:String(s.precoUnit||s.preco||''),qty:s.qty||1}));
+  svcs=(o.servicos||[]).map(s=>({id:Date.now()+Math.random(),d:s.desc,p:String(s.precoUnit||s.preco||''),qty:s.qty||1,produto_id:s.produto_id||null}));
   if(!svcs.length) svcs=[{id:Date.now(),d:'',p:''}];
   renderFotosOrcSlots();
   const tog=document.getElementById('toggle-os'); if(tog) tog.checked=false;
@@ -6998,6 +7064,7 @@ async function aprovarOrcPortal(id, sigB64){
   if(sigB64) upd.assinatura_base64=sigB64;
   todosOrc=todosOrc.map(o=>o.id===id?{...o,...upd}:o);
   lsOrcAtualizar(id,upd);
+  sincronizarBaixaOrcamento(todosOrc.find(o=>o.id===id)); // baixa do estoque na aprovação pelo cliente
   if(dbOk&&db) db.from('orcamentos').update(upd).eq('id',id).then(()=>{}).catch(()=>{});
   if(portalCliente) await renderPortal(portalCliente);
   toast('✅ Orçamento aprovado e assinado!');
@@ -7009,6 +7076,7 @@ function recusarOrcPortal(id){
 async function _recusarOrcPortalConfirmado(id){
   todosOrc=todosOrc.map(o=>o.id===id?{...o,status:'recusado'}:o);
   lsOrcAtualizar(id,{status:'recusado'});
+  sincronizarBaixaOrcamento(todosOrc.find(o=>o.id===id)); // estorna se já tinha sido baixado
   if(dbOk&&db) db.from('orcamentos').update({status:'recusado'}).eq('id',id).then(()=>{}).catch(()=>{});
   if(portalCliente) await renderPortal(portalCliente);
   toast('❌ Orçamento recusado');
@@ -10064,40 +10132,43 @@ function registrarMovimento({produto_id, tipo, quantidade, custo_unit, motivo, r
   return mov;
 }
 
-// ── Baixa automática de um orçamento aprovado (idempotente por ref) ──
-function baixarEstoqueOrcamento(orc){
-  if(!orc) return;
-  const itens=(orc.servicos||[]).filter(s=>s.produto_id);
-  itens.forEach(s=>{
-    const ref='orc:'+orc.id+':'+s.produto_id;
-    if(movRefExiste(ref)) return; // já baixado — não duplica
-    const qty=parseInt(s.qty)||1;
-    const p=produtoById(s.produto_id);
-    registrarMovimento({
-      produto_id:s.produto_id, tipo:'saida', quantidade:-Math.abs(qty),
-      custo_unit:p?p.custo:null, motivo:'Orçamento #'+String(orc.numero||'').padStart(3,'0')+' aprovado',
-      ref, lojaId:orc.loja_id
+// ── Reconciliação de estoque de um orçamento (cobre aprovar/reverter/editar/excluir) ──
+// Compara o que DEVERIA estar baixado (se aprovado) com o que JÁ foi movimentado por
+// este orçamento, e lança só a diferença. Rodar de novo com o mesmo estado = nada muda
+// (idempotente). Edição de quantidade, troca de produto e exclusão se ajustam sozinhas.
+function sincronizarBaixaOrcamento(orc){
+  if(!orc||!orc.id) return;
+  const aprovado = orc.status==='aprovado';
+  // Quantidade que deveria estar BAIXADA por produto (negativa), só se aprovado
+  const desejado={};
+  if(aprovado){
+    (orc.servicos||[]).filter(s=>s.produto_id).forEach(s=>{
+      desejado[s.produto_id]=(desejado[s.produto_id]||0)-(parseInt(s.qty)||1);
     });
+  }
+  // Quanto este orçamento JÁ movimentou por produto (soma de todos os mov. com ref deste orc)
+  const prefix='orc:'+orc.id;
+  const jaMovido={};
+  todosMovEstoque.filter(m=>m.ref && m.ref.indexOf(prefix)===0).forEach(m=>{
+    jaMovido[m.produto_id]=(jaMovido[m.produto_id]||0)+(parseFloat(m.quantidade)||0);
   });
-  if(itens.length){ if(document.getElementById('page-estoque')?.classList.contains('on')) renderEstoque(); }
-}
-// Estorna a baixa de um orçamento (devolve ao estoque). Idempotente.
-function estornarEstoqueOrcamento(orc){
-  if(!orc) return;
-  (orc.servicos||[]).filter(s=>s.produto_id).forEach(s=>{
-    const ref='orc:'+orc.id+':'+s.produto_id;
-    const refEstorno='estorno:'+ref;
-    if(!movRefExiste(ref)) return;        // nunca baixou → nada a estornar
-    if(movRefExiste(refEstorno)) return;  // já estornado
-    const qty=parseInt(s.qty)||1;
-    const p=produtoById(s.produto_id);
+  const ids=new Set([...Object.keys(desejado),...Object.keys(jaMovido)]);
+  let mudou=false;
+  ids.forEach(pid=>{
+    const delta=(desejado[pid]||0)-(jaMovido[pid]||0);
+    if(Math.abs(delta)<0.0001) return; // já está certo
+    const p=produtoById(pid);
+    const numStr=String(orc.numero||'').padStart(3,'0');
     registrarMovimento({
-      produto_id:s.produto_id, tipo:'entrada', quantidade:Math.abs(qty),
-      custo_unit:p?p.custo:null, motivo:'Estorno orçamento #'+String(orc.numero||'').padStart(3,'0'),
-      ref:refEstorno, lojaId:orc.loja_id
+      produto_id:pid, tipo: delta<0?'saida':'entrada', quantidade:delta,
+      custo_unit:p?p.custo:null,
+      motivo:(delta<0?'Baixa orçamento #':'Estorno orçamento #')+numStr,
+      ref:prefix+':sync:'+pid+':'+Date.now()+Math.random().toString(36).slice(2,5),
+      lojaId:orc.loja_id
     });
+    mudou=true;
   });
-  if(document.getElementById('page-estoque')?.classList.contains('on')) renderEstoque();
+  if(mudou && document.getElementById('page-estoque')?.classList.contains('on')) renderEstoque();
 }
 
 // ── UI do estoque ──
