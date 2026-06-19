@@ -43,6 +43,18 @@ Cada empresa usa o **mesmo `index.html`**; só o **`config.js`** muda. NÃO chum
 
 ---
 
+## 📦 ESTOQUE (controle inteligente)
+
+Tabelas: `produtos` e `estoque_movimentos` (id texto `prod_*`/`mov_*`). **Saldo = soma dos movimentos** (`saldoProduto(id)`), nunca um contador editável. Multi-loja (filtra por `loja_id`/`filtrarPorLoja`). Só gestor edita; carregado no login (`loadEstoque`).
+
+- `registrarMovimento({produto_id,tipo,quantidade,...,ref})` — local-first + sync resiliente. `tipo`: entrada(+)/saida(−)/ajuste(±).
+- **Integração com orçamento:** item do orçamento pode ter `produto_id` (picker `abrirPickerProduto`). Na aprovação dá baixa automática.
+- **`sincronizarBaixaOrcamento(orc)`** é o coração: reconcilia (lança só a diferença entre o que *deveria* estar baixado se aprovado e o que *já* foi movido por este orçamento — prefixo `ref='orc:<id>'`). Idempotente; cobre aprovar/reverter/editar qtd/excluir. Chamado em `mudarSt`, `aprovarOrcPortal`, `_recusarOrcPortalConfirmado`, `_excluirOrcConfirmado` e ao salvar orçamento já aprovado.
+- Campos fiscais no produto (`ncm,cest,cfop_padrao,origem,gtin_ean`) ficam prontos para a futura NF-e de produto.
+- **NUNCA** dar baixa decrementando um número; sempre criar um movimento.
+
+---
+
 ## ⚠️ PROTOCOLO OBRIGATÓRIO — LEIA ANTES DE QUALQUER COISA
 
 Este arquivo é o **canal de comunicação entre todos os devs e instâncias do Claude** que trabalham neste projeto. Pode haver mais de um dev trabalhando simultaneamente. Para que todos falem a mesma língua, siga estas regras:
