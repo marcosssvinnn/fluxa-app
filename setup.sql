@@ -143,6 +143,34 @@ ALTER TABLE vistorias      ADD COLUMN IF NOT EXISTS local_id text;
 ALTER TABLE equipamentos   ADD COLUMN IF NOT EXISTS loja_id text;
 ALTER TABLE despesas       ADD COLUMN IF NOT EXISTS loja_id text;
 
+-- ─────────────  ESTOQUE  ─────────────
+CREATE TABLE IF NOT EXISTS produtos (
+  id text PRIMARY KEY,
+  loja_id text,
+  nome text, codigo text, unidade text DEFAULT 'un',
+  preco_venda numeric(10,2) DEFAULT 0,
+  custo numeric(10,2) DEFAULT 0,
+  estoque_minimo numeric(10,2) DEFAULT 0,
+  -- campos fiscais (preenchidos quando ativar NF-e de produto; ficam vazios até lá)
+  ncm text, cest text, cfop_padrao text, origem text, gtin_ean text,
+  ativo boolean DEFAULT true,
+  data_criacao timestamptz DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS estoque_movimentos (
+  id text PRIMARY KEY,
+  loja_id text,
+  produto_id text,
+  tipo text,                 -- 'entrada' | 'saida' | 'ajuste'
+  quantidade numeric(10,2),  -- entrada/ajuste+ positivo; saida negativo
+  custo_unit numeric(10,2),
+  motivo text,
+  ref text,                  -- referência única p/ idempotência (ex: 'orc:<id>')
+  usuario text,
+  data timestamptz DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_mov_produto ON estoque_movimentos(produto_id);
+CREATE INDEX IF NOT EXISTS idx_mov_ref ON estoque_movimentos(ref);
+
 -- ─────────────  RLS: acesso pela anon key (igual ao resto do app)  ─────────────
 --  ⚠️ A anon key é pública. O controle de acesso real é feito no app (perfis/PIN).
 --  Para isolar de verdade, cada empresa tem o SEU próprio projeto Supabase.
@@ -151,7 +179,8 @@ DECLARE t text;
 BEGIN
   FOREACH t IN ARRAY ARRAY[
     'orcamentos','ordens_servico','empresa_config','clientes','agendamentos',
-    'vistorias','equipamentos','despesas','lojas','usuarios','notas_fiscais'
+    'vistorias','equipamentos','despesas','lojas','usuarios','notas_fiscais',
+    'produtos','estoque_movimentos'
   ] LOOP
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY;', t);
     EXECUTE format('DROP POLICY IF EXISTS "anon full access" ON %I;', t);
@@ -163,7 +192,7 @@ END $$;
 DO $$
 DECLARE t text;
 BEGIN
-  FOREACH t IN ARRAY ARRAY['orcamentos','clientes','agendamentos','equipamentos','despesas','vistorias'] LOOP
+  FOREACH t IN ARRAY ARRAY['orcamentos','clientes','agendamentos','equipamentos','despesas','vistorias','produtos','estoque_movimentos'] LOOP
     BEGIN
       EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE %I;', t);
     EXCEPTION WHEN duplicate_object THEN NULL; -- já está na publicação

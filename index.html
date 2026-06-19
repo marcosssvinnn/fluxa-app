@@ -1197,6 +1197,7 @@
         <button onclick="closeGear();novoOrc()">🔄 Novo Orçamento</button>
         <button onclick="closeGear();go('agendamentos')">📅 Agendamentos</button>
         <button id="gear-btn-visitas" onclick="closeGear();go('visitas')">🔍 Vistorias</button>
+        <button id="gear-btn-estoque" onclick="closeGear();go('estoque')">📦 Estoque</button>
         <button onclick="closeGear();go('despesas')">💸 Despesas</button>
         <button id="gear-btn-prod" onclick="closeGear();go('produtividade')">📈 Produtividade</button>
         <button onclick="closeGear();fazerLogout()" style="color:var(--red)">🔓 Sair / Trocar usuário</button>
@@ -1221,6 +1222,7 @@
     <button class="snb" id="snb-os-history" onclick="go('os-history')"><span class="sicon">📄</span><span class="slabel">Hist. OS</span></button>
     <button class="snb" id="snb-clientes" onclick="go('clientes')"><span class="sicon">👥</span><span class="slabel">Clientes</span></button>
     <button class="snb" id="snb-equipamentos" onclick="go('equipamentos')"><span class="sicon">🔧</span><span class="slabel">Equipamentos</span></button>
+    <button class="snb" id="snb-estoque" onclick="go('estoque')"><span class="sicon">📦</span><span class="slabel">Estoque</span></button>
     <button class="snb" id="snb-despesas" onclick="go('despesas')"><span class="sicon">💸</span><span class="slabel">Despesas</span></button>
     <button class="snb" id="snb-produtividade" onclick="go('produtividade')"><span class="sicon">📈</span><span class="slabel">Produtividade</span></button>
     <div class="snav-div"></div>
@@ -2542,6 +2544,72 @@
   </div>
 </div>
 
+<!-- ══ PAGE: ESTOQUE ══ -->
+<div class="page" id="page-estoque">
+  <div class="wrap">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+      <div style="font-size:18px;font-weight:800;color:var(--c2)">📦 Controle de Estoque</div>
+      <button class="btn-primary" onclick="abrirProdutoModal()" style="padding:9px 16px">＋ Novo produto</button>
+    </div>
+    <div id="estoque-alerta" style="display:none;background:var(--yellow-bg);border:1.5px solid var(--yellow);border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:12.5px;color:#92400e;line-height:1.6"></div>
+    <div class="card">
+      <input class="hsrch" type="text" placeholder="🔍 Buscar produto ou código…" oninput="buscaEstoque(this.value)" style="margin-bottom:8px;width:100%">
+      <div id="estoque-body"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: cadastro/edição de produto -->
+<div class="qr-modal-bg" id="prod-modal" style="display:none">
+  <div class="card" style="max-width:560px;width:92%;max-height:88vh;overflow:auto">
+    <div class="ct" id="prod-modal-titulo">Novo produto <button onclick="fecharProdutoModal()" aria-label="Fechar" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;float:right;line-height:1">×</button></div>
+    <div class="row f1"><div class="fl"><label class="req">Nome do produto</label><input type="text" id="prod-nome" placeholder="Ex: Cloro granulado 10kg"></div></div>
+    <div class="row">
+      <div class="fl"><label>Código / SKU</label><input type="text" id="prod-codigo" placeholder="opcional"></div>
+      <div class="fl"><label>Unidade</label>
+        <select id="prod-unidade"><option value="un">un</option><option value="kg">kg</option><option value="L">L</option><option value="cx">cx</option><option value="m">m</option><option value="pç">pç</option></select>
+      </div>
+    </div>
+    <div class="row f4">
+      <div class="fl"><label>Preço de venda (R$)</label><input type="text" inputmode="decimal" id="prod-preco" placeholder="0,00"></div>
+      <div class="fl"><label>Custo (R$)</label><input type="text" inputmode="decimal" id="prod-custo" placeholder="0,00"></div>
+      <div class="fl"><label>Estoque mínimo</label><input type="text" inputmode="decimal" id="prod-min" placeholder="0"></div>
+      <div class="fl" id="prod-inicial-wrap"><label>Saldo inicial</label><input type="text" inputmode="decimal" id="prod-inicial" placeholder="0"></div>
+    </div>
+    <details style="margin:6px 0 12px">
+      <summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--c1)">📄 Dados fiscais (para Nota Fiscal — opcional)</summary>
+      <div class="row f4" style="margin-top:8px">
+        <div class="fl"><label>NCM</label><input type="text" id="prod-ncm" placeholder="0000.00.00"></div>
+        <div class="fl"><label>CEST</label><input type="text" id="prod-cest" placeholder="opcional"></div>
+        <div class="fl"><label>CFOP padrão</label><input type="text" id="prod-cfop" placeholder="5102"></div>
+        <div class="fl"><label>Origem</label><input type="text" id="prod-origem" placeholder="0"></div>
+      </div>
+      <div class="row f1" style="margin-top:8px"><div class="fl"><label>GTIN / EAN (código de barras)</label><input type="text" id="prod-gtin" placeholder="SEM GTIN"></div></div>
+    </details>
+    <button class="btn-primary" onclick="salvarProduto()" style="width:100%">💾 Salvar produto</button>
+  </div>
+</div>
+
+<!-- Modal: movimento (entrada/saída/ajuste) -->
+<div class="qr-modal-bg" id="mov-modal" style="display:none">
+  <div class="card" style="max-width:420px;width:92%">
+    <div class="ct" id="mov-modal-titulo">Movimento <button onclick="fecharMovModal()" aria-label="Fechar" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;float:right;line-height:1">×</button></div>
+    <div id="mov-saldo-atual" style="font-size:12px;color:var(--gray);margin-bottom:10px"></div>
+    <div class="row f1"><div class="fl"><label id="mov-qtd-label">Quantidade</label><input type="text" inputmode="decimal" id="mov-qtd" placeholder="0"></div></div>
+    <div class="row f1" id="mov-custo-wrap"><div class="fl"><label>Custo unitário (R$)</label><input type="text" inputmode="decimal" id="mov-custo" placeholder="0,00"></div></div>
+    <div class="row f1"><div class="fl"><label>Motivo / observação</label><input type="text" id="mov-motivo" placeholder="opcional"></div></div>
+    <button class="btn-primary" onclick="confirmarMovimento()" style="width:100%">Confirmar</button>
+  </div>
+</div>
+
+<!-- Modal: histórico do produto -->
+<div class="qr-modal-bg" id="hist-prod-modal" style="display:none">
+  <div class="card" style="max-width:480px;width:92%;max-height:80vh;overflow:auto">
+    <div class="ct" id="hist-prod-titulo">Histórico <button onclick="fecharHistProduto()" aria-label="Fechar" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;float:right;line-height:1">×</button></div>
+    <div id="hist-prod-body"></div>
+  </div>
+</div>
+
 <!-- ══ PAGE: AGENDAMENTOS ══ -->
 <!-- ══ PAGE: VISTORIAS ══ -->
 <div class="page" id="page-visitas">
@@ -3042,6 +3110,7 @@ function aplicarPermissoesPerfil(){
     'snb-equipamentos' : gestor,
     'snb-visitas'      : gestor||tecnico,
     'snb-despesas'     : gestor,
+    'snb-estoque'      : gestor,
     'snb-produtividade': gestor,
   };
   Object.entries(snbRules).forEach(([id,pode])=>{
@@ -3062,6 +3131,8 @@ function aplicarPermissoesPerfil(){
   }
   // Preenche os selects de empresa dos formulários a partir da config das lojas
   popularSelectsLojaForm();
+  // Carrega estoque em background (gestor) — necessário p/ baixa automática e reservado
+  if(eGestor()){ try{ loadEstoque(); }catch(e){ console.warn('[boot loadEstoque]', e?.message||e); } }
 
   // ── Gear menu ──
   // Regras por id
@@ -3069,6 +3140,7 @@ function aplicarPermissoesPerfil(){
     'gear-btn-empresa' : gestor,
     'gear-btn-usuarios': gestor,
     'gear-btn-prod'    : gestor,
+    'gear-btn-estoque' : gestor,
     'gear-btn-visitas' : gestor||tecnico,
   };
   Object.entries(gearRules).forEach(([id,pode])=>{
@@ -3987,7 +4059,24 @@ CREATE TABLE IF NOT EXISTS notas_fiscais (
   dados_envio jsonb,
   data_emissao timestamptz DEFAULT now(),
   data_criacao timestamptz DEFAULT now()
-);`;
+);
+
+-- ══ ESTOQUE ══
+CREATE TABLE IF NOT EXISTS produtos (
+  id text PRIMARY KEY, loja_id text,
+  nome text, codigo text, unidade text DEFAULT 'un',
+  preco_venda numeric(10,2) DEFAULT 0, custo numeric(10,2) DEFAULT 0,
+  estoque_minimo numeric(10,2) DEFAULT 0,
+  ncm text, cest text, cfop_padrao text, origem text, gtin_ean text,
+  ativo boolean DEFAULT true, data_criacao timestamptz DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS estoque_movimentos (
+  id text PRIMARY KEY, loja_id text, produto_id text,
+  tipo text, quantidade numeric(10,2), custo_unit numeric(10,2),
+  motivo text, ref text, usuario text, data timestamptz DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_mov_produto ON estoque_movimentos(produto_id);
+CREATE INDEX IF NOT EXISTS idx_mov_ref ON estoque_movimentos(ref);`;
 }
 
 // ──────────────────────────────────────────────────
@@ -4443,6 +4532,7 @@ function go(p){
   if(p==='equipamentos') loadEquipamentos();
   if(p==='agendamentos'){ loadAgendamentos(); populaTecSelects(); initCal(); renderCal(); }
   if(p==='despesas') loadDespesas();
+  if(p==='estoque') loadEstoque();
   if(p==='produtividade'){ loadProdutividade(); setTimeout(renderRelatorioFinanceiro,300); }
   if(p==='usuarios') loadUsuarios();
   if(p==='minhas-os') loadMinhasOS();
@@ -9894,6 +9984,287 @@ async function loadVistoriasRemoto(){
 
 // Init OS page
 initOS();
+
+// ══════════════════════════════════════════════════════════════════
+//  ESTOQUE — produtos + razão de movimentos (entrada/saída/ajuste)
+//  Saldo = soma dos movimentos. Baixa idempotente por 'ref'. Multi-loja.
+// ══════════════════════════════════════════════════════════════════
+let todosProdutos = [];
+let todosMovEstoque = [];
+let estoqueBusca = '';
+
+function lsProdLer(){ try{ return JSON.parse(ls('fluxa_produtos')||'[]'); }catch(e){ return []; } }
+function lsProdSalvar(l){ lsSet('fluxa_produtos', JSON.stringify(l)); }
+function lsMovLer(){ try{ return JSON.parse(ls('fluxa_estoque_mov')||'[]'); }catch(e){ return []; } }
+function lsMovSalvar(l){ lsSet('fluxa_estoque_mov', JSON.stringify(l)); }
+
+// Carrega produtos e movimentos: local primeiro, depois funde com o banco.
+async function loadEstoque(){
+  todosProdutos = lsProdLer();
+  todosMovEstoque = lsMovLer();
+  renderEstoque();
+  if(dbOk&&db){
+    try{
+      const [{data:prods,error:e1},{data:movs,error:e2}] = await Promise.all([
+        db.from('produtos').select('*').order('nome',{ascending:true}),
+        db.from('estoque_movimentos').select('*').order('data',{ascending:false}).limit(5000)
+      ]);
+      if(e1) throw e1; if(e2) throw e2;
+      // merge: banco prevalece, mantém locais ainda não sincronizados
+      const idP=new Set((prods||[]).map(x=>x.id));
+      const soLocalP=todosProdutos.filter(x=>String(x.id).startsWith('prod_')&&!idP.has(x.id));
+      todosProdutos=[...(prods||[]),...soLocalP];
+      lsProdSalvar(todosProdutos);
+      const idM=new Set((movs||[]).map(x=>x.id));
+      const soLocalM=todosMovEstoque.filter(x=>String(x.id).startsWith('mov_')&&!idM.has(x.id));
+      todosMovEstoque=[...(movs||[]),...soLocalM];
+      lsMovSalvar(todosMovEstoque);
+      // reenvia ao banco o que ficou preso só no aparelho
+      for(const p of soLocalP){ try{ await _comTimeout(dbUpsert('produtos',p),20000,'prod'); }catch(e){ console.warn('[reenvioProd]',e?.message||e); } }
+      for(const m of soLocalM){ try{ await _comTimeout(dbUpsert('estoque_movimentos',m),20000,'mov'); }catch(e){ console.warn('[reenvioMov]',e?.message||e); } }
+      renderEstoque();
+    }catch(e){ console.warn('[loadEstoque]', e?.message||e); }
+  }
+}
+
+// Saldo de um produto = soma das quantidades dos seus movimentos (na loja ativa).
+function saldoProduto(produtoId){
+  return filtrarPorLoja(todosMovEstoque)
+    .filter(m=>m.produto_id===produtoId)
+    .reduce((a,m)=>a+(parseFloat(m.quantidade)||0),0);
+}
+// Quantidade reservada = itens-produto em orçamentos PENDENTES (ainda não baixados).
+function reservadoProduto(produtoId){
+  let r=0;
+  filtrarPorLoja(todosOrc).filter(o=>o.status==='pendente').forEach(o=>{
+    (o.servicos||[]).forEach(s=>{ if(s.produto_id===produtoId) r+=(parseInt(s.qty)||1); });
+  });
+  return r;
+}
+function produtoById(id){ return todosProdutos.find(p=>p.id===id)||null; }
+function movRefExiste(ref){ return todosMovEstoque.some(m=>m.ref===ref); }
+
+// Registra um movimento (local imediato + sync em background, resiliente).
+function registrarMovimento({produto_id, tipo, quantidade, custo_unit, motivo, ref, lojaId}){
+  const s=getSessao();
+  const mov={
+    id:'mov_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
+    loja_id: lojaId || produtoById(produto_id)?.loja_id || lojaAtiva || LOJA_PADRAO_ID,
+    produto_id, tipo,
+    quantidade: parseFloat(quantidade)||0,
+    custo_unit: custo_unit!=null?parseFloat(custo_unit)||0:null,
+    motivo: motivo||'', ref: ref||null,
+    usuario: s?.nome||'', data: new Date().toISOString()
+  };
+  todosMovEstoque.unshift(mov);
+  lsMovSalvar(todosMovEstoque);
+  if(dbOk&&db){
+    (async()=>{ try{ const r=await _comTimeout(dbInsert('estoque_movimentos',mov),20000,'mov'); if(r&&r.error) console.warn('[mov sync]', r.error.message); }catch(e){ console.warn('[mov sync bg]', e?.message||e); } })();
+  }
+  return mov;
+}
+
+// ── Baixa automática de um orçamento aprovado (idempotente por ref) ──
+function baixarEstoqueOrcamento(orc){
+  if(!orc) return;
+  const itens=(orc.servicos||[]).filter(s=>s.produto_id);
+  itens.forEach(s=>{
+    const ref='orc:'+orc.id+':'+s.produto_id;
+    if(movRefExiste(ref)) return; // já baixado — não duplica
+    const qty=parseInt(s.qty)||1;
+    const p=produtoById(s.produto_id);
+    registrarMovimento({
+      produto_id:s.produto_id, tipo:'saida', quantidade:-Math.abs(qty),
+      custo_unit:p?p.custo:null, motivo:'Orçamento #'+String(orc.numero||'').padStart(3,'0')+' aprovado',
+      ref, lojaId:orc.loja_id
+    });
+  });
+  if(itens.length){ if(document.getElementById('page-estoque')?.classList.contains('on')) renderEstoque(); }
+}
+// Estorna a baixa de um orçamento (devolve ao estoque). Idempotente.
+function estornarEstoqueOrcamento(orc){
+  if(!orc) return;
+  (orc.servicos||[]).filter(s=>s.produto_id).forEach(s=>{
+    const ref='orc:'+orc.id+':'+s.produto_id;
+    const refEstorno='estorno:'+ref;
+    if(!movRefExiste(ref)) return;        // nunca baixou → nada a estornar
+    if(movRefExiste(refEstorno)) return;  // já estornado
+    const qty=parseInt(s.qty)||1;
+    const p=produtoById(s.produto_id);
+    registrarMovimento({
+      produto_id:s.produto_id, tipo:'entrada', quantidade:Math.abs(qty),
+      custo_unit:p?p.custo:null, motivo:'Estorno orçamento #'+String(orc.numero||'').padStart(3,'0'),
+      ref:refEstorno, lojaId:orc.loja_id
+    });
+  });
+  if(document.getElementById('page-estoque')?.classList.contains('on')) renderEstoque();
+}
+
+// ── UI do estoque ──
+function buscaEstoque(v){ estoqueBusca=(v||'').toLowerCase(); renderEstoque(); }
+
+function renderEstoque(){
+  const body=document.getElementById('estoque-body'); if(!body) return;
+  const prods=filtrarPorLoja(todosProdutos.filter(p=>p.ativo!==false))
+    .filter(p=> !estoqueBusca || (p.nome||'').toLowerCase().includes(estoqueBusca) || (p.codigo||'').toLowerCase().includes(estoqueBusca))
+    .sort((a,b)=>(a.nome||'').localeCompare(b.nome||''));
+
+  // Alertas de mínimo
+  const abaixo=prods.filter(p=>{ const m=parseFloat(p.estoque_minimo)||0; return m>0 && saldoProduto(p.id) <= m; });
+  const al=document.getElementById('estoque-alerta');
+  if(al){
+    if(abaixo.length){
+      al.style.display='';
+      al.innerHTML=`<strong>⚠️ ${abaixo.length} produto${abaixo.length>1?'s':''} para repor:</strong> `+
+        abaixo.slice(0,6).map(p=>`${esc(p.nome)} (${fmtQtd(saldoProduto(p.id))})`).join(' · ')+(abaixo.length>6?' …':'');
+    } else al.style.display='none';
+  }
+
+  if(!prods.length){
+    body.innerHTML=`<div class="empty-st"><div class="ei">📦</div><p>${estoqueBusca?'Nenhum produto encontrado.':'Nenhum produto cadastrado ainda.'}</p><button class="btn-primary" style="margin-top:12px" onclick="abrirProdutoModal()">＋ Cadastrar produto</button></div>`;
+    return;
+  }
+  let h=`<div class="htw"><table class="ht"><thead><tr><th>Produto</th><th>Saldo</th><th>Reservado</th><th>Mín.</th><th>Valor parado</th><th>Ações</th></tr></thead><tbody>`;
+  prods.forEach(p=>{
+    const saldo=saldoProduto(p.id), min=parseFloat(p.estoque_minimo)||0, res=reservadoProduto(p.id);
+    const baixo = min>0 && saldo<=min, neg = saldo<0;
+    const corSaldo = neg?'var(--red)':baixo?'var(--yellow)':'var(--green)';
+    const valParado = brl((saldo>0?saldo:0)*(parseFloat(p.custo)||0));
+    h+=`<tr>
+      <td><div class="ocl">${esc(p.nome)}</div><div class="oloc">${[p.codigo,p.unidade].filter(Boolean).map(esc).join(' · ')}</div></td>
+      <td><span style="font-weight:700;color:${corSaldo}">${fmtQtd(saldo)}</span></td>
+      <td style="color:var(--gray)">${res>0?fmtQtd(res):'—'}</td>
+      <td style="color:var(--gray)">${min>0?fmtQtd(min):'—'}</td>
+      <td style="color:var(--gray)">${valParado}</td>
+      <td><div class="ta">
+        <button class="tb g" title="Dar entrada" onclick="abrirMovModal('${p.id}','entrada')">＋ Entrada</button>
+        <button class="tb" title="Dar saída" onclick="abrirMovModal('${p.id}','saida')" style="background:var(--yellow-bg);color:var(--yellow);border-color:var(--yellow-bg)">− Saída</button>
+        <button class="tb" title="Ajuste / inventário" onclick="abrirMovModal('${p.id}','ajuste')">⚖</button>
+        <button class="tb" title="Histórico" onclick="abrirHistProduto('${p.id}')">📜</button>
+        <button class="tb" title="Editar" onclick="abrirProdutoModal('${p.id}')">✎</button>
+      </div></td>
+    </tr>`;
+  });
+  h+='</tbody></table></div>';
+  // Resumo de valorização
+  const totalVal=prods.reduce((a,p)=>a+((saldoProduto(p.id)>0?saldoProduto(p.id):0)*(parseFloat(p.custo)||0)),0);
+  h+=`<div style="text-align:right;font-size:12px;color:var(--gray);padding:10px 4px 0">Valor total em estoque: <strong style="color:var(--c2)">${brl(totalVal)}</strong> · ${prods.length} produto${prods.length>1?'s':''}</div>`;
+  body.innerHTML=h;
+}
+function fmtQtd(n){ const v=parseFloat(n)||0; return Number.isInteger(v)?String(v):v.toFixed(2).replace('.',','); }
+
+// ── Modal de cadastro/edição de produto ──
+let _prodEditId=null;
+function abrirProdutoModal(id){
+  _prodEditId=id||null;
+  const p=id?produtoById(id):null;
+  setV('prod-nome',p?.nome||''); setV('prod-codigo',p?.codigo||'');
+  setV('prod-unidade',p?.unidade||'un'); setV('prod-preco',p?.preco_venda?String(p.preco_venda):'');
+  setV('prod-custo',p?.custo?String(p.custo):''); setV('prod-min',p?.estoque_minimo?String(p.estoque_minimo):'');
+  setV('prod-ncm',p?.ncm||''); setV('prod-cest',p?.cest||''); setV('prod-cfop',p?.cfop_padrao||'');
+  setV('prod-origem',p?.origem||''); setV('prod-gtin',p?.gtin_ean||'');
+  const inicialWrap=document.getElementById('prod-inicial-wrap');
+  if(inicialWrap) inicialWrap.style.display=id?'none':''; // saldo inicial só ao criar
+  setV('prod-inicial','');
+  document.getElementById('prod-modal-titulo').textContent=id?'Editar produto':'Novo produto';
+  document.getElementById('prod-modal').style.display='flex';
+}
+function fecharProdutoModal(){ document.getElementById('prod-modal').style.display='none'; }
+async function salvarProduto(){
+  const nome=(gV('prod-nome')||'').trim();
+  if(!nome){ toast('⚠️ Informe o nome do produto'); return; }
+  const s=getSessao();
+  const id=_prodEditId||'prod_'+Date.now();
+  const existente=_prodEditId?produtoById(_prodEditId):null;
+  const rec={
+    id,
+    loja_id: existente?.loja_id || s?.loja_id || lojaAtiva || LOJA_PADRAO_ID,
+    nome, codigo:(gV('prod-codigo')||'').trim(),
+    unidade:gV('prod-unidade')||'un',
+    preco_venda:parseFloat((gV('prod-preco')||'').replace(',','.'))||0,
+    custo:parseFloat((gV('prod-custo')||'').replace(',','.'))||0,
+    estoque_minimo:parseFloat((gV('prod-min')||'').replace(',','.'))||0,
+    ncm:(gV('prod-ncm')||'').trim(), cest:(gV('prod-cest')||'').trim(),
+    cfop_padrao:(gV('prod-cfop')||'').trim(), origem:(gV('prod-origem')||'').trim(),
+    gtin_ean:(gV('prod-gtin')||'').trim(),
+    ativo:true, data_criacao: existente?.data_criacao || new Date().toISOString()
+  };
+  const idx=todosProdutos.findIndex(x=>x.id===id);
+  if(idx>=0) todosProdutos[idx]=rec; else todosProdutos.unshift(rec);
+  lsProdSalvar(todosProdutos);
+  if(dbOk&&db){ (async()=>{ try{ const r=await _comTimeout(dbUpsert('produtos',rec),20000,'produto'); if(r&&r.error) console.warn('[produto sync]',r.error.message); }catch(e){ console.warn('[produto sync bg]',e?.message||e); } })(); }
+  // saldo inicial (só ao criar): vira um movimento de entrada
+  if(!_prodEditId){
+    const ini=parseFloat((gV('prod-inicial')||'').replace(',','.'))||0;
+    if(ini!==0) registrarMovimento({produto_id:id, tipo:'entrada', quantidade:Math.abs(ini), custo_unit:rec.custo, motivo:'Saldo inicial', lojaId:rec.loja_id});
+  }
+  fecharProdutoModal();
+  renderEstoque();
+  toast(_prodEditId?'✅ Produto atualizado':'✅ Produto cadastrado');
+}
+
+// ── Modal de movimento (entrada / saída / ajuste) ──
+let _movProdId=null, _movTipo='entrada';
+function abrirMovModal(produtoId, tipo){
+  _movProdId=produtoId; _movTipo=tipo;
+  const p=produtoById(produtoId); if(!p) return;
+  const titulos={entrada:'Dar entrada',saida:'Dar saída',ajuste:'Ajuste de inventário'};
+  document.getElementById('mov-modal-titulo').textContent=titulos[tipo]+' — '+p.nome;
+  document.getElementById('mov-saldo-atual').textContent='Saldo atual: '+fmtQtd(saldoProduto(produtoId))+' '+(p.unidade||'un');
+  setV('mov-qtd',''); setV('mov-motivo','');
+  // No ajuste, o campo é "novo saldo contado"; nos outros é a quantidade.
+  document.getElementById('mov-qtd-label').textContent = tipo==='ajuste' ? 'Saldo real contado' : 'Quantidade';
+  const cw=document.getElementById('mov-custo-wrap'); if(cw) cw.style.display = tipo==='entrada' ? '' : 'none';
+  setV('mov-custo', p.custo?String(p.custo):'');
+  document.getElementById('mov-modal').style.display='flex';
+  setTimeout(()=>document.getElementById('mov-qtd')?.focus(),80);
+}
+function fecharMovModal(){ document.getElementById('mov-modal').style.display='none'; }
+function confirmarMovimento(){
+  const p=produtoById(_movProdId); if(!p) return;
+  const val=parseFloat((gV('mov-qtd')||'').replace(',','.'));
+  if(isNaN(val)){ toast('⚠️ Informe a quantidade'); return; }
+  const motivo=(gV('mov-motivo')||'').trim();
+  if(_movTipo==='entrada'){
+    const custo=parseFloat((gV('mov-custo')||'').replace(',','.'));
+    registrarMovimento({produto_id:_movProdId, tipo:'entrada', quantidade:Math.abs(val), custo_unit:isNaN(custo)?p.custo:custo, motivo:motivo||'Entrada manual'});
+  } else if(_movTipo==='saida'){
+    registrarMovimento({produto_id:_movProdId, tipo:'saida', quantidade:-Math.abs(val), custo_unit:p.custo, motivo:motivo||'Saída manual'});
+  } else { // ajuste: diferença entre saldo contado e atual
+    const atual=saldoProduto(_movProdId);
+    const diff=val-atual;
+    if(diff===0){ toast('Saldo já está correto'); fecharMovModal(); return; }
+    registrarMovimento({produto_id:_movProdId, tipo:'ajuste', quantidade:diff, custo_unit:p.custo, motivo:motivo||'Ajuste de inventário'});
+  }
+  fecharMovModal();
+  renderEstoque();
+  toast('✅ Movimento registrado');
+}
+
+// ── Histórico de um produto ──
+function abrirHistProduto(produtoId){
+  const p=produtoById(produtoId); if(!p) return;
+  const movs=todosMovEstoque.filter(m=>m.produto_id===produtoId)
+    .sort((a,b)=>new Date(b.data)-new Date(a.data));
+  const tipoTxt={entrada:'＋ Entrada',saida:'− Saída',ajuste:'⚖ Ajuste'};
+  const tipoCor={entrada:'var(--green)',saida:'var(--yellow)',ajuste:'var(--gray)'};
+  document.getElementById('hist-prod-titulo').textContent='Histórico — '+p.nome;
+  const body=document.getElementById('hist-prod-body');
+  if(!movs.length){ body.innerHTML='<div style="padding:20px;text-align:center;color:var(--gray);font-size:13px">Nenhum movimento ainda.</div>'; }
+  else body.innerHTML=movs.map(m=>{
+    const d=new Date(m.data).toLocaleDateString('pt-BR')+' '+new Date(m.data).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+    const q=parseFloat(m.quantidade)||0;
+    return `<div style="display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--gray-light)">
+      <div style="min-width:0">
+        <div style="font-size:13px;font-weight:600;color:${tipoCor[m.tipo]||'var(--c2)'}">${tipoTxt[m.tipo]||m.tipo} ${fmtQtd(q)}</div>
+        <div style="font-size:11px;color:var(--gray)">${esc(m.motivo||'')}${m.usuario?' · '+esc(m.usuario):''}</div>
+      </div>
+      <div style="font-size:11px;color:var(--gray);white-space:nowrap;text-align:right">${d}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('hist-prod-modal').style.display='flex';
+}
+function fecharHistProduto(){ document.getElementById('hist-prod-modal').style.display='none'; }
 
 // ──────────────────────────────────────────────────
 //  SERVICE WORKER (PWA — funciona quando hospedado)
