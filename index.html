@@ -8,6 +8,8 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#C45E0A">
   <title>Sistema de Orçamentos</title>
+  <!-- Configuração da empresa (tenant). Opcional: se ausente, usa os defaults embutidos (Fortemp/Aquamotor). -->
+  <script src="config.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.105.3/dist/umd/supabase.min.js"
           integrity="sha384-iWpUQPQzWsFiosLgsS8o+e6E8y3Gm+EW2m/vAAo7A2H3fuc4KOKEx+5CAord2H2z"
           crossorigin="anonymous"></script>
@@ -1487,9 +1489,6 @@
           <label>Empresa <span style="font-weight:400;color:var(--gray);text-transform:none">(obrigatório para técnico/gestor)</span></label>
           <select id="usr-loja-id">
             <option value="">— Selecione —</option>
-            <option value="fortemp-camboriu">Fortemp Camboriú</option>
-            <option value="fortemp-itapema">Fortemp Itapema</option>
-            <option value="aquamotor">Aquamotor</option>
           </select>
         </div>
         <div class="fl">
@@ -1543,11 +1542,7 @@
       <div class="row f4">
         <div class="fl">
           <label>Empresa</label>
-          <select id="orc-loja" onchange="upd()">
-            <option value="fortemp-camboriu">Fortemp Camboriú</option>
-            <option value="fortemp-itapema">Fortemp Itapema</option>
-            <option value="aquamotor">Aquamotor</option>
-          </select>
+          <select id="orc-loja" onchange="upd()"></select>
         </div>
         <div class="fl"><label>Pagamento</label>
           <select id="pag" onchange="updPag();upd()">
@@ -1745,11 +1740,7 @@
       <div class="row">
         <div class="fl">
           <label>Empresa</label>
-          <select id="os-loja">
-            <option value="fortemp-camboriu">Fortemp Camboriú</option>
-            <option value="fortemp-itapema">Fortemp Itapema</option>
-            <option value="aquamotor">Aquamotor</option>
-          </select>
+          <select id="os-loja"></select>
         </div>
         <div class="fl"><label>CNPJ (opcional)</label><input type="text" id="os-cnpj" placeholder="00.000.000/0001-00"></div>
       </div>
@@ -3069,6 +3060,8 @@ function aplicarPermissoesPerfil(){
     lojaSelEl.style.display=mostrarSelect?'':'none';
     if(mostrarSelect) populaLojaSelect();
   }
+  // Preenche os selects de empresa dos formulários a partir da config das lojas
+  popularSelectsLojaForm();
 
   // ── Gear menu ──
   // Regras por id
@@ -3155,13 +3148,26 @@ function fazerLogout(){
 // ══════════════════════════════════════════════════
 //  LOJAS — 3 empresas do grupo
 // ══════════════════════════════════════════════════
-const LOJAS = [
-  { id:'fortemp-camboriu', nome:'Fortemp Camboriú',  cor:'loja-0', grupo:'forthemp', tecs:['Marcos','Josimar','Eldecir','Bruno'] },
-  { id:'fortemp-itapema',  nome:'Fortemp Itapema',   cor:'loja-1', grupo:'forthemp', tecs:['Marcos','Josimar','Eldecir','Bruno'] },
-  { id:'aquamotor',        nome:'Aquamotor',          cor:'loja-2', grupo:'aquamotor', tecs:['Marcos','Bruno'] }
-];
-const GRUPO_FORTHEMP = ['fortemp-camboriu','fortemp-itapema'];
-const LOJA_PADRAO_ID = 'fortemp-camboriu'; // loja padrão — usada como fallback em todo o app
+// Config da empresa: usa window.FLUXA_CONFIG (config.js) e, se ausente, os
+// defaults da Fortemp/Aquamotor — assim o deploy atual segue idêntico.
+const FLUXA_CONFIG = Object.assign({
+  appName: 'Fluxa',
+  supabaseUrl: 'https://lbxwclwzeqqtnwvlxsxs.supabase.co',
+  supabaseKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxieHdjbHd6ZXFxdG53dmx4c3hzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDc3MTUsImV4cCI6MjA5MTA4MzcxNX0.M1ET8Ho-AFJP9Fh-EtYHt4tdQMZj9zdIayYddrwIlhk',
+  lojaPadrao: 'fortemp-camboriu',
+  todasLabel: 'Forthemp — Todas',
+  grupoPrincipal: ['fortemp-camboriu','fortemp-itapema'],
+  lojas: [
+    { id:'fortemp-camboriu', nome:'Fortemp Camboriú',  cor:'loja-0', grupo:'forthemp', tecs:['Marcos','Josimar','Eldecir','Bruno'] },
+    { id:'fortemp-itapema',  nome:'Fortemp Itapema',   cor:'loja-1', grupo:'forthemp', tecs:['Marcos','Josimar','Eldecir','Bruno'] },
+    { id:'aquamotor',        nome:'Aquamotor',          cor:'loja-2', grupo:'aquamotor', tecs:['Marcos','Bruno'] }
+  ]
+}, (typeof window!=='undefined' && window.FLUXA_CONFIG) || {});
+
+const LOJAS = FLUXA_CONFIG.lojas;
+const GRUPO_FORTHEMP = FLUXA_CONFIG.grupoPrincipal;
+const LOJA_PADRAO_ID = FLUXA_CONFIG.lojaPadrao; // loja padrão — usada como fallback em todo o app
+try{ if(FLUXA_CONFIG.appName) document.title = FLUXA_CONFIG.appName; }catch(e){ console.warn('[appName]', e?.message||e); }
 
 let lojaAtiva = ''; // '' = todas do grupo; string = empresa específica
 
@@ -3200,13 +3206,21 @@ function getOrigemBadge(origem){
 // Preenche o <select> do header com todas as lojas (gestor principal vê tudo)
 function populaLojaSelect(){
   const sel=document.getElementById('hdr-loja-select'); if(!sel) return;
-  const forthemp=LOJAS.filter(l=>l.grupo==='forthemp');
-  const outros=LOJAS.filter(l=>l.grupo!=='forthemp');
+  const principais=LOJAS.filter(l=>GRUPO_FORTHEMP.includes(l.id));
+  const outros=LOJAS.filter(l=>!GRUPO_FORTHEMP.includes(l.id));
   sel.innerHTML=
-    '<option value="">Forthemp — Todas</option>'+
-    forthemp.map(l=>`<option value="${l.id}">${l.nome}</option>`).join('')+
-    (outros.length?'<option disabled>──────────</option>'+outros.map(l=>`<option value="${l.id}">${l.nome}</option>`).join(''):'');
+    `<option value="">${esc(FLUXA_CONFIG.todasLabel||'Todas')}</option>`+
+    principais.map(l=>`<option value="${l.id}">${esc(l.nome)}</option>`).join('')+
+    (outros.length?'<option disabled>──────────</option>'+outros.map(l=>`<option value="${l.id}">${esc(l.nome)}</option>`).join(''):'');
   sel.value=lojaAtiva;
+}
+// Preenche os <select> de empresa dos formulários (orçamento, OS, usuários) a
+// partir das lojas configuradas — antes eram options chumbadas no HTML.
+function popularSelectsLojaForm(){
+  const opts=LOJAS.map(l=>`<option value="${l.id}">${esc(l.nome)}</option>`).join('');
+  const orc=document.getElementById('orc-loja'); if(orc){ const v=orc.value; orc.innerHTML=opts; orc.value=v||LOJA_PADRAO_ID; }
+  const os=document.getElementById('os-loja');  if(os){ const v=os.value;  os.innerHTML=opts;  os.value=v||LOJA_PADRAO_ID; }
+  const usr=document.getElementById('usr-loja-id'); if(usr){ const v=usr.value; usr.innerHTML='<option value="">— Selecione —</option>'+opts; usr.value=v; }
 }
 
 function trocarLojaAtiva(id){
@@ -3718,9 +3732,9 @@ function lsOrcProxNum(){ return lsOrcLer().reduce((a,o)=>Math.max(a,o.numero||0)
     document.getElementById('login-overlay').style.display='flex';
   }
 
-  // ── Credenciais fixas ──
-  const sbUrl = 'https://lbxwclwzeqqtnwvlxsxs.supabase.co';
-  const sbKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxieHdjbHd6ZXFxdG53dmx4c3hzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDc3MTUsImV4cCI6MjA5MTA4MzcxNX0.M1ET8Ho-AFJP9Fh-EtYHt4tdQMZj9zdIayYddrwIlhk';
+  // ── Credenciais do Supabase (vêm do config.js da empresa; fallback nos defaults) ──
+  const sbUrl = FLUXA_CONFIG.supabaseUrl;
+  const sbKey = FLUXA_CONFIG.supabaseKey;
   lsSet('sb_url', sbUrl); lsSet('sb_key', sbKey);
   go('form');
 
