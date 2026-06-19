@@ -30,6 +30,19 @@ Se a resposta de qualquer uma for "não sei", **verifique antes de entregar** �
 
 ---
 
+## 🏢 MULTI-EMPRESA — código compartilhado, config por empresa
+
+Cada empresa usa o **mesmo `index.html`**; só o **`config.js`** muda. NÃO chumbe nada específico de empresa no `index.html`.
+
+- `config.js` define `window.FLUXA_CONFIG = { appName, supabaseUrl, supabaseKey, lojaPadrao, todasLabel, grupoPrincipal, lojas[] }`.
+- No `index.html`, `FLUXA_CONFIG = Object.assign({defaults Fortemp}, window.FLUXA_CONFIG||{})`. Os defaults reproduzem a Fortemp, então o deploy atual roda igual mesmo sem config.js.
+- Daqui saem: `LOJAS`, `GRUPO_FORTHEMP` (= grupoPrincipal), `LOJA_PADRAO_ID`, as credenciais Supabase do boot, o `document.title`, o seletor do cabeçalho (`populaLojaSelect`) e os selects de empresa dos forms (`popularSelectsLojaForm` preenche `#orc-loja`, `#os-loja`, `#usr-loja-id`).
+- **Nunca** adicione `<option value="fortemp-...">` chumbada no HTML nem `const LOJAS = [...]` fixo — use a config.
+- **Empresa nova:** Supabase próprio → roda `setup.sql` (tabelas+RLS+realtime+storage) → edita `config.js` → deploy próprio. Passo a passo em `NOVA-EMPRESA.md`.
+- **Manutenção:** corrige no `index.html` e copia o MESMO arquivo para o repo de cada empresa (o `config.js` de cada uma não muda).
+
+---
+
 ## ⚠️ PROTOCOLO OBRIGATÓRIO — LEIA ANTES DE QUALQUER COISA
 
 Este arquivo é o **canal de comunicação entre todos os devs e instâncias do Claude** que trabalham neste projeto. Pode haver mais de um dev trabalhando simultaneamente. Para que todos falem a mesma língua, siga estas regras:
