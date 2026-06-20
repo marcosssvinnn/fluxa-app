@@ -7709,6 +7709,15 @@ async function gerarOSdoAgendamento(ag, agId){
   const datas=proximasOcorrencias(ag, 6);
   for(const d of datas){
     const dataStr=d.toISOString().split('T')[0];
+    // Idempotência: não cria de novo se já existe OS deste agendamento nesta data
+    let jaExiste=false;
+    try{ jaExiste=(JSON.parse(ls('fluxa_os_hist')||'[]')||[]).some(o=>o.agendamento_id===agId && o.data_servico===dataStr); }catch(e){ console.warn('[gerarOSag local]',e?.message||e); }
+    if(!jaExiste && (todosOS||[]).some(o=>o.agendamento_id===agId && o.data_servico===dataStr)) jaExiste=true;
+    if(!jaExiste && dbOk&&db){
+      try{ const {data:ex}=await db.from('ordens_servico').select('id').eq('agendamento_id',agId).eq('data_servico',dataStr).limit(1); if(ex&&ex.length) jaExiste=true; }
+      catch(e){ console.warn('[gerarOSag check]',e?.message||e); }
+    }
+    if(jaExiste) continue;
     const osDados={
       cliente:ag.cliente, local_servico:ag.local_servico,
       data_servico:dataStr, hora:ag.horario, tecnico:ag.tecnico,
