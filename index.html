@@ -1777,6 +1777,14 @@
       <div id="checkin-info" style="font-size:12px;color:var(--gray);margin-top:8px;min-height:16px"></div>
     </div>
 
+    <div class="card" id="os-itens-card" style="display:none">
+      <div class="ct">📦 Itens a levar / validar</div>
+      <p style="font-size:12px;color:var(--gray);margin:-4px 0 10px">Confirme o que foi realmente levado. Ao confirmar, dá baixa no estoque. Desmarque o que não levou.</p>
+      <div id="os-itens-lista"></div>
+      <button class="btn-primary" id="os-itens-btn" onclick="confirmarItensOS()" style="width:100%;margin-top:8px">✅ Confirmar itens e dar baixa</button>
+      <div id="os-itens-ok" style="display:none;text-align:center;color:var(--green);font-size:13px;font-weight:600;padding:8px">✅ Itens já confirmados e baixados</div>
+    </div>
+
     <div class="card">
       <div class="ct">Detalhes Técnicos</div>
       <div class="row f1" style="margin-bottom:12px">
@@ -4590,6 +4598,8 @@ function go(p){
     // Técnico: oculta o valor financeiro (não precisa ver preço)
     const totalWrap = document.getElementById('os-total')?.closest('.fl');
     if(totalWrap) totalWrap.style.display = eTecnico() ? 'none' : '';
+    // Painel de itens a validar/baixar (se a OS vier de um orçamento com produtos)
+    if(typeof atualizarPainelItensOS==='function') atualizarPainelItensOS();
     // Vendas: oculta seções técnicas (check-in, checklist, fotos, detalhes)
     const soVendas = eVendas();
     ['os-checkin-card'].forEach(id=>{
@@ -6042,6 +6052,7 @@ function gerarOS_deOrc(id){
   document.getElementById('btn-os-both').style.display='flex';
   document.getElementById('btn-os-pdf').style.gridColumn='';
   go('os');
+  atualizarPainelItensOS();
 }
 
 function novaOS(){
@@ -6210,6 +6221,54 @@ function editarOS(id){
   const tituloEl=document.getElementById('os-form-titulo');
   if(tituloEl) tituloEl.textContent='Editar OS '+numStr;
   go('os');
+  atualizarPainelItensOS();
+}
+
+// ── Painel de itens (produtos do orçamento) para validar/baixar na OS ──
+function atualizarPainelItensOS(){
+  const card=document.getElementById('os-itens-card'); if(!card) return;
+  const orc = osOrcId ? todosOrc.find(o=>o.id===osOrcId) : null;
+  const itens = orc ? (orc.servicos||[]).filter(s=>s.produto_id) : [];
+  if(!orc || !itens.length){ card.style.display='none'; return; }
+  card.style.display='';
+  const lista=document.getElementById('os-itens-lista');
+  const btn=document.getElementById('os-itens-btn');
+  const okMsg=document.getElementById('os-itens-ok');
+  const tudoTratado = itens.every(s=>_entregueProdutoOrc(orc.id,s.produto_id));
+  const podeBaixar = orc.status==='aprovado' && !tudoTratado;
+  lista.innerHTML=itens.map(s=>{
+    const p=produtoById(s.produto_id);
+    const qty=parseInt(s.qty)||1;
+    const tratado=_entregueProdutoOrc(orc.id,s.produto_id);
+    return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--gray-light)">
+      <input type="checkbox" class="os-item-chk" data-pid="${s.produto_id}" ${tratado?'disabled':'checked'} style="width:18px;height:18px;flex-shrink:0">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600;color:var(--c2)">${esc(p?p.nome:(s.desc||'produto'))}</div>
+        <div style="font-size:11px;color:var(--gray)">${tratado?'✅ já confirmado':'pedido: '+fmtQtd(qty)+' '+(p?.unidade||'')}</div>
+      </div>
+      ${tratado?'':`<input type="number" class="os-item-qty" data-pid="${s.produto_id}" value="${qty}" min="0" step="1" title="Qtd levada" style="width:64px;padding:6px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:13px;text-align:center">`}
+    </div>`;
+  }).join('');
+  if(btn) btn.style.display=podeBaixar?'':'none';
+  if(okMsg) okMsg.style.display=(tudoTratado)?'block':'none';
+  if(btn && orc.status!=='aprovado' && !tudoTratado){
+    btn.style.display='none';
+    lista.innerHTML+=`<div style="font-size:12px;color:var(--yellow);padding-top:8px">⚠️ Aprove o orçamento para dar baixa dos itens.</div>`;
+  }
+}
+function confirmarItensOS(){
+  const orc = osOrcId ? todosOrc.find(o=>o.id===osOrcId) : null;
+  if(!orc){ toast('OS sem orçamento vinculado'); return; }
+  const qtyMap={};
+  document.querySelectorAll('#os-itens-lista .os-item-chk').forEach(chk=>{
+    if(chk.disabled) return;
+    const pid=chk.dataset.pid;
+    if(!chk.checked){ qtyMap[pid]=0; return; }
+    const qi=document.querySelector('.os-item-qty[data-pid="'+pid+'"]');
+    qtyMap[pid]=qi?parseFloat(qi.value)||0:0;
+  });
+  entregarOrcamento(orc, 'validar', qtyMap);
+  atualizarPainelItensOS();
 }
 
 function excluirOS(id){
@@ -10219,9 +10278,9 @@ function registrarMovimento({produto_id, tipo, quantidade, custo_unit, motivo, r
   return mov;
 }
 
-// Um produto de um orçamento já foi ENTREGUE (baixa física feita)?
+// Um produto de um orçamento já foi TRATADO na entrega (baixado ou marcado como não-levado)?
 function _entregueProdutoOrc(orcId, pid){
-  return todosMovEstoque.some(m=>m.tipo==='saida' && m.ref==='baixa:orc:'+orcId+':'+pid);
+  return todosMovEstoque.some(m=> m.ref==='baixa:orc:'+orcId+':'+pid || m.ref==='libres:orc:'+orcId+':'+pid);
 }
 // Orçamento aprovado com produtos ainda não entregues?
 function orcTemEntregaPendente(orc){
@@ -10265,28 +10324,33 @@ function sincronizarReservaOrcamento(orc){
   if(mudou && document.getElementById('page-estoque')?.classList.contains('on')) renderEstoque();
 }
 
-// ── Entrega: converte reserva em baixa física (OS concluída ou botão manual) ──
-function entregarOrcamento(orc, origem){
+// ── Entrega: converte reserva em baixa física (OS concluída, botão manual ou validação de itens) ──
+// qtyMap (opcional): { produto_id: quantidade realmente levada }. Item ausente = leva a qtd do
+// orçamento; item com 0 = não foi levado (não baixa física, mas libera a reserva).
+function entregarOrcamento(orc, origem, qtyMap){
   if(!orc||!orc.id) return;
-  if(orc.status!=='aprovado'){ if(origem==='manual') toast('⚠️ Só dá baixa de orçamento aprovado'); return; }
+  if(orc.status!=='aprovado'){ if(origem==='manual'||origem==='validar') toast('⚠️ Só dá baixa de orçamento aprovado'); return; }
   let baixou=false;
   (orc.servicos||[]).filter(s=>s.produto_id).forEach(s=>{
     const pid=s.produto_id;
-    if(_entregueProdutoOrc(orc.id,pid)) return; // já entregue
-    const qty=Math.abs(parseInt(s.qty)||1);
+    if(_entregueProdutoOrc(orc.id,pid)) return; // já tratado
+    const reservado=Math.abs(parseInt(s.qty)||1);
+    const levado = qtyMap && (pid in qtyMap) ? Math.max(0,Math.abs(parseFloat(qtyMap[pid])||0)) : reservado;
     const p=produtoById(pid);
     const numStr=String(orc.numero||'').padStart(3,'0');
-    // baixa física + libera a reserva equivalente
-    registrarMovimento({produto_id:pid, tipo:'saida', quantidade:-qty, custo_unit:p?p.custo:null, motivo:'Entrega orçamento #'+numStr, ref:'baixa:orc:'+orc.id+':'+pid, lojaId:orc.loja_id});
-    registrarMovimento({produto_id:pid, tipo:'liberacao_reserva', quantidade:-qty, custo_unit:null, motivo:'Baixa entrega #'+numStr, ref:'libres:orc:'+orc.id+':'+pid, lojaId:orc.loja_id});
+    if(levado>0){
+      registrarMovimento({produto_id:pid, tipo:'saida', quantidade:-levado, custo_unit:p?p.custo:null, motivo:'Entrega orçamento #'+numStr, ref:'baixa:orc:'+orc.id+':'+pid, lojaId:orc.loja_id});
+    }
+    // libera SEMPRE a reserva (item resolvido na entrega, levando tudo, parte ou nada)
+    registrarMovimento({produto_id:pid, tipo:'liberacao_reserva', quantidade:-reservado, custo_unit:null, motivo:(levado>0?'Baixa entrega #':'Item não levado #')+numStr, ref:'libres:orc:'+orc.id+':'+pid, lojaId:orc.loja_id});
     baixou=true;
   });
   if(baixou){
     if(typeof renderTabela==='function') renderTabela();
     if(document.getElementById('page-estoque')?.classList.contains('on')) renderEstoque();
     atualizarDash&&atualizarDash();
-    if(origem==='manual') toast('✅ Baixa de estoque realizada');
-  } else if(origem==='manual'){ toast('Nada a baixar (sem produtos ou já entregue)'); }
+    if(origem==='manual'||origem==='validar') toast('✅ Itens confirmados e baixa realizada');
+  } else if(origem==='manual'||origem==='validar'){ toast('Nada a baixar (sem produtos ou já confirmado)'); }
 }
 // Compat: chamadas antigas de baixa agora gerenciam a RESERVA
 function sincronizarBaixaOrcamento(orc){ sincronizarReservaOrcamento(orc); }
