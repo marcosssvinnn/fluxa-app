@@ -7902,7 +7902,7 @@ let osCheckinId=null;
 function fazerCheckin(){
   const tec=gV('os-tec-checkin'); if(!tec){ toast('⚠️ Selecione o técnico'); return; }
   checkinAt=new Date(); lsSet('fluxa_ultimo_tec',tec);
-  osCheckinId=editId;
+  osCheckinId=osEditId; // id da OS aberta (antes usava editId do orçamento — registro errado)
   document.getElementById('checkin-form').style.display='none';
   document.getElementById('checkin-bar').style.display='flex';
   document.getElementById('checkin-info').textContent='Check-in: '+checkinAt.toLocaleTimeString('pt-BR');
@@ -7928,6 +7928,16 @@ function _fazerCheckoutConfirmado(){
   document.getElementById('checkin-bar').style.display='none';
   document.getElementById('checkin-form').style.display='flex';
   document.getElementById('checkin-info').textContent=`✅ Duração: ${duracaoMin} min (${checkinAt.toLocaleTimeString('pt-BR')} → ${checkout.toLocaleTimeString('pt-BR')})`;
+  // Captura o que o técnico preencheu na OS para salvar JUNTO com o check-out
+  const chkOk = (osChecklist||[]).filter(x=>x.checked);
+  const dadosPreenchidos = {
+    obs_tecnica: gV('os-obs')||'',
+    materiais: gV('os-mat')||'',
+    fotos: (osFotos||[]).filter(Boolean),
+    video_link: gV('os-video-link')||null,
+    checklist: chkOk.length?JSON.stringify(chkOk):null,
+    tecnico: gV('os-tec-checkin')||gV('os-tec')||''
+  };
   if(dbOk&&db&&osCheckinId&&!String(osCheckinId).startsWith('local_')){
     // checkin_time/checkout_time são os nomes reais das colunas no banco
     dbUpdate('ordens_servico', {
@@ -7935,12 +7945,22 @@ function _fazerCheckoutConfirmado(){
       checkout_time:checkout.toISOString(),
       duracao_min:duracaoMin,
       status:'concluido',
-      tecnico:gV('os-tec-checkin')
+      ...dadosPreenchidos
     }, 'id', osCheckinId).then(r=>{ if(r.error) console.warn('[checkout OS] sync falhou:', r.error.message); }).catch(e=>console.warn('[checkout OS]', e?.message||e));
+  }
+  // Atualiza o cache local (calendário/Minhas OS refletem na hora)
+  if(osCheckinId){
+    try{
+      const lista=JSON.parse(ls('fluxa_os_hist')||'[]');
+      const i=lista.findIndex(x=>x.id===osCheckinId);
+      if(i>=0){ lista[i]={...lista[i],...dadosPreenchidos,status:'concluido',duracao_min:duracaoMin}; lsSet('fluxa_os_hist',JSON.stringify(lista.slice(0,200))); }
+      const j=(todosOS||[]).findIndex(x=>x.id===osCheckinId);
+      if(j>=0) todosOS[j]={...todosOS[j],...dadosPreenchidos,status:'concluido',duracao_min:duracaoMin};
+    }catch(e){ console.warn('[checkout OS local]', e?.message||e); }
   }
   _entregarPelaOS(osCheckinId); // baixa do estoque do orçamento vinculado, se houver
   checkinAt=null; osCheckinId=null;
-  toast(`✅ Check-out! Duração: ${duracaoMin} min`);
+  toast(`✅ Check-out! OS concluída · ${duracaoMin} min`);
 }
 
 // ══════════════════════════════════════════════════
