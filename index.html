@@ -2615,6 +2615,20 @@
   </div>
 </div>
 
+<!-- Modal: transferência entre unidades -->
+<div class="qr-modal-bg" id="transf-modal" style="display:none">
+  <div class="card" style="max-width:420px;width:92%">
+    <div class="ct" id="transf-modal-titulo">Transferir <button onclick="fecharTransfModal()" aria-label="Fechar" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;float:right;line-height:1">×</button></div>
+    <div id="transf-origem" style="font-size:12px;color:var(--gray);margin-bottom:10px"></div>
+    <div class="row">
+      <div class="fl"><label>Quantidade</label><input type="text" inputmode="decimal" id="transf-qtd" placeholder="0"></div>
+      <div class="fl"><label>Para a unidade</label><select id="transf-destino"></select></div>
+    </div>
+    <div class="row f1"><div class="fl"><label>Motivo / observação</label><input type="text" id="transf-motivo" placeholder="opcional"></div></div>
+    <button class="btn-primary" onclick="confirmarTransferencia()" style="width:100%">🔄 Confirmar transferência</button>
+  </div>
+</div>
+
 <!-- Modal: selecionar produto para o item do orçamento -->
 <div class="qr-modal-bg" id="prodpicker-modal" style="display:none">
   <div class="card" style="max-width:460px;width:92%;max-height:80vh;overflow:auto">
@@ -4764,7 +4778,7 @@ function fecharPickerProduto(){ document.getElementById('prodpicker-modal').styl
 function renderPickerProduto(q){
   const body=document.getElementById('prodpicker-body'); if(!body) return;
   q=(q||'').toLowerCase();
-  const lista=filtrarPorLoja(todosProdutos.filter(p=>p.ativo!==false))
+  const lista=produtosVisiveis()
     .filter(p=>!q||(p.nome||'').toLowerCase().includes(q)||(p.codigo||'').toLowerCase().includes(q))
     .sort((a,b)=>(a.nome||'').localeCompare(b.nome||'')).slice(0,50);
   if(!lista.length){
@@ -5564,7 +5578,7 @@ function renderEstoqueDash(){
   const body=document.getElementById('dash-estoque-body');
   if(!card||!body) return;
   if(!eGestor()){ card.style.display='none'; return; }
-  const prods=filtrarPorLoja(todosProdutos.filter(p=>p.ativo!==false));
+  const prods=produtosVisiveis();
   // Encomendas (disponível negativo = vendido/comprometido sem estoque)
   const enc=listaEncomendas();
   // Reposição (disponível no/abaixo do mínimo, mas ainda positivo)
@@ -10279,12 +10293,55 @@ function _entregarPelaOS(osId){
   const orc=todosOrc.find(o=>String(o.id)===String(orcId));
   if(orc && orc.status==='aprovado') entregarOrcamento(orc,'os');
 }
+// Física total do produto (todas as lojas) — base para o custo médio ponderado
+function fisicaProdutoTotal(produtoId){
+  return todosMovEstoque
+    .filter(m=>m.produto_id===produtoId && _TIPOS_FISICOS.includes(m.tipo))
+    .reduce((a,m)=>a+(parseFloat(m.quantidade)||0),0);
+}
+// Produtos visíveis no contexto de loja atual: os cadastrados na loja + os que
+// têm movimento nela (ex.: recebidos por transferência de outra unidade).
+function produtosVisiveis(){
+  const ativos=todosProdutos.filter(p=>p.ativo!==false);
+  if(!lojaAtiva) return filtrarPorLoja(ativos); // "Todas" → grupo
+  const comMov=new Set(todosMovEstoque.filter(m=>(m.loja_id||'')===lojaAtiva).map(m=>m.produto_id));
+  return ativos.filter(p=>(p.loja_id||'')===lojaAtiva || comMov.has(p.id));
+}
 // Produtos com disponível negativo = encomendas (vendido/comprometido sem estoque)
 function listaEncomendas(){
-  return filtrarPorLoja(todosProdutos.filter(p=>p.ativo!==false))
+  return produtosVisiveis()
     .map(p=>({p, falta: -disponivelProduto(p.id)}))
     .filter(x=>x.falta>0.0001)
     .sort((a,b)=>b.falta-a.falta);
+}
+
+// ── Custo médio ponderado (CMP): recalcula o custo do produto a cada entrada ──
+function recomputarCMP(produtoId, qtdEntrada, custoEntrada, fisAntes){
+  if(!(parseFloat(custoEntrada)>0)) return; // sem custo informado → mantém
+  const p=produtoById(produtoId); if(!p) return;
+  const qe=Math.abs(parseFloat(qtdEntrada)||0);
+  const base=Math.max(0,fisAntes); // estoque negativo não entra no rateio
+  const custoAtual=parseFloat(p.custo)||0;
+  const novo=(base+qe)>0 ? (base*custoAtual + qe*parseFloat(custoEntrada))/(base+qe) : parseFloat(custoEntrada);
+  p.custo=Math.round(novo*100)/100;
+  const idx=todosProdutos.findIndex(x=>x.id===produtoId);
+  if(idx>=0) todosProdutos[idx]=p;
+  lsProdSalvar(todosProdutos);
+  if(dbOk&&db){ (async()=>{ try{ const r=await _comTimeout(dbUpsert('produtos',p),20000,'cmp'); if(r&&r.error) console.warn('[cmp sync]',r.error.message); }catch(e){ console.warn('[cmp bg]',e?.message||e); } })(); }
+}
+
+// ── Transferência entre unidades (dois movimentos ligados, carregando o custo) ──
+function transferirProduto(produtoId, qtd, lojaDestino, motivo){
+  const p=produtoById(produtoId); if(!p) return false;
+  const q=Math.abs(parseFloat(qtd)||0);
+  if(q<=0) return false;
+  const origem=lojaAtiva||p.loja_id||LOJA_PADRAO_ID;
+  if(lojaDestino===origem) return false;
+  const ref='transf:'+produtoId+':'+Date.now();
+  registrarMovimento({produto_id:produtoId, tipo:'transf_saida', quantidade:-q, custo_unit:p.custo, motivo:'Transferência → '+getLojaNome(lojaDestino)+(motivo?' · '+motivo:''), ref:ref+':out', lojaId:origem});
+  registrarMovimento({produto_id:produtoId, tipo:'transf_entrada', quantidade:q, custo_unit:p.custo, motivo:'Transferência ← '+getLojaNome(origem)+(motivo?' · '+motivo:''), ref:ref+':in', lojaId:lojaDestino});
+  renderEstoque();
+  return true;
 }
 
 // ── UI do estoque ──
@@ -10292,7 +10349,7 @@ function buscaEstoque(v){ estoqueBusca=(v||'').toLowerCase(); renderEstoque(); }
 
 function renderEstoque(){
   const body=document.getElementById('estoque-body'); if(!body) return;
-  const prods=filtrarPorLoja(todosProdutos.filter(p=>p.ativo!==false))
+  const prods=produtosVisiveis()
     .filter(p=> !estoqueBusca || (p.nome||'').toLowerCase().includes(estoqueBusca) || (p.codigo||'').toLowerCase().includes(estoqueBusca))
     .sort((a,b)=>(a.nome||'').localeCompare(b.nome||''));
 
@@ -10328,6 +10385,7 @@ function renderEstoque(){
       <td><div class="ta">
         <button class="tb g" title="Dar entrada" onclick="abrirMovModal('${p.id}','entrada')">＋ Entrada</button>
         <button class="tb" title="Dar saída" onclick="abrirMovModal('${p.id}','saida')" style="background:var(--yellow-bg);color:var(--yellow);border-color:var(--yellow-bg)">− Saída</button>
+        ${LOJAS.length>1?`<button class="tb" title="Transferir para outra unidade" onclick="abrirTransfModal('${p.id}')">🔄</button>`:''}
         <button class="tb" title="Ajuste / inventário" onclick="abrirMovModal('${p.id}','ajuste')">⚖</button>
         <button class="tb" title="Histórico" onclick="abrirHistProduto('${p.id}')">📜</button>
         <button class="tb" title="Editar" onclick="abrirProdutoModal('${p.id}')">✎</button>
@@ -10445,18 +10503,46 @@ function confirmarMovimento(){
   const motivo=(gV('mov-motivo')||'').trim();
   if(_movTipo==='entrada'){
     const custo=parseFloat((gV('mov-custo')||'').replace(',','.'));
+    const fisAntes=fisicaProdutoTotal(_movProdId); // ANTES de registrar, p/ o CMP
     registrarMovimento({produto_id:_movProdId, tipo:'entrada', quantidade:Math.abs(val), custo_unit:isNaN(custo)?p.custo:custo, motivo:motivo||'Entrada manual'});
+    if(!isNaN(custo)) recomputarCMP(_movProdId, Math.abs(val), custo, fisAntes); // custo médio ponderado
   } else if(_movTipo==='saida'){
     registrarMovimento({produto_id:_movProdId, tipo:'saida', quantidade:-Math.abs(val), custo_unit:p.custo, motivo:motivo||'Saída manual'});
-  } else { // ajuste: diferença entre saldo contado e atual
-    const atual=saldoProduto(_movProdId);
+  } else { // ajuste: diferença entre saldo físico contado e atual
+    if(!motivo){ toast('⚠️ Informe o motivo do ajuste'); document.getElementById('mov-motivo')?.focus(); return; }
+    const atual=fisicaProduto(_movProdId);
     const diff=val-atual;
     if(diff===0){ toast('Saldo já está correto'); fecharMovModal(); return; }
-    registrarMovimento({produto_id:_movProdId, tipo:'ajuste', quantidade:diff, custo_unit:p.custo, motivo:motivo||'Ajuste de inventário'});
+    registrarMovimento({produto_id:_movProdId, tipo:'ajuste', quantidade:diff, custo_unit:p.custo, motivo:motivo});
   }
   fecharMovModal();
   renderEstoque();
   toast('✅ Movimento registrado');
+}
+
+// ── Transferência entre unidades ──
+let _transfProdId=null;
+function abrirTransfModal(produtoId){
+  _transfProdId=produtoId;
+  const p=produtoById(produtoId); if(!p) return;
+  const origem=lojaAtiva||p.loja_id||LOJA_PADRAO_ID;
+  document.getElementById('transf-modal-titulo').textContent='Transferir — '+p.nome;
+  document.getElementById('transf-origem').textContent='De: '+getLojaNome(origem)+' (disponível: '+fmtQtd(disponivelProduto(produtoId))+')';
+  const sel=document.getElementById('transf-destino');
+  sel.innerHTML=LOJAS.filter(l=>l.id!==origem).map(l=>`<option value="${l.id}">${esc(l.nome)}</option>`).join('');
+  setV('transf-qtd',''); setV('transf-motivo','');
+  document.getElementById('transf-modal').style.display='flex';
+  setTimeout(()=>document.getElementById('transf-qtd')?.focus(),80);
+}
+function fecharTransfModal(){ document.getElementById('transf-modal').style.display='none'; }
+function confirmarTransferencia(){
+  const q=parseFloat((gV('transf-qtd')||'').replace(',','.'));
+  if(isNaN(q)||q<=0){ toast('⚠️ Informe a quantidade'); return; }
+  const dest=gV('transf-destino');
+  if(!dest){ toast('⚠️ Escolha a unidade de destino'); return; }
+  const ok=transferirProduto(_transfProdId, q, dest, (gV('transf-motivo')||'').trim());
+  if(ok){ fecharTransfModal(); toast('✅ Transferência registrada'); }
+  else toast('⚠️ Não foi possível transferir');
 }
 
 // ── Histórico de um produto ──
