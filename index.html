@@ -1906,7 +1906,7 @@
     <!-- ── Estoque: produtos para repor ── -->
     <div class="dash-chart-card" id="dash-estoque-card" style="display:none">
       <div class="dash-chart-hdr">
-        <div class="dash-chart-titulo">📦 Estoque — para repor</div>
+        <div class="dash-chart-titulo">📦 Estoque — comprar / repor</div>
         <button class="ba" style="background:var(--gray-light);color:var(--c2);padding:5px 12px;font-size:12px" onclick="go('estoque')">Abrir estoque →</button>
       </div>
       <div id="dash-estoque-body"></div>
@@ -5565,22 +5565,37 @@ function renderEstoqueDash(){
   if(!card||!body) return;
   if(!eGestor()){ card.style.display='none'; return; }
   const prods=filtrarPorLoja(todosProdutos.filter(p=>p.ativo!==false));
-  const baixo=prods.filter(p=>{ const m=parseFloat(p.estoque_minimo)||0; return m>0 && saldoProduto(p.id)<=m; })
-    .sort((a,b)=>saldoProduto(a.id)-saldoProduto(b.id));
-  if(!baixo.length){ card.style.display='none'; return; }
+  // Encomendas (disponível negativo = vendido/comprometido sem estoque)
+  const enc=listaEncomendas();
+  // Reposição (disponível no/abaixo do mínimo, mas ainda positivo)
+  const baixo=prods.filter(p=>{ const m=parseFloat(p.estoque_minimo)||0; const d=disponivelProduto(p.id); return m>0 && d>=0 && d<=m; })
+    .sort((a,b)=>disponivelProduto(a.id)-disponivelProduto(b.id));
+  if(!enc.length && !baixo.length){ card.style.display='none'; return; }
   card.style.display='';
-  body.innerHTML=baixo.slice(0,8).map(p=>{
-    const saldo=saldoProduto(p.id), min=parseFloat(p.estoque_minimo)||0;
-    const sugestao=Math.max(0, Math.ceil(min*2 - saldo)); // sugere repor até 2× o mínimo
-    const neg=saldo<0;
-    return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--gray-light)">
-      <div style="min-width:0">
-        <div style="font-size:13px;font-weight:600;color:var(--c2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.nome)}</div>
-        <div style="font-size:11px;color:var(--gray)">saldo <span style="color:${neg?'var(--red)':'var(--yellow)'};font-weight:700">${fmtQtd(saldo)}</span> · mín ${fmtQtd(min)}</div>
-      </div>
-      <button class="tb g" style="flex-shrink:0;font-size:11px" onclick="go('estoque');setTimeout(()=>abrirMovModal('${p.id}','entrada'),250)">＋ Repor${sugestao>0?' '+fmtQtd(sugestao):''}</button>
-    </div>`;
-  }).join('')+(baixo.length>8?`<div style="font-size:11px;color:var(--gray);padding-top:8px;text-align:right">+${baixo.length-8} outros</div>`:'');
+  let html='';
+  if(enc.length){
+    html+=`<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#b91c1c;margin-bottom:4px">📥 Comprar para entregar (encomendas)</div>`;
+    html+=enc.slice(0,6).map(x=>{
+      return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--gray-light)">
+        <div style="min-width:0"><div style="font-size:13px;font-weight:600;color:var(--c2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(x.p.nome)}</div>
+          <div style="font-size:11px;color:var(--gray)">faltam <span style="color:var(--red);font-weight:700">${fmtQtd(x.falta)}</span> para entregar</div></div>
+        <button class="tb g" style="flex-shrink:0;font-size:11px" onclick="go('estoque');setTimeout(()=>abrirMovModal('${x.p.id}','entrada'),250)">＋ Comprar ${fmtQtd(Math.ceil(x.falta))}</button>
+      </div>`;
+    }).join('')+(enc.length>6?`<div style="font-size:11px;color:var(--gray);padding:6px 0;text-align:right">+${enc.length-6} outros</div>`:'');
+  }
+  if(baixo.length){
+    html+=`<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#b45309;margin:${enc.length?'10px':'0'} 0 4px">🔄 Repor (estoque mínimo)</div>`;
+    html+=baixo.slice(0,6).map(p=>{
+      const disp=disponivelProduto(p.id), min=parseFloat(p.estoque_minimo)||0;
+      const sugestao=Math.max(1, Math.ceil(min*2 - disp));
+      return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--gray-light)">
+        <div style="min-width:0"><div style="font-size:13px;font-weight:600;color:var(--c2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.nome)}</div>
+          <div style="font-size:11px;color:var(--gray)">disponível <span style="color:var(--yellow);font-weight:700">${fmtQtd(disp)}</span> · mín ${fmtQtd(min)}</div></div>
+        <button class="tb g" style="flex-shrink:0;font-size:11px" onclick="go('estoque');setTimeout(()=>abrirMovModal('${p.id}','entrada'),250)">＋ Repor ${fmtQtd(sugestao)}</button>
+      </div>`;
+    }).join('')+(baixo.length>6?`<div style="font-size:11px;color:var(--gray);padding-top:6px;text-align:right">+${baixo.length-6} outros</div>`:'');
+  }
+  body.innerHTML=html;
 }
 
 // ── Origem dos clientes (métricas de captação) ──
@@ -5892,6 +5907,7 @@ function renderTabela(){
         <button class="tb" title="Editar" onclick="abrirOrc('${o.id}')">✎</button>
         <button class="tb" title="Duplicar" onclick="duplicarOrc('${o.id}')">⧉</button>
         <button class="tb" title="Gerar OS" onclick="gerarOS_deOrc('${o.id}')">📋</button>
+        ${orcTemEntregaPendente(o)?`<button class="tb g" title="Marcar como entregue (baixa do estoque)" onclick="entregarOrcamento(getNC('${o.id}'),'manual')">📦 Entregar</button>`:''}
         ${ocultarFinanceiro?'':'<button class="tb g" title="Registrar pagamento" onclick="abrirModalPg(\''+o.id+'\','+ttl+')">💰</button>'}
         ${!ocultarFinanceiro&&o.status==='aprovado'?`<button class="tb" title="Emitir Nota Fiscal" onclick="abrirModalNFe('${o.id}')" style="background:#7c3aed;color:white;border-radius:6px;padding:4px 7px;font-size:11px;font-weight:700;border:none;cursor:pointer">NF</button>`:''}
         <button class="tb" title="Enviar no WhatsApp" style="background:var(--wa);color:white;border-color:var(--wa)" onclick="enviarNotifWA(notifOrcamento(getNC('${o.id}')), '${o.tel_cliente||''}')">💬 WA</button>
@@ -7796,6 +7812,7 @@ function _fazerCheckoutConfirmado(){
       tecnico:gV('os-tec-checkin')
     }, 'id', osCheckinId).then(r=>{ if(r.error) console.warn('[checkout OS] sync falhou:', r.error.message); }).catch(e=>console.warn('[checkout OS]', e?.message||e));
   }
+  _entregarPelaOS(osCheckinId); // baixa do estoque do orçamento vinculado, se houver
   checkinAt=null; osCheckinId=null;
   toast(`✅ Check-out! Duração: ${duracaoMin} min`);
 }
@@ -8899,6 +8916,7 @@ async function salvarConcluirVis(){
       osLocal[osIdx].obs_tecnica=(osLocal[osIdx].obs_tecnica?osLocal[osIdx].obs_tecnica+'\n':'')+obs;
       lsSet('fluxa_os_hist',JSON.stringify(osLocal.slice(0,200)));
       if(dbOk&&db){ db.from('ordens_servico').update({status:'concluido'}).eq('id',osLocal[osIdx].id).then(()=>{}).catch(()=>{}); }
+      _entregarPelaOS(osLocal[osIdx].id); // baixa do estoque do orçamento vinculado
     }
   }
   fecharConcluirVis();
@@ -10134,20 +10152,24 @@ async function loadEstoque(){
   }
 }
 
-// Saldo de um produto = soma das quantidades dos seus movimentos (na loja ativa).
-function saldoProduto(produtoId){
+// 3 números por produto (na loja ativa):
+//   FÍSICA   = o que está no depósito (entrada/saída/ajuste/transferências)
+//   RESERVADA= comprometida em orçamentos aprovados ainda não entregues
+//   DISPONÍVEL = física − reservada  (negativo = encomenda, precisa comprar)
+const _TIPOS_FISICOS=['entrada','saida','ajuste','transf_entrada','transf_saida'];
+const _TIPOS_RESERVA=['reserva','liberacao_reserva'];
+function fisicaProduto(produtoId){
   return filtrarPorLoja(todosMovEstoque)
-    .filter(m=>m.produto_id===produtoId)
+    .filter(m=>m.produto_id===produtoId && _TIPOS_FISICOS.includes(m.tipo))
     .reduce((a,m)=>a+(parseFloat(m.quantidade)||0),0);
 }
-// Quantidade reservada = itens-produto em orçamentos PENDENTES (ainda não baixados).
 function reservadoProduto(produtoId){
-  let r=0;
-  filtrarPorLoja(todosOrc).filter(o=>o.status==='pendente').forEach(o=>{
-    (o.servicos||[]).forEach(s=>{ if(s.produto_id===produtoId) r+=(parseInt(s.qty)||1); });
-  });
-  return r;
+  return filtrarPorLoja(todosMovEstoque)
+    .filter(m=>m.produto_id===produtoId && _TIPOS_RESERVA.includes(m.tipo))
+    .reduce((a,m)=>a+(parseFloat(m.quantidade)||0),0);
 }
+function disponivelProduto(produtoId){ return fisicaProduto(produtoId)-reservadoProduto(produtoId); }
+function saldoProduto(produtoId){ return fisicaProduto(produtoId); } // compat: saldo = físico
 function produtoById(id){ return todosProdutos.find(p=>p.id===id)||null; }
 function movRefExiste(ref){ return todosMovEstoque.some(m=>m.ref===ref); }
 
@@ -10171,43 +10193,93 @@ function registrarMovimento({produto_id, tipo, quantidade, custo_unit, motivo, r
   return mov;
 }
 
-// ── Reconciliação de estoque de um orçamento (cobre aprovar/reverter/editar/excluir) ──
-// Compara o que DEVERIA estar baixado (se aprovado) com o que JÁ foi movimentado por
-// este orçamento, e lança só a diferença. Rodar de novo com o mesmo estado = nada muda
-// (idempotente). Edição de quantidade, troca de produto e exclusão se ajustam sozinhas.
-function sincronizarBaixaOrcamento(orc){
+// Um produto de um orçamento já foi ENTREGUE (baixa física feita)?
+function _entregueProdutoOrc(orcId, pid){
+  return todosMovEstoque.some(m=>m.tipo==='saida' && m.ref==='baixa:orc:'+orcId+':'+pid);
+}
+// Orçamento aprovado com produtos ainda não entregues?
+function orcTemEntregaPendente(orc){
+  if(!orc||orc.status!=='aprovado') return false;
+  return (orc.servicos||[]).some(s=>s.produto_id && !_entregueProdutoOrc(orc.id,s.produto_id));
+}
+
+// ── Reconciliação da RESERVA de um orçamento (aprovar/reverter/editar/excluir) ──
+// Aprovado e não entregue → reserva os produtos. Reverteu/excluiu/entregou → libera.
+// Idempotente: lança só a diferença entre o que deveria estar reservado e o que já está.
+function sincronizarReservaOrcamento(orc){
   if(!orc||!orc.id) return;
   const aprovado = orc.status==='aprovado';
-  // Quantidade que deveria estar BAIXADA por produto (negativa), só se aprovado
   const desejado={};
   if(aprovado){
     (orc.servicos||[]).filter(s=>s.produto_id).forEach(s=>{
-      desejado[s.produto_id]=(desejado[s.produto_id]||0)-(parseInt(s.qty)||1);
+      if(_entregueProdutoOrc(orc.id,s.produto_id)) return; // já entregue → não reserva
+      desejado[s.produto_id]=(desejado[s.produto_id]||0)+(parseInt(s.qty)||1);
     });
   }
-  // Quanto este orçamento JÁ movimentou por produto (soma de todos os mov. com ref deste orc)
-  const prefix='orc:'+orc.id;
-  const jaMovido={};
-  todosMovEstoque.filter(m=>m.ref && m.ref.indexOf(prefix)===0).forEach(m=>{
-    jaMovido[m.produto_id]=(jaMovido[m.produto_id]||0)+(parseFloat(m.quantidade)||0);
+  // já reservado por este orçamento (net dos movimentos de reserva/liberação deste orc)
+  const jaReservado={};
+  todosMovEstoque.filter(m=>_TIPOS_RESERVA.includes(m.tipo) && m.ref && m.ref.indexOf('orc:'+orc.id)>=0).forEach(m=>{
+    jaReservado[m.produto_id]=(jaReservado[m.produto_id]||0)+(parseFloat(m.quantidade)||0);
   });
-  const ids=new Set([...Object.keys(desejado),...Object.keys(jaMovido)]);
+  const ids=new Set([...Object.keys(desejado),...Object.keys(jaReservado)]);
   let mudou=false;
   ids.forEach(pid=>{
-    const delta=(desejado[pid]||0)-(jaMovido[pid]||0);
-    if(Math.abs(delta)<0.0001) return; // já está certo
-    const p=produtoById(pid);
+    const delta=(desejado[pid]||0)-(jaReservado[pid]||0);
+    if(Math.abs(delta)<0.0001) return;
     const numStr=String(orc.numero||'').padStart(3,'0');
     registrarMovimento({
-      produto_id:pid, tipo: delta<0?'saida':'entrada', quantidade:delta,
-      custo_unit:p?p.custo:null,
-      motivo:(delta<0?'Baixa orçamento #':'Estorno orçamento #')+numStr,
-      ref:prefix+':sync:'+pid+':'+Date.now()+Math.random().toString(36).slice(2,5),
+      produto_id:pid, tipo: delta>0?'reserva':'liberacao_reserva', quantidade:delta,
+      custo_unit:null,
+      motivo:(delta>0?'Reserva orçamento #':'Libera reserva #')+numStr,
+      ref:'res:orc:'+orc.id+':'+pid+':'+Date.now()+Math.random().toString(36).slice(2,5),
       lojaId:orc.loja_id
     });
     mudou=true;
   });
   if(mudou && document.getElementById('page-estoque')?.classList.contains('on')) renderEstoque();
+}
+
+// ── Entrega: converte reserva em baixa física (OS concluída ou botão manual) ──
+function entregarOrcamento(orc, origem){
+  if(!orc||!orc.id) return;
+  if(orc.status!=='aprovado'){ if(origem==='manual') toast('⚠️ Só dá baixa de orçamento aprovado'); return; }
+  let baixou=false;
+  (orc.servicos||[]).filter(s=>s.produto_id).forEach(s=>{
+    const pid=s.produto_id;
+    if(_entregueProdutoOrc(orc.id,pid)) return; // já entregue
+    const qty=Math.abs(parseInt(s.qty)||1);
+    const p=produtoById(pid);
+    const numStr=String(orc.numero||'').padStart(3,'0');
+    // baixa física + libera a reserva equivalente
+    registrarMovimento({produto_id:pid, tipo:'saida', quantidade:-qty, custo_unit:p?p.custo:null, motivo:'Entrega orçamento #'+numStr, ref:'baixa:orc:'+orc.id+':'+pid, lojaId:orc.loja_id});
+    registrarMovimento({produto_id:pid, tipo:'liberacao_reserva', quantidade:-qty, custo_unit:null, motivo:'Baixa entrega #'+numStr, ref:'libres:orc:'+orc.id+':'+pid, lojaId:orc.loja_id});
+    baixou=true;
+  });
+  if(baixou){
+    if(typeof renderTabela==='function') renderTabela();
+    if(document.getElementById('page-estoque')?.classList.contains('on')) renderEstoque();
+    atualizarDash&&atualizarDash();
+    if(origem==='manual') toast('✅ Baixa de estoque realizada');
+  } else if(origem==='manual'){ toast('Nada a baixar (sem produtos ou já entregue)'); }
+}
+// Compat: chamadas antigas de baixa agora gerenciam a RESERVA
+function sincronizarBaixaOrcamento(orc){ sincronizarReservaOrcamento(orc); }
+// Quando uma OS é concluída, dá baixa do orçamento vinculado (se houver)
+function _entregarPelaOS(osId){
+  if(!osId) return;
+  let os=(todosOS||[]).find(x=>String(x.id)===String(osId));
+  if(!os){ try{ os=(JSON.parse(ls('fluxa_os_hist')||'[]')||[]).find(x=>String(x.id)===String(osId)); }catch(e){ console.warn('[entregarPelaOS]',e?.message||e); } }
+  const orcId=os?.orcamento_id;
+  if(!orcId) return;
+  const orc=todosOrc.find(o=>String(o.id)===String(orcId));
+  if(orc && orc.status==='aprovado') entregarOrcamento(orc,'os');
+}
+// Produtos com disponível negativo = encomendas (vendido/comprometido sem estoque)
+function listaEncomendas(){
+  return filtrarPorLoja(todosProdutos.filter(p=>p.ativo!==false))
+    .map(p=>({p, falta: -disponivelProduto(p.id)}))
+    .filter(x=>x.falta>0.0001)
+    .sort((a,b)=>b.falta-a.falta);
 }
 
 // ── UI do estoque ──
@@ -10219,31 +10291,33 @@ function renderEstoque(){
     .filter(p=> !estoqueBusca || (p.nome||'').toLowerCase().includes(estoqueBusca) || (p.codigo||'').toLowerCase().includes(estoqueBusca))
     .sort((a,b)=>(a.nome||'').localeCompare(b.nome||''));
 
-  // Alertas de mínimo
-  const abaixo=prods.filter(p=>{ const m=parseFloat(p.estoque_minimo)||0; return m>0 && saldoProduto(p.id) <= m; });
+  // Alertas: encomendas (disponível negativo) + repor (mínimo)
+  const enc=listaEncomendas();
+  const abaixo=prods.filter(p=>{ const m=parseFloat(p.estoque_minimo)||0; return m>0 && disponivelProduto(p.id) <= m && disponivelProduto(p.id) >= 0; });
   const al=document.getElementById('estoque-alerta');
   if(al){
-    if(abaixo.length){
-      al.style.display='';
-      al.innerHTML=`<strong>⚠️ ${abaixo.length} produto${abaixo.length>1?'s':''} para repor:</strong> `+
-        abaixo.slice(0,6).map(p=>`${esc(p.nome)} (${fmtQtd(saldoProduto(p.id))})`).join(' · ')+(abaixo.length>6?' …':'');
-    } else al.style.display='none';
+    let aviso='';
+    if(enc.length) aviso+=`<div style="color:#b91c1c"><strong>📥 ${enc.length} para comprar (encomenda):</strong> `+enc.slice(0,6).map(x=>`${esc(x.p.nome)} (faltam ${fmtQtd(x.falta)})`).join(' · ')+(enc.length>6?' …':'')+`</div>`;
+    if(abaixo.length) aviso+=`<div style="margin-top:${enc.length?'6px':'0'}"><strong>🔄 ${abaixo.length} para repor (mínimo):</strong> `+abaixo.slice(0,6).map(p=>`${esc(p.nome)} (${fmtQtd(disponivelProduto(p.id))})`).join(' · ')+(abaixo.length>6?' …':'')+`</div>`;
+    al.style.display=aviso?'':'none'; al.innerHTML=aviso;
   }
 
   if(!prods.length){
     body.innerHTML=`<div class="empty-st"><div class="ei">📦</div><p>${estoqueBusca?'Nenhum produto encontrado.':'Nenhum produto cadastrado ainda.'}</p><button class="btn-primary" style="margin-top:12px" onclick="abrirProdutoModal()">＋ Cadastrar produto</button></div>`;
     return;
   }
-  let h=`<div class="htw"><table class="ht"><thead><tr><th>Produto</th><th>Saldo</th><th>Reservado</th><th>Mín.</th><th>Valor parado</th><th>Ações</th></tr></thead><tbody>`;
+  let h=`<div class="htw"><table class="ht"><thead><tr><th>Produto</th><th title="No depósito">Física</th><th title="Comprometida em orçamentos aprovados">Reserv.</th><th title="Física menos reservada (o que dá pra vender)">Dispon.</th><th>Mín.</th><th>Valor</th><th>Ações</th></tr></thead><tbody>`;
   prods.forEach(p=>{
-    const saldo=saldoProduto(p.id), min=parseFloat(p.estoque_minimo)||0, res=reservadoProduto(p.id);
-    const baixo = min>0 && saldo<=min, neg = saldo<0;
-    const corSaldo = neg?'var(--red)':baixo?'var(--yellow)':'var(--green)';
-    const valParado = brl((saldo>0?saldo:0)*(parseFloat(p.custo)||0));
+    const fis=fisicaProduto(p.id), res=reservadoProduto(p.id), disp=disponivelProduto(p.id);
+    const min=parseFloat(p.estoque_minimo)||0;
+    const encomenda = disp<0, baixo = !encomenda && min>0 && disp<=min;
+    const corDisp = encomenda?'var(--red)':baixo?'var(--yellow)':'var(--green)';
+    const valParado = brl((fis>0?fis:0)*(parseFloat(p.custo)||0));
     h+=`<tr>
-      <td><div class="ocl">${esc(p.nome)}</div><div class="oloc">${[p.codigo,p.unidade].filter(Boolean).map(esc).join(' · ')}</div></td>
-      <td><span style="font-weight:700;color:${corSaldo}">${fmtQtd(saldo)}</span></td>
+      <td><div class="ocl">${esc(p.nome)}${encomenda?' <span style="font-size:10px;background:var(--red-bg);color:var(--red);padding:1px 6px;border-radius:50px;font-weight:700">encomenda</span>':''}</div><div class="oloc">${[p.codigo,p.unidade].filter(Boolean).map(esc).join(' · ')}</div></td>
+      <td style="font-weight:600">${fmtQtd(fis)}</td>
       <td style="color:var(--gray)">${res>0?fmtQtd(res):'—'}</td>
+      <td><span style="font-weight:700;color:${corDisp}">${fmtQtd(disp)}</span></td>
       <td style="color:var(--gray)">${min>0?fmtQtd(min):'—'}</td>
       <td style="color:var(--gray)">${valParado}</td>
       <td><div class="ta">
