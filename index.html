@@ -3218,7 +3218,7 @@ function aplicarPermissoesPerfil(){
   const pAtiva=document.querySelector('.page.on');
   const pid=pAtiva?pAtiva.id.replace('page-',''):'';
   const pagesVendasOk=['form','history','clientes','agendamentos','os'];
-  const pagesTecnicoOk=['minhas-os','visitas'];
+  const pagesTecnicoOk=['minhas-os','visitas','os']; // 'os' para abrir/preencher a OS atribuída
   if(tecnico && !pagesTecnicoOk.includes(pid)) go('minhas-os');
   if(vendas  && !pagesVendasOk.includes(pid))  go('form');
 }
@@ -4535,7 +4535,7 @@ function go(p){
   const _tecnico = eTecnico();
   const _gestor  = eGestor();
   const pagesVendas  = ['form','history','clientes','agendamentos','os'];
-  const pagesTecnico = ['minhas-os','visitas'];
+  const pagesTecnico = ['minhas-os','visitas','os']; // 'os' para abrir/preencher a OS atribuída
   if(_vendas  && !pagesVendas.includes(p))  { toast('Você não tem acesso a essa área.'); return; }
   if(_tecnico && !pagesTecnico.includes(p)) { toast('Você não tem acesso a essa área.'); return; }
   if(!_gestor && !_vendas && !_tecnico &&
@@ -4587,6 +4587,9 @@ function go(p){
     const l=gV('os-loja')||LOJA_PADRAO_ID;
     atualizarTecsPorLoja(l,'os-tec');
     atualizarTecsPorLoja(l,'os-tec-checkin');
+    // Técnico: oculta o valor financeiro (não precisa ver preço)
+    const totalWrap = document.getElementById('os-total')?.closest('.fl');
+    if(totalWrap) totalWrap.style.display = eTecnico() ? 'none' : '';
     // Vendas: oculta seções técnicas (check-in, checklist, fotos, detalhes)
     const soVendas = eVendas();
     ['os-checkin-card'].forEach(id=>{
@@ -6228,17 +6231,21 @@ async function loadMinhasOS(){
   let lista = [];
   if(dbOk && db){
     try{
-      const {data} = await db.from('ordens_servico')
-        .select('*')
-        .eq('tecnico', sess.nome)
-        .order('data_servico', {ascending:true});
+      // Carrega TODAS e filtra no cliente (casar por nome exato no banco era frágil)
+      const {data} = await db.from('ordens_servico').select('*').order('data_servico', {ascending:true});
       if(data) lista = data;
     }catch(e){ console.warn('[loadMinhasOS]', e?.message||e); }
   }
-  // fallback: filtrar todosOS em memória
-  if(!lista.length){
-    lista = todosOS.filter(o => (o.tecnico||'').toLowerCase() === (sess.nome||'').toLowerCase());
-  }
+  if(!lista.length) lista = todosOS;
+  const meu = (sess.nome||'').toLowerCase().trim();
+  // nomes de técnicos REAIS (config das lojas) — p/ tratar nomes fantasmas como "sem técnico"
+  const nomesReais = new Set(LOJAS.flatMap(l=>l.tecs||[]).map(t=>(t||'').toLowerCase().trim()));
+  // O técnico vê: as OS dele (nome, sem diferenciar maiúsc.) + as sem técnico
+  // + as atribuídas a um nome que não é técnico real (ex.: "Técnico 1" legado)
+  lista = lista.filter(o=>{
+    const t = (o.tecnico||'').toLowerCase().trim();
+    return t===meu || t==='' || !nomesReais.has(t);
+  });
   window._minhasOSAll = lista;
   renderMinhasOS();
 }
@@ -7493,7 +7500,7 @@ function verFotoDesp(id){
 // ══════════════════════════════════════════════════
 let todosAg = [], calAno, calMes, checkinAt = null, checkinTimer = null;
 
-function getTecnicos(){ return CFG.tecnicos||['Técnico 1']; }
+function getTecnicos(){ return CFG.tecnicos || LOJAS.flatMap(l=>l.tecs||[]).filter((v,i,a)=>a.indexOf(v)===i); }
 
 function populaTecSelects(){
   const tecs=getTecnicos();
