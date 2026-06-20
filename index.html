@@ -160,6 +160,8 @@
     .btn-rm{background:none;border:none;color:#d1d5db;font-size:17px;cursor:pointer;width:28px;height:28px;min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center;border-radius:6px;transition:all .15s;flex-shrink:0}
     .btn-rm:hover{background:var(--red-bg);color:var(--red)}
     .btn-add{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:var(--c1-light);color:var(--c1);border:2px dashed var(--c1);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif}
+    .btn-voltar{display:inline-flex;align-items:center;gap:5px;background:none;border:none;cursor:pointer;color:var(--gray);font-size:14px;font-weight:600;font-family:'Inter',sans-serif;padding:4px 0;margin-bottom:10px}
+    .btn-voltar:hover{color:var(--c1)}
     .btn-add:hover{background:var(--c1-mid)}
 
     /* totais */
@@ -1728,6 +1730,7 @@
 <!-- ══ PAGE: ORDEM DE SERVIÇO ══ -->
 <div class="page" id="page-os">
   <div class="wrap">
+    <button class="btn-voltar" onclick="voltar()">← Voltar</button>
     <div class="card">
       <div class="ct"><span id="os-form-titulo">Nova Ordem de Serviço</span> <span id="os-src-badge" style="font-size:11px;color:var(--gray);font-weight:400;text-transform:none;letter-spacing:0"></span></div>
       <div class="row">
@@ -1953,6 +1956,7 @@
 <!-- ══ PAGE: EQUIPAMENTOS ══ -->
 <div class="page" id="page-equipamentos">
   <div class="wrap">
+    <button class="btn-voltar" onclick="voltar()">← Voltar</button>
     <!-- Formulário novo equipamento (oculto por padrão) -->
     <div class="card" id="eq-form-card" style="display:none">
       <div class="ct">Novo Equipamento <button onclick="fecharFormEq()" aria-label="Fechar" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;line-height:1">×</button></div>
@@ -2387,7 +2391,7 @@
 <div class="page" id="page-clientes">
   <div class="wrap" style="max-width:700px">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;padding-top:8px">
-      <button onclick="go('form')" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:13px;font-weight:600;font-family:'Inter',sans-serif;display:flex;align-items:center;gap:5px">← Voltar</button>
+      <button class="btn-voltar" onclick="voltar()" style="margin-bottom:0">← Voltar</button>
       <span style="font-size:18px;font-weight:800;color:var(--c2)">👥 Clientes</span>
     </div>
     <div id="cli-form-wrap" style="display:none">
@@ -2434,6 +2438,7 @@
 <!-- ══ PAGE: PRODUTIVIDADE ══ -->
 <div class="page" id="page-produtividade">
   <div class="wrap">
+    <button class="btn-voltar" onclick="voltar()">← Voltar</button>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
       <div style="font-size:18px;font-weight:800;color:var(--c2)">📈 Produtividade</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
@@ -2501,6 +2506,7 @@
 <!-- ══ PAGE: DESPESAS ══ -->
 <div class="page" id="page-despesas">
   <div class="wrap">
+    <button class="btn-voltar" onclick="voltar()">← Voltar</button>
     <div class="card" id="desp-form-card" style="display:none">
       <div class="ct">Nova Despesa <button onclick="fecharFormDesp()" aria-label="Fechar" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;line-height:1">×</button></div>
       <div class="row">
@@ -2567,6 +2573,7 @@
 <!-- ══ PAGE: ESTOQUE ══ -->
 <div class="page" id="page-estoque">
   <div class="wrap">
+    <button class="btn-voltar" onclick="voltar()">← Voltar</button>
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:14px">
       <div style="font-size:18px;font-weight:800;color:var(--c2)">📦 Controle de Estoque</div>
       <button class="btn-primary" onclick="abrirProdutoModal()" style="padding:9px 16px">＋ Novo produto</button>
@@ -4563,6 +4570,10 @@ function go(p){
      ['form','history','empresa','usuarios','produtividade'].includes(p)){
     toast('⚠️ Acesso restrito ao Gestor'); return;
   }
+  // Histórico de navegação (para o botão "← Voltar")
+  const _atual = document.querySelector('.page.on')?.id?.replace('page-','');
+  if(window._skipNavHist){ window._skipNavHist=false; }
+  else if(_atual && _atual!==p){ window._navHist=(window._navHist||[]); window._navHist.push(_atual); if(window._navHist.length>25) window._navHist.shift(); }
   document.querySelectorAll('.page').forEach(x=>x.classList.remove('on'));
   document.getElementById('page-'+p).classList.add('on');
   document.querySelectorAll('.nb').forEach(x=>{ x.classList.remove('on'); x.removeAttribute('aria-current'); });
@@ -4631,6 +4642,18 @@ function go(p){
       }
     });
   }
+}
+
+// Voltar para a página anterior (histórico de navegação); fallback por perfil
+function voltar(){
+  const atual=document.querySelector('.page.on')?.id?.replace('page-','');
+  const hist=window._navHist||[];
+  let dest=hist.pop();
+  while(dest && dest===atual) dest=hist.pop(); // não volta pra própria página
+  window._navHist=hist;
+  if(!dest) dest = eTecnico()?'minhas-os':eVendas()?'form':'history';
+  window._skipNavHist=true; // não re-empilha ao voltar
+  go(dest);
 }
 
 // Gear dropdown
