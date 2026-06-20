@@ -45,13 +45,22 @@ Cada empresa usa o **mesmo `index.html`**; só o **`config.js`** muda. NÃO chum
 
 ## 📦 ESTOQUE (controle inteligente)
 
-Tabelas: `produtos` e `estoque_movimentos` (id texto `prod_*`/`mov_*`). **Saldo = soma dos movimentos** (`saldoProduto(id)`), nunca um contador editável. Multi-loja (filtra por `loja_id`/`filtrarPorLoja`). Só gestor edita; carregado no login (`loadEstoque`).
+Tabelas: `produtos` e `estoque_movimentos` (id texto `prod_*`/`mov_*`). **Saldo = soma dos movimentos** (ledger), nunca um contador editável. Só gestor edita; carregado no login (`loadEstoque`). `registrarMovimento(...)` é local-first + sync resiliente — **NUNCA** decremente um número, sempre crie um movimento.
 
-- `registrarMovimento({produto_id,tipo,quantidade,...,ref})` — local-first + sync resiliente. `tipo`: entrada(+)/saida(−)/ajuste(±).
-- **Integração com orçamento:** item do orçamento pode ter `produto_id` (picker `abrirPickerProduto`). Na aprovação dá baixa automática.
-- **`sincronizarBaixaOrcamento(orc)`** é o coração: reconcilia (lança só a diferença entre o que *deveria* estar baixado se aprovado e o que *já* foi movido por este orçamento — prefixo `ref='orc:<id>'`). Idempotente; cobre aprovar/reverter/editar qtd/excluir. Chamado em `mudarSt`, `aprovarOrcPortal`, `_recusarOrcPortalConfirmado`, `_excluirOrcConfirmado` e ao salvar orçamento já aprovado.
-- Campos fiscais no produto (`ncm,cest,cfop_padrao,origem,gtin_ean`) ficam prontos para a futura NF-e de produto.
-- **NUNCA** dar baixa decrementando um número; sempre criar um movimento.
+**3 números por produto, no contexto da loja ativa:**
+- `fisicaProduto(id)` — no depósito (tipos: entrada/saida/ajuste/transf_entrada/transf_saida)
+- `reservadoProduto(id)` — comprometido (tipos: reserva/liberacao_reserva)
+- `disponivelProduto(id)` = física − reservada. **Negativo = encomenda** (`listaEncomendas()`).
+- `saldoProduto(id)` = física (compat).
+
+**Ciclo orçamento → estoque:**
+- Aprovar → **reserva** via `sincronizarReservaOrcamento(orc)` (reconciliação idempotente, prefixo `ref='res:orc:<id>'`; cobre reverter/editar/excluir). Chamado em `mudarSt`, `aprovarOrcPortal`, `_recusarOrcPortalConfirmado`, `_excluirOrcConfirmado`, e ao salvar orçamento aprovado. (`sincronizarBaixaOrcamento` é alias.)
+- Entregar → **baixa física** via `entregarOrcamento(orc, origem)`: saída + libera reserva (refs `baixa:orc:id:pid` / `libres:...`). Dispara em **OS concluída** (`_entregarPelaOS` no check-out e na vistoria rápida) E no botão manual **"📦 Entregar"** do histórico.
+- Item do orçamento vincula produto via `produto_id` (picker `abrirPickerProduto`). Só item com `produto_id` mexe no estoque.
+
+**Multi-loja:** `produtosVisiveis()` = produtos da loja ativa + os com movimento nela (recebidos por transferência). `transferirProduto()` gera 2 movimentos ligados carregando o custo. **CMP:** `recomputarCMP()` recalcula o custo a cada entrada. Ajuste exige motivo.
+
+Campos fiscais no produto (`ncm,cest,cfop_padrao,origem,gtin_ean`) prontos para a futura NF-e.
 
 ---
 
