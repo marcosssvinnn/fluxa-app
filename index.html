@@ -3769,6 +3769,7 @@ let svcs = [], editId = null;
 let osSvcs = [], modalOrcId = null, osOrcId = null; // osOrcId = ID do orçamento vinculado à OS
 let todosOrc = [], filtroSt = localStorage.getItem('fluxa_filtroSt')||'todos', busca = '';
 let todosOS = [], filtroOSSt = localStorage.getItem('fluxa_filtroOSSt')||'todos', buscaOS = '', filtroOSTec = '';
+let osEditId = null; // id da OS sendo editada (null = nova) — evita duplicar ao salvar
 let filtroPeriodo = ''; // legado — não mais usado na tabela principal
 let orcMesRef = ''; // YYYY-MM ou '' = todos os períodos
 let osFotos = ['','',''];
@@ -5430,12 +5431,21 @@ async function gerarOSPDF(modo='os'){
   let numStr='???';
   if(dbOk&&db){
     try{
-      const {data:rows}=await db.from('ordens_servico').select('numero').order('numero',{ascending:false}).limit(1);
-      const num=rows&&rows.length?(rows[0].numero||0)+1:1;
       const orcId=osOrcId||null;
       const lojaIdOS=gV('os-loja')||LOJA_PADRAO_ID;
-      await db.from('ordens_servico').insert([{numero:num,orcamento_id:orcId,loja_id:lojaIdOS,cliente:dados.cli,local_servico:dados.loc,cnpj:dados.cnpj||null,data_servico:dados.data,hora:dados.hora,tecnico:dados.tec,servicos:dados.svcs,materiais:dados.mat,obs_tecnica:dados.obs,total:dados.tot,status:'agendado',fotos:dados.fotos,video_link:dados.videoLink||null,checklist:dados.checklist.length?JSON.stringify(dados.checklist):null}]);
-      numStr=String(num).padStart(3,'0');
+      const payload={orcamento_id:orcId,loja_id:lojaIdOS,cliente:dados.cli,local_servico:dados.loc,cnpj:dados.cnpj||null,data_servico:dados.data,hora:dados.hora,tecnico:dados.tec,servicos:dados.svcs,materiais:dados.mat,obs_tecnica:dados.obs,total:dados.tot,fotos:dados.fotos,video_link:dados.videoLink||null,checklist:dados.checklist.length?JSON.stringify(dados.checklist):null};
+      if(osEditId && !String(osEditId).startsWith('local_')){
+        // EDIÇÃO: atualiza a OS existente (mantém número e status)
+        const existente=todosOS.find(x=>x.id===osEditId);
+        await db.from('ordens_servico').update(payload).eq('id',osEditId);
+        numStr=String(existente?.numero||'').padStart(3,'0')||'???';
+        toast('✅ OS atualizada');
+      } else {
+        const {data:rows}=await db.from('ordens_servico').select('numero').order('numero',{ascending:false}).limit(1);
+        const num=rows&&rows.length?(rows[0].numero||0)+1:1;
+        await db.from('ordens_servico').insert([{...payload,numero:num,status:'agendado'}]);
+        numStr=String(num).padStart(3,'0');
+      }
     }catch(e){ numStr='???'; console.warn('[gerarOSPDF] falha ao salvar OS no banco:', e?.message||e); toast('⚠️ OS não foi salva no banco — verifique a conexão'); }
   } else { const n=(parseInt(ls('fluxa_os_num')||'0'))+1; lsSet('fluxa_os_num',n); numStr=String(n).padStart(3,'0'); }
 
@@ -6040,6 +6050,7 @@ function duplicarOrc(id){
 
 function gerarOS_deOrc(id){
   const o=todosOrc.find(x=>x.id===id); if(!o) return;
+  osEditId = null; // OS nova a partir do orçamento
   osOrcId = id; // guarda o vínculo
   setV('os-cli',o.cliente||''); setV('os-loc',o.local_servico||''); setV('os-cnpj',o.cnpj||'');
   setV('os-loja',o.loja_id||lojaAtiva||LOJA_PADRAO_ID); // fix #4: lojaAtiva como fallback para registros antigos
@@ -6056,6 +6067,7 @@ function gerarOS_deOrc(id){
 }
 
 function novaOS(){
+  osEditId=null; // OS nova
   checkinAt=null; if(checkinTimer){clearInterval(checkinTimer);checkinTimer=null;}
   const checkinBarEl=document.getElementById('checkin-bar'); if(checkinBarEl) checkinBarEl.style.display='none';
   const checkinFormEl=document.getElementById('checkin-form'); if(checkinFormEl) checkinFormEl.style.display='flex';
@@ -6196,6 +6208,7 @@ function renderOSTabela(){
 
 function editarOS(id){
   const o=todosOS.find(x=>x.id===id); if(!o) return;
+  osEditId=id; // editando: salvar atualiza (não duplica)
   osOrcId=o.orcamento_id||null;
   setV('os-cli',o.cliente||''); setV('os-loc',o.local_servico||'');
   setV('os-data',o.data_servico||''); setV('os-hora',o.hora||'08:00');
