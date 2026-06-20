@@ -10127,6 +10127,11 @@ function lsMovSalvar(l){ lsSet('fluxa_estoque_mov', JSON.stringify(l)); }
 async function loadEstoque(){
   todosProdutos = lsProdLer();
   todosMovEstoque = lsMovLer();
+  // Migração: remove movimentos do modelo antigo (baixa imediata, ref '...:sync:')
+  // para não re-subirem ao banco e bagunçarem a física no modelo reserva/entrega.
+  const _antes=todosMovEstoque.length;
+  todosMovEstoque=todosMovEstoque.filter(m=>!(m.ref&&m.ref.indexOf(':sync:')>=0));
+  if(todosMovEstoque.length!==_antes) lsMovSalvar(todosMovEstoque);
   renderEstoque();
   if(dbOk&&db){
     try{
