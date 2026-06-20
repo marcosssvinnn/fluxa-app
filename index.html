@@ -6206,8 +6206,16 @@ function renderOSTabela(){
   document.getElementById('osh-body').innerHTML=h;
 }
 
+// Tipo da OS: vistoria mensal (agendamento), do orçamento, ou serviço avulso
+function _osTipo(o){ return o?.agendamento_id?'vistoria':o?.orcamento_id?'orcamento':'servico'; }
+function _acharOS(id){
+  return todosOS.find(x=>x.id===id)
+    || (window._minhasOSAll||[]).find(x=>x.id===id)
+    || (()=>{ try{ return (JSON.parse(ls('fluxa_os_hist')||'[]')||[]).find(x=>x.id===id); }catch(e){ return null; } })()
+    || (getNC(id)?.id?getNC(id):null);
+}
 function editarOS(id){
-  const o=todosOS.find(x=>x.id===id); if(!o) return;
+  const o=_acharOS(id); if(!o||!o.id){ toast('OS não encontrada'); return; }
   osEditId=id; // editando: salvar atualiza (não duplica)
   osOrcId=o.orcamento_id||null;
   setV('os-cli',o.cliente||''); setV('os-loc',o.local_servico||'');
@@ -6339,10 +6347,16 @@ function renderMinhasOS(){
     const stCl = o.status==='concluido'?'os-concluido':o.status==='cancelado'?'os-cancelado':'os-agendado';
     const stTx = o.status==='concluido'?'Concluído':o.status==='cancelado'?'Cancelado':'Agendado';
     const svcs = (o.servicos||[]).join(', ');
+    const tipo=_osTipo(o);
+    const tipoBadge = tipo==='vistoria'
+      ? '<span style="font-size:10px;font-weight:700;background:#f3e8ff;color:#7c3aed;padding:2px 8px;border-radius:50px">🔍 Vistoria mensal</span>'
+      : tipo==='orcamento'
+      ? '<span style="font-size:10px;font-weight:700;background:var(--c1-light);color:var(--c1);padding:2px 8px;border-radius:50px">📄 Do orçamento</span>'
+      : '<span style="font-size:10px;font-weight:700;background:#e0f2fe;color:#0369a1;padding:2px 8px;border-radius:50px">🔧 Serviço</span>';
     return `<div class="tec-os-card" onclick="editarOS('${o.id}')">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;gap:8px">
         <span class="on">#${num}</span>
-        <span class="os-badge ${stCl}">${stTx}</span>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end">${tipoBadge}<span class="os-badge ${stCl}">${stTx}</span></div>
       </div>
       <div class="tec-os-cli">${esc(o.cliente||'—')}</div>
       <div class="tec-os-det">${esc(o.local_servico||'')}${o.local_servico&&dt!=='—'?' · ':''}${dt!=='—'?dt:''}</div>
@@ -7768,8 +7782,11 @@ function renderCal(){
   const ultimo=new Date(calAno,calMes+1,0).getDate();
   const hoje=new Date(); hoje.setHours(0,0,0,0);
   let dia=1, inicioDia=primeiro.getDay();
-  // Buscar OS do mês nas OS locais
-  const osLocal=JSON.parse(ls('fluxa_os_hist')||'[]');
+  // OS do mês: mescla cache local (fluxa_os_hist) + as carregadas do banco (todosOS)
+  const _osById={};
+  try{ (JSON.parse(ls('fluxa_os_hist')||'[]')||[]).forEach(o=>{ if(o&&o.id) _osById[o.id]=o; }); }catch(e){ console.warn('[renderCal]',e?.message||e); }
+  (todosOS||[]).forEach(o=>{ if(o&&o.id) _osById[o.id]=o; });
+  const osLocal=Object.values(_osById);
   while(dia<=ultimo){
     h+='<tr>';
     for(let col=0;col<7;col++){
@@ -7781,7 +7798,7 @@ function renderCal(){
       h+=`<td class="${isHoje?'hoje':''}"><div style="font-size:10px;color:var(--gray);margin-bottom:2px">${dia}</div>`;
       osNoDia.slice(0,3).forEach(o=>{
         _nc[o.id]=o;
-        const isVis=Array.isArray(o.servicos)?o.servicos.some(s=>(s||'').toString().toLowerCase().includes('vistoria')):(o.servicos||'').toString().toLowerCase().includes('vistoria');
+        const isVis=_osTipo(o)==='vistoria';
         const extraStyle=isVis&&o.status==='agendado'?'background:#7c3aed;':'';
         const evLabel=(isVis?'🔍 ':'')+esc((o.cliente||'').split(' ')[0]);
         h+=`<div class="cal-ev ${o.status||'agendado'}" title="${esc(o.cliente||'')} — ${esc(o.tecnico||'')}" onclick="verDetalhesOS('${o.id}')" style="cursor:pointer;${extraStyle}">${evLabel}</div>`;
@@ -7825,7 +7842,7 @@ function verDetalhesOS(id){
     </div>
     <div style="display:flex;gap:8px;margin-top:18px">
       <button onclick="this.closest('#modal-detalhes-os').remove()" style="flex:1;padding:10px;border-radius:8px;border:1.5px solid #e5e7eb;background:#fff;font-family:Inter,sans-serif;font-size:13px;font-weight:600;cursor:pointer">Fechar</button>
-      <button onclick="go('os');this.closest('#modal-detalhes-os').remove()" style="flex:1;padding:10px;border-radius:8px;border:none;background:var(--c1);color:#fff;font-family:Inter,sans-serif;font-size:13px;font-weight:700;cursor:pointer">Ver todas as OS →</button>
+      <button onclick="this.closest('#modal-detalhes-os').remove();editarOS('${o.id}')" style="flex:1;padding:10px;border-radius:8px;border:none;background:var(--c1);color:#fff;font-family:Inter,sans-serif;font-size:13px;font-weight:700;cursor:pointer">🔧 Abrir e executar</button>
     </div>
   </div>`;
   m.addEventListener('click',e=>{ if(e.target===m) m.remove(); });
