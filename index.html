@@ -2664,7 +2664,10 @@
 
     <!-- Header + tabs -->
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
-      <div style="font-size:18px;font-weight:800;color:var(--c2)">🔍 Vistorias de Manutenção</div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <button id="vis-back-os" onclick="go('minhas-os')" style="display:none;background:var(--c1-light);color:var(--c1);border:1.5px solid var(--c1);border-radius:50px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif">← 📋 Minhas OS</button>
+        <div style="font-size:18px;font-weight:800;color:var(--c2)">🔍 Vistorias de Manutenção</div>
+      </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="fb on" id="vis-tab-nova" onclick="visTab('nova');window._visLocalId=null;document.getElementById('vis-plano-banner').style.display='none'">📋 Nova Vistoria</button>
         <button class="fb" id="vis-tab-hist" onclick="visTab('hist')">📜 Histórico</button>
@@ -3164,6 +3167,8 @@ function aplicarPermissoesPerfil(){
   Object.entries(snbRules).forEach(([id,pode])=>{
     const el=document.getElementById(id); if(el) el.style.display=pode?'':'none';
   });
+  // Botão "← Minhas OS" no topo da página de Vistorias (só técnico precisa)
+  const visBack=document.getElementById('vis-back-os'); if(visBack) visBack.style.display=tecnico?'':'none';
   // Reveal sidebar now that user is logged in
   const _sb=document.getElementById('sidebar');
   if(_sb){ _sb.classList.remove('s-hidden'); }
