@@ -2268,6 +2268,8 @@
         <div class="pd-obs-txt" id="pd-obs-txt-os"></div>
       </div>
     </div>
+    <!-- CHECKLIST OS -->
+    <div id="pd-checklist-os" style="display:none;margin-bottom:16px"></div>
     <!-- FOTOS OS -->
     <div id="pd-fotos-os" style="display:none;margin-bottom:16px"></div>
     <!-- SIGNATURES -->
@@ -5512,6 +5514,20 @@ function preencherDocOS(d, num){
     document.getElementById('pd-obs-bar-os').style.background=c1;
     ob.style.display='flex';
   } else ob.style.display='none';
+  // checklist OS no PDF (itens verificados/feitos — dá profundidade ao relatório)
+  const chkEl=document.getElementById('pd-checklist-os');
+  if(chkEl){
+    let chk=[];
+    try{ chk=d.checklist?(typeof d.checklist==='string'?JSON.parse(d.checklist):d.checklist):[]; }catch(e){ chk=[]; }
+    const ok=(chk||[]).filter(x=>x&&x.checked);
+    if(ok.length){
+      chkEl.style.display='block';
+      chkEl.innerHTML='<div style="font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#9ca3af;margin-bottom:8px">Checklist do Serviço</div>'+
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 16px">'+
+        ok.map(x=>`<div style="display:flex;align-items:flex-start;gap:6px;font-size:11.5px;color:#374151"><span style="color:#16a34a;font-weight:700">✓</span><span>${esc(x.nome)}${x.obs?` <span style="color:#6b7280">— ${esc(x.obs)}</span>`:''}</span></div>`).join('')+
+        '</div>';
+    } else { chkEl.style.display='none'; chkEl.innerHTML=''; }
+  }
   // fotos OS no PDF
   const fotosEl=document.getElementById('pd-fotos-os');
   const fotosArr=(d.fotos||[]).filter(Boolean);
