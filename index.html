@@ -1215,6 +1215,7 @@
     <button class="snb on" id="snb-form" onclick="go('form')"><span class="sicon">＋</span><span class="slabel">Orçamento</span></button>
     <button class="snb" id="snb-os" onclick="novaOS();go('os')"><span class="sicon">📋</span><span class="slabel">OS</span></button>
     <button class="snb" id="snb-history" onclick="go('history')"><span class="sicon">📊</span><span class="slabel">Histórico</span></button>
+    <button class="snb" id="snb-minhas-os" onclick="go('minhas-os')" style="display:none"><span class="sicon">📋</span><span class="slabel">Minhas OS</span></button>
     <button class="snb" id="snb-visitas" onclick="go('visitas')"><span class="sicon">🔍</span><span class="slabel">Vistorias</span></button>
     <button class="snb" id="snb-agendamentos" onclick="go('agendamentos')"><span class="sicon">📅</span><span class="slabel">Agenda</span></button>
     <div class="snav-div"></div>
@@ -3153,6 +3154,7 @@ function aplicarPermissoesPerfil(){
     'snb-agendamentos' : gestor||vendas,
     'snb-os'           : gestor||vendas,
     'snb-os-history'   : gestor,
+    'snb-minhas-os'    : tecnico,
     'snb-equipamentos' : gestor,
     'snb-visitas'      : gestor||tecnico,
     'snb-despesas'     : gestor,
@@ -3663,6 +3665,9 @@ async function fazerLogin(){
       atualizarBadgeUsuario();
       aplicarPermissoesPerfil();
       atualizarHeaderLoja();
+      // Destino inicial explícito por perfil
+      if(sessao.perfil==='tecnico') go('minhas-os');
+      else if(sessao.perfil==='vendas') go('form');
     }
   } else {
     loginAttempts++;
