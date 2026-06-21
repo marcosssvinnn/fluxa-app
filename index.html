@@ -10,17 +10,11 @@
   <title>Sistema de Orçamentos</title>
   <!-- Configuração da empresa (tenant). Opcional: se ausente, usa os defaults embutidos (Fortemp/Aquamotor). -->
   <script src="config.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.105.3/dist/umd/supabase.min.js"
-          integrity="sha384-iWpUQPQzWsFiosLgsS8o+e6E8y3Gm+EW2m/vAAo7A2H3fuc4KOKEx+5CAord2H2z"
-          crossorigin="anonymous"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"
-          integrity="sha384-SALc35EccAf6RzGw4iNsyj7kTPr33K7RoGzYu+7heZhT8s0GZouafRiCg1qy44AS"
-          crossorigin="anonymous"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"
-          crossorigin="anonymous"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"
-          integrity="sha384-e6nUZLBkQ86NJ6TVVKAeSaK8jWa3NhkYWZFomE39AvDbQWeie9PlQqM3pmYW5d1g"
-          crossorigin="anonymous"></script>
+  <!-- Bibliotecas hospedadas localmente (libs/ vendorizadas) — sem dependência de CDN -->
+  <script src="libs/supabase.min.js"></script>
+  <script src="libs/emailjs.min.js"></script>
+  <script src="libs/html2pdf.bundle.min.js"></script>
+  <script src="libs/chart.umd.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
@@ -3165,6 +3159,30 @@
 </main><!-- /#main-content -->
 
 <div class="toast" id="toast" role="alert" aria-live="assertive" aria-atomic="true"></div>
+
+<!-- Error boundary global: captura erros JS e exibe tela amigável -->
+<script>
+window.onerror = function(msg, src, line, col, err){
+  var el = document.getElementById('fluxa-error-screen');
+  if(!el) return false;
+  el.style.display = 'flex';
+  document.getElementById('fluxa-error-detail').textContent = (err && err.message ? err.message : msg) + (line ? ' (linha ' + line + ')' : '');
+  return true;
+};
+window.addEventListener('unhandledrejection', function(e){
+  var el = document.getElementById('fluxa-error-screen');
+  if(el) { el.style.display = 'flex'; document.getElementById('fluxa-error-detail').textContent = e.reason?.message || String(e.reason); }
+});
+</script>
+<!-- Tela de erro amigável (oculta por padrão) -->
+<div id="fluxa-error-screen" style="display:none;position:fixed;inset:0;z-index:99999;background:#f0f2f5;flex-direction:column;align-items:center;justify-content:center;font-family:'Inter',sans-serif;padding:24px;text-align:center">
+  <div style="font-size:48px;margin-bottom:16px">⚠️</div>
+  <div style="font-size:20px;font-weight:800;color:#2B3244;margin-bottom:8px">Algo deu errado</div>
+  <div style="font-size:14px;color:#6b7280;margin-bottom:6px">O app encontrou um erro inesperado.</div>
+  <div id="fluxa-error-detail" style="font-size:11px;color:#9ca3af;background:#e5e7eb;border-radius:8px;padding:8px 14px;margin-bottom:24px;max-width:480px;word-break:break-word"></div>
+  <button onclick="window.location.reload()" style="background:#C45E0A;color:white;border:none;border-radius:10px;padding:12px 28px;font-size:15px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif">🔄 Recarregar o app</button>
+  <div style="margin-top:12px;font-size:12px;color:#9ca3af">Seus dados estão salvos — nada foi perdido.</div>
+</div>
 
 <script>
 // ══════════════════════════════════════════════════
