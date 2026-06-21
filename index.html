@@ -231,7 +231,7 @@
     .fb{padding:6px 14px;border-radius:50px;border:1.5px solid var(--gray-mid);background:var(--white);font-size:12px;font-weight:600;color:var(--gray);cursor:pointer;transition:all .15s;font-family:'Inter',sans-serif}
     .fb:hover{border-color:var(--c1);color:var(--c1)}
     .fb.on{background:var(--c1);border-color:var(--c1);color:white}
-    .hsrch{padding:7px 13px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:13px;font-family:'Inter',sans-serif;outline:none;width:180px;margin-left:auto}
+    .hsrch{padding:7px 13px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:13px;font-family:'Inter',sans-serif;outline:none;width:240px;margin-left:auto}
     .hsrch:focus{border-color:var(--c1)}
 
     .htw{overflow-x:auto}
@@ -305,6 +305,7 @@
 
     /* ── TOAST ── */
     .toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--c2);color:white;padding:11px 24px;border-radius:50px;font-size:13px;font-weight:600;opacity:0;transition:all .3s ease;z-index:9999;white-space:nowrap;pointer-events:none}
+    @media(max-width:680px){.toast{bottom:72px}}
     .toast.on{transform:translateX(-50%) translateY(0);opacity:1}
 
     /* ── MODAL RECEBIMENTO ── */
@@ -1179,14 +1180,6 @@
         <button id="gear-btn-empresa" onclick="closeGear();go('empresa')">🏢 Dados da Empresa</button>
         <button id="gear-btn-usuarios" onclick="closeGear();go('usuarios')">👥 Usuários</button>
         <button id="gear-btn-auditoria" onclick="closeGear();go('auditoria')">🔐 Auditoria</button>
-        <button onclick="closeGear();go('clientes')">👥 Clientes</button>
-        <button onclick="closeGear();go('equipamentos')">🔧 Equipamentos</button>
-        <button onclick="closeGear();novoOrc()">🔄 Novo Orçamento</button>
-        <button onclick="closeGear();go('agendamentos')">📅 Agendamentos</button>
-        <button id="gear-btn-visitas" onclick="closeGear();go('visitas')">🔍 Vistorias</button>
-        <button id="gear-btn-estoque" onclick="closeGear();go('estoque')">📦 Estoque</button>
-        <button onclick="closeGear();go('despesas')">💸 Despesas</button>
-        <button id="gear-btn-prod" onclick="closeGear();go('produtividade')">📈 Produtividade</button>
         <button onclick="closeGear();fazerLogout()" style="color:var(--red)">🔓 Sair / Trocar usuário</button>
       </div>
     </div>
@@ -1227,7 +1220,7 @@
     <span class="micon">📋</span><span>OS</span>
   </button>
   <button class="mob-nb" id="mnb-minhas-os" onclick="go('minhas-os')" style="display:none">
-    <span class="micon">📋</span><span>Minhas OS</span>
+    <span class="micon">🗂️</span><span>Minhas OS</span>
   </button>
   <button class="mob-nb" id="mnb-history" onclick="go('history')">
     <span class="micon">📊</span><span>Histórico</span>
@@ -1328,11 +1321,14 @@
       <div class="fl"><textarea id="cfg-servicos" rows="8" placeholder="Troca de Motobomba&#10;Troca de Filtro / Areia&#10;Instalação de Gerador de Cloro a Sal&#10;Troca de LED Subaquático&#10;Limpeza de Trocador de Calor&#10;Manutenção de Sauna e Spa"></textarea></div>
     </div>
 
-    <div class="card">
-      <div class="ct">Técnicos</div>
-      <p style="font-size:13px;color:var(--gray);margin-bottom:14px">Um técnico por linha.</p>
-      <div class="fl"><textarea id="cfg-tecnicos" rows="4" placeholder="João&#10;Pedro&#10;Carlos"></textarea></div>
+    <div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap">
+      <div>
+        <div style="font-size:14px;font-weight:700;color:var(--c2);margin-bottom:3px">👥 Técnicos e Usuários</div>
+        <div style="font-size:13px;color:var(--gray)">Gerencie usuários, perfis e PINs de acesso em um só lugar.</div>
+      </div>
+      <button class="btn-primary" style="padding:9px 18px;font-size:13px;white-space:nowrap" onclick="go('usuarios')">Gerenciar Usuários →</button>
     </div>
+    <textarea id="cfg-tecnicos" style="display:none"></textarea>
 
     <div class="card">
       <div class="ct">Segurança</div>
@@ -1526,6 +1522,8 @@
 <!-- ══ PAGE: FORM ══ -->
 <div class="page" id="page-form">
   <div class="wrap">
+    <!-- Indicador de rascunho salvo -->
+    <div id="draft-indicator" style="display:none;font-size:11px;color:var(--gray);text-align:right;margin-bottom:4px;padding-top:4px">💾 Rascunho salvo às <span id="draft-time"></span></div>
     <!-- Voltar ao histórico (visível só ao editar) -->
     <div id="form-back-bar" style="display:none;align-items:center;justify-content:space-between;margin-bottom:10px;padding-top:4px">
       <button onclick="go('history')" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:13px;font-weight:600;font-family:'Inter',sans-serif;display:flex;align-items:center;gap:5px">← Voltar ao Histórico</button>
@@ -3626,7 +3624,7 @@ function loginNomeInput(val){
   const box = document.getElementById('login-nome-sugestoes'); if(!box) return;
   loginUserSelecionado = null; // reset ao digitar
   const q = val.trim().toLowerCase();
-  if(!q){ box.style.display='none'; box.innerHTML=''; return; }
+  if(q.length < 2){ box.style.display='none'; box.innerHTML=''; return; }
   const matches = _loginUsersCache.filter(u=>u.nome.toLowerCase().includes(q)).slice(0,6);
   if(!matches.length){ box.style.display='none'; box.innerHTML=''; return; }
   const perfilEmoji={master:'👑',gestor:'🛡️',vendas:'💼',tecnico:'🔧'};
@@ -7035,6 +7033,12 @@ function salvarRascunho(pagina){
         'origem-cli': gV('origem-cli'), 'origem-cli-outro': gV('origem-cli-outro'),
       };
       lsSet(DRAFT_KEYS.form, JSON.stringify(dados));
+      const ind = document.getElementById('draft-indicator');
+      const tm = document.getElementById('draft-time');
+      if(ind && gV('cli')){
+        const h = new Date(); tm.textContent = h.getHours().toString().padStart(2,'0')+':'+h.getMinutes().toString().padStart(2,'0');
+        ind.style.display = 'block';
+      }
     } else if(pagina === 'os'){
       const dados = {
         'os-cli': gV('os-cli'), 'os-loc': gV('os-loc'), 'os-data': gV('os-data'),
@@ -7053,7 +7057,10 @@ function restaurarRascunho(pagina){
   }catch(e){}
 }
 function limparRascunho(pagina){
-  try{ localStorage.removeItem(DRAFT_KEYS[pagina]); }catch(e){}
+  try{
+    localStorage.removeItem(DRAFT_KEYS[pagina]);
+    if(pagina === 'form'){ const ind = document.getElementById('draft-indicator'); if(ind) ind.style.display='none'; }
+  }catch(e){ console.warn('[limparRascunho]', e?.message||e); }
 }
 // Auto-save ao digitar
 document.addEventListener('input', function(e){
