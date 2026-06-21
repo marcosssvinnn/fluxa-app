@@ -2430,6 +2430,7 @@
           <button class="btn-add" style="font-size:12px;padding:5px 11px;border-width:1.5px;border-color:var(--blue);color:var(--blue)" onclick="importarClientesDeOrcamentos()" title="Importa clientes de todos os orçamentos existentes">📥 Importar dos orçamentos</button>
         </div>
       </div>
+      <input class="hsrch" type="text" id="cli-busca" placeholder="🔍 Buscar por nome, telefone ou CNPJ…" oninput="renderClientes()" style="width:100%;margin-bottom:10px">
       <div id="clientes-lista"></div>
     </div>
   </div>
@@ -6502,12 +6503,26 @@ function renderClientes(){
   let lista=lsCliLer();
   lista=filtrarPorLoja(lista);
   const el=document.getElementById('clientes-lista');
-  if(!lista.length){ el.innerHTML='<div class="empty-st"><div class="ei">👥</div><p>Nenhum cliente cadastrado.</p><button class="btn-primary" style="margin-top:12px" onclick="mostrarFormCliente()">＋ Cadastrar Cliente</button></div>'; return; }
-  el.innerHTML=lista.map(c=>`
+  const busca=(document.getElementById('cli-busca')?.value||'').toLowerCase().trim();
+  if(busca){
+    const q=busca.replace(/\D/g,'');
+    lista=lista.filter(c=>(c.nome||'').toLowerCase().includes(busca)
+      || (q && (c.tel||'').replace(/\D/g,'').includes(q))
+      || (q && (c.cnpj||'').replace(/\D/g,'').includes(q))
+      || (c.end||'').toLowerCase().includes(busca));
+  }
+  // Faturamento por cliente (orçamentos aprovados)
+  const fatPorNome={};
+  filtrarPorLoja(todosOrc).filter(o=>o.status==='aprovado').forEach(o=>{ const n=(o.cliente||'').toLowerCase(); fatPorNome[n]=(fatPorNome[n]||0)+(o.total||0); });
+  lista.sort((a,b)=>(fatPorNome[(b.nome||'').toLowerCase()]||0)-(fatPorNome[(a.nome||'').toLowerCase()]||0) || (a.nome||'').localeCompare(b.nome||''));
+  if(!lista.length){ el.innerHTML=`<div class="empty-st"><div class="ei">👥</div><p>${busca?'Nenhum cliente encontrado.':'Nenhum cliente cadastrado.'}</p>${busca?'':'<button class="btn-primary" style="margin-top:12px" onclick="mostrarFormCliente()">＋ Cadastrar Cliente</button>'}</div>`; return; }
+  el.innerHTML=lista.map(c=>{
+    const fat=fatPorNome[(c.nome||'').toLowerCase()]||0;
+    return `
     <div class="cli-card">
       <div class="cli-card-info">
-        <div class="cli-card-nome">${esc(c.nome)}</div>
-        <div class="cli-card-det">${[c.tel,c.cnpj,c.end].filter(Boolean).map(x=>esc(x)).join(' · ')}</div>
+        <div class="cli-card-nome">${esc(c.nome)}${fat>0?` <span style="font-size:10px;background:var(--green-bg);color:var(--green);padding:1px 7px;border-radius:50px;font-weight:700">${brl(fat)}</span>`:''}</div>
+        <div class="cli-card-det">${[c.tel,c.cnpj,c.end].filter(Boolean).map(x=>esc(x)).join(' · ')||'—'}${c.email_responsavel?' · ✉️ '+esc(c.email_responsavel):''}</div>
       </div>
       <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap">
         <button class="tb" onclick="verHistoricoCliente('${c.id}')">📋 Hist.</button>
@@ -6516,7 +6531,8 @@ function renderClientes(){
         <button class="tb" onclick="novaOSParaCliente('${c.id}')">🔧 OS</button>
         <button class="tb d" onclick="excluirCliente('${c.id}')">🗑</button>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 function novoOrcParaCliente(id){
@@ -6561,7 +6577,7 @@ function verHistoricoCliente(cliId){
     <div class="chi">
       <div>
         <div class="chi-desc">Orçamento #${String(o.numero||'').padStart(3,'0')}</div>
-        <div class="chi-sub">${esc((o.servicos||[]).map(s=>s.desc||s).slice(0,2).join(', '))||'—'} · ${o.data_orc?new Date(o.data_orc+'T12:00:00').toLocaleDateString('pt-BR'):'—'}</div>
+        <div class="chi-sub">${esc((o.servicos||[]).map(s=>s.desc||s).slice(0,2).join(', '))||'—'} · ${o.data_criacao?new Date(o.data_criacao).toLocaleDateString('pt-BR'):'—'}</div>
       </div>
       <div class="chi-right">
         <div class="chi-val">${brl(o.total||0)}</div>
