@@ -1091,58 +1091,42 @@
   <div class="login-right">
     <div class="login-card">
 
-      <!-- PASSO 1 — seleção de perfil -->
+      <!-- Formulário único: nome + PIN -->
       <div id="login-step-users">
         <div class="login-card-title">Bem-vindo 👋</div>
-        <div class="login-card-sub">Selecione seu perfil para continuar</div>
+        <div class="login-card-sub">Entre com seu nome e senha para continuar</div>
 
-        <!-- Gestão -->
-        <div class="login-section">
-          <div class="login-section-label">Gestão</div>
-          <div class="login-user-list" id="login-grid-gestao"></div>
-        </div>
-
-        <!-- Vendas -->
-        <div class="login-section" id="login-vendas-section" style="display:none">
-          <div class="login-section-label">Vendas</div>
-          <div class="login-user-list" id="login-grid-vendas"></div>
-        </div>
-
-        <!-- Técnicos — recolhido por padrão -->
-        <div id="login-tec-section" style="display:none;margin-top:4px">
-          <button class="login-tec-toggle" id="login-tec-toggle" onclick="toggleLoginTecs()">
-            <span>🔧 Técnicos</span>
-            <span id="login-tec-count" style="color:var(--gray);font-weight:500"></span>
-            <span id="login-tec-arrow" style="margin-left:auto;font-size:11px;color:var(--gray)">▼</span>
-          </button>
-          <div class="login-user-list" id="login-grid-tecs" style="display:none;margin-top:6px"></div>
-        </div>
-      </div>
-
-      <!-- PASSO 2 — PIN -->
-      <div class="login-pin-step" id="login-step-pin">
-        <button class="login-pin-back" onclick="deselecionarUser()">← Voltar</button>
-        <div class="login-pin-user">
-          <div class="login-av-circle" id="login-pin-avatar">?</div>
-          <div class="login-pin-user-info">
-            <div class="login-av-nome" id="login-pin-nome">—</div>
-            <div class="login-av-sub" id="login-pin-perfil">—</div>
+        <div style="margin-top:18px;display:flex;flex-direction:column;gap:12px">
+          <div>
+            <label style="font-size:12px;font-weight:600;color:var(--gray);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:5px">Seu nome</label>
+            <input id="login-nome-input" type="text" autocomplete="off" autocapitalize="words"
+              placeholder="Digite seu nome…"
+              style="width:100%;box-sizing:border-box;padding:11px 14px;border:1.5px solid var(--gray-mid);border-radius:10px;font-size:15px;font-family:'Inter',sans-serif;outline:none;transition:border .15s"
+              oninput="loginNomeInput(this.value)"
+              onkeydown="if(event.key==='Enter')document.getElementById('pin-input').focus()">
+            <!-- sugestões -->
+            <div id="login-nome-sugestoes" style="display:none;background:white;border:1.5px solid var(--gray-mid);border-top:none;border-radius:0 0 10px 10px;overflow:hidden;max-height:160px;overflow-y:auto;margin-top:-2px"></div>
           </div>
+
+          <div>
+            <label style="font-size:12px;font-weight:600;color:var(--gray);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:5px">Senha (4 dígitos)</label>
+            <div style="position:relative">
+              <input id="pin-input" type="password" inputmode="numeric" maxlength="4"
+                placeholder="••••" autocomplete="off"
+                aria-label="Senha PIN de 4 dígitos"
+                style="width:100%;box-sizing:border-box;padding:11px 14px;border:1.5px solid var(--gray-mid);border-radius:10px;font-size:22px;letter-spacing:.25em;font-family:'Inter',sans-serif;outline:none;transition:border .15s"
+                oninput="atualizarDotsPIN(this.value)"
+                onkeydown="if(event.key==='Enter')fazerLogin()">
+            </div>
+          </div>
+
+          <div class="login-err" id="login-err" style="margin-top:-4px"></div>
+          <button class="login-btn" onclick="fazerLogin()" style="margin-top:2px">Entrar →</button>
         </div>
-        <div class="login-pin-dots">
-          <div class="login-pin-dot" id="dot-0"></div>
-          <div class="login-pin-dot" id="dot-1"></div>
-          <div class="login-pin-dot" id="dot-2"></div>
-          <div class="login-pin-dot" id="dot-3"></div>
-        </div>
-        <input class="login-pin-tap" type="password" id="pin-input" maxlength="4"
-          inputmode="numeric" placeholder="••••"
-          aria-label="Senha PIN de 4 dígitos"
-          oninput="atualizarDotsPIN(this.value)"
-          onkeydown="if(event.key==='Enter')fazerLogin()">
-        <div class="login-err" id="login-err"></div>
-        <button class="login-btn" onclick="fazerLogin()">Entrar →</button>
       </div>
+
+      <!-- PASSO 2 — gestor seleciona empresa (mantido para compatibilidade) -->
+      <div class="login-pin-step" id="login-step-pin" style="display:none"></div>
 
       <!-- PASSO 3 — escolha de empresa (gestor principal) -->
       <div class="login-loja-step" id="login-step-loja">
@@ -3618,102 +3602,67 @@ function avBtn(id, perfil, nome, sub, cor, lojaId, slim=false){
 }
 
 function atualizarDotsPIN(val){
-  for(let i=0;i<4;i++){
-    const dot=document.getElementById(`dot-${i}`);
-    if(dot) dot.classList.toggle('filled', i < val.length);
-  }
+  // No novo formulário não há dots visuais — apenas foco automático ao completar 4 dígitos
+  if(val && val.length === 4) setTimeout(fazerLogin, 80);
 }
 
-function toggleLoginTecs(){
-  const grid = document.getElementById('login-grid-tecs');
-  const arrow = document.getElementById('login-tec-arrow');
-  if(!grid) return;
-  const open = grid.style.display !== 'none';
-  grid.style.display = open ? 'none' : 'flex';
-  grid.style.flexDirection = 'column';
-  if(arrow) arrow.textContent = open ? '▼' : '▲';
-}
+function toggleLoginTecs(){ /* removido — novo formulário não tem seções colapsáveis */ }
+
+// Lista interna para autocomplete; preenchida por renderLoginUsers
+let _loginUsersCache = [];
 
 function renderLoginUsers(){
-  // ── Gestão ──
-  const gestaoGrid = document.getElementById('login-grid-gestao');
-  if(gestaoGrid){
-    const gestores = [];
-    // Master e gestores gerais (sem loja — acesso a todas)
-    todosUsuarios.filter(u=>(u.perfil==='master'||(u.perfil==='gestor'&&!u.loja_id))&&u.ativo!==false).forEach(u=>{
-      const cor = u.perfil==='master' ? '#7c3aed' : 'var(--c1)';
-      const sub = u.perfil==='master' ? 'Master · acesso total' : 'Gestão · todas as lojas';
-      gestores.push(avBtn(u.id,u.perfil,u.nome,sub,cor,null));
-    });
-    // Gestores de loja específica
-    todosUsuarios.filter(u=>u.perfil==='gestor'&&u.ativo!==false&&u.loja_id).forEach(u=>{
-      const loja = getLoja(u.loja_id);
-      const cor = loja?.grupo==='aquamotor' ? '#16a34a' : 'var(--c1)';
-      const sub = loja?.nome || u.loja_nome || 'Gestor';
-      gestores.push(avBtn(u.id,'gestor',u.nome,sub,cor,u.loja_id));
-    });
-    // Fallback: login compartilhado só aparece se NÃO houver master/gestor individual
-    if(!gestores.length) gestores.push(avBtn('__gestor__','gestor','Gestor','Acesso completo','var(--c1)',null));
-    gestaoGrid.innerHTML = gestores.join('');
-  }
+  // Reconstrói cache de usuários para o autocomplete do formulário de login
+  _loginUsersCache = todosUsuarios.filter(u=>u.ativo!==false);
+  // Adiciona gestor legado se não houver master/gestor individual
+  const temIndividual = _loginUsersCache.some(u=>u.perfil==='master'||u.perfil==='gestor');
+  if(!temIndividual) _loginUsersCache.push({id:'__gestor__',nome:'Gestor',perfil:'gestor',loja_id:null,loja_nome:null,pin:null});
+  // Atualiza sugestões se o input já tem texto
+  const inp = document.getElementById('login-nome-input');
+  if(inp && inp.value.trim()) loginNomeInput(inp.value);
+}
 
-  // ── Vendas ──
-  const vendasList = todosUsuarios.filter(u=>u.perfil==='vendas'&&u.ativo!==false);
-  const vendasSection = document.getElementById('login-vendas-section');
-  const vendasGrid = document.getElementById('login-grid-vendas');
-  if(vendasSection && vendasGrid){
-    vendasSection.style.display = vendasList.length ? '' : 'none';
-    vendasGrid.innerHTML = vendasList.map(u=>{
-      const loja = getLoja(u.loja_id);
-      const sub = loja?.nome || u.loja_nome || 'Vendas';
-      return avBtn(u.id,'vendas',u.nome,sub,'#f59e0b',u.loja_id||null);
-    }).join('');
-  }
+function loginNomeInput(val){
+  const box = document.getElementById('login-nome-sugestoes'); if(!box) return;
+  loginUserSelecionado = null; // reset ao digitar
+  const q = val.trim().toLowerCase();
+  if(!q){ box.style.display='none'; box.innerHTML=''; return; }
+  const matches = _loginUsersCache.filter(u=>u.nome.toLowerCase().includes(q)).slice(0,6);
+  if(!matches.length){ box.style.display='none'; box.innerHTML=''; return; }
+  const perfilEmoji={master:'👑',gestor:'🛡️',vendas:'💼',tecnico:'🔧'};
+  box.innerHTML = matches.map(u=>`
+    <button type="button" onclick="loginEscolherSugestao('${u.id}')"
+      style="display:flex;align-items:center;gap:10px;width:100%;padding:9px 14px;border:none;background:none;cursor:pointer;text-align:left;transition:background .1s"
+      onmouseenter="this.style.background='var(--c1-bg)'" onmouseleave="this.style.background='none'">
+      <span style="font-size:16px">${perfilEmoji[u.perfil]||'🔧'}</span>
+      <span style="font-size:14px;font-weight:600;color:var(--c2)">${esc(u.nome)}</span>
+      <span style="font-size:12px;color:var(--gray);margin-left:auto">${u.loja_nome||''}</span>
+    </button>`).join('');
+  box.style.display='block';
+}
 
-  // ── Técnicos ──
-  const tecsList = todosUsuarios.filter(u=>(u.perfil==='tecnico'||(!u.perfil&&u.id!=='__gestor__'))&&u.ativo!==false);
-  const tecSection = document.getElementById('login-tec-section');
-  const tecsGrid = document.getElementById('login-grid-tecs');
-  if(tecSection && tecsGrid){
-    tecSection.style.display = tecsList.length ? '' : 'none';
-    // Conta e recolhe sempre que renderiza
-    tecsGrid.style.display = 'none';
-    const arrow = document.getElementById('login-tec-arrow');
-    if(arrow) arrow.textContent = '▼';
-    const countEl = document.getElementById('login-tec-count');
-    if(countEl) countEl.textContent = `(${tecsList.length})`;
-    tecsGrid.innerHTML = tecsList.map(u=>{
-      const loja = getLoja(u.loja_id);
-      const sub = loja?.nome || u.loja_nome || 'Técnico';
-      return avBtn(u.id,'tecnico',u.nome,sub,'var(--c2)',u.loja_id||null,true);
-    }).join('');
-  }
+function loginEscolherSugestao(id){
+  const u = _loginUsersCache.find(x=>x.id===id); if(!u) return;
+  loginUserSelecionado = {id:u.id, perfil:u.perfil, nome:u.nome, loja_id:u.loja_id};
+  const inp = document.getElementById('login-nome-input');
+  if(inp) inp.value = u.nome;
+  const box = document.getElementById('login-nome-sugestoes');
+  if(box){ box.style.display='none'; box.innerHTML=''; }
+  document.getElementById('login-err').textContent='';
+  setTimeout(()=>document.getElementById('pin-input').focus(), 80);
 }
 
 let loginUserSelecionado = null; // {id, perfil, nome, loja_id}
 
 function selecionarUserLogin(btn, id, perfil, nome, lojaId){
+  // Mantido para compatibilidade — novo fluxo usa loginEscolherSugestao
   loginUserSelecionado={id,perfil,nome,loja_id:lojaId};
-  // Preenche card do passo de PIN
-  const avatarEl=document.getElementById('login-pin-avatar');
-  const nomeEl=document.getElementById('login-pin-nome');
-  const perfilEl=document.getElementById('login-pin-perfil');
-  if(avatarEl){
-    const cor={gestor:'var(--c1)',vendas:'#f59e0b',tecnico:'var(--c2)'};
-    avatarEl.textContent=nome.charAt(0).toUpperCase();
-    avatarEl.style.background=cor[perfil]||'var(--c2)';
-    avatarEl.style.fontSize='18px';
-  }
-  if(nomeEl) nomeEl.textContent=nome;
-  if(perfilEl) perfilEl.textContent=perfil==='gestor'?'Acesso completo':perfil==='vendas'?'Vendas':'Técnico';
-  // Transição de passo
-  document.getElementById('login-step-users').style.display='none';
-  document.getElementById('login-step-pin').classList.add('show');
-  const inp=document.getElementById('pin-input');
-  inp.value='';
-  atualizarDotsPIN('');
+  const inp=document.getElementById('login-nome-input');
+  if(inp) inp.value=nome;
+  const box=document.getElementById('login-nome-sugestoes');
+  if(box){ box.style.display='none'; box.innerHTML=''; }
   document.getElementById('login-err').textContent='';
-  setTimeout(()=>inp.focus(),100);
+  setTimeout(()=>document.getElementById('pin-input').focus(),80);
 }
 
 // ── Segurança: hash + lockout ──────────────────────
@@ -3765,9 +3714,20 @@ function iniciarCountdownLockout(){
 async function fazerLogin(){
   const err = document.getElementById('login-err');
   if(Date.now() < loginLockedUntil){ return; }
-  if(!loginUserSelecionado){ err.textContent='Selecione um usuário.'; return; }
+
+  // Resolve usuário: sugestão clicada OU busca pelo nome digitado
+  if(!loginUserSelecionado){
+    const nomeDigitado = (document.getElementById('login-nome-input')?.value||'').trim().toLowerCase();
+    if(!nomeDigitado){ err.textContent='Digite seu nome.'; return; }
+    const encontrados = _loginUsersCache.filter(u=>u.nome.toLowerCase()===nomeDigitado);
+    if(!encontrados.length){ err.textContent='Nome não encontrado. Verifique ou selecione da lista.'; return; }
+    if(encontrados.length > 1){ err.textContent='Nome ambíguo — selecione da lista.'; return; }
+    const u = encontrados[0];
+    loginUserSelecionado = {id:u.id, perfil:u.perfil, nome:u.nome, loja_id:u.loja_id};
+  }
+
   const pin = document.getElementById('pin-input').value;
-  if(!pin){ err.textContent='Digite o PIN.'; return; }
+  if(!pin || pin.length < 4){ err.textContent='Digite os 4 dígitos da senha.'; return; }
 
   let pinCorreto = false;
   if(loginUserSelecionado.id === '__gestor__'){
@@ -3871,7 +3831,7 @@ function mostrarSelecaoLojaGestor(){
   }
 
   list.innerHTML = html;
-  document.getElementById('login-step-pin').classList.remove('show');
+  document.getElementById('login-step-users').style.display='none';
   document.getElementById('login-step-loja').classList.add('show');
 }
 
@@ -3892,20 +3852,19 @@ function confirmarLojaGestor(lojaId){
 
 function voltarParaPin(){
   document.getElementById('login-step-loja').classList.remove('show');
-  document.getElementById('login-step-pin').classList.add('show');
-  const inp=document.getElementById('pin-input');
-  inp.value='';
-  atualizarDotsPIN('');
-  setTimeout(()=>inp.focus(),100);
+  document.getElementById('login-step-users').style.display='';
+  const inp=document.getElementById('pin-input'); if(inp){ inp.value=''; }
+  document.getElementById('login-err').textContent='';
+  setTimeout(()=>{ const ni=document.getElementById('login-nome-input'); if(ni) ni.focus(); },100);
 }
 
 function deselecionarUser(){
   loginUserSelecionado=null;
-  document.getElementById('login-step-pin').classList.remove('show');
   document.getElementById('login-step-loja').classList.remove('show');
   document.getElementById('login-step-users').style.display='';
-  document.getElementById('pin-input').value='';
-  atualizarDotsPIN('');
+  const ni=document.getElementById('login-nome-input'); if(ni) ni.value='';
+  const pi=document.getElementById('pin-input'); if(pi) pi.value='';
+  const box=document.getElementById('login-nome-sugestoes'); if(box){ box.style.display='none'; box.innerHTML=''; }
   document.getElementById('login-err').textContent='';
 }
 
