@@ -7032,7 +7032,11 @@ function getPortalLinkCliente(nomeCliente){
   return window.location.origin+window.location.pathname+'#portal/'+cli.portal_token;
 }
 
-function aplicarVars(template, vars){
+function aplicarVars(template, vars, lojaId){
+  // Usa o branding da loja específica quando informado (multi-loja), senão o global
+  const LC = lojaId ? getLojaConfig(lojaId) : null;
+  const empresa = (LC&&LC.nome) || CFG.nome || '';
+  const tel = (LC&&LC.tel) || CFG.tel || '';
   return template
     .replace(/\{nome\}/g, vars.nome||'')
     .replace(/\{hora\}/g, vars.hora||'')
@@ -7040,8 +7044,8 @@ function aplicarVars(template, vars){
     .replace(/\{servico\}/g, vars.servico||'')
     .replace(/\{valor\}/g, vars.valor||'')
     .replace(/\{link_portal\}/g, vars.link_portal||'')
-    .replace(/\{empresa\}/g, CFG.nome||'')
-    .replace(/\{tel_empresa\}/g, CFG.tel||'');
+    .replace(/\{empresa\}/g, empresa)
+    .replace(/\{tel_empresa\}/g, tel);
 }
 
 function notifVisita(os){
@@ -7053,7 +7057,7 @@ function notifVisita(os){
     servico:(os.servicos||[]).join(', '),
     link_portal:getPortalLinkCliente(os.cliente||'')
   };
-  return aplicarVars(template, vars);
+  return aplicarVars(template, vars, os.loja_id);
 }
 
 function notifConcluida(os){
@@ -7064,7 +7068,7 @@ function notifConcluida(os){
     servico:(os.servicos||[]).join(', '),
     link_portal:getPortalLinkCliente(os.cliente||'')
   };
-  return aplicarVars(template, vars);
+  return aplicarVars(template, vars, os.loja_id);
 }
 
 function notifOrcamento(orc){
@@ -7076,7 +7080,7 @@ function notifOrcamento(orc){
     valor:brl(orc.total||0),
     link_portal:getPortalLinkCliente(orc.cliente||'')
   };
-  return aplicarVars(template, vars);
+  return aplicarVars(template, vars, orc.loja_id);
 }
 
 function notifGarantia(eq){
@@ -7085,7 +7089,7 @@ function notifGarantia(eq){
     nome:(eq.cliente_nome||'').split(' ')[0],
     servico:(eq.marca||'')+' '+(eq.modelo||'')+' ('+eq.tipo+')'
   };
-  return aplicarVars(template, vars);
+  return aplicarVars(template, vars, eq.loja_id);
 }
 
 function copiarNotif(msg){
