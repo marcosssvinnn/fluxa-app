@@ -2566,6 +2566,11 @@
       <div class="dc o"><div class="dl">Total Geral</div><div class="dv" id="desp-d-total">—</div><div class="ds">este mês</div></div>
     </div>
 
+    <div class="card" id="desp-cat-card" style="display:none">
+      <div class="ct">📊 Onde vai o dinheiro (este mês)</div>
+      <div id="desp-cat-body"></div>
+    </div>
+
     <div id="desp-lista"></div>
   </div>
 </div>
@@ -5669,8 +5674,9 @@ function atualizarDash(){
   const tick=tot>0?soma/tot:0;
   // Sub-label mostra o período
   const periodoSub=orcMesRef?_renderOrcMesLabelStr():'Todos os períodos';
+  const taxaConv = tot>0 ? Math.round(aprov.length/tot*100) : 0;
   setV_el('d-emit',brl(soma),'textContent'); setV_el('d-emit-q',tot+' orç. · '+periodoSub,'textContent');
-  setV_el('d-aprov',brl(somaA),'textContent'); setV_el('d-aprov-q',aprov.length+' aprovado'+(aprov.length!==1?'s':''),'textContent');
+  setV_el('d-aprov',brl(somaA),'textContent'); setV_el('d-aprov-q',aprov.length+' aprov. · '+(tot>0?taxaConv+'% conversão':'—'),'textContent');
   setV_el('d-rec',brl(Math.max(0,aRec)),'textContent');
   setV_el('d-tick',tick>0?brl(tick):'—','textContent');
   renderOrigemDash();
@@ -7624,6 +7630,26 @@ function renderDespesas(){
   setV_el('desp-d-reimb',brl(reimb.reduce((a,d)=>a+(d.valor||0),0)),'textContent');
   setV_el('desp-d-reimb-q',reimb.length+' item'+(reimb.length!==1?'s':''),'textContent');
   setV_el('desp-d-total',brl(doMes.reduce((a,d)=>a+(d.valor||0),0)),'textContent');
+  // Breakdown por categoria (onde vai o dinheiro)
+  const catCard=document.getElementById('desp-cat-card'), catBody=document.getElementById('desp-cat-body');
+  if(catCard&&catBody){
+    const porCat={}; doMes.forEach(d=>{ const k=d.tipo||'Outro'; porCat[k]=(porCat[k]||0)+(d.valor||0); });
+    const totMes=doMes.reduce((a,d)=>a+(d.valor||0),0);
+    const rank=Object.entries(porCat).sort((a,b)=>b[1]-a[1]);
+    if(!rank.length||totMes<=0){ catCard.style.display='none'; }
+    else {
+      catCard.style.display='';
+      const max=rank[0][1]||1;
+      const catIcons={Combustível:'⛽',Pedágio:'🛣️',Material:'🔩',Alimentação:'🍽️',Outro:'📎'};
+      catBody.innerHTML=rank.map(([cat,v])=>`<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--gray-light)">
+        <div style="font-size:16px;width:24px;text-align:center">${catIcons[cat]||'📎'}</div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;justify-content:space-between;font-size:12.5px;font-weight:600;color:var(--c2);margin-bottom:3px"><span>${esc(cat)}</span><span>${brl(v)} <span style="color:var(--gray);font-weight:400">(${Math.round(v/totMes*100)}%)</span></span></div>
+          <div style="height:6px;background:var(--gray-light);border-radius:50px;overflow:hidden"><div style="height:100%;background:var(--c1);border-radius:50px;width:${Math.round(v/max*100)}%"></div></div>
+        </div>
+      </div>`).join('');
+    }
+  }
   const el=document.getElementById('desp-lista');
   if(!lista.length){ el.innerHTML='<div class="empty-st"><div class="ei">💸</div><p>Nenhuma despesa registrada.</p></div>'; return; }
   const icons={Combustível:'⛽',Pedágio:'🛣️',Material:'🔩',Alimentação:'🍽️',Outro:'📎'};
