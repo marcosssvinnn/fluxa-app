@@ -202,42 +202,61 @@ const GRUPO_FORTHEMP = ['fortemp-camboriu','fortemp-itapema'];
 
 ---
 
-## Perfis de usuário (3 tipos)
+## Perfis de usuário (4 tipos — atualizado 2026-06-21)
 
 | Perfil | Acesso | Páginas permitidas |
 |--------|--------|--------------------|
-| `gestor` | Total — vê tudo da sua empresa/grupo | Todas |
-| `vendas` | Vendedor — cria orçamentos e OS, sem dados financeiros | `form`, `history`, `clientes`, `agendamentos`, `os` |
-| `tecnico` | Técnico de campo — executa OS e vistorias | `minhas-os`, `visitas` |
+| `master` | Total + Auditoria + Usuários — acima de gestor | Todas (inclui `auditoria`) |
+| `gestor` | Completo — vê tudo da sua empresa/grupo | Todas |
+| `vendas` | Vendedor — cria ORC/OS, sem dados financeiros | `form`, `history`, `clientes`, `agendamentos`, `os` |
+| `tecnico` | Técnico de campo — executa OS e vistorias | `minhas-os`, `visitas`, `os` |
+
+**Contas individuais criadas no banco (PINs hasheados, não no código):**
+- Marcos → `master` (sem loja — acesso total a todas)
+- Tamara, Elis → `gestor` (sem loja — todas as lojas do grupo)
+- Josimar, Eldecir, Bruno → `tecnico` (loja: `fortemp-camboriu`)
+- Seeds antigos `tec_*` desativados no banco.
 
 ### Funções de verificação de perfil:
 ```js
-eGestor()   // true se perfil === 'gestor' (ou nenhuma sessão → gestor principal)
+eMaster()   // true se perfil === 'master'
+eGestor()   // true se perfil === 'gestor' OU 'master' (master herda acesso de gestor)
 eVendas()   // true se perfil === 'vendas'
 eTecnico()  // true se perfil === 'tecnico'
+isMainGestor() // true se (gestor|master) e sem loja_id na sessão
 ```
 
 ### Controle de acesso em `go(p)`:
 ```js
 const pagesVendas  = ['form','history','clientes','agendamentos','os'];
-const pagesTecnico = ['minhas-os','visitas'];
-if(_vendas  && !pagesVendas.includes(p))  return; // silencioso
-if(_tecnico && !pagesTecnico.includes(p)) return; // silencioso
+const pagesTecnico = ['minhas-os','visitas','os'];
+if(_vendas  && !pagesVendas.includes(p))  { toast('Acesso não permitido.'); return; }
+if(_tecnico && !pagesTecnico.includes(p)) { toast('Acesso não permitido.'); return; }
+// master/gestor passam direto
 ```
 
-### Login — fluxo de 3 passos:
-1. **`login-step-users`** — grid de avatares separados por categoria (Gestão / Vendas / Técnicos)
-2. **`login-step-pin`** — digita PIN de 4 dígitos
-3. **`login-step-loja`** — gestor principal escolhe empresa (vendas/técnico pulam esta etapa)
+### Login — formulário único (atualizado 2026-06-21):
+1. **`login-step-users`** — campo "Seu nome" + autocomplete de sugestões + campo "Senha (4 dígitos)"
+   - Digitar nome mostra sugestões dos usuários ativos; clicar foca no campo de senha
+   - Ao completar 4 dígitos o login é tentado automaticamente
+   - Nenhum nome é exibido na tela antes do usuário digitar (privacidade)
+2. **`login-step-loja`** — gestor/master sem loja escolhe empresa (os demais pulam)
+
+```js
+// Cache interno de usuários para autocomplete
+let _loginUsersCache = []; // preenchido por renderLoginUsers()
+function loginNomeInput(val)       // mostra sugestões ao digitar
+function loginEscolherSugestao(id) // seleciona usuário e foca no PIN
+```
 
 ### Sessão (sessionStorage):
 ```js
-{ perfil: 'gestor'|'vendas'|'tecnico', loja_id: null|'string-id', nome: 'Marcos' }
+{ perfil: 'master'|'gestor'|'vendas'|'tecnico', loja_id: null|'string-id', nome: 'Marcos' }
 ```
 
-**Importante:** Gestor principal da Forthemp **não tem** registro no banco — usa `CFG.pin`. Vendas e técnicos têm registro em `usuarios` com PIN hashed.
-
 **Persistência de usuários locais:** Usuários criados localmente recebem `id` com prefixo `usr_`. Na próxima conexão com Supabase, `carregarUsuarios()` tenta sincronizá-los. Se falhar, mantém o registro local em `todosUsuarios` — nunca descarta.
+
+**Edição de usuários:** botão ✏️ na lista de Usuários permite editar nome, perfil (promoção/rebaixamento), PIN e empresa. PIN vazio = mantém o atual. Mudança de perfil atualiza acesso imediatamente.
 
 ---
 
@@ -277,9 +296,12 @@ function filtrarPorLoja(lista, campo='loja_id'){
 | `equipamentos` | Equipamentos com QR Code, garantia, foto, loja_id |
 | `despesas` | Despesas de campo dos técnicos com comprovante, loja_id |
 | `lojas` | Config por empresa: focusnfe_token, focusnfe_ambiente, iss_aliquota, etc. |
-| `usuarios` | Técnicos, vendas e gestores com PIN (SHA-256), perfil, loja_id |
+| `usuarios` | Técnicos, vendas, gestores e masters com PIN (SHA-256), perfil, loja_id |
 | `notas_fiscais` | NF-e/NFS-e emitidas via Focus NFe |
-| `vistorias` | Relatórios de vistoria de manutenção preventiva de piscinas (**NOVA**) |
+| `vistorias` | Relatórios de vistoria de manutenção preventiva de piscinas |
+| `auditoria` | Log de ações: login, status ORC, movimentos estoque, OS concluídas, usuários |
+| `produtos` | Cadastro de produtos com código, unidade, preço, custo, estoque mínimo, CMP |
+| `estoque_movimentos` | Ledger de movimentos: entrada/saida/ajuste/transf/reserva/liberacao_reserva |
 
 ### SQL já executado no Supabase (✅ confirmado via API):
 
@@ -386,8 +408,12 @@ CREATE TABLE IF NOT EXISTS vistorias (
 23. **Checklist de vistoria na OS** — 8 itens padrão, editável, salvo como JSON no Supabase
 24. **Assinatura do cliente no portal** — canvas de assinatura, salvo como base64
 25. **Relatório Financeiro** — tabela Receita vs Despesas vs Resultado por mês (Produtividade)
-26. **🆕 Vistorias de Manutenção** — sistema completo (ver seção detalhada abaixo)
-27. **🆕 E-mail automático de relatório** — EmailJS integrado (ver seção detalhada abaixo)
+26. **Vistorias de Manutenção** — sistema completo (ver seção detalhada abaixo)
+27. **E-mail automático de relatório** — EmailJS integrado (ver seção detalhada abaixo)
+28. **🆕 Controle de Estoque** — ledger de movimentos, curva ABC, ruptura, CMP, transferência, lista de compras, integração com orçamentos (reserva → baixa → entrega)
+29. **🆕 Perfil master + edição de usuários** — 4 perfis (master/gestor/vendas/técnico), edição inline, promoção/rebaixamento, PINs individuais
+30. **🆕 Auditoria de acessos** — tabela `auditoria`, `logAcao()` nos pontos-chave, tela de visualização com filtros (⚙️ → 🔐 Auditoria)
+31. **🆕 Login por nome + PIN** — formulário com autocomplete substitui grade de avatares; nenhum nome exposto antes do login
 
 ---
 
@@ -566,9 +592,11 @@ getLojaNome(id)   // retorna nome legível da loja
 filtrarPorLoja(lista) // filtra por empresa ativa — USAR SEMPRE
 isMainGestor()    // true se gestor principal (sem loja_id na sessão)
 getSessao()       // { perfil, loja_id, nome } ou null
-eGestor()         // true se perfil === 'gestor'
+eMaster()         // true se perfil === 'master'
+eGestor()         // true se perfil === 'gestor' OU 'master'
 eVendas()         // true se perfil === 'vendas'
 eTecnico()        // true se perfil === 'tecnico'
+logAcao(acao, detalhe) // registra no log de auditoria (local + Supabase async)
 ```
 
 ### Navegação entre páginas
@@ -585,7 +613,9 @@ go('visitas')       // vistorias de manutenção (gestor + técnico)
 go('despesas')      // despesas de campo
 go('produtividade') // relatório de produtividade
 go('empresa')       // configurações da empresa
-go('usuarios')      // gestão de usuários (só gestor)
+go('usuarios')      // gestão de usuários (só gestor/master)
+go('auditoria')     // log de auditoria (só gestor/master)
+go('estoque')       // controle de estoque (só gestor)
 ```
 
 ### localStorage keys
@@ -594,7 +624,10 @@ go('usuarios')      // gestão de usuários (só gestor)
 - `fluxa_eq` — cache de equipamentos
 - `fluxa_desp` — cache de despesas
 - `fluxa_usuarios` — cache de usuários/técnicos
-- `fluxa_visitas` — cache de vistorias de manutenção (**NOVO**)
+- `fluxa_visitas` — cache de vistorias de manutenção
+- `fluxa_produtos` — cache de produtos do estoque
+- `fluxa_mov_estoque` — cache de movimentos de estoque (ledger)
+- `fluxa_auditoria` — cache local do log de auditoria (últimos 500 registros)
 - `empresa_cfg` — configurações da empresa (inclui emailjs_pubkey/service/template)
 - `sb_url`, `sb_key` — credenciais Supabase
 
@@ -896,9 +929,116 @@ Bucket `vistorias-pdf` público + policies (instruções na tela Empresa → E-m
 
 ---
 
+---
+
+## 📦 Controle de Estoque (implementado 2026-06-14 / 2026-06-21)
+
+### Modelo de saldo (ledger):
+- **Física** = `fisicaProduto(id)` — tipos físicos: `entrada/saida/ajuste/transf_entrada/transf_saida`
+- **Reservada** = `reservadoProduto(id)` — tipos: `reserva/liberacao_reserva`
+- **Disponível** = física − reservada. Negativo = encomenda/backorder (nunca bloqueia venda)
+- `saldoProduto(id)` = física (compat). `disponivelProduto(id)` = disponível.
+
+### Ciclo orçamento → estoque:
+1. **Aprovar orçamento** → `sincronizarReservaOrcamento(orc)` reserva produtos (idempotente, ref `res:orc:<id>`)
+2. **Concluir OS / botão Entregar** → `entregarOrcamento(orc, origem)` baixa física + libera reserva (refs `baixa:orc:id:pid` / `libres:orc:id:pid`)
+3. **Reverter/excluir** → cancela reserva automaticamente
+
+### Funções-chave:
+```js
+registrarMovimento({produto_id, tipo, quantidade, custo_unit, motivo, ref, lojaId})
+sincronizarReservaOrcamento(orc)  // reconciliação idempotente de reserva
+entregarOrcamento(orc, origem, qtyMap) // baixa física na entrega
+transferirProduto(pid, deLoja, paraLoja, qty, custo, motivo) // transf entre unidades
+recomputarCMP()           // recalcula custo médio ponderado a cada entrada
+curvaABC()                // classifica produtos A/B/C por saída
+listaEncomendas()         // produtos com disponível < 0
+diasParaRuptura(pid)      // previsão de ruptura baseada em giro
+```
+
+### Regras importantes:
+- **NUNCA** decremente um número de saldo — sempre crie um movimento
+- `registrarMovimento` é local-first + sync assíncrono em background
+- Auditoria: só movimentos físicos são logados (reserva/liberação são internos)
+- Produtos filtrados por `produtosVisiveis()` — loja ativa ou que tem movimentos dela
+
+---
+
+## 🔐 Auditoria de Acessos (implementado 2026-06-21)
+
+### Pontos monitorados:
+| Ação | Onde é disparado |
+|------|-----------------|
+| `login` | `fazerLogin()` ao autenticar com sucesso |
+| `orcamento_criado` | `gerarPDF()` ao criar novo orçamento |
+| `orcamento_status` | `mudarSt()` ao alterar status |
+| `orcamento_excluido` | `_excluirOrcConfirmado()` |
+| `estoque_mov` | `registrarMovimento()` (só físicos) |
+| `os_concluida` | `_fazerCheckoutConfirmado()` |
+| `usuario_criado` | `salvarUsuario()` — novo usuário |
+| `usuario_editado` | `salvarUsuario()` — edição |
+| `usuario_removido` | `_excluirUsuarioConfirmado()` |
+
+### Funções:
+```js
+logAcao(acao, detalhe)  // registra local + async no Supabase
+lsAuditLer()            // lê localStorage ('fluxa_auditoria')
+lsAuditSalvar(lista)    // salva (máx 500 registros)
+loadAuditoria()         // carrega + merge Supabase; preenche filtro de usuários
+renderAuditoria()       // renderiza a tabela com filtros
+```
+
+### Schema da tabela `auditoria`:
+```sql
+CREATE TABLE IF NOT EXISTS auditoria (
+  id text PRIMARY KEY,
+  usuario text, perfil text,
+  acao text,    -- 'login' | 'orcamento_status' | 'estoque_mov' | 'os_concluida' | etc.
+  detalhe text,
+  loja_id text,
+  data timestamptz DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_aud_data ON auditoria(data DESC);
+```
+RLS: `anon full access` (igual às demais tabelas).
+
+---
+
+## Sessão 2026-06-21 — Gestão de usuários, auditoria, novo login
+
+### O que foi implementado:
+1. **Perfil `master`** — novo nível acima de gestor. `eGestor()` agora retorna `true` para master também. `isMainGestor()` aceita master sem loja. Botão de auditoria visível só para gestor/master.
+2. **Edição de usuários** — botão ✏️ na lista; campo PIN vazio = mantém PIN atual; mudança de perfil atualiza acesso imediatamente. `_usrEditId` controla se é create ou update.
+3. **Auditoria** — tabela `auditoria` + `logAcao()` + página `/auditoria` com filtros por ação e usuário. Local-first (localStorage, max 500) + sync async.
+4. **Contas individuais criadas via API** (PINs hasheados SHA-256+`fluxa2025`, não no código):
+   - Marcos (master), Tamara/Elis (gestor), Josimar/Eldecir/Bruno (técnico, loja: fortemp-camboriu)
+   - Seeds antigos (`tec_marcos` etc.) desativados no banco.
+5. **Login por nome + PIN** — substituiu grade de avatares. Campo de nome com autocomplete; 4 dígitos → login automático. Nenhum nome exposto antes do usuário digitar.
+6. **setup.sql atualizado** com tabela `auditoria`, índice e RLS.
+
+### SQL rodado no Supabase nesta sessão:
+```sql
+-- Tabela de auditoria (adicionada ao setup.sql e rodada via API Python)
+-- (inserida via INSERT da API — tabela criada na próxima empresa nova via setup.sql)
+-- Para banco existente (Forthemp), rodar manualmente:
+CREATE TABLE IF NOT EXISTS auditoria (
+  id text PRIMARY KEY,
+  usuario text, perfil text,
+  acao text, detalhe text, loja_id text,
+  data timestamptz DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_aud_data ON auditoria(data DESC);
+ALTER TABLE auditoria ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "anon full access" ON auditoria;
+CREATE POLICY "anon full access" ON auditoria FOR ALL TO anon USING (true) WITH CHECK (true);
+```
+
+---
+
 ## Perguntas em aberto (aguardando Marcos responder)
 
 1. **CNPJs reais** das 3 empresas — para preencher tabela `lojas` e emissão de NF
 2. **Tokens Focus NFe** — um por CNPJ (homologação e produção)
 3. **Template EmailJS** — adicionar novas variáveis `{{duracao}}`, `{{status_geral}}`, `{{link_pdf}}` ao template
-- [ ] **PIN legado:** ainda existe algum usuário com PIN em texto plano (não-hash)? Se não, remover o branch de fallback em `pinValido()` e a nota de retrocompatibilidade.
+4. **Tabela `auditoria` no banco de produção** — rodar o SQL acima se ainda não foi rodado (o app funciona sem ela, só não sincroniza o log).
+- [ ] **PIN legado:** com contas individuais criadas, o fallback de PIN legado em `pinValido()` pode ser removido. Confirmar com Marcos se há algum usuário legado antes de remover.
