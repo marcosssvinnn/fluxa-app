@@ -3163,16 +3163,14 @@
 <!-- Error boundary global: captura erros JS e exibe tela amigável -->
 <script>
 window.onerror = function(msg, src, line, col, err){
+  // Só exibe tela para erros de sintaxe/referência no arquivo principal (não erros de rede)
+  if(!src || !src.includes('index.html')) return false;
   var el = document.getElementById('fluxa-error-screen');
   if(!el) return false;
   el.style.display = 'flex';
   document.getElementById('fluxa-error-detail').textContent = (err && err.message ? err.message : msg) + (line ? ' (linha ' + line + ')' : '');
   return true;
 };
-window.addEventListener('unhandledrejection', function(e){
-  var el = document.getElementById('fluxa-error-screen');
-  if(el) { el.style.display = 'flex'; document.getElementById('fluxa-error-detail').textContent = e.reason?.message || String(e.reason); }
-});
 </script>
 <!-- Tela de erro amigável (oculta por padrão) -->
 <div id="fluxa-error-screen" style="display:none;position:fixed;inset:0;z-index:99999;background:#f0f2f5;flex-direction:column;align-items:center;justify-content:center;font-family:'Inter',sans-serif;padding:24px;text-align:center">
