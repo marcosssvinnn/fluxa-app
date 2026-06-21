@@ -2575,18 +2575,50 @@
   <div class="wrap">
     <button class="btn-voltar" onclick="voltar()">← Voltar</button>
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:14px">
-      <div style="font-size:18px;font-weight:800;color:var(--c2)">📦 Controle de Estoque</div>
-      <button class="btn-primary" onclick="abrirProdutoModal()" style="padding:9px 16px">＋ Novo produto</button>
+      <div style="font-size:18px;font-weight:800;color:var(--c2)">📦 Gestão de Estoque</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="ba" style="background:var(--gray-light);color:var(--c2);padding:9px 14px;font-size:13px" onclick="abrirListaCompras()">🛒 Lista de compras</button>
+        <button class="btn-primary" onclick="abrirProdutoModal()" style="padding:9px 16px">＋ Novo produto</button>
+      </div>
     </div>
-    <div id="estoque-alerta" style="display:none;background:var(--yellow-bg);border:1.5px solid var(--yellow);border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:12.5px;color:#92400e;line-height:1.6"></div>
+    <!-- KPIs -->
+    <div class="dash" id="estoque-kpis"></div>
+    <!-- Alertas -->
+    <div id="estoque-alerta" style="display:none;background:var(--yellow-bg);border:1.5px solid var(--yellow);border-radius:10px;padding:10px 14px;margin:0 0 12px;font-size:12.5px;color:#92400e;line-height:1.6"></div>
     <div class="card">
+      <!-- Toolbar: abas de filtro + ordenação + busca -->
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+        <div id="estoque-tabs" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+        <div style="flex:1;min-width:120px"></div>
+        <select id="estoque-sort" onchange="renderEstoque()" style="padding:6px 10px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Inter',sans-serif;outline:none;background:white;cursor:pointer;color:var(--c2)">
+          <option value="nome">A-Z</option>
+          <option value="valor">Maior valor parado</option>
+          <option value="disp">Menor disponível</option>
+          <option value="giro">Mais giro</option>
+        </select>
+      </div>
       <input class="hsrch" type="text" placeholder="🔍 Buscar produto ou código…" oninput="buscaEstoque(this.value)" style="margin-bottom:8px;width:100%">
       <div id="estoque-body"></div>
     </div>
+    <!-- Insights -->
+    <div id="estoque-insights"></div>
     <div class="card" id="estoque-giro-card" style="display:none">
       <div class="ct">📊 Mais movimentados (90 dias)</div>
       <div id="estoque-giro-body"></div>
     </div>
+    <div class="card" id="estoque-mov-card" style="display:none">
+      <div class="ct">🕒 Movimentações recentes</div>
+      <div id="estoque-mov-body"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: lista de compras consolidada -->
+<div class="qr-modal-bg" id="compras-modal" style="display:none">
+  <div class="card" style="max-width:520px;width:92%;max-height:85vh;overflow:auto">
+    <div class="ct">🛒 Lista de compras <button onclick="fecharListaCompras()" aria-label="Fechar" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;float:right;line-height:1">×</button></div>
+    <div id="compras-body"></div>
+    <button class="btn-primary" onclick="copiarListaCompras()" style="width:100%;margin-top:10px">📋 Copiar lista</button>
   </div>
 </div>
 
@@ -2618,6 +2650,7 @@
       <div class="row f1" style="margin-top:8px"><div class="fl"><label>GTIN / EAN (código de barras)</label><input type="text" id="prod-gtin" placeholder="SEM GTIN"></div></div>
     </details>
     <button class="btn-primary" onclick="salvarProduto()" style="width:100%">💾 Salvar produto</button>
+    <button id="prod-desativar-btn" onclick="desativarProduto(_prodEditId)" style="display:none;width:100%;margin-top:8px;background:none;border:none;color:var(--red);font-size:12px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;padding:6px">🚫 Desativar produto</button>
   </div>
 </div>
 
@@ -10525,58 +10558,132 @@ function transferirProduto(produtoId, qtd, lojaDestino, motivo){
 
 // ── UI do estoque ──
 function buscaEstoque(v){ estoqueBusca=(v||'').toLowerCase(); renderEstoque(); }
+let estoqueFiltro='todos';
+function filtEstoque(f){ estoqueFiltro=f; renderEstoque(); }
+
+// ── Analíticos de estoque ──
+function giroProduto(pid, dias){ // total de SAÍDA (consumo) nos últimos N dias
+  const lim=Date.now()-(dias||90)*86400000;
+  return filtrarPorLoja(todosMovEstoque)
+    .filter(m=>m.produto_id===pid && m.tipo==='saida' && new Date(m.data).getTime()>=lim)
+    .reduce((a,m)=>a+Math.abs(parseFloat(m.quantidade)||0),0);
+}
+function consumoDia(pid){ return giroProduto(pid,90)/90; }
+function diasParaRuptura(pid){ const c=consumoDia(pid); if(c<=0) return Infinity; const d=disponivelProduto(pid); return d<=0?0:d/c; }
+function produtoParado(pid){ return fisicaProduto(pid)>0 && giroProduto(pid,90)<=0; } // tem saldo mas não girou em 90d
+function ultimaMovData(pid){
+  const ms=filtrarPorLoja(todosMovEstoque).filter(m=>m.produto_id===pid).map(m=>new Date(m.data).getTime());
+  return ms.length?Math.max(...ms):0;
+}
+// Curva ABC por valor de consumo (saída × custo) nos últimos 180 dias
+function curvaABC(){
+  const prods=produtosVisiveis();
+  const valor={};
+  prods.forEach(p=>{ valor[p.id]=giroProduto(p.id,180)*(parseFloat(p.custo)||0); });
+  const ordenados=prods.slice().sort((a,b)=>(valor[b.id]||0)-(valor[a.id]||0));
+  const total=ordenados.reduce((a,p)=>a+(valor[p.id]||0),0)||1;
+  let acc=0; const classe={};
+  ordenados.forEach(p=>{ acc+=(valor[p.id]||0); const pct=acc/total; classe[p.id]= (valor[p.id]||0)<=0 ? 'C' : pct<=0.8?'A':pct<=0.95?'B':'C'; });
+  return {valor, classe, ordenados, total};
+}
 
 function renderEstoque(){
   const body=document.getElementById('estoque-body'); if(!body) return;
-  const prods=produtosVisiveis()
-    .filter(p=> !estoqueBusca || (p.nome||'').toLowerCase().includes(estoqueBusca) || (p.codigo||'').toLowerCase().includes(estoqueBusca))
-    .sort((a,b)=>(a.nome||'').localeCompare(b.nome||''));
-
-  // Alertas: encomendas (disponível negativo) + repor (mínimo)
+  const todos=produtosVisiveis(); // ativos da loja
+  const inativos=produtosVisiveisInativos();
   const enc=listaEncomendas();
-  const abaixo=prods.filter(p=>{ const m=parseFloat(p.estoque_minimo)||0; return m>0 && disponivelProduto(p.id) <= m && disponivelProduto(p.id) >= 0; });
+  const repor=todos.filter(p=>{ const m=parseFloat(p.estoque_minimo)||0; const d=disponivelProduto(p.id); return m>0 && d>=0 && d<=m; });
+  const parados=todos.filter(p=>produtoParado(p.id));
+  const abc=curvaABC();
+
+  // ── KPIs ──
+  const valorEstoque=todos.reduce((a,p)=>a+(Math.max(0,fisicaProduto(p.id))*(parseFloat(p.custo)||0)),0);
+  const valorReservado=todos.reduce((a,p)=>a+(Math.max(0,reservadoProduto(p.id))*(parseFloat(p.custo)||0)),0);
+  const valorEncomenda=enc.reduce((a,x)=>a+(x.falta*(parseFloat(x.p.custo)||0)),0);
+  const valorParado=parados.reduce((a,p)=>a+(Math.max(0,fisicaProduto(p.id))*(parseFloat(p.custo)||0)),0);
+  const kpis=document.getElementById('estoque-kpis');
+  if(kpis) kpis.innerHTML=`
+    <div class="dc o"><div class="dl">Valor em estoque</div><div class="dv">${brl(valorEstoque)}</div><div class="ds">${todos.length} produto${todos.length!==1?'s':''}</div></div>
+    <div class="dc ${enc.length?'r':'g'}" style="cursor:pointer" onclick="filtEstoque('comprar')"><div class="dl">A comprar (encomenda)</div><div class="dv">${enc.length}</div><div class="ds">${brl(valorEncomenda)}</div></div>
+    <div class="dc y" style="cursor:pointer" onclick="filtEstoque('repor')"><div class="dl">Repor (mínimo)</div><div class="dv">${repor.length}</div><div class="ds">abaixo do mínimo</div></div>
+    <div class="dc b" style="cursor:pointer" onclick="filtEstoque('parados')"><div class="dl">Capital parado</div><div class="dv">${brl(valorParado)}</div><div class="ds">${parados.length} sem giro (90d)</div></div>`;
+
+  // ── Abas de filtro ──
+  const tabs=[
+    ['todos','Todos',todos.length],
+    ['comprar','📥 A comprar',enc.length],
+    ['repor','🔄 Repor',repor.length],
+    ['parados','💤 Parados',parados.length],
+    ['inativos','🚫 Inativos',inativos.length],
+  ];
+  const tabsEl=document.getElementById('estoque-tabs');
+  if(tabsEl) tabsEl.innerHTML=tabs.map(([k,lbl,n])=>`<button class="fb ${estoqueFiltro===k?'on':''}" onclick="filtEstoque('${k}')">${lbl}${n?` <span style="opacity:.7">${n}</span>`:''}</button>`).join('');
+
+  // ── Lista filtrada + ordenada ──
+  let lista = estoqueFiltro==='inativos' ? inativos.slice()
+    : estoqueFiltro==='comprar' ? enc.map(x=>x.p)
+    : estoqueFiltro==='repor' ? repor.slice()
+    : estoqueFiltro==='parados' ? parados.slice()
+    : todos.slice();
+  if(estoqueBusca) lista=lista.filter(p=>(p.nome||'').toLowerCase().includes(estoqueBusca)||(p.codigo||'').toLowerCase().includes(estoqueBusca));
+  const sort=document.getElementById('estoque-sort')?.value||'nome';
+  lista.sort((a,b)=>{
+    if(sort==='valor') return (Math.max(0,fisicaProduto(b.id))*(parseFloat(b.custo)||0))-(Math.max(0,fisicaProduto(a.id))*(parseFloat(a.custo)||0));
+    if(sort==='disp') return disponivelProduto(a.id)-disponivelProduto(b.id);
+    if(sort==='giro') return giroProduto(b.id,90)-giroProduto(a.id,90);
+    return (a.nome||'').localeCompare(b.nome||'');
+  });
+
+  if(!lista.length){
+    body.innerHTML=`<div class="empty-st"><div class="ei">📦</div><p>${estoqueBusca?'Nenhum produto encontrado.':estoqueFiltro==='todos'?'Nenhum produto cadastrado ainda.':'Nada neste filtro. 🎉'}</p>${estoqueFiltro==='todos'?'<button class="btn-primary" style="margin-top:12px" onclick="abrirProdutoModal()">＋ Cadastrar produto</button>':''}</div>`;
+  } else {
+    const ehInativo=estoqueFiltro==='inativos';
+    let h=`<div class="htw"><table class="ht"><thead><tr><th>Produto</th><th title="No depósito">Física</th><th title="Comprometida em orçamentos aprovados">Reserv.</th><th title="Física menos reservada">Dispon.</th><th title="Curva ABC por consumo">ABC</th><th title="Dias até acabar pelo consumo médio">Ruptura</th><th>Valor</th><th>Ações</th></tr></thead><tbody>`;
+    lista.forEach(p=>{
+      const fis=fisicaProduto(p.id), res=reservadoProduto(p.id), disp=disponivelProduto(p.id);
+      const min=parseFloat(p.estoque_minimo)||0;
+      const encomenda=disp<0, baixo=!encomenda && min>0 && disp<=min;
+      const corDisp=encomenda?'var(--red)':baixo?'var(--yellow)':'var(--green)';
+      const valParado=brl(Math.max(0,fis)*(parseFloat(p.custo)||0));
+      const cls=abc.classe[p.id]||'C';
+      const clsCor={A:'#16a34a',B:'#d97706',C:'#6b7280'}[cls];
+      const dr=diasParaRuptura(p.id);
+      const drTxt = dr===Infinity?'—':dr<=0?'<span style="color:var(--red);font-weight:700">esgotado</span>':dr<7?`<span style="color:var(--red);font-weight:700">${Math.round(dr)}d</span>`:dr<21?`<span style="color:var(--yellow);font-weight:700">${Math.round(dr)}d</span>`:`${Math.round(dr)}d`;
+      h+=`<tr${ehInativo?' style="opacity:.6"':''}>
+        <td><div class="ocl">${esc(p.nome)}${encomenda&&!ehInativo?' <span style="font-size:10px;background:var(--red-bg);color:var(--red);padding:1px 6px;border-radius:50px;font-weight:700">encomenda</span>':''}${produtoParado(p.id)&&!ehInativo?' <span style="font-size:10px;background:#eff6ff;color:#1d4ed8;padding:1px 6px;border-radius:50px;font-weight:700">parado</span>':''}</div><div class="oloc">${[p.codigo,p.unidade].filter(Boolean).map(esc).join(' · ')}</div></td>
+        <td style="font-weight:600">${fmtQtd(fis)}</td>
+        <td style="color:var(--gray)">${res>0?fmtQtd(res):'—'}</td>
+        <td><span style="font-weight:700;color:${corDisp}">${fmtQtd(disp)}</span></td>
+        <td><span style="font-weight:700;color:${clsCor}">${cls}</span></td>
+        <td style="color:var(--gray);font-size:12px">${drTxt}</td>
+        <td style="color:var(--gray)">${valParado}</td>
+        <td><div class="ta">
+          ${ehInativo
+            ? `<button class="tb g" title="Reativar" onclick="reativarProduto('${p.id}')">↺ Reativar</button>`
+            : `<button class="tb g" title="Dar entrada" onclick="abrirMovModal('${p.id}','entrada')">＋ Entrada</button>
+               <button class="tb" title="Dar saída" onclick="abrirMovModal('${p.id}','saida')" style="background:var(--yellow-bg);color:var(--yellow);border-color:var(--yellow-bg)">− Saída</button>
+               ${LOJAS.length>1?`<button class="tb" title="Transferir" onclick="abrirTransfModal('${p.id}')">🔄</button>`:''}
+               <button class="tb" title="Ajuste / inventário" onclick="abrirMovModal('${p.id}','ajuste')">⚖</button>
+               <button class="tb" title="Histórico" onclick="abrirHistProduto('${p.id}')">📜</button>
+               <button class="tb" title="Editar" onclick="abrirProdutoModal('${p.id}')">✎</button>`}
+        </div></td>
+      </tr>`;
+    });
+    h+='</tbody></table></div>';
+    body.innerHTML=h;
+  }
+
+  // ── Alerta resumido (encomendas + repor) ──
   const al=document.getElementById('estoque-alerta');
   if(al){
     let aviso='';
-    if(enc.length) aviso+=`<div style="color:#b91c1c"><strong>📥 ${enc.length} para comprar (encomenda):</strong> `+enc.slice(0,6).map(x=>`${esc(x.p.nome)} (faltam ${fmtQtd(x.falta)})`).join(' · ')+(enc.length>6?' …':'')+`</div>`;
-    if(abaixo.length) aviso+=`<div style="margin-top:${enc.length?'6px':'0'}"><strong>🔄 ${abaixo.length} para repor (mínimo):</strong> `+abaixo.slice(0,6).map(p=>`${esc(p.nome)} (${fmtQtd(disponivelProduto(p.id))})`).join(' · ')+(abaixo.length>6?' …':'')+`</div>`;
+    if(enc.length) aviso+=`<div style="color:#b91c1c"><strong>📥 ${enc.length} para comprar:</strong> `+enc.slice(0,5).map(x=>`${esc(x.p.nome)} (faltam ${fmtQtd(x.falta)})`).join(' · ')+(enc.length>5?' …':'')+`</div>`;
+    if(repor.length) aviso+=`<div style="margin-top:${enc.length?'6px':'0'}"><strong>🔄 ${repor.length} para repor:</strong> `+repor.slice(0,5).map(p=>`${esc(p.nome)} (${fmtQtd(disponivelProduto(p.id))})`).join(' · ')+(repor.length>5?' …':'')+`</div>`;
     al.style.display=aviso?'':'none'; al.innerHTML=aviso;
   }
-
-  if(!prods.length){
-    body.innerHTML=`<div class="empty-st"><div class="ei">📦</div><p>${estoqueBusca?'Nenhum produto encontrado.':'Nenhum produto cadastrado ainda.'}</p><button class="btn-primary" style="margin-top:12px" onclick="abrirProdutoModal()">＋ Cadastrar produto</button></div>`;
-    return;
-  }
-  let h=`<div class="htw"><table class="ht"><thead><tr><th>Produto</th><th title="No depósito">Física</th><th title="Comprometida em orçamentos aprovados">Reserv.</th><th title="Física menos reservada (o que dá pra vender)">Dispon.</th><th>Mín.</th><th>Valor</th><th>Ações</th></tr></thead><tbody>`;
-  prods.forEach(p=>{
-    const fis=fisicaProduto(p.id), res=reservadoProduto(p.id), disp=disponivelProduto(p.id);
-    const min=parseFloat(p.estoque_minimo)||0;
-    const encomenda = disp<0, baixo = !encomenda && min>0 && disp<=min;
-    const corDisp = encomenda?'var(--red)':baixo?'var(--yellow)':'var(--green)';
-    const valParado = brl((fis>0?fis:0)*(parseFloat(p.custo)||0));
-    h+=`<tr>
-      <td><div class="ocl">${esc(p.nome)}${encomenda?' <span style="font-size:10px;background:var(--red-bg);color:var(--red);padding:1px 6px;border-radius:50px;font-weight:700">encomenda</span>':''}</div><div class="oloc">${[p.codigo,p.unidade].filter(Boolean).map(esc).join(' · ')}</div></td>
-      <td style="font-weight:600">${fmtQtd(fis)}</td>
-      <td style="color:var(--gray)">${res>0?fmtQtd(res):'—'}</td>
-      <td><span style="font-weight:700;color:${corDisp}">${fmtQtd(disp)}</span></td>
-      <td style="color:var(--gray)">${min>0?fmtQtd(min):'—'}</td>
-      <td style="color:var(--gray)">${valParado}</td>
-      <td><div class="ta">
-        <button class="tb g" title="Dar entrada" onclick="abrirMovModal('${p.id}','entrada')">＋ Entrada</button>
-        <button class="tb" title="Dar saída" onclick="abrirMovModal('${p.id}','saida')" style="background:var(--yellow-bg);color:var(--yellow);border-color:var(--yellow-bg)">− Saída</button>
-        ${LOJAS.length>1?`<button class="tb" title="Transferir para outra unidade" onclick="abrirTransfModal('${p.id}')">🔄</button>`:''}
-        <button class="tb" title="Ajuste / inventário" onclick="abrirMovModal('${p.id}','ajuste')">⚖</button>
-        <button class="tb" title="Histórico" onclick="abrirHistProduto('${p.id}')">📜</button>
-        <button class="tb" title="Editar" onclick="abrirProdutoModal('${p.id}')">✎</button>
-      </div></td>
-    </tr>`;
-  });
-  h+='</tbody></table></div>';
-  // Resumo de valorização
-  const totalVal=prods.reduce((a,p)=>a+((saldoProduto(p.id)>0?saldoProduto(p.id):0)*(parseFloat(p.custo)||0)),0);
-  h+=`<div style="text-align:right;font-size:12px;color:var(--gray);padding:10px 4px 0">Valor total em estoque: <strong style="color:var(--c2)">${brl(totalVal)}</strong> · ${prods.length} produto${prods.length>1?'s':''}</div>`;
-  body.innerHTML=h;
+  renderInsightsEstoque(abc, parados);
   renderGiroEstoque();
+  renderMovEstoque();
 }
 function fmtQtd(n){ const v=parseFloat(n)||0; return Number.isInteger(v)?String(v):v.toFixed(2).replace('.',','); }
 
@@ -10608,6 +10715,104 @@ function renderGiroEstoque(){
   }).join('');
 }
 
+// Produtos inativos visíveis na loja
+function produtosVisiveisInativos(){
+  const inativos=todosProdutos.filter(p=>p.ativo===false);
+  if(!lojaAtiva) return filtrarPorLoja(inativos);
+  const comMov=new Set(todosMovEstoque.filter(m=>(m.loja_id||'')===lojaAtiva).map(m=>m.produto_id));
+  return inativos.filter(p=>(p.loja_id||'')===lojaAtiva || comMov.has(p.id));
+}
+
+// Insights: curva ABC, previsão de ruptura e capital parado
+function renderInsightsEstoque(abc, parados){
+  const el=document.getElementById('estoque-insights'); if(!el) return;
+  const prods=produtosVisiveis();
+  const cnt={A:0,B:0,C:0}; prods.forEach(p=>{ cnt[abc.classe[p.id]||'C']++; });
+  const ruptura=prods.filter(p=>{ const d=diasParaRuptura(p.id); return d!==Infinity && d<=14; })
+    .map(p=>({p,d:diasParaRuptura(p.id)})).sort((a,b)=>a.d-b.d).slice(0,6);
+  let h='';
+  h+=`<div class="card"><div class="ct">📈 Curva ABC (por consumo)</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      ${[['A','#16a34a','vital — não deixe faltar'],['B','#d97706','intermediário'],['C','#6b7280','baixo giro']].map(([c,cor,desc])=>`<div style="flex:1;min-width:130px;border:1.5px solid ${cor}55;border-radius:10px;padding:10px 12px"><div style="font-size:13px;font-weight:800;color:${cor}">Classe ${c}<span style="float:right">${cnt[c]}</span></div><div style="font-size:11px;color:var(--gray);margin-top:2px">${desc}</div></div>`).join('')}
+    </div>
+    <div style="font-size:11px;color:var(--gray);margin-top:8px">A classe A concentra ~80% do consumo — priorize compra e nunca deixe faltar.</div>
+  </div>`;
+  if(ruptura.length){
+    h+=`<div class="card"><div class="ct">⏳ Vão acabar em breve</div>${ruptura.map(x=>{
+      const d=x.d, dtxt=d<=0?'esgotado':Math.round(d)+' dias';
+      return `<div style="display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--gray-light)"><div style="min-width:0"><div style="font-size:13px;font-weight:600;color:var(--c2)">${esc(x.p.nome)}</div><div style="font-size:11px;color:var(--gray)">disp. ${fmtQtd(disponivelProduto(x.p.id))} · consumo ~${fmtQtd(Math.round(consumoDia(x.p.id)*30))}/mês</div></div><div style="font-size:12px;font-weight:700;color:${d<7?'var(--red)':'var(--yellow)'};white-space:nowrap;text-align:right">${dtxt}<br><button class="tb g" style="font-size:10px;margin-top:2px" onclick="abrirMovModal('${x.p.id}','entrada')">comprar</button></div></div>`;
+    }).join('')}</div>`;
+  }
+  if(parados.length){
+    const ord=parados.slice().sort((a,b)=>(Math.max(0,fisicaProduto(b.id))*(parseFloat(b.custo)||0))-(Math.max(0,fisicaProduto(a.id))*(parseFloat(a.custo)||0))).slice(0,6);
+    h+=`<div class="card"><div class="ct">💤 Capital parado (sem giro 90d)</div>${ord.map(p=>{
+      const ult=ultimaMovData(p.id); const dias=ult?Math.round((Date.now()-ult)/86400000):null;
+      return `<div style="display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--gray-light)"><div style="min-width:0"><div style="font-size:13px;font-weight:600;color:var(--c2)">${esc(p.nome)}</div><div style="font-size:11px;color:var(--gray)">${fmtQtd(fisicaProduto(p.id))} em estoque${dias!=null?' · última mov. há '+dias+'d':''}</div></div><div style="font-size:12px;font-weight:700;color:var(--c2);white-space:nowrap">${brl(Math.max(0,fisicaProduto(p.id))*(parseFloat(p.custo)||0))}</div></div>`;
+    }).join('')}<div style="font-size:11px;color:var(--gray);padding-top:8px">Dinheiro parado — avalie promoção, uso interno ou não recomprar.</div></div>`;
+  }
+  el.innerHTML=h;
+}
+
+// Feed de movimentações recentes (toda a loja)
+function renderMovEstoque(){
+  const card=document.getElementById('estoque-mov-card'), body=document.getElementById('estoque-mov-body');
+  if(!card||!body) return;
+  const movs=filtrarPorLoja(todosMovEstoque).slice().sort((a,b)=>new Date(b.data)-new Date(a.data)).slice(0,15);
+  if(!movs.length){ card.style.display='none'; return; }
+  card.style.display='';
+  const tT={entrada:'＋ Entrada',saida:'− Saída',ajuste:'⚖ Ajuste',reserva:'🔒 Reserva',liberacao_reserva:'🔓 Libera',transf_entrada:'🔄 Transf.+',transf_saida:'🔄 Transf.−'};
+  const tC={entrada:'var(--green)',saida:'#b45309',ajuste:'var(--gray)',reserva:'#7c3aed',liberacao_reserva:'#7c3aed',transf_entrada:'#0369a1',transf_saida:'#0369a1'};
+  body.innerHTML=movs.map(m=>{
+    const p=produtoById(m.produto_id), d=new Date(m.data), q=parseFloat(m.quantidade)||0;
+    return `<div style="display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--gray-light)"><div style="min-width:0"><div style="font-size:12.5px;font-weight:600;color:${tC[m.tipo]||'var(--c2)'}">${tT[m.tipo]||m.tipo} ${fmtQtd(q)} · ${esc(p?p.nome:'—')}</div><div style="font-size:11px;color:var(--gray);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(m.motivo||'')}${m.usuario?' · '+esc(m.usuario):''}</div></div><div style="font-size:11px;color:var(--gray);white-space:nowrap;text-align:right">${d.toLocaleDateString('pt-BR')}<br>${d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</div></div>`;
+  }).join('');
+}
+
+// Ativar/desativar produto
+function _setProdutoAtivo(id, ativo){
+  const i=todosProdutos.findIndex(p=>p.id===id); if(i<0) return;
+  todosProdutos[i]={...todosProdutos[i],ativo};
+  lsProdSalvar(todosProdutos);
+  if(dbOk&&db){ (async()=>{ try{ const r=await _comTimeout(dbUpsert('produtos',todosProdutos[i]),20000,'prodAtivo'); if(r&&r.error) console.warn('[prodAtivo]',r.error.message); }catch(e){ console.warn('[prodAtivo bg]',e?.message||e); } })(); }
+  renderEstoque();
+}
+function reativarProduto(id){ _setProdutoAtivo(id,true); toast('↺ Produto reativado'); }
+function desativarProduto(id){ confirmar('Desativar este produto? Some da lista ativa (o histórico é mantido e pode reativar depois).', ()=>{ _setProdutoAtivo(id,false); fecharProdutoModal(); toast('🚫 Produto desativado'); }, 'Desativar produto'); }
+
+// ── Lista de compras consolidada ──
+function _calcListaCompras(){
+  const itens=[];
+  produtosVisiveis().forEach(p=>{
+    const disp=disponivelProduto(p.id), min=parseFloat(p.estoque_minimo)||0;
+    if(disp<0) itens.push({p, qtd:Math.ceil(-disp), motivo:'encomenda'});
+    else if(min>0 && disp<=min) itens.push({p, qtd:Math.max(1,Math.ceil(min*2-disp)), motivo:'repor'});
+  });
+  return itens.sort((a,b)=> a.motivo===b.motivo?0:(a.motivo==='encomenda'?-1:1));
+}
+function abrirListaCompras(){
+  const itens=_calcListaCompras();
+  const body=document.getElementById('compras-body');
+  if(!itens.length){ body.innerHTML='<div style="padding:18px;text-align:center;color:var(--gray);font-size:13px">Nada para comprar agora. 🎉</div>'; }
+  else {
+    let total=0;
+    body.innerHTML=itens.map(x=>{ const custo=(parseFloat(x.p.custo)||0)*x.qtd; total+=custo;
+      return `<div style="display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--gray-light)"><div style="min-width:0"><div style="font-size:13px;font-weight:600;color:var(--c2)">${esc(x.p.nome)} <span style="font-size:10px;background:${x.motivo==='encomenda'?'var(--red-bg)':'var(--yellow-bg)'};color:${x.motivo==='encomenda'?'var(--red)':'var(--yellow)'};padding:1px 6px;border-radius:50px;font-weight:700">${x.motivo}</span></div><div style="font-size:11px;color:var(--gray)">${esc(x.p.codigo||'')}</div></div><div style="text-align:right;white-space:nowrap"><div style="font-size:14px;font-weight:700;color:var(--c2)">${fmtQtd(x.qtd)} ${esc(x.p.unidade||'')}</div><div style="font-size:11px;color:var(--gray)">~${brl(custo)}</div></div></div>`;
+    }).join('')+`<div style="text-align:right;font-size:13px;font-weight:700;color:var(--c2);padding-top:10px">Total estimado: ${brl(total)}</div>`;
+  }
+  document.getElementById('compras-modal').style.display='flex';
+}
+function fecharListaCompras(){ document.getElementById('compras-modal').style.display='none'; }
+function copiarListaCompras(){
+  const itens=_calcListaCompras();
+  if(!itens.length){ toast('Nada para comprar'); return; }
+  const LC=getLojaConfig(lojaAtiva);
+  let txt='🛒 *Lista de compras* — '+(LC.nome||'Estoque')+'\n'+new Date().toLocaleDateString('pt-BR')+'\n\n';
+  txt+=itens.map(x=>`• ${x.p.nome}: ${fmtQtd(x.qtd)} ${x.p.unidade||''}${x.motivo==='encomenda'?' (encomenda)':''}`).join('\n');
+  const total=itens.reduce((a,x)=>a+(parseFloat(x.p.custo)||0)*x.qtd,0);
+  txt+=`\n\n💰 Total estimado: ${brl(total)}`;
+  navigator.clipboard.writeText(txt).then(()=>toast('📋 Lista copiada!')).catch(()=>toast('📋 Copiado'));
+}
+
 // ── Modal de cadastro/edição de produto ──
 let _prodEditId=null;
 function abrirProdutoModal(id){
@@ -10622,6 +10827,7 @@ function abrirProdutoModal(id){
   if(inicialWrap) inicialWrap.style.display=id?'none':''; // saldo inicial só ao criar
   setV('prod-inicial','');
   document.getElementById('prod-modal-titulo').textContent=id?'Editar produto':'Novo produto';
+  const desBtn=document.getElementById('prod-desativar-btn'); if(desBtn) desBtn.style.display=id?'block':'none';
   document.getElementById('prod-modal').style.display='flex';
 }
 function fecharProdutoModal(){ document.getElementById('prod-modal').style.display='none'; }
