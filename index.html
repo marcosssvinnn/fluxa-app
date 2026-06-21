@@ -7402,7 +7402,7 @@ function metricasTec(tec, ini, fim){
 async function loadProdutividade(){
   // Popula select de técnicos
   const el=document.getElementById('prod-filtro-tec'); if(!el) return;
-  const tecs=CFG.tecnicos||[];
+  const tecs=getTecnicos();
   el.innerHTML='<option value="">Todos os técnicos</option>'+tecs.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join('');
   // Carrega OS do Supabase se disponível
   // fix #E: não sobrescrever o cache inteiro — fazer merge para preservar OS de outras lojas no cache local
@@ -7465,7 +7465,7 @@ function renderProd(){
   const {inicio, fim}=getPeriodoProd();
   const ant=getPeriodoAntProd();
   const filtTec=gV('prod-filtro-tec');
-  const tecs=filtTec?[filtTec]:(CFG.tecnicos||[]);
+  const tecs=filtTec?[filtTec]:getTecnicos();
 
   // Cards
   const cardsEl=document.getElementById('prod-cards');
@@ -7529,7 +7529,7 @@ function fecharFormDesp(){
 }
 
 function populaDespTecSelect(){
-  const tecs=CFG.tecnicos||[];
+  const tecs=getTecnicos();
   ['desp-tec','desp-filtro-tec'].forEach(id=>{
     const el=document.getElementById(id); if(!el) return;
     const val=el.value;
