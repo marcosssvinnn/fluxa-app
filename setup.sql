@@ -171,6 +171,17 @@ CREATE TABLE IF NOT EXISTS estoque_movimentos (
 CREATE INDEX IF NOT EXISTS idx_mov_produto ON estoque_movimentos(produto_id);
 CREATE INDEX IF NOT EXISTS idx_mov_ref ON estoque_movimentos(ref);
 
+-- ─────────────  AUDITORIA (quem fez o quê — segurança/responsabilidade)  ─────────────
+CREATE TABLE IF NOT EXISTS auditoria (
+  id text PRIMARY KEY,
+  usuario text, perfil text,
+  acao text,                 -- ex: 'login' | 'orcamento_status' | 'estoque_mov' | 'os_concluida' | 'usuario_editado'
+  detalhe text,
+  loja_id text,
+  data timestamptz DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_aud_data ON auditoria(data DESC);
+
 -- ─────────────  RLS: acesso pela anon key (igual ao resto do app)  ─────────────
 --  ⚠️ A anon key é pública. O controle de acesso real é feito no app (perfis/PIN).
 --  Para isolar de verdade, cada empresa tem o SEU próprio projeto Supabase.
@@ -180,7 +191,7 @@ BEGIN
   FOREACH t IN ARRAY ARRAY[
     'orcamentos','ordens_servico','empresa_config','clientes','agendamentos',
     'vistorias','equipamentos','despesas','lojas','usuarios','notas_fiscais',
-    'produtos','estoque_movimentos'
+    'produtos','estoque_movimentos','auditoria'
   ] LOOP
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY;', t);
     EXECUTE format('DROP POLICY IF EXISTS "anon full access" ON %I;', t);

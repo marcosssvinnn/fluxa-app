@@ -1194,6 +1194,7 @@
         <div class="gear-section">Configurações</div>
         <button id="gear-btn-empresa" onclick="closeGear();go('empresa')">🏢 Dados da Empresa</button>
         <button id="gear-btn-usuarios" onclick="closeGear();go('usuarios')">👥 Usuários</button>
+        <button id="gear-btn-auditoria" onclick="closeGear();go('auditoria')">🔐 Auditoria</button>
         <button onclick="closeGear();go('clientes')">👥 Clientes</button>
         <button onclick="closeGear();go('equipamentos')">🔧 Equipamentos</button>
         <button onclick="closeGear();novoOrc()">🔄 Novo Orçamento</button>
@@ -1477,15 +1478,16 @@
 
     <!-- Form novo usuário -->
     <div class="card" id="usr-form-card" style="display:none">
-      <div class="ct">Novo Usuário <button onclick="fecharFormUsuario()" aria-label="Fechar" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;line-height:1">×</button></div>
+      <div class="ct"><span id="usr-form-titulo">Novo Usuário</span> <button onclick="fecharFormUsuario()" aria-label="Fechar" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;line-height:1">×</button></div>
       <div class="row">
         <div class="fl"><label>Nome</label><input type="text" id="usr-nome" placeholder="Ex: João Silva"></div>
         <div class="fl">
-          <label>Perfil</label>
+          <label>Perfil (nível de acesso)</label>
           <select id="usr-perfil" onchange="updUsrForm()">
-            <option value="tecnico">Técnico</option>
+            <option value="tecnico">Técnico (campo)</option>
             <option value="vendas">Vendas</option>
-            <option value="gestor">Gestor</option>
+            <option value="gestor">Gestor (gestão)</option>
+            <option value="master">Master (acesso total + auditoria)</option>
           </select>
         </div>
       </div>
@@ -1497,7 +1499,7 @@
           </select>
         </div>
         <div class="fl">
-          <label>PIN (4 dígitos)</label>
+          <label id="usr-pin-label">PIN (4 dígitos)</label>
           <input type="password" id="usr-pin" maxlength="4" inputmode="numeric" placeholder="••••">
         </div>
       </div>
@@ -1511,6 +1513,29 @@
         <div class="load"><div class="spin"></div> Carregando…</div>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- ══ PAGE: AUDITORIA ══ -->
+<div class="page" id="page-auditoria">
+  <div class="wrap" style="max-width:760px">
+    <button class="btn-voltar" onclick="voltar()">← Voltar</button>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+      <div style="font-size:18px;font-weight:800;color:var(--c2)">🔐 Auditoria de Acessos</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <select id="audit-filtro-acao" onchange="renderAuditoria()" style="padding:6px 10px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Inter',sans-serif;outline:none;background:white;cursor:pointer;color:var(--c2)">
+          <option value="">Todas as ações</option>
+          <option value="login">Logins</option>
+          <option value="orcamento">Orçamentos</option>
+          <option value="estoque">Estoque</option>
+          <option value="os">OS</option>
+          <option value="usuario">Usuários</option>
+        </select>
+        <select id="audit-filtro-user" onchange="renderAuditoria()" style="padding:6px 10px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Inter',sans-serif;outline:none;background:white;cursor:pointer;color:var(--c2)"><option value="">Todos os usuários</option></select>
+      </div>
+    </div>
+    <p style="font-size:12px;color:var(--gray);margin:-6px 0 12px">Registro de quem entrou e fez ações no sistema — para segurança e responsabilidade.</p>
+    <div class="card"><div id="audit-body"></div></div>
   </div>
 </div>
 
@@ -3166,7 +3191,67 @@
 function getSessao(){ try{ return JSON.parse(sessionStorage.getItem('fluxa_user')||'null'); }catch(e){ return null; } }
 function setSessao(u){ sessionStorage.setItem('fluxa_user',JSON.stringify(u)); }
 function clearSessao(){ sessionStorage.removeItem('fluxa_user'); }
-function eGestor(){ const s=getSessao(); return s?.perfil==='gestor'; }
+function eMaster(){ const s=getSessao(); return s?.perfil==='master'; }
+function eGestor(){ const s=getSessao(); return s?.perfil==='gestor'||s?.perfil==='master'; } // master herda acesso de gestor
+
+// ── Log de auditoria (quem fez o quê) ──
+let _auditoria = [];
+function lsAuditLer(){ try{ return JSON.parse(ls('fluxa_auditoria')||'[]'); }catch(e){ return []; } }
+function lsAuditSalvar(l){ lsSet('fluxa_auditoria', JSON.stringify(l.slice(0,500))); }
+function logAcao(acao, detalhe){
+  const s=getSessao();
+  const reg={
+    id:'aud_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
+    usuario: s?.nome||'(não logado)', perfil: s?.perfil||'',
+    acao, detalhe: detalhe||'',
+    loja_id: s?.loja_id||lojaAtiva||null,
+    data: new Date().toISOString()
+  };
+  if(!_auditoria.length) _auditoria=lsAuditLer();
+  _auditoria.unshift(reg);
+  lsAuditSalvar(_auditoria);
+  if(dbOk&&db){ (async()=>{ try{ await _comTimeout(dbInsert('auditoria',reg),15000,'audit'); }catch(e){ /* tabela pode não existir ainda */ } })(); }
+  if(document.getElementById('page-auditoria')?.classList.contains('on')) renderAuditoria();
+}
+async function loadAuditoria(){
+  _auditoria = lsAuditLer();
+  renderAuditoria();
+  if(dbOk&&db){
+    try{
+      const {data}=await db.from('auditoria').select('*').order('data',{ascending:false}).limit(500);
+      if(data){
+        const ids=new Set(data.map(x=>x.id));
+        const soLocal=_auditoria.filter(x=>!ids.has(x.id));
+        _auditoria=[...data,...soLocal].sort((a,b)=>new Date(b.data)-new Date(a.data));
+        lsAuditSalvar(_auditoria);
+      }
+    }catch(e){ console.warn('[loadAuditoria]', e?.message||e); }
+  }
+  const sel=document.getElementById('audit-filtro-user');
+  if(sel){ const v=sel.value; const us=[...new Set(_auditoria.map(a=>a.usuario).filter(Boolean))].sort(); sel.innerHTML='<option value="">Todos os usuários</option>'+us.map(u=>`<option value="${esc(u)}">${esc(u)}</option>`).join(''); sel.value=v; }
+  renderAuditoria();
+}
+function renderAuditoria(){
+  const body=document.getElementById('audit-body'); if(!body) return;
+  const fA=document.getElementById('audit-filtro-acao')?.value||'';
+  const fU=document.getElementById('audit-filtro-user')?.value||'';
+  let lista=filtrarPorLoja(_auditoria.length?_auditoria:lsAuditLer());
+  if(fA) lista=lista.filter(a=>(a.acao||'').startsWith(fA));
+  if(fU) lista=lista.filter(a=>a.usuario===fU);
+  lista=lista.slice(0,300);
+  if(!lista.length){ body.innerHTML='<div style="padding:18px;text-align:center;color:var(--gray);font-size:13px">Nenhum registro ainda.</div>'; return; }
+  const acaoTxt={login:'🔑 Login',orcamento_criado:'📝 Orçamento criado',orcamento_status:'🔄 Status do orçamento',orcamento_excluido:'🗑 Orçamento excluído',estoque_mov:'📦 Movimento de estoque',estoque_entrega:'📦 Baixa/entrega',os_concluida:'✅ OS concluída',usuario_criado:'👤 Usuário criado',usuario_editado:'✏️ Usuário editado',usuario_removido:'🗑 Usuário removido'};
+  body.innerHTML=lista.map(a=>{
+    const d=new Date(a.data);
+    return `<div style="display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--gray-light)">
+      <div style="min-width:0">
+        <div style="font-size:13px;font-weight:600;color:var(--c2)">${acaoTxt[a.acao]||esc(a.acao)}${a.detalhe?' <span style="font-weight:400;color:var(--gray)">— '+esc(a.detalhe)+'</span>':''}</div>
+        <div style="font-size:11px;color:var(--gray)">👤 ${esc(a.usuario||'—')}${a.perfil?' ('+esc(a.perfil)+')':''}${a.loja_id?' · '+esc(getLojaNome(a.loja_id)):''}</div>
+      </div>
+      <div style="font-size:11px;color:var(--gray);white-space:nowrap;text-align:right">${d.toLocaleDateString('pt-BR')}<br>${d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</div>
+    </div>`;
+  }).join('');
+}
 function eVendas(){ const s=getSessao(); return s?.perfil==='vendas'; }
 function eTecnico(){ const s=getSessao(); return s?.perfil==='tecnico'; }
 function getLojaFiltro(){ const s=getSessao(); return s?.loja_id||null; }
@@ -3238,6 +3323,7 @@ function aplicarPermissoesPerfil(){
   const gearRules = {
     'gear-btn-empresa' : gestor,
     'gear-btn-usuarios': gestor,
+    'gear-btn-auditoria': gestor,
     'gear-btn-prod'    : gestor,
     'gear-btn-estoque' : gestor,
     'gear-btn-visitas' : gestor||tecnico,
@@ -3343,7 +3429,7 @@ try{ if(FLUXA_CONFIG.appName) document.title = FLUXA_CONFIG.appName; }catch(e){ 
 let lojaAtiva = ''; // '' = todas do grupo; string = empresa específica
 
 // Retorna true só para o gestor principal da Forthemp (sem loja fixa na sessão)
-function isMainGestor(){ const s=getSessao(); return s?.perfil==='gestor'&&!s?.loja_id; }
+function isMainGestor(){ const s=getSessao(); return (s?.perfil==='gestor'||s?.perfil==='master')&&!s?.loja_id; }
 
 // Filtra lista pelo contexto de loja/grupo ativo
 function filtrarPorLoja(lista, campo='loja_id'){
@@ -3553,15 +3639,21 @@ function renderLoginUsers(){
   const gestaoGrid = document.getElementById('login-grid-gestao');
   if(gestaoGrid){
     const gestores = [];
-    // Gestor principal (sem loja_id — acesso a tudo)
-    gestores.push(avBtn('__gestor__','gestor','Gestor','Acesso completo','var(--c1)',null));
-    // Gestores por loja cadastrados no banco
+    // Master e gestores gerais (sem loja — acesso a todas)
+    todosUsuarios.filter(u=>(u.perfil==='master'||(u.perfil==='gestor'&&!u.loja_id))&&u.ativo!==false).forEach(u=>{
+      const cor = u.perfil==='master' ? '#7c3aed' : 'var(--c1)';
+      const sub = u.perfil==='master' ? 'Master · acesso total' : 'Gestão · todas as lojas';
+      gestores.push(avBtn(u.id,u.perfil,u.nome,sub,cor,null));
+    });
+    // Gestores de loja específica
     todosUsuarios.filter(u=>u.perfil==='gestor'&&u.ativo!==false&&u.loja_id).forEach(u=>{
       const loja = getLoja(u.loja_id);
       const cor = loja?.grupo==='aquamotor' ? '#16a34a' : 'var(--c1)';
       const sub = loja?.nome || u.loja_nome || 'Gestor';
       gestores.push(avBtn(u.id,'gestor',u.nome,sub,cor,u.loja_id));
     });
+    // Fallback: login compartilhado só aparece se NÃO houver master/gestor individual
+    if(!gestores.length) gestores.push(avBtn('__gestor__','gestor','Gestor','Acesso completo','var(--c1)',null));
     gestaoGrid.innerHTML = gestores.join('');
   }
 
@@ -3696,6 +3788,17 @@ async function fazerLogin(){
       // Gestor principal da Forthemp → escolhe qual unidade gerenciar
       document.getElementById('login-step-pin').classList.remove('show');
       mostrarSelecaoLojaGestor();
+    } else if((loginUserSelecionado.perfil==='master'||loginUserSelecionado.perfil==='gestor') && !loginUserSelecionado.loja_id){
+      // Master ou gestor geral → vê todas as lojas do grupo
+      lojaAtiva = '';
+      sessionStorage.setItem('fluxa_loja_ativa', '');
+      setSessao({perfil:loginUserSelecionado.perfil, loja_id:null, nome:loginUserSelecionado.nome});
+      document.getElementById('login-overlay').style.display = 'none';
+      atualizarBadgeUsuario();
+      aplicarPermissoesPerfil();
+      atualizarHeaderLoja();
+      logAcao('login', loginUserSelecionado.nome+' ('+loginUserSelecionado.perfil+')');
+      go('history');
     } else if(loginUserSelecionado.perfil === 'gestor' && loginUserSelecionado.loja_id){
       // Gestor de empresa específica (ex: Acquamotor) → entra direto na sua empresa
       lojaAtiva = loginUserSelecionado.loja_id;
@@ -3706,6 +3809,7 @@ async function fazerLogin(){
       atualizarBadgeUsuario();
       aplicarPermissoesPerfil();
       atualizarHeaderLoja();
+      logAcao('login', loginUserSelecionado.nome+' (gestor '+(getLojaNome(loginUserSelecionado.loja_id))+')');
       go('history');
     } else {
       // Técnico/Vendas → lojaAtiva = sua empresa
@@ -3716,6 +3820,7 @@ async function fazerLogin(){
       atualizarBadgeUsuario();
       aplicarPermissoesPerfil();
       atualizarHeaderLoja();
+      logAcao('login', loginUserSelecionado.nome+' ('+sessao.perfil+')');
       // Destino inicial explícito por perfil
       if(sessao.perfil==='tecnico') go('minhas-os');
       else if(sessao.perfil==='vendas') go('form');
@@ -4642,6 +4747,7 @@ function go(p){
   if(p==='estoque') loadEstoque();
   if(p==='produtividade'){ loadProdutividade(); setTimeout(renderRelatorioFinanceiro,300); }
   if(p==='usuarios') loadUsuarios();
+  if(p==='auditoria') loadAuditoria();
   if(p==='minhas-os') loadMinhasOS();
   if(p==='visitas'){
     initVisitas();
@@ -5281,6 +5387,7 @@ async function gerarPDF(){
     lsOrcUpsert(rec);
     todosOrc.unshift(rec);
     editId=tempId;
+    logAcao('orcamento_criado', `#${num} ${camposBase.cliente||''} · R$ ${(camposBase.total||0).toFixed(2)}`);
     if(dbOk&&db){
       (async()=>{
         try{
@@ -6053,6 +6160,7 @@ async function mudarSt(id, sel){
   atualizarDash();
   if(dbOk&&db&&!String(id).startsWith('local_'))
     db.from('orcamentos').update({status:st}).eq('id',id).then(()=>{}).catch(()=>{});
+  logAcao('orcamento_status', `#${o?.numero||'?'} ${o?.cliente||''} → ${st}`);
   toast('✅ Status atualizado');
 }
 
@@ -6066,6 +6174,7 @@ async function _excluirOrcConfirmado(id){
   if(dbOk&&db&&!String(id).startsWith('local_'))
     db.from('orcamentos').delete().eq('id',id).then(()=>{}).catch(()=>{});
   todosOrc=todosOrc.filter(x=>x.id!==id); atualizarDash(); renderTabela();
+  logAcao('orcamento_excluido', `#${o?.numero||'?'} ${o?.cliente||''}`);
   toast('🗑 Excluído');
 }
 
@@ -8080,6 +8189,8 @@ function _fazerCheckoutConfirmado(){
     }catch(e){ console.warn('[checkout OS local]', e?.message||e); }
   }
   _entregarPelaOS(osCheckinId); // baixa do estoque do orçamento vinculado, se houver
+  const _osConcl=(todosOS||[]).find(x=>x.id===osCheckinId);
+  logAcao('os_concluida', `OS #${_osConcl?.numero||'?'} ${_osConcl?.cliente||''} · ${duracaoMin} min · ${dadosPreenchidos.tecnico||''}`);
   checkinAt=null; osCheckinId=null;
   toast(`✅ Check-out! OS concluída · ${duracaoMin} min`);
 }
@@ -8329,27 +8440,33 @@ async function loadUsuarios(){
 
 function renderUsuarios(){
   const el=document.getElementById('usr-lista'); if(!el) return;
-  // Gestor fixo (sempre existe)
-  const gestorHtml=`<div class="usr-card">
-    <div class="usr-avatar gestor">G</div>
-    <div class="usr-info">
-      <div class="usr-nome">Gestor</div>
-      <div class="usr-det">PIN: configurado em Segurança · Acesso total</div>
-    </div>
-    <span class="usr-badge gestor">Gestor</span>
-  </div>`;
+  // Aviso de PIN gestor legado só se não houver usuário master individual
+  const temMaster=todosUsuarios.some(u=>u.perfil==='master'&&u.ativo!==false);
+  const gestorHtml=temMaster?'':
+    `<div class="usr-card" style="border:1.5px dashed var(--gray-mid);opacity:.7">
+      <div class="usr-avatar gestor">G</div>
+      <div class="usr-info">
+        <div class="usr-nome">Gestor (legado)</div>
+        <div class="usr-det">Compartilhado · PIN em Segurança</div>
+      </div>
+      <span class="usr-badge gestor">Gestor</span>
+    </div>`;
 
-  const perfilLabel={gestor:'Gestor',vendas:'Vendas',tecnico:'Técnico'};
-  const perfilCor={gestor:'gestor',vendas:'vendas',tecnico:'tecnico'};
+  const perfilLabel={master:'Master',gestor:'Gestor',vendas:'Vendas',tecnico:'Técnico'};
+  const perfilCor={master:'gestor',gestor:'gestor',vendas:'vendas',tecnico:'tecnico'};
+  const perfilEmoji={master:'👑',gestor:'🛡️',vendas:'💼',tecnico:'🔧'};
   const tecsHtml=todosUsuarios.filter(u=>u.ativo!==false).map(u=>`
     <div class="usr-card">
-      <div class="usr-avatar" style="${u.perfil==='vendas'?'background:#f59e0b':''}">${u.perfil==='vendas'?'💼':u.nome.charAt(0).toUpperCase()}</div>
+      <div class="usr-avatar" style="${u.perfil==='vendas'?'background:#f59e0b':u.perfil==='master'?'background:#7c3aed':''}">${u.perfil==='master'?'👑':u.perfil==='vendas'?'💼':u.nome.charAt(0).toUpperCase()}</div>
       <div class="usr-info">
         <div class="usr-nome">${esc(u.nome)}</div>
-        <div class="usr-det">${u.loja_nome?'Loja: '+esc(u.loja_nome)+' · ':''} PIN: ${u.pin?'configurado':'não definido'}</div>
+        <div class="usr-det">${u.loja_nome?'Loja: '+esc(u.loja_nome)+' · ':''}PIN: ${u.pin?'✅ definido':'⚠️ não definido'}</div>
       </div>
-      <span class="usr-badge ${perfilCor[u.perfil]||'tecnico'}">${perfilLabel[u.perfil]||'Técnico'}</span>
-      <button class="tb d" style="margin-left:8px;flex-shrink:0" onclick="excluirUsuario('${u.id}')">🗑</button>
+      <span class="usr-badge ${perfilCor[u.perfil]||'tecnico'}">${perfilEmoji[u.perfil]||'🔧'} ${perfilLabel[u.perfil]||'Técnico'}</span>
+      <div style="display:flex;gap:4px;margin-left:8px;flex-shrink:0">
+        <button class="tb" onclick="editarUsuario('${u.id}')">✏️</button>
+        <button class="tb d" onclick="excluirUsuario('${u.id}')">🗑</button>
+      </div>
     </div>`).join('');
 
   const vazio=todosUsuarios.filter(u=>u.ativo!==false).length===0
@@ -8358,14 +8475,30 @@ function renderUsuarios(){
   el.innerHTML=gestorHtml+tecsHtml+vazio;
 }
 
+let _usrEditId=null;
 function abrirFormUsuario(){
+  _usrEditId=null;
   document.getElementById('usr-form-card').style.display='block';
   ['usr-nome','usr-pin'].forEach(id=>setV(id,''));
   setV('usr-perfil','tecnico');
   setV('usr-loja-id','');
+  document.getElementById('usr-form-titulo').textContent='Novo Usuário';
+  document.getElementById('usr-pin-label').textContent='PIN (4 dígitos)';
   document.getElementById('usr-form-card').scrollIntoView({behavior:'smooth'});
 }
-function fecharFormUsuario(){ document.getElementById('usr-form-card').style.display='none'; }
+function editarUsuario(id){
+  const u=todosUsuarios.find(x=>x.id===id); if(!u){ toast('Usuário não encontrado'); return; }
+  _usrEditId=id;
+  document.getElementById('usr-form-card').style.display='block';
+  setV('usr-nome',u.nome||'');
+  setV('usr-perfil',u.perfil||'tecnico');
+  setV('usr-loja-id',u.loja_id||'');
+  setV('usr-pin','');
+  document.getElementById('usr-form-titulo').textContent='Editar — '+(u.nome||'');
+  document.getElementById('usr-pin-label').textContent='PIN (vazio = manter atual)';
+  document.getElementById('usr-form-card').scrollIntoView({behavior:'smooth'});
+}
+function fecharFormUsuario(){ document.getElementById('usr-form-card').style.display='none'; _usrEditId=null; }
 function updUsrForm(){}
 
 async function salvarUsuario(){
@@ -8376,13 +8509,29 @@ async function salvarUsuario(){
   const pinRaw=gV('usr-pin').trim();
   if(pinRaw&&(pinRaw.length!==4||!/^\d{4}$/.test(pinRaw))){ toast('⚠️ PIN deve ter exatamente 4 dígitos'); return; }
   const perfil=gV('usr-perfil')||'tecnico';
-  if(!lojaId && perfil!=='vendas'){ toast('⚠️ Selecione a empresa do usuário'); return; }
+  if(!lojaId && perfil==='gestor'){ toast('⚠️ Gestor de empresa precisa de uma empresa (deixe vazio só p/ master/gestor geral)'); return; }
   const pinHash = pinRaw ? await hashPIN(pinRaw) : null;
-  const dados={
-    nome, perfil,
-    loja_id:lojaId, loja_nome:loja?.nome||null,
-    pin:pinHash, ativo:true
-  };
+
+  if(_usrEditId){
+    // ── EDITAR (promover/rebaixar, renomear, trocar PIN) ──
+    const i=todosUsuarios.findIndex(x=>x.id===_usrEditId); if(i<0){ toast('Usuário não encontrado'); return; }
+    const antigo=todosUsuarios[i];
+    const upd={ nome, perfil, loja_id:lojaId, loja_nome:loja?.nome||null };
+    if(pinHash) upd.pin=pinHash; // só troca o PIN se foi informado
+    todosUsuarios[i]={...antigo,...upd};
+    lsSet('fluxa_usuarios',JSON.stringify(todosUsuarios));
+    if(dbOk&&db&&!String(_usrEditId).startsWith('usr_')&&!String(_usrEditId).startsWith('tec_')){
+      try{ await dbUpdate('usuarios', upd, 'id', _usrEditId); }catch(e){ console.warn('[editUsr]',e?.message||e); }
+    } else if(dbOk&&db){ // id local → tenta upsert pelo registro inteiro
+      try{ await dbUpsert('usuarios', todosUsuarios[i]); }catch(e){ console.warn('[editUsr upsert]',e?.message||e); }
+    }
+    logAcao('usuario_editado', `${nome} → ${perfil}${antigo.perfil!==perfil?' (era '+antigo.perfil+')':''}`);
+    fecharFormUsuario(); renderUsuarios(); renderLoginUsers();
+    toast('✅ Usuário atualizado!'); return;
+  }
+
+  // ── NOVO ──
+  const dados={ nome, perfil, loja_id:lojaId, loja_nome:loja?.nome||null, pin:pinHash, ativo:true };
   const tempId='usr_'+Date.now();
   const rec={...dados,id:tempId,data_criacao:new Date().toISOString()};
   todosUsuarios.push(rec);
@@ -8397,8 +8546,9 @@ async function salvarUsuario(){
       }
     }catch(e){ console.warn('salvarUsuario BD falhou:',e.message); }
   }
+  logAcao('usuario_criado', `${nome} (${perfil})`);
   fecharFormUsuario();
-  renderUsuarios();
+  renderUsuarios(); renderLoginUsers();
   toast('✅ Usuário salvo!');
 }
 
@@ -8406,12 +8556,14 @@ function excluirUsuario(id){
   confirmar('Desativar este usuário?', ()=>_excluirUsuarioConfirmado(id), 'Desativar Usuário');
 }
 async function _excluirUsuarioConfirmado(id){
+  const alvo=todosUsuarios.find(x=>x.id===id);
   todosUsuarios=todosUsuarios.filter(x=>x.id!==id);
   lsSet('fluxa_usuarios',JSON.stringify(todosUsuarios));
   if(dbOk&&db){
     try{ await db.from('usuarios').update({ativo:false}).eq('id',id); }catch(e){ console.warn('usr delete sync:',e.message); }
   }
-  renderUsuarios();
+  logAcao('usuario_removido', alvo?.nome||id);
+  renderUsuarios(); renderLoginUsers();
   toast('🗑 Usuário removido');
 }
 
@@ -10461,6 +10613,11 @@ function registrarMovimento({produto_id, tipo, quantidade, custo_unit, motivo, r
   lsMovSalvar(todosMovEstoque);
   if(dbOk&&db){
     (async()=>{ try{ const r=await _comTimeout(dbInsert('estoque_movimentos',mov),20000,'mov'); if(r&&r.error) console.warn('[mov sync]', r.error.message); }catch(e){ console.warn('[mov sync bg]', e?.message||e); } })();
+  }
+  // Auditoria: só movimentos físicos relevantes (reserva/liberação são internos, não loga)
+  if(['entrada','saida','ajuste','transf_entrada','transf_saida'].includes(tipo)){
+    const p=produtoById(produto_id);
+    logAcao('estoque_mov', `${tipo} ${Math.abs(mov.quantidade)} ${p?.unidade||'un'} · ${p?.nome||produto_id}${motivo?' ('+motivo+')':''}`);
   }
   return mov;
 }
