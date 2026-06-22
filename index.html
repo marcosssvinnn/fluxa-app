@@ -10783,7 +10783,7 @@ function concluirOSHistorico(osId){
     _entregarPelaOS(osId);
     const os=_acharOS(osId);
     logAcao('os_concluida',`OS #${String(os?.numero||'').padStart(3,'0')} ${os?.cliente||''}`);
-    renderOSHistorico();
+    renderOSTabela();
     toast('✅ OS concluída · estoque baixado automaticamente');
   }, 'Concluir OS');
 }
