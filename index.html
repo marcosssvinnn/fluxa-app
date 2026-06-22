@@ -2035,7 +2035,7 @@
 </div>
 
 <!-- ══ MODAL QR CODE ══ -->
-<div class="qr-modal-bg" id="qr-modal-bg">
+<div class="qr-modal-bg" id="qr-modal-bg" onclick="if(event.target===this)fecharQR()">
   <div class="qr-modal">
     <h3 id="qr-eq-nome">Equipamento</h3>
     <p id="qr-eq-info">Cliente — Tipo</p>
@@ -3100,7 +3100,7 @@
   </div>
 </div>
 
-<div class="modal-bg" id="modal-pg">
+<div class="modal-bg" id="modal-pg" onclick="if(event.target===this)fecharModal()">
   <div class="modal">
     <h3>💰 Registrar Pagamento</h3>
     <div class="fl" style="margin-bottom:10px"><label>Valor Total do Orçamento</label><input type="text" id="mg-tot" readonly style="background:var(--gray-light)"></div>
