@@ -1799,9 +1799,9 @@
       </div>
     </div>
 
-    <!-- ── Checklist de Vistoria ── -->
+    <!-- ── Checklist de Execução ── -->
     <div class="card">
-      <div class="ct">✅ Checklist de Vistoria
+      <div class="ct">✅ Confirmação da Execução
         <button class="btn-add" style="font-size:11px;padding:4px 10px;border-width:1.5px" onclick="resetChecklist()" title="Restaurar itens padrão">↺ Resetar</button>
       </div>
       <div class="chk-list" id="os-chklist"></div>
@@ -3925,14 +3925,11 @@ let printMode = ''; // 'orc' | 'os' | 'both'
 
 // ── Checklist OS ──
 const OS_CHECKLIST_DEFAULT = [
-  {id:1, nome:'Nível de pH',            checked:false, obs:''},
-  {id:2, nome:'Nível de cloro',         checked:false, obs:''},
-  {id:3, nome:'Alcalinidade total',     checked:false, obs:''},
-  {id:4, nome:'Limpeza do filtro',      checked:false, obs:''},
-  {id:5, nome:'Limpeza do skimmer',     checked:false, obs:''},
-  {id:6, nome:'Funcionamento da bomba', checked:false, obs:''},
-  {id:7, nome:'Nível da água',          checked:false, obs:''},
-  {id:8, nome:'Iluminação subaquática', checked:false, obs:''},
+  {id:1, nome:'Serviço executado conforme solicitado',    checked:false, obs:''},
+  {id:2, nome:'Equipamentos testados após o serviço',     checked:false, obs:''},
+  {id:3, nome:'Materiais e ferramentas recolhidos',       checked:false, obs:''},
+  {id:4, nome:'Local limpo e organizado ao término',      checked:false, obs:''},
+  {id:5, nome:'Cliente informado sobre o que foi feito',  checked:false, obs:''},
 ];
 let osChecklist = OS_CHECKLIST_DEFAULT.map(x=>({...x}));
 
@@ -5532,7 +5529,7 @@ function addOSSvc(d=''){
 }
 
 // ──────────────────────────────────────────────────
-//  CHECKLIST DE VISTORIA
+//  CHECKLIST DE EXECUÇÃO (OS)
 // ──────────────────────────────────────────────────
 function renderOsChecklist(){
   const el=document.getElementById('os-chklist'); if(!el) return;
