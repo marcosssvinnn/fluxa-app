@@ -3587,7 +3587,9 @@ function trocarLojaAtiva(id){
   else if(pid==='clientes') renderClientes();
   else if(pid==='despesas') renderDespesas();
   else if(pid==='produtividade') loadProdutividade();
-  else if(pid==='agendamentos') renderAgLista(); renderCal();
+  else if(pid==='agendamentos'){ renderAgLista(); renderCal(); }
+  else if(pid==='estoque') renderEstoque();
+  else if(pid==='auditoria') renderAuditoria();
 }
 
 function atualizarHeaderLoja(){
