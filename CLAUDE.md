@@ -1035,6 +1035,39 @@ CREATE POLICY "anon full access" ON auditoria FOR ALL TO anon USING (true) WITH 
 
 ---
 
+## Sessão 2026-06-21 — Usabilidade, estabilidade e estorno de estoque
+
+### Ajustes de usabilidade (verificados visualmente no preview):
+1. **Toast mobile** — toast sobrepunha a barra de navegação inferior. Corrigido com `@media(max-width:680px){ .toast{ bottom:72px } }`.
+2. **Campo de busca** — largura aumentada de `180px` → `240px`.
+3. **Menu engrenagem** — 8 itens duplicados removidos; mantidos apenas: Dados da Empresa, Usuários, Auditoria, Sair.
+4. **Card Técnicos (setup)** — substituído por card informativo com botão "Gerenciar Usuários →"; `<textarea id="cfg-tecnicos">` mantido oculto para compatibilidade JS.
+5. **Rascunho (form)** — indicador visual "💾 Rascunho salvo às HH:MM" aparece quando há cliente preenchido.
+6. **Autocomplete de nome no login** — mínimo 2 caracteres antes de mostrar sugestões (era 1).
+7. **Ícone "Minhas OS"** na nav mobile: `📋` → `🗂️` (diferencia de OS avulsa).
+
+### Estabilidade (ponto 5 e 6 da análise de sustentabilidade):
+8. **Libs vendorizadas (`libs/`)** — 4 bibliotecas externas agora hospedadas localmente no repositório, eliminando dependência de CDN:
+   - `libs/supabase.min.js` (193 KB, v2.105.3)
+   - `libs/emailjs.min.js` (3.8 KB, v4)
+   - `libs/html2pdf.bundle.min.js` (885 KB, v0.10.1)
+   - `libs/chart.umd.min.js` (200 KB, v4.4.0)
+   - SW atualizado de `fluxa-v4` → `fluxa-v5`; URLS pré-cache atualizadas para `libs/`.
+9. **Error boundary global** — `window.onerror` captura erros de JS em `index.html` e exibe tela amigável "Algo deu errado" com detalhe do erro + botão "🔄 Recarregar o app" + "Seus dados estão salvos — nada foi perdido." em vez de página em branco. Não captura erros de rede/Supabase (filtro por `src`).
+
+### Estoque — estorno ao excluir orçamento:
+10. **`excluirOrc` agora pergunta sobre estorno** quando o orçamento teve saída física de estoque registrada:
+    - **Sem saída** → exclui diretamente (sem pergunta adicional).
+    - **Com saída** → abre 2º modal "Estornar estoque?" listando os produtos:
+      - "Confirmar" → `_estornarSaidasOrc()` registra `entrada` para cada produto com motivo "Estorno — cancelamento orçamento #XXX" (rastreável no histórico de estoque).
+      - "Não estornar" → exclui sem alterar o estoque.
+    - Comportamento correto: apenas **reservas** são sempre liberadas na exclusão; saídas físicas exigem decisão explícita do usuário.
+
+### Ciclo completo testado e validado:
+Criar orçamento → Aprovar → Reservar estoque → Gerar OS → Entregar (baixa física) → Excluir com estorno → estoque volta ao valor correto.
+
+---
+
 ## Perguntas em aberto (aguardando Marcos responder)
 
 1. **CNPJs reais** das 3 empresas — para preencher tabela `lojas` e emissão de NF
