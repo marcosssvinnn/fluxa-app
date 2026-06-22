@@ -2916,6 +2916,13 @@
         </div>
       </div>
 
+      <!-- ── BUSCA POR LOCAL ── -->
+      <div style="margin-bottom:12px">
+        <input type="text" id="loc-busca" placeholder="🔍 Filtrar por nome do local ou cliente…"
+          oninput="renderLocaisTab()"
+          style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;outline:none;color:var(--c2)">
+      </div>
+
       <!-- ── LISTA UNIFICADA: cada cliente com status do mês ── -->
       <div id="loc-lista-unificada"></div>
 
@@ -4736,7 +4743,7 @@ function go(p){
   }
   // Atualiza técnicos disponíveis quando abre form de OS
   if(p==='os'){
-    restaurarRascunho('os');
+    if(!osEditId) restaurarRascunho('os'); // não restaura draft quando editando OS existente
     // A-04: pré-preenche data de hoje se vazio
     const osDataEl=document.getElementById('os-data');
     if(osDataEl && !osDataEl.value) osDataEl.value=new Date().toISOString().slice(0,10);
@@ -6469,20 +6476,6 @@ function _acharOS(id){
 }
 function editarOS(id){
   const o=_acharOS(id); if(!o||!o.id){ toast('OS não encontrada'); return; }
-
-  // OS de agendamento (vistoria mensal): oferecer redirecionamento para form especializado
-  if(_osTipo(o)==='vistoria' && eTecnico()){
-    const ag=todosAg.find(a=>a.id===o.agendamento_id);
-    confirmar(
-      `Esta OS é uma vistoria mensal de ${o.cliente||'?'}.\n\nPreencher o relatório completo de vistoria (equipamentos, fotos, status) ou executar como OS simples?`,
-      ()=>{ novaVistoria(o.cliente||'', o.local_servico||'', o.tecnico||getSessao()?.nome||''); },
-      'Como deseja executar?',
-      ()=>_abrirOSForm(o),
-      'OS simples',
-      '🔍 Preencher Vistoria'
-    );
-    return;
-  }
   _abrirOSForm(o);
 }
 function _abrirOSForm(o){
@@ -6521,7 +6514,7 @@ function _abrirOSForm(o){
     if(!Array.isArray(osChecklist)||!osChecklist.length) osChecklist=OS_CHECKLIST_DEFAULT.map(x=>({...x}));
   }catch(e){ osChecklist=OS_CHECKLIST_DEFAULT.map(x=>({...x})); }
   renderOSSvcs();
-  renderOsChecklist(); // ← corrige bug: checklist nunca era renderizado ao editar OS existente
+  renderOsChecklist();
   document.getElementById('os-src-badge').textContent=osOrcId?'· vinculada a ORC':'';
   document.getElementById('btn-os-both').style.display=osOrcId?'flex':'none';
   document.getElementById('btn-os-pdf').style.gridColumn=osOrcId?'':'1/-1';
@@ -6529,6 +6522,19 @@ function _abrirOSForm(o){
   const tituloEl=document.getElementById('os-form-titulo');
   if(tituloEl) tituloEl.textContent='Editar OS '+numStr;
   go('os');
+  // Após go() — aplicar modo técnico (campos do gestor read-only)
+  const _tecMode = eTecnico();
+  ['os-cli','os-loc','os-data','os-hora','os-cnpj'].forEach(fid=>{
+    const el=document.getElementById(fid);
+    if(!el) return;
+    if(_tecMode){ el.setAttribute('readonly',''); el.style.background='var(--gray-light)'; el.style.color='var(--gray)'; }
+    else{ el.removeAttribute('readonly'); el.style.background=''; el.style.color=''; }
+  });
+  // Empresa (select): desabilitar para técnico
+  const lojaEl=document.getElementById('os-loja');
+  if(lojaEl){ if(_tecMode) lojaEl.setAttribute('disabled',''); else lojaEl.removeAttribute('disabled'); }
+  const btnAddSvc=document.querySelector('#page-os .btn-add');
+  if(btnAddSvc) btnAddSvc.style.display=_tecMode?'none':'';
   atualizarPainelItensOS();
 }
 
@@ -9535,13 +9541,18 @@ function renderLocaisTab(){
     if(isTecnico && tecTitle){ tecTitle.textContent='📍 Minhas visitas do mês'; }
   }
 
+  // Filtro de busca por nome/local
+  const buscaTxt=(document.getElementById('loc-busca')?.value||'').toLowerCase().trim();
+  const _matchBusca=l=>!buscaTxt||(l.cliente||'').toLowerCase().includes(buscaTxt)||(l.local||'').toLowerCase().includes(buscaTxt);
+
   // Filtra locais
   const locaisFiltrados=locaisVistoria.filter(l=>
     l.loja_id===lojaAtiva && l.ativo!==false &&
-    (!isTecnico || !l.tecnico || l.tecnico===nomeLogado)
+    (!isTecnico || !l.tecnico || l.tecnico===nomeLogado) &&
+    _matchBusca(l)
   );
   // Todos os locais desta loja (para o gestor ver inativos também na lista)
-  const todosLoja=isTecnico ? locaisFiltrados : locaisVistoria.filter(l=>l.loja_id===lojaAtiva);
+  const todosLoja=isTecnico ? locaisFiltrados : locaisVistoria.filter(l=>l.loja_id===lojaAtiva && _matchBusca(l));
 
   // Vistorias deste mês
   const vis=lsVisLer().filter(v=>v.loja_id===lojaAtiva && v.mes_ref===locaisVisMesRef);
