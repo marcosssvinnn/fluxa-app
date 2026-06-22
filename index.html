@@ -10861,7 +10861,7 @@ function registrarMovimento({produto_id, tipo, quantidade, custo_unit, motivo, r
   const s=getSessao();
   const mov={
     id:'mov_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
-    loja_id: lojaId || produtoById(produto_id)?.loja_id || lojaAtiva || LOJA_PADRAO_ID,
+    loja_id: lojaId || lojaAtiva || produtoById(produto_id)?.loja_id || LOJA_PADRAO_ID,
     produto_id, tipo,
     quantidade: parseFloat(quantidade)||0,
     custo_unit: custo_unit!=null?parseFloat(custo_unit)||0:null,
@@ -10997,13 +10997,20 @@ function fisicaProdutoTotal(produtoId){
     .filter(m=>m.produto_id===produtoId && _TIPOS_FISICOS.includes(m.tipo))
     .reduce((a,m)=>a+(parseFloat(m.quantidade)||0),0);
 }
-// Produtos visíveis no contexto de loja atual: os cadastrados na loja + os que
-// têm movimento nela (ex.: recebidos por transferência de outra unidade).
+// Produtos visíveis no contexto de loja atual.
+// Lojas do grupo Forthemp compartilham o mesmo catálogo de produtos;
+// o estoque (movimentos) é individualizado por loja_id no movimento.
+// Lojas fora do grupo (ex: Acquamotor) têm catálogo próprio.
 function produtosVisiveis(){
   const ativos=todosProdutos.filter(p=>p.ativo!==false);
   if(!lojaAtiva) return filtrarPorLoja(ativos); // "Todas" → grupo
   const comMov=new Set(todosMovEstoque.filter(m=>(m.loja_id||'')===lojaAtiva).map(m=>m.produto_id));
-  return ativos.filter(p=>(p.loja_id||'')===lojaAtiva || comMov.has(p.id));
+  if(GRUPO_FORTHEMP&&GRUPO_FORTHEMP.includes(lojaAtiva)){
+    // Catálogo compartilhado: mostra produtos de qualquer loja do grupo Forthemp
+    return ativos.filter(p=>GRUPO_FORTHEMP.includes(p.loja_id||'')||comMov.has(p.id));
+  }
+  // Loja isolada (Acquamotor etc.): só produtos próprios
+  return ativos.filter(p=>(p.loja_id||'')===lojaAtiva||comMov.has(p.id));
 }
 // Produtos com disponível negativo = encomendas (vendido/comprometido sem estoque)
 function listaEncomendas(){
@@ -11241,7 +11248,12 @@ function produtosVisiveisInativos(){
 
 // Insights: curva ABC, previsão de ruptura e capital parado
 function _metricsLoja(lojaId){
-  const prods=(todosProdutos||[]).filter(p=>p.ativo!==false&&(p.loja_id||'')===lojaId);
+  const ativos=(todosProdutos||[]).filter(p=>p.ativo!==false);
+  // Forthemp: catálogo compartilhado entre as lojas do grupo
+  const ehGrupo=GRUPO_FORTHEMP&&GRUPO_FORTHEMP.includes(lojaId);
+  const prods=ehGrupo
+    ? ativos.filter(p=>GRUPO_FORTHEMP.includes(p.loja_id||''))
+    : ativos.filter(p=>(p.loja_id||'')===lojaId);
   const movs=(todosMovEstoque||[]).filter(m=>(m.loja_id||'')===lojaId);
   const lim90=Date.now()-90*86400000;
   let encomendar=0,repor=0,parad=0,valorTotal=0;
