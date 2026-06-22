@@ -497,6 +497,8 @@
     .eq-alerta.vencida{background:var(--red-bg);color:var(--red)}
     .qr-modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:600;display:none;align-items:center;justify-content:center}
     .qr-modal-bg.on{display:flex}
+    /* Título sticky dentro de modais com scroll — × sempre visível */
+    .qr-modal-bg .ct,.nfe-modal-bg .ct{position:sticky;top:0;z-index:2;background:var(--white);margin-top:-6px;padding-top:6px}
     .qr-modal{background:white;border-radius:16px;padding:28px;text-align:center;max-width:320px;width:100%}
     .qr-modal h3{font-size:16px;font-weight:800;margin-bottom:4px}
     .qr-modal p{font-size:12px;color:var(--gray);margin-bottom:16px}
@@ -2623,7 +2625,7 @@
 </div>
 
 <!-- Modal: lista de compras consolidada -->
-<div class="qr-modal-bg" id="compras-modal" style="display:none">
+<div class="qr-modal-bg" id="compras-modal" style="display:none" onclick="if(event.target===this)fecharListaCompras()">
   <div class="card" style="max-width:520px;width:92%;max-height:85vh;overflow:auto">
     <div class="ct">🛒 Lista de compras <button onclick="fecharListaCompras()" aria-label="Fechar" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;float:right;line-height:1">×</button></div>
     <div id="compras-body"></div>
@@ -2632,7 +2634,7 @@
 </div>
 
 <!-- Modal: cadastro/edição de produto -->
-<div class="qr-modal-bg" id="prod-modal" style="display:none">
+<div class="qr-modal-bg" id="prod-modal" style="display:none" onclick="if(event.target===this)fecharProdutoModal()">
   <div class="card" style="max-width:560px;width:92%;max-height:88vh;overflow:auto">
     <div class="ct" id="prod-modal-titulo">Novo produto <button onclick="fecharProdutoModal()" aria-label="Fechar" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;float:right;line-height:1">×</button></div>
     <div class="row f1"><div class="fl"><label class="req">Nome do produto</label><input type="text" id="prod-nome" placeholder="Ex: Cloro granulado 10kg"></div></div>
@@ -2670,7 +2672,7 @@
 </div>
 
 <!-- Modal: movimento (entrada/saída/ajuste) -->
-<div class="qr-modal-bg" id="mov-modal" style="display:none">
+<div class="qr-modal-bg" id="mov-modal" style="display:none" onclick="if(event.target===this)fecharMovModal()">
   <div class="card" style="max-width:420px;width:92%">
     <div class="ct" id="mov-modal-titulo">Movimento <button onclick="fecharMovModal()" aria-label="Fechar" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;float:right;line-height:1">×</button></div>
     <div id="mov-saldo-atual" style="font-size:12px;color:var(--gray);margin-bottom:10px"></div>
@@ -2682,7 +2684,7 @@
 </div>
 
 <!-- Modal: transferência entre unidades -->
-<div class="qr-modal-bg" id="transf-modal" style="display:none">
+<div class="qr-modal-bg" id="transf-modal" style="display:none" onclick="if(event.target===this)fecharTransfModal()">
   <div class="card" style="max-width:420px;width:92%">
     <div class="ct" id="transf-modal-titulo">Transferir <button onclick="fecharTransfModal()" aria-label="Fechar" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;float:right;line-height:1">×</button></div>
     <div id="transf-origem" style="font-size:12px;color:var(--gray);margin-bottom:10px"></div>
@@ -2696,7 +2698,7 @@
 </div>
 
 <!-- Modal: selecionar produto para o item do orçamento -->
-<div class="qr-modal-bg" id="prodpicker-modal" style="display:none">
+<div class="qr-modal-bg" id="prodpicker-modal" style="display:none" onclick="if(event.target===this)fecharPickerProduto()">
   <div class="card" style="max-width:460px;width:92%;max-height:80vh;overflow:auto">
     <div class="ct">Vincular produto <button onclick="fecharPickerProduto()" aria-label="Fechar" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;float:right;line-height:1">×</button></div>
     <input class="hsrch" type="text" id="prodpicker-busca" placeholder="🔍 Buscar produto…" oninput="renderPickerProduto(this.value)" style="width:100%;margin-bottom:8px">
@@ -2705,7 +2707,7 @@
 </div>
 
 <!-- Modal: histórico do produto -->
-<div class="qr-modal-bg" id="hist-prod-modal" style="display:none">
+<div class="qr-modal-bg" id="hist-prod-modal" style="display:none" onclick="if(event.target===this)fecharHistProduto()">
   <div class="card" style="max-width:480px;width:92%;max-height:80vh;overflow:auto">
     <div class="ct" id="hist-prod-titulo">Histórico <button onclick="fecharHistProduto()" aria-label="Fechar" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;float:right;line-height:1">×</button></div>
     <div id="hist-prod-body"></div>
@@ -2713,7 +2715,7 @@
 </div>
 
 <!-- Modal: fornecedores -->
-<div class="qr-modal-bg" id="fornec-modal" style="display:none">
+<div class="qr-modal-bg" id="fornec-modal" style="display:none" onclick="if(event.target===this)fecharFornecModal()">
   <div class="card" style="max-width:540px;width:92%;max-height:88vh;overflow:auto">
     <div class="ct">👥 Fornecedores <button onclick="fecharFornecModal()" aria-label="Fechar" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;line-height:1;margin-left:auto;padding:0 4px">×</button></div>
     <div id="fornec-lista"></div>
@@ -2736,7 +2738,7 @@
 </div>
 
 <!-- Modal: lista de ordens de compra -->
-<div class="qr-modal-bg" id="oc-list-modal" style="display:none">
+<div class="qr-modal-bg" id="oc-list-modal" style="display:none" onclick="if(event.target===this)fecharOCListModal()">
   <div class="card" style="max-width:600px;width:92%;max-height:88vh;overflow:auto">
     <div class="ct">📄 Ordens de Compra <button onclick="fecharOCListModal()" aria-label="Fechar" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;line-height:1;margin-left:auto;padding:0 4px">×</button></div>
     <div style="display:flex;gap:8px;margin-bottom:10px">
@@ -2748,7 +2750,7 @@
 </div>
 
 <!-- Modal: formulário de OC -->
-<div class="qr-modal-bg" id="oc-form-modal" style="display:none">
+<div class="qr-modal-bg" id="oc-form-modal" style="display:none" onclick="if(event.target===this)fecharOCFormModal()">
   <div class="card" style="max-width:580px;width:92%;max-height:90vh;overflow:auto">
     <div class="ct" id="oc-form-titulo">Nova Ordem de Compra <button onclick="fecharOCFormModal()" aria-label="Fechar" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;line-height:1;margin-left:auto;padding:0 4px">×</button></div>
     <div class="row">
@@ -2771,7 +2773,7 @@
 </div>
 
 <!-- Modal: balanço de inventário -->
-<div class="qr-modal-bg" id="balanco-modal" style="display:none">
+<div class="qr-modal-bg" id="balanco-modal" style="display:none" onclick="if(event.target===this)fecharBalancoModal()">
   <div class="card" style="max-width:580px;width:92%;max-height:90vh;overflow:auto">
     <div class="ct">📋 Balanço de Inventário <button onclick="fecharBalancoModal()" aria-label="Fechar" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;line-height:1;margin-left:auto;padding:0 4px">×</button></div>
     <div style="font-size:12px;color:var(--gray);margin-bottom:12px">Informe a quantidade física contada para cada produto. O sistema vai gerar ajustes automáticos para as diferenças.</div>
@@ -3164,7 +3166,7 @@
 </div>
 
 <!-- ══ MODAL: NF-e / NFS-e ══ -->
-<div class="nfe-modal-bg" id="nfe-modal-bg">
+<div class="nfe-modal-bg" id="nfe-modal-bg" onclick="if(event.target===this)fecharModalNFe()">
   <div class="nfe-modal">
     <h3>📄 Emitir Nota Fiscal</h3>
     <div class="nfe-modal-sub" id="nfe-modal-sub">Orçamento #000 — Cliente</div>
