@@ -9562,16 +9562,17 @@ function renderLocaisTab(){
   const _matchBusca=l=>!buscaTxt||(l.cliente||'').toLowerCase().includes(buscaTxt)||(l.local||'').toLowerCase().includes(buscaTxt);
 
   // Normaliza loja_id: "default" ou vazio equivale à loja padrão
-  const _lojaMatch=l=>{ const lid=l.loja_id||LOJA_PADRAO_ID; return lid===lojaAtiva || lid==='default' || lid===LOJA_PADRAO_ID; };
-  // Filtra locais ativos da loja (técnico vê todos — tecnico no local é preferência, não restrição)
+  // Técnico: sem filtro de loja — executa OS/vistorias de qualquer unidade
+  const _lojaMatch=l=>{ if(isTecnico) return true; const lid=l.loja_id||LOJA_PADRAO_ID; return lid===lojaAtiva || lid==='default' || lid===LOJA_PADRAO_ID; };
+  // Filtra locais ativos (técnico vê todos os locais de todas as unidades)
   const locaisFiltrados=locaisVistoria.filter(l=>
     _lojaMatch(l) && l.ativo!==false && _matchBusca(l)
   );
   // Gestor vê também os inativos
   const todosLoja=isTecnico ? locaisFiltrados : locaisVistoria.filter(l=>_lojaMatch(l) && _matchBusca(l));
 
-  // Vistorias deste mês
-  const vis=lsVisLer().filter(v=>v.loja_id===lojaAtiva && v.mes_ref===locaisVisMesRef);
+  // Vistorias deste mês — técnico vê de qualquer loja
+  const vis=lsVisLer().filter(v=>(isTecnico || v.loja_id===lojaAtiva) && v.mes_ref===locaisVisMesRef);
 
   // Build tracking somente dos ativos para stats
   const trackingAtivos=locaisFiltrados.map(loc=>{
