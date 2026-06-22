@@ -10853,6 +10853,17 @@ function _getSaldoCache(){
   return cache;
 }
 function fisicaProduto(produtoId){ return (_getSaldoCache()[produtoId]||{fisico:0}).fisico; }
+
+function _saldoPorLoja(produtoId){
+  const r={};
+  (todosMovEstoque||[]).filter(m=>m.produto_id===produtoId&&GRUPO_FORTHEMP&&GRUPO_FORTHEMP.includes(m.loja_id||'')).forEach(m=>{
+    const lid=m.loja_id||''; if(!r[lid]) r[lid]={fisico:0,reservado:0};
+    const q=parseFloat(m.quantidade)||0;
+    if(_TIPOS_FISICOS.includes(m.tipo)) r[lid].fisico+=q;
+    else if(_TIPOS_RESERVA.includes(m.tipo)) r[lid].reservado+=q;
+  });
+  return r;
+}
 function reservadoProduto(produtoId){ return (_getSaldoCache()[produtoId]||{reservado:0}).reservado; }
 function disponivelProduto(produtoId){ const s=_getSaldoCache()[produtoId]||{}; return (s.fisico||0)-(s.reservado||0); }
 function saldoProduto(produtoId){ return fisicaProduto(produtoId); } // compat
@@ -11170,6 +11181,18 @@ function renderEstoque(){
       // Quantidade: mostra disponível em destaque; se há reserva, mostra nota
       const qtdDisp=`<span style="font-size:18px;font-weight:700;color:${encomenda?'var(--red)':baixo?'var(--yellow)':'var(--c2)'}">${fmtQtd(disp)}</span> <span style="font-size:11px;color:var(--gray)">${esc(p.unidade||'un')}</span>`;
       const qtdDetalhe=res>0?`<div style="font-size:10px;color:var(--gray);margin-top:1px">${fmtQtd(fis)} físico · ${fmtQtd(res)} reservado</div>`:'';
+      // No painel geral (todas as lojas), mostra de onde vem o estoque
+      let qtdPorLoja='';
+      if(!lojaAtiva&&GRUPO_FORTHEMP&&GRUPO_FORTHEMP.length>1){
+        const spl=_saldoPorLoja(p.id);
+        const partes=LOJAS.filter(l=>GRUPO_FORTHEMP.includes(l.id)).map(l=>{
+          const s=spl[l.id]||{fisico:0,reservado:0};
+          const d=s.fisico-s.reservado;
+          const cor=d<0?'#b91c1c':d===0?'var(--gray)':'inherit';
+          return `<span class="loja-badge ${l.cor}" style="font-size:10px">${esc(l.nome)}: <strong style="color:${cor}">${fmtQtd(d)}</strong></span>`;
+        });
+        qtdPorLoja=`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">${partes.join('')}</div>`;
+      }
       // Menu "⋮" para ações secundárias
       const menuId=`emenu_${p.id.replace(/[^a-z0-9]/gi,'_')}`;
       const menuAcoes=ehInativo
@@ -11190,7 +11213,7 @@ function renderEstoque(){
           <div style="font-weight:600;color:var(--c2)">${esc(p.nome)}</div>
           <div style="font-size:11px;color:var(--gray);margin-top:2px">${[p.codigo,forn?'🏭 '+forn.nome:''].filter(Boolean).map(esc).join(' · ')||'&nbsp;'}</div>
         </td>
-        <td>${qtdDisp}${qtdDetalhe}</td>
+        <td>${qtdDisp}${qtdDetalhe}${qtdPorLoja}</td>
         <td>${statusBadge}</td>
         <td><div class="ta" style="gap:6px">${menuAcoes}</div></td>
       </tr>`;
