@@ -1110,6 +1110,81 @@ Criar orçamento → Aprovar → Reservar estoque → Gerar OS → Entregar (bai
 
 ---
 
+## Sessão 2026-06-22 (continuação) — Fluxo de OS e Vistorias do Técnico
+
+### Clarificação do modelo de negócio (decisão final):
+
+**OS (Ordens de Serviço):**
+- Criadas pelo **gestor** no calendário/agenda
+- Técnico vê em **"Minhas OS"** (filtro padrão: ⏳ Agendadas)
+- Técnico abre, preenche check-in, executa, preenche obs/materiais/fotos/checklist, faz checkout
+- Campos do gestor são **somente-leitura** para o técnico
+
+**Vistorias mensais:**
+- Gestor cadastra **planos recorrentes** (Locais) em "Vistorias → Meus Locais"
+- Cada mês, o técnico vê quais locais precisam de vistoria (status ✅ Realizada / ⏳ Pendente)
+- Técnico clica "🔍 Fazer Vistoria" → preenche relatório completo de equipamentos
+- Fluxo **completamente separado** das OS — não se misturam
+
+### O que foi implementado / corrigido:
+
+#### 1. Formulário de OS — modo técnico (read-only)
+- `_abrirOSForm(o)` corrigido com 4 bugs em cadeia:
+  - Checklist nunca renderizava ao editar OS existente (faltava `renderOsChecklist()`)
+  - Campo "Responsável Técnico" ficava vazio → auto-preenche com nome da sessão
+  - Select de check-in ficava em "Selecione…" → pré-seleciona o técnico logado
+  - Campos do gestor agora ficam **read-only** quando técnico abre a OS:
+    - `os-cli`, `os-loc`, `os-data`, `os-hora`, `os-cnpj` → `readonly` + fundo cinza
+    - `os-loja` → `disabled`
+    - Botão "+ Adicionar serviço" → oculto para técnico
+- `restaurarRascunho('os')` ignorado quando `osEditId` está preenchido (evitava draft sobrescrever valores da OS carregada)
+- `confirmar()` estendida para aceitar `cbNao`, `labelNao`, `labelSim` (modal com dois caminhos)
+- `editarOS()` simplificada — apenas chama `_abrirOSForm(o)` sem modal de redirecionamento
+
+#### 2. Minhas OS — separação e deduplicação
+- OS com `agendamento_id` excluídas de "Minhas OS" (pertencem exclusivamente à aba Vistorias)
+- Deduplicação por `id` (evita merge local+remoto)
+- Deduplicação por `orcamento_id + data_servico` (OS gerada duas vezes do mesmo orçamento na mesma data)
+- Botão "🔍 Nova Vistoria" removido do header (técnico não cria vistoria por lá)
+
+#### 3. Vistorias — filtros e visibilidade corrigidos
+- Campo `tecnico` no local é preferência de agenda, **não restrição de acesso** → técnico vê todos os locais ativos da loja
+- `loja_id: "default"` agora tratado como equivalente à loja padrão (`LOJA_PADRAO_ID`) — locais antigos apareciam em branco por esse motivo
+- Deduplicação por `cliente+local` adicionada em `loadLocais()` (executa a cada carregamento)
+- Campo de busca "🔍 Filtrar por nome do local ou cliente…" adicionado na aba Meus Locais (filtra em tempo real)
+- `go('visitas')` abre sempre na aba "Meus Locais" (aba "Nova Vistoria" oculta para técnicos)
+
+#### 4. Calendário — distinção visual de tipos de OS
+```js
+// Cores dos eventos no calendário
+tipo === 'vistoria'  → fundo roxo   🟣 (agendamento_id)
+tipo === 'orcamento' → fundo laranja 🟠 (orcamento_id)
+status === 'concluido' → fundo verde 🟢
+status === 'cancelado' → fundo cinza
+// padrão (serviço avulso) → azul padrão 🔵
+```
+Legenda de cores adicionada abaixo do calendário.
+
+#### 5. `_gerarProximaOSdoAg(agId, dataConcluidaStr)` — nova função
+Chamada automaticamente ao concluir uma OS com `agendamento_id` (check-out ou "Concluir" do gestor).
+Gera a próxima ocorrência do agendamento quando a última OS do lote é concluída.
+
+### Limpeza de dados (Supabase):
+- **24 OS duplicadas deletadas**: 3 por `orcamento_id+data_servico` + 21 por `cliente+data_servico` do mesmo agendamento
+- **Locais de vistoria deduplicados**: de 5 → 3 registros únicos salvos no `empresa_config` do Supabase
+- Banco ficou com 60 OS únicas (53 de agendamentos, 7 normais) e 3 locais ativos
+
+### Commits desta sessão:
+- `bdc0474` — docs(claude): atualiza CLAUDE.md com sessão 2026-06-22
+- `3cd989c` — fix(os): corrige 4 bugs no fluxo de execução do técnico
+- `0054ff2` — fix(os,vistoria): separar fluxos técnico e vistoria corretamente
+- `27dc827` — fix(minhas-os): remover botão "Nova Vistoria" da tela do técnico
+- `a7ba7e6` — fix(minhas-os): separar vistorias e remover OS duplicadas
+- `5308f7f` — fix(vistorias): corrigir filtro de loja em renderLocaisTab
+- `3871a01` — fix(vistorias): técnico vê todos os locais ativos + dedup no load
+
+---
+
 ## Perguntas em aberto (aguardando Marcos responder)
 
 1. **CNPJs reais** das 3 empresas — para preencher tabela `lojas` e emissão de NF
