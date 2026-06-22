@@ -11122,42 +11122,56 @@ function renderEstoque(){
     body.innerHTML=`<div class="empty-st"><div class="ei">📦</div><p>${estoqueBusca?'Nenhum produto encontrado.':estoqueFiltro==='todos'?'Nenhum produto cadastrado ainda.':'Nada neste filtro. 🎉'}</p>${estoqueFiltro==='todos'?'<button class="btn-primary" style="margin-top:12px" onclick="abrirProdutoModal()">＋ Cadastrar produto</button>':''}</div>`;
   } else {
     const ehInativo=estoqueFiltro==='inativos';
-    let h=`<div class="htw"><table class="ht"><thead><tr><th>Produto</th><th title="No depósito">Física</th><th title="Comprometida em orçamentos aprovados">Reserv.</th><th title="Física menos reservada">Dispon.</th><th title="Curva ABC por consumo">ABC</th><th title="Dias até acabar pelo consumo médio">Ruptura</th><th title="Margem de venda">Margem</th><th>Valor</th><th>Ações</th></tr></thead><tbody>`;
+    // ── Tabela simplificada: Produto | Em estoque | Status | Ações ──
+    let h=`<div class="htw"><table class="ht"><thead><tr>
+      <th>Produto</th>
+      <th title="Quantidade disponível para uso/venda (física menos reservada em orçamentos)">Em estoque</th>
+      <th>Status</th>
+      <th>Ações</th>
+    </tr></thead><tbody>`;
     lista.forEach(p=>{
       const fis=fisicaProduto(p.id), res=reservadoProduto(p.id), disp=disponivelProduto(p.id);
       const min=parseFloat(p.estoque_minimo)||0;
-      const encomenda=disp<0, baixo=!encomenda && min>0 && disp<=min;
-      const corDisp=encomenda?'var(--red)':baixo?'var(--yellow)':'var(--green)';
-      const valParado=brl(Math.max(0,fis)*(parseFloat(p.custo)||0));
-      const cls=abc.classe[p.id]||'C';
-      const clsCor={A:'#16a34a',B:'#d97706',C:'#6b7280'}[cls];
-      const dr=diasParaRuptura(p.id);
+      const encomenda=disp<0;
+      const baixo=!encomenda && min>0 && disp<=min;
+      const forn=todosFornecedores.find(f=>f.id===p.fornecedor_id);
       const pp=pontoDePedido(p.id);
       const precisaRepor=!encomenda && pp>0 && disp<=pp;
-      const drTxt = dr===Infinity?'—':dr<=0?'<span style="color:var(--red);font-weight:700">esgotado</span>':dr<7?`<span style="color:var(--red);font-weight:700">${Math.round(dr)}d</span>`:dr<21?`<span style="color:var(--yellow);font-weight:700">${Math.round(dr)}d</span>`:`${Math.round(dr)}d`;
-      const preco=parseFloat(p.preco_venda)||0, custo=parseFloat(p.custo)||0;
-      const margem=preco>0?((preco-custo)/preco*100):null;
-      const margemTxt=margem===null?'—':`<span style="color:${margem<0?'var(--red)':margem<20?'var(--yellow)':'var(--green)'};font-weight:600">${margem.toFixed(1)}%</span>`;
-      const forn=todosFornecedores.find(f=>f.id===p.fornecedor_id);
-      h+=`<tr${ehInativo?' style="opacity:.6"':''}>
-        <td><div class="ocl">${esc(p.nome)}${encomenda&&!ehInativo?' <span style="font-size:10px;background:var(--red-bg);color:var(--red);padding:1px 6px;border-radius:50px;font-weight:700">encomenda</span>':''}${precisaRepor&&!encomenda&&!ehInativo?' <span style="font-size:10px;background:#fef3c7;color:#92400e;padding:1px 6px;border-radius:50px;font-weight:700">repor</span>':''}${produtoParado(p.id)&&!ehInativo?' <span style="font-size:10px;background:#eff6ff;color:#1d4ed8;padding:1px 6px;border-radius:50px;font-weight:700">parado</span>':''}</div><div class="oloc">${[p.codigo,p.unidade,forn?'🏭 '+forn.nome:''].filter(Boolean).map(esc).join(' · ')}</div></td>
-        <td style="font-weight:600">${fmtQtd(fis)}</td>
-        <td style="color:var(--gray)">${res>0?fmtQtd(res):'—'}</td>
-        <td><span style="font-weight:700;color:${corDisp}">${fmtQtd(disp)}</span></td>
-        <td><span style="font-weight:700;color:${clsCor}">${cls}</span></td>
-        <td style="color:var(--gray);font-size:12px">${drTxt}</td>
-        <td style="font-size:12px">${margemTxt}</td>
-        <td style="color:var(--gray)">${valParado}</td>
-        <td><div class="ta">
-          ${ehInativo
-            ? `<button class="tb g" title="Reativar" onclick="reativarProduto('${p.id}')">↺ Reativar</button>`
-            : `<button class="tb g" title="Dar entrada" onclick="abrirMovModal('${p.id}','entrada')">＋ Entrada</button>
-               <button class="tb" title="Dar saída" onclick="abrirMovModal('${p.id}','saida')" style="background:var(--yellow-bg);color:var(--yellow);border-color:var(--yellow-bg)">− Saída</button>
-               ${LOJAS.length>1?`<button class="tb" title="Transferir" onclick="abrirTransfModal('${p.id}')">🔄</button>`:''}
-               <button class="tb" title="Ajuste / inventário" onclick="abrirMovModal('${p.id}','ajuste')">⚖</button>
-               <button class="tb" title="Histórico" onclick="abrirHistProduto('${p.id}')">📜</button>
-               <button class="tb" title="Editar" onclick="abrirProdutoModal('${p.id}')">✎</button>`}
-        </div></td>
+      // Badge de status principal (um só, o mais urgente)
+      let statusBadge='';
+      if(!ehInativo){
+        if(encomenda)      statusBadge=`<span style="display:inline-flex;align-items:center;gap:4px;background:#fee2e2;color:#b91c1c;padding:3px 10px;border-radius:50px;font-size:11px;font-weight:700">📥 Pedir</span>`;
+        else if(baixo)     statusBadge=`<span style="display:inline-flex;align-items:center;gap:4px;background:#fef3c7;color:#92400e;padding:3px 10px;border-radius:50px;font-size:11px;font-weight:700">⚠️ Baixo</span>`;
+        else if(precisaRepor) statusBadge=`<span style="display:inline-flex;align-items:center;gap:4px;background:#fef9c3;color:#713f12;padding:3px 10px;border-radius:50px;font-size:11px;font-weight:700">🔄 Repor</span>`;
+        else if(produtoParado(p.id)) statusBadge=`<span style="display:inline-flex;align-items:center;gap:4px;background:#eff6ff;color:#1d4ed8;padding:3px 10px;border-radius:50px;font-size:11px;font-weight:700">💤 Parado</span>`;
+        else statusBadge=`<span style="display:inline-flex;align-items:center;gap:4px;background:#dcfce7;color:#15803d;padding:3px 10px;border-radius:50px;font-size:11px;font-weight:700">✅ OK</span>`;
+      }
+      // Quantidade: mostra disponível em destaque; se há reserva, mostra nota
+      const qtdDisp=`<span style="font-size:18px;font-weight:700;color:${encomenda?'var(--red)':baixo?'var(--yellow)':'var(--c2)'}">${fmtQtd(disp)}</span> <span style="font-size:11px;color:var(--gray)">${esc(p.unidade||'un')}</span>`;
+      const qtdDetalhe=res>0?`<div style="font-size:10px;color:var(--gray);margin-top:1px">${fmtQtd(fis)} físico · ${fmtQtd(res)} reservado</div>`:'';
+      // Menu "⋮" para ações secundárias
+      const menuId=`emenu_${p.id.replace(/[^a-z0-9]/gi,'_')}`;
+      const menuAcoes=ehInativo
+        ? `<button class="tb g" onclick="reativarProduto('${p.id}')">↺ Reativar</button>`
+        : `<button class="tb g" style="font-size:13px;padding:6px 14px" onclick="abrirMovModal('${p.id}','entrada')">＋ Entrada</button>
+           <button class="tb" style="font-size:13px;padding:6px 14px;background:#fff7ed;color:#c2410c;border-color:#fed7aa" onclick="abrirMovModal('${p.id}','saida')">− Saída</button>
+           <div style="position:relative;display:inline-block">
+             <button class="tb" style="font-size:16px;padding:4px 10px;line-height:1" onclick="toggleMenuEstoque('${menuId}')" title="Mais opções">⋮</button>
+             <div id="${menuId}" style="display:none;position:absolute;right:0;top:100%;background:white;border:1.5px solid var(--gray-mid);border-radius:10px;padding:4px;z-index:99;min-width:160px;box-shadow:0 4px 16px rgba(0,0,0,.12)">
+               <button onclick="abrirMovModal('${p.id}','ajuste');toggleMenuEstoque('${menuId}')" style="display:block;width:100%;padding:8px 12px;text-align:left;border:none;background:none;cursor:pointer;font-size:13px;border-radius:7px;font-family:inherit" onmouseenter="this.style.background='var(--c1-bg)'" onmouseleave="this.style.background='none'">⚖ Inventário / Corrigir saldo</button>
+               ${LOJAS.length>1?`<button onclick="abrirTransfModal('${p.id}');toggleMenuEstoque('${menuId}')" style="display:block;width:100%;padding:8px 12px;text-align:left;border:none;background:none;cursor:pointer;font-size:13px;border-radius:7px;font-family:inherit" onmouseenter="this.style.background='var(--c1-bg)'" onmouseleave="this.style.background='none'">🔄 Transferir para outra unidade</button>`:''}
+               <button onclick="abrirHistProduto('${p.id}');toggleMenuEstoque('${menuId}')" style="display:block;width:100%;padding:8px 12px;text-align:left;border:none;background:none;cursor:pointer;font-size:13px;border-radius:7px;font-family:inherit" onmouseenter="this.style.background='var(--c1-bg)'" onmouseleave="this.style.background='none'">📜 Ver histórico de movimentos</button>
+               <button onclick="abrirProdutoModal('${p.id}');toggleMenuEstoque('${menuId}')" style="display:block;width:100%;padding:8px 12px;text-align:left;border:none;background:none;cursor:pointer;font-size:13px;border-radius:7px;font-family:inherit" onmouseenter="this.style.background='var(--c1-bg)'" onmouseleave="this.style.background='none'">✎ Editar produto</button>
+             </div>
+           </div>`;
+      h+=`<tr${ehInativo?' style="opacity:.55"':''}>
+        <td>
+          <div style="font-weight:600;color:var(--c2)">${esc(p.nome)}</div>
+          <div style="font-size:11px;color:var(--gray);margin-top:2px">${[p.codigo,forn?'🏭 '+forn.nome:''].filter(Boolean).map(esc).join(' · ')||'&nbsp;'}</div>
+        </td>
+        <td>${qtdDisp}${qtdDetalhe}</td>
+        <td>${statusBadge}</td>
+        <td><div class="ta" style="gap:6px">${menuAcoes}</div></td>
       </tr>`;
     });
     h+='</tbody></table></div>';
@@ -11413,15 +11427,34 @@ async function salvarProduto(){
 
 // ── Modal de movimento (entrada / saída / ajuste) ──
 let _movProdId=null, _movTipo='entrada';
+function toggleMenuEstoque(id){
+  // Fecha todos os outros menus abertos primeiro
+  document.querySelectorAll('[id^="emenu_"]').forEach(el=>{ if(el.id!==id) el.style.display='none'; });
+  const el=document.getElementById(id); if(el) el.style.display=el.style.display==='none'?'block':'none';
+  // Fecha ao clicar fora
+  setTimeout(()=>{
+    function fora(e){ if(!document.getElementById(id)?.contains(e.target)){ const m=document.getElementById(id); if(m) m.style.display='none'; document.removeEventListener('click',fora); } }
+    document.addEventListener('click',fora);
+  },10);
+}
+
 function abrirMovModal(produtoId, tipo){
   _movProdId=produtoId; _movTipo=tipo;
   const p=produtoById(produtoId); if(!p) return;
-  const titulos={entrada:'Dar entrada',saida:'Dar saída',ajuste:'Ajuste de inventário'};
-  document.getElementById('mov-modal-titulo').innerHTML=esc(titulos[tipo]+' — '+p.nome)+'<button onclick="fecharMovModal()" aria-label="Fechar" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;line-height:1;margin-left:auto;padding:0 4px">×</button>';
-  document.getElementById('mov-saldo-atual').textContent='Saldo atual: '+fmtQtd(saldoProduto(produtoId))+' '+(p.unidade||'un');
+  const config={
+    entrada:{ titulo:'📦 Entrada de estoque', dica:'Use quando receber mercadoria, compra ou devolução de material.' },
+    saida:{   titulo:'📤 Saída de estoque',   dica:'Use quando material sair sem estar vinculado a uma OS (perda, empréstimo, consumo interno).' },
+    ajuste:{  titulo:'⚖️ Inventário / Corrigir saldo', dica:'Use para corrigir a quantidade real após contar o estoque fisicamente.' }
+  };
+  const cfg=config[tipo]||config.entrada;
+  document.getElementById('mov-modal-titulo').innerHTML=
+    `<span>${cfg.titulo}</span><button onclick="fecharMovModal()" aria-label="Fechar" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;line-height:1;margin-left:auto;padding:0 4px">×</button>`;
+  document.getElementById('mov-saldo-atual').innerHTML=
+    `<strong style="color:var(--c2)">${esc(p.nome)}</strong><br>`+
+    `<span style="color:var(--gray)">Em estoque agora: <strong>${fmtQtd(disponivelProduto(produtoId))} ${esc(p.unidade||'un')}</strong></span><br>`+
+    `<span style="font-size:11px;color:var(--gray);font-style:italic;margin-top:3px;display:block">${cfg.dica}</span>`;
   setV('mov-qtd',''); setV('mov-motivo','');
-  // No ajuste, o campo é "novo saldo contado"; nos outros é a quantidade.
-  document.getElementById('mov-qtd-label').textContent = tipo==='ajuste' ? 'Saldo real contado' : 'Quantidade';
+  document.getElementById('mov-qtd-label').textContent = tipo==='ajuste' ? 'Quantidade real contada agora' : 'Quantidade';
   const cw=document.getElementById('mov-custo-wrap'); if(cw) cw.style.display = tipo==='entrada' ? '' : 'none';
   setV('mov-custo', p.custo?String(p.custo):'');
   document.getElementById('mov-modal').style.display='flex';
