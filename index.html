@@ -4890,7 +4890,8 @@ async function criarOSjunto(dados, orcNum){
   const data=document.getElementById('os-inline-data')?.value||dados.dataSvc||'';
   const hora=document.getElementById('os-inline-hora')?.value||'08:00';
   const tec=document.getElementById('os-inline-tec')?.value||CFG.nome;
-  const osSvcsData=dados.svcs.map(s=>s.desc);
+  // Preserva produto_id para que a entrega de estoque via OS funcione corretamente
+  const osSvcsData=dados.svcs.map(s=>({desc:s.desc||s.d||'',produto_id:s.produto_id||null,qty:s.qty||1,precoUnit:parseFloat(s.p||s.preco||0)||0}));
   let numStr='???';
   try{
     if(dbOk&&db){
@@ -8382,7 +8383,10 @@ function fazerCheckout(){
   if(!checkinAt){ toast('⚠️ Faça o check-in primeiro'); return; }
   confirmar('Confirmar check-out e marcar OS como concluída?', _fazerCheckoutConfirmado, 'Check-out');
 }
+let _checkoutEmAndamento=false;
 function _fazerCheckoutConfirmado(){
+  if(_checkoutEmAndamento) return;
+  _checkoutEmAndamento=true;
   const checkout=new Date();
   const duracaoMin=Math.round((checkout-checkinAt)/60000);
   if(checkinTimer){ clearInterval(checkinTimer); checkinTimer=null; }
@@ -8424,7 +8428,7 @@ function _fazerCheckoutConfirmado(){
   logAcao('os_concluida', `OS #${_osConcl?.numero||'?'} ${_osConcl?.cliente||''} · ${duracaoMin} min · ${dadosPreenchidos.tecnico||''}`);
   // Se era OS de agendamento recorrente, gera a próxima ocorrência automaticamente
   if(_osConcl?.agendamento_id) _gerarProximaOSdoAg(_osConcl.agendamento_id, _osConcl.data_servico).catch(e=>console.warn('[nextOS]',e?.message||e));
-  checkinAt=null; osCheckinId=null;
+  checkinAt=null; osCheckinId=null; _checkoutEmAndamento=false;
   toast(`✅ Check-out! OS concluída · ${duracaoMin} min`);
 }
 
@@ -10873,6 +10877,9 @@ function movRefExiste(ref){ return todosMovEstoque.some(m=>m.ref===ref); }
 
 // Registra um movimento (local imediato + sync em background, resiliente).
 function registrarMovimento({produto_id, tipo, quantidade, custo_unit, motivo, ref, lojaId}){
+  if(!produto_id){ console.warn('[mov] produto_id ausente — movimento ignorado', {tipo,ref}); return null; }
+  const _TIPOS_VALIDOS=[..._TIPOS_FISICOS,..._TIPOS_RESERVA];
+  if(!_TIPOS_VALIDOS.includes(tipo)){ console.warn('[mov] tipo inválido:', tipo, '— esperado:', _TIPOS_VALIDOS.join('|')); return null; }
   const s=getSessao();
   const mov={
     id:'mov_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
