@@ -3577,6 +3577,7 @@ function popularSelectsLojaForm(){
 function trocarLojaAtiva(id){
   lojaAtiva=id;
   sessionStorage.setItem('fluxa_loja_ativa', id||'');
+  _invalidarSaldoCache(); // cache de saldos depende de lojaAtiva — deve ser limpo a cada troca
   atualizarHeaderLoja();
   // Re-renderiza a página atual
   const paginaAtiva=document.querySelector('.page.on');
