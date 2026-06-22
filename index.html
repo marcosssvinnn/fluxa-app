@@ -10805,6 +10805,9 @@ async function loadEstoque(){
       if(fornecs){ todosFornecedores=fornecs; lsFornecSalvar(fornecs); }
       if(ocs){ todasOC=ocs.map(o=>({...o,itens:typeof o.itens==='string'?JSON.parse(o.itens||'[]'):o.itens||[]})); lsOCSalvar(todasOC); }
       if(e1) throw e1; if(e2) throw e2;
+      // Se o banco está vazio, limpa o cache local (dados de teste/simulação)
+      if(prods&&prods.length===0){ todosProdutos=[]; lsProdSalvar([]); }
+      if(movs&&movs.length===0){ todosMovEstoque=[]; lsMovSalvar([]); }
       // merge: banco prevalece, mantém locais ainda não sincronizados
       const idP=new Set((prods||[]).map(x=>x.id));
       const soLocalP=todosProdutos.filter(x=>String(x.id).startsWith('prod_')&&!idP.has(x.id));
