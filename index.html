@@ -11056,7 +11056,16 @@ function giroProduto(pid, dias){ // total de SAÍDA (consumo) nos últimos N dia
 }
 function consumoDia(pid){ return giroProduto(pid,90)/90; }
 function diasParaRuptura(pid){ const c=consumoDia(pid); if(c<=0) return Infinity; const d=disponivelProduto(pid); return d<=0?0:d/c; }
-function produtoParado(pid){ return fisicaProduto(pid)>0 && giroProduto(pid,90)<=0; } // tem saldo mas não girou em 90d
+function produtoParado(pid){
+  if(fisicaProduto(pid)<=0) return false;
+  if(giroProduto(pid,90)>0) return false;
+  // Não marca como parado se o produto foi cadastrado/movimentado há menos de 90 dias
+  const lim90=Date.now()-90*86400000;
+  const movs=filtrarPorLoja(todosMovEstoque).filter(m=>m.produto_id===pid);
+  if(!movs.length) return false; // sem nenhuma movimentação ainda
+  const primeiraMov=Math.min(...movs.map(m=>new Date(m.data).getTime()));
+  return primeiraMov<lim90; // só é "parado" se existe há mais de 90 dias sem girar
+}
 function ultimaMovData(pid){
   const ms=filtrarPorLoja(todosMovEstoque).filter(m=>m.produto_id===pid).map(m=>new Date(m.data).getTime());
   return ms.length?Math.max(...ms):0;
@@ -11231,6 +11240,26 @@ function produtosVisiveisInativos(){
 }
 
 // Insights: curva ABC, previsão de ruptura e capital parado
+function _metricsLoja(lojaId){
+  const prods=(todosProdutos||[]).filter(p=>p.ativo!==false&&(p.loja_id||'')===lojaId);
+  const movs=(todosMovEstoque||[]).filter(m=>(m.loja_id||'')===lojaId);
+  const lim90=Date.now()-90*86400000;
+  let encomendar=0,repor=0,parad=0,valorTotal=0;
+  prods.forEach(p=>{
+    const mvProd=movs.filter(m=>m.produto_id===p.id);
+    const fis=mvProd.reduce((a,m)=>a+parseFloat(m.quantidade||0),0);
+    const disp=fis; // simplificado (sem reservas neste resumo)
+    const min=parseFloat(p.estoque_minimo)||0;
+    valorTotal+=Math.max(0,fis)*(parseFloat(p.custo)||0);
+    if(disp<0) encomendar++;
+    else if(min>0&&disp<=min) repor++;
+    const saidas90=mvProd.filter(m=>m.tipo==='saida'&&new Date(m.data).getTime()>=lim90).length;
+    const prim=mvProd.length?Math.min(...mvProd.map(m=>new Date(m.data).getTime())):Infinity;
+    if(fis>0&&saidas90===0&&prim<lim90) parad++;
+  });
+  return {count:prods.length,valor:valorTotal,encomendar,repor,parad};
+}
+
 function renderInsightsEstoque(abc, parados){
   const el=document.getElementById('estoque-insights'); if(!el) return;
   const prods=produtosVisiveis();
@@ -11238,6 +11267,36 @@ function renderInsightsEstoque(abc, parados){
   const ruptura=prods.filter(p=>{ const d=diasParaRuptura(p.id); return d!==Infinity && d<=14; })
     .map(p=>({p,d:diasParaRuptura(p.id)})).sort((a,b)=>a.d-b.d).slice(0,6);
   let h='';
+
+  // ── Comparativo entre lojas (só quando gestor vê todas as lojas) ──
+  if(isMainGestor()&&!lojaAtiva&&GRUPO_FORTHEMP&&GRUPO_FORTHEMP.length>1){
+    const lojasGrupo=LOJAS.filter(l=>GRUPO_FORTHEMP.includes(l.id));
+    if(lojasGrupo.length>1){
+      const dados=lojasGrupo.map(l=>({l,m:_metricsLoja(l.id)}));
+      const row=(label,vals,fn)=>`<tr><td style="font-size:12px;color:var(--gray);padding:6px 0 6px 0;border-bottom:1px solid var(--gray-light);white-space:nowrap">${label}</td>${vals.map(({l,m})=>`<td style="text-align:right;font-size:13px;font-weight:600;padding:6px 0 6px 12px;border-bottom:1px solid var(--gray-light)">${fn(m,l)}</td>`).join('')}</tr>`;
+      h+=`<div class="card" style="border:2px solid var(--c1-light)">
+        <div class="ct">🏪 Comparativo entre lojas</div>
+        <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse">
+          <thead><tr>
+            <th style="text-align:left;font-size:11px;color:var(--gray);font-weight:600;padding-bottom:8px;border-bottom:2px solid var(--c1-light)">Indicador</th>
+            ${dados.map(({l})=>`<th style="text-align:right;font-size:12px;font-weight:700;color:var(--c1);padding-bottom:8px;border-bottom:2px solid var(--c1-light);padding-left:12px">${esc(l.nome)}</th>`).join('')}
+          </tr></thead>
+          <tbody>
+            ${row('Produtos ativos',dados,m=>m.count)}
+            ${row('Capital em estoque',dados,m=>brl(m.valor))}
+            ${row('📥 Precisam ser comprados',dados,m=>m.encomendar>0?`<span style="color:var(--red);font-weight:700">${m.encomendar}</span>`:'<span style="color:var(--green)">0</span>')}
+            ${row('🔄 Abaixo do mínimo',dados,m=>m.repor>0?`<span style="color:#92400e;font-weight:700">${m.repor}</span>`:'<span style="color:var(--green)">0</span>')}
+            ${row('💤 Sem giro (90d)',dados,m=>m.parad>0?`<span style="color:#1d4ed8">${m.parad}</span>`:'<span style="color:var(--green)">0</span>')}
+          </tbody>
+        </table>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+          ${dados.map(({l})=>`<button onclick="trocarLojaAtiva('${l.id}')" class="btn-sec" style="font-size:12px;padding:6px 14px;flex:1">Ver estoque: ${esc(l.nome)} →</button>`).join('')}
+        </div>
+      </div>`;
+    }
+  }
   h+=`<div class="card"><div class="ct">📈 Curva ABC (por consumo)</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       ${[['A','#16a34a','vital — não deixe faltar'],['B','#d97706','intermediário'],['C','#6b7280','baixo giro']].map(([c,cor,desc])=>`<div style="flex:1;min-width:130px;border:1.5px solid ${cor}55;border-radius:10px;padding:10px 12px"><div style="font-size:13px;font-weight:800;color:${cor}">Classe ${c}<span style="float:right">${cnt[c]}</span></div><div style="font-size:11px;color:var(--gray);margin-top:2px">${desc}</div></div>`).join('')}
