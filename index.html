@@ -6469,14 +6469,42 @@ function _acharOS(id){
 }
 function editarOS(id){
   const o=_acharOS(id); if(!o||!o.id){ toast('OS não encontrada'); return; }
-  osEditId=id; // editando: salvar atualiza (não duplica)
+
+  // OS de agendamento (vistoria mensal): oferecer redirecionamento para form especializado
+  if(_osTipo(o)==='vistoria' && eTecnico()){
+    const ag=todosAg.find(a=>a.id===o.agendamento_id);
+    confirmar(
+      `Esta OS é uma vistoria mensal de ${o.cliente||'?'}.\n\nPreencher o relatório completo de vistoria (equipamentos, fotos, status) ou executar como OS simples?`,
+      ()=>{ novaVistoria(o.cliente||'', o.local_servico||'', o.tecnico||getSessao()?.nome||''); },
+      'Como deseja executar?',
+      ()=>_abrirOSForm(o),
+      'OS simples',
+      '🔍 Preencher Vistoria'
+    );
+    return;
+  }
+  _abrirOSForm(o);
+}
+function _abrirOSForm(o){
+  osEditId=o.id;
   osOrcId=o.orcamento_id||null;
   setV('os-cli',o.cliente||''); setV('os-loc',o.local_servico||'');
   setV('os-data',o.data_servico||''); setV('os-hora',o.hora||'08:00');
-  setV('os-tec',o.tecnico||''); setV('os-total',String(o.total||0));
+  // Técnico: auto-preencher com o usuário logado se o campo estiver vazio
+  const nomeSessao=getSessao()?.nome||'';
+  setV('os-tec',o.tecnico||nomeSessao); setV('os-total',String(o.total||0));
   setV('os-mat',o.materiais||''); setV('os-obs',o.obs_tecnica||'');
   setV('os-video-link',o.video_link||'');
-  setV('os-loja',o.loja_id||lojaAtiva||LOJA_PADRAO_ID); // fix #4: lojaAtiva como fallback para registros antigos
+  setV('os-loja',o.loja_id||lojaAtiva||LOJA_PADRAO_ID);
+  // Check-in: pré-selecionar o técnico logado
+  populaTecCheckIn();
+  const checkinSel=document.getElementById('os-tec-checkin');
+  if(checkinSel && nomeSessao){
+    checkinSel.value=nomeSessao;
+    if(!checkinSel.value){ // nome não está nas opções → adicionar
+      const opt=document.createElement('option'); opt.value=nomeSessao; opt.textContent=nomeSessao; checkinSel.add(opt); checkinSel.value=nomeSessao;
+    }
+  }
   osSvcs=(o.servicos||[]).map(s=>({id:Date.now()+Math.random(),d:typeof s==='string'?s:s.desc||''}));
   if(!osSvcs.length) osSvcs=[{id:Date.now(),d:''}];
   osFotos=(o.fotos||[]).concat(['','','']).slice(0,3);
@@ -6487,7 +6515,13 @@ function editarOS(id){
     if(f){prev.src=f;prev.style.display='block';if(btn)btn.style.display='block';if(lbl)lbl.textContent='Foto carregada';}
     else{prev.style.display='none';if(btn)btn.style.display='none';if(lbl)lbl.textContent='Tirar/selecionar';}
   });
+  // Checklist: carrega da OS salva ou usa o padrão
+  try{
+    osChecklist=o.checklist?(typeof o.checklist==='string'?JSON.parse(o.checklist):o.checklist):OS_CHECKLIST_DEFAULT.map(x=>({...x}));
+    if(!Array.isArray(osChecklist)||!osChecklist.length) osChecklist=OS_CHECKLIST_DEFAULT.map(x=>({...x}));
+  }catch(e){ osChecklist=OS_CHECKLIST_DEFAULT.map(x=>({...x})); }
   renderOSSvcs();
+  renderOsChecklist(); // ← corrige bug: checklist nunca era renderizado ao editar OS existente
   document.getElementById('os-src-badge').textContent=osOrcId?'· vinculada a ORC':'';
   document.getElementById('btn-os-both').style.display=osOrcId?'flex':'none';
   document.getElementById('btn-os-pdf').style.gridColumn=osOrcId?'':'1/-1';
@@ -7179,18 +7213,20 @@ window.addEventListener('beforeunload', function(e){
 });
 
 // M-01 — Diálogo de confirmação acessível (substitui window.confirm)
-function confirmar(msg, cbSim, titulo){
+function confirmar(msg, cbSim, titulo, cbNao, labelNao, labelSim){
   const bg = document.getElementById('confirmar-modal-bg');
   const titEl = document.getElementById('confirmar-titulo');
   const msgEl = document.getElementById('confirmar-msg');
   const simBtn = document.getElementById('confirmar-sim');
   const naoBtn = document.getElementById('confirmar-nao');
-  if(!bg){ if(window.confirm(msg)) cbSim(); return; }
+  if(!bg){ cbSim(); return; } // fallback sem modal: confirma direto (PWA nunca cai aqui)
   titEl.textContent = titulo || 'Confirmar';
   msgEl.textContent = msg;
+  naoBtn.textContent = labelNao || 'Cancelar';
+  simBtn.textContent = labelSim || 'Confirmar';
   bg.classList.add('on');
-  const fechar = () => { bg.classList.remove('on'); simBtn.onclick = null; };
-  naoBtn.onclick = fechar;
+  const fechar = () => { bg.classList.remove('on'); simBtn.onclick = null; naoBtn.textContent='Cancelar'; simBtn.textContent='Confirmar'; };
+  naoBtn.onclick = () => { fechar(); if(cbNao) cbNao(); };
   simBtn.onclick = () => { fechar(); cbSim(); };
   setTimeout(()=>simBtn.focus(), 50);
 }
