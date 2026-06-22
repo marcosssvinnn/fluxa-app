@@ -6612,11 +6612,24 @@ async function loadMinhasOS(){
   const meu = (sess.nome||'').toLowerCase().trim();
   // nomes de técnicos REAIS (config das lojas) — p/ tratar nomes fantasmas como "sem técnico"
   const nomesReais = new Set(LOJAS.flatMap(l=>l.tecs||[]).map(t=>(t||'').toLowerCase().trim()));
-  // O técnico vê: as OS dele (nome, sem diferenciar maiúsc.) + as sem técnico
-  // + as atribuídas a um nome que não é técnico real (ex.: "Técnico 1" legado)
+  // Deduplicar por id (evita duplicatas de merge local+remoto)
+  const vistos = new Set();
+  // Deduplicar por orcamento_id+data_servico (OS gerada duas vezes do mesmo orc na mesma data)
+  const orcDatas = new Set();
   lista = lista.filter(o=>{
+    if(vistos.has(o.id)) return false;
+    vistos.add(o.id);
     const t = (o.tecnico||'').toLowerCase().trim();
-    return t===meu || t==='' || !nomesReais.has(t);
+    // Excluir vistorias mensais (agendamento_id) — aparecem só em "Vistorias"
+    if(o.agendamento_id) return false;
+    if(!(t===meu || t==='' || !nomesReais.has(t))) return false;
+    // Remover duplicata de mesmo orçamento na mesma data (mantém o de menor número)
+    if(o.orcamento_id){
+      const chave = o.orcamento_id + '|' + (o.data_servico||'');
+      if(orcDatas.has(chave)) return false;
+      orcDatas.add(chave);
+    }
+    return true;
   });
   window._minhasOSAll = lista;
   renderMinhasOS();
