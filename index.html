@@ -6138,12 +6138,68 @@ async function mudarSt(id, sel){
 }
 
 function excluirOrc(id){
-  confirmar('Excluir este orçamento?', ()=>_excluirOrcConfirmado(id), 'Excluir Orçamento');
+  confirmar('Excluir este orçamento?', ()=>_excluirOrcVerificarEstoque(id), 'Excluir Orçamento');
+}
+function _excluirOrcVerificarEstoque(id){
+  // Verificar se houve saídas físicas vinculadas a este orçamento
+  const saidasVinculadas = todosMovEstoque.filter(m =>
+    m.tipo === 'saida' && m.ref && m.ref.includes('baixa:orc:' + id)
+  );
+  if(saidasVinculadas.length === 0){
+    _excluirOrcConfirmado(id);
+    return;
+  }
+  // Montar resumo dos produtos que saíram
+  const resumo = saidasVinculadas.map(m => {
+    const p = produtoById(m.produto_id);
+    return `• ${p?.nome || m.produto_id}: ${Math.abs(m.quantidade)} ${p?.unidade||'un'}`;
+  }).join('\n');
+  confirmar(
+    `Este orçamento teve saída de estoque registrada:\n\n${resumo}\n\nDeseja estornar essas saídas e devolver os itens ao estoque?`,
+    () => { _estornarSaidasOrc(id, saidasVinculadas); _excluirOrcConfirmado(id); },
+    'Estornar estoque?'
+  );
+  // Adicionar botão "Não estornar" customizado após abrir o modal
+  setTimeout(()=>{
+    const naoBtn = document.getElementById('confirmar-nao');
+    if(naoBtn){
+      const semEstorno = naoBtn.cloneNode(true);
+      semEstorno.textContent = 'Não estornar';
+      semEstorno.onclick = () => {
+        document.getElementById('confirmar-modal-bg')?.classList.remove('on');
+        _excluirOrcConfirmado(id);
+      };
+      naoBtn.parentNode.insertBefore(semEstorno, naoBtn);
+      naoBtn.style.display = 'none';
+    }
+  }, 0);
+}
+function _estornarSaidasOrc(orcId, saidas){
+  const orc = todosOrc.find(x => x.id === orcId);
+  const numStr = String(orc?.numero || '').padStart(3, '0');
+  saidas.forEach(m => {
+    const qtdEstorno = Math.abs(parseFloat(m.quantidade) || 0);
+    if(qtdEstorno <= 0) return;
+    registrarMovimento({
+      produto_id: m.produto_id,
+      tipo: 'entrada',
+      quantidade: qtdEstorno,
+      custo_unit: null,
+      motivo: `Estorno — cancelamento orçamento #${numStr}`,
+      ref: `estorno:orc:${orcId}:${m.produto_id}:${Date.now()}`,
+      lojaId: orc?.loja_id || m.loja_id
+    });
+  });
+  toast('↩ Estoque estornado');
+  if(document.getElementById('page-estoque')?.classList.contains('on')) renderEstoque();
 }
 async function _excluirOrcConfirmado(id){
+  // Restaurar botão "Não" do modal caso tenha sido customizado
+  const naoBtn = document.getElementById('confirmar-nao');
+  if(naoBtn) naoBtn.style.display = '';
   const o=todosOrc.find(x=>x.id===id);
-  if(o) sincronizarBaixaOrcamento({...o, status:'excluido'}); // devolve ao estoque o que foi baixado
-  lsOrcRemover(id); // remove local
+  if(o) sincronizarBaixaOrcamento({...o, status:'excluido'});
+  lsOrcRemover(id);
   if(dbOk&&db&&!String(id).startsWith('local_'))
     db.from('orcamentos').delete().eq('id',id).then(()=>{}).catch(()=>{});
   todosOrc=todosOrc.filter(x=>x.id!==id); atualizarDash(); renderTabela();
