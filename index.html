@@ -8997,10 +8997,17 @@ function loadLocais(){
     const merged=[...remoto];
     local.forEach(l=>{ if(!merged.find(r=>r.id===l.id)) merged.push(l); });
     locaisVistoria=merged;
-    localStorage.setItem(LS_LOCAIS_VIS, JSON.stringify(locaisVistoria));
   } else {
     locaisVistoria=local;
   }
+  // Deduplicar por cliente+local (evita duplicatas de simulação)
+  const _vistosLoc=new Set();
+  locaisVistoria=locaisVistoria.filter(l=>{
+    const k=(l.cliente||'').trim()+'|'+(l.local||'').trim();
+    if(_vistosLoc.has(k)) return false;
+    _vistosLoc.add(k); return true;
+  });
+  localStorage.setItem(LS_LOCAIS_VIS, JSON.stringify(locaisVistoria));
 }
 async function saveLocais(){
   localStorage.setItem(LS_LOCAIS_VIS, JSON.stringify(locaisVistoria));
@@ -9559,13 +9566,11 @@ function renderLocaisTab(){
 
   // Normaliza loja_id: "default" ou vazio equivale à loja padrão
   const _lojaMatch=l=>{ const lid=l.loja_id||LOJA_PADRAO_ID; return lid===lojaAtiva || lid==='default' || lid===LOJA_PADRAO_ID; };
-  // Filtra locais
+  // Filtra locais ativos da loja (técnico vê todos — tecnico no local é preferência, não restrição)
   const locaisFiltrados=locaisVistoria.filter(l=>
-    _lojaMatch(l) && l.ativo!==false &&
-    (!isTecnico || !l.tecnico || l.tecnico===nomeLogado) &&
-    _matchBusca(l)
+    _lojaMatch(l) && l.ativo!==false && _matchBusca(l)
   );
-  // Todos os locais desta loja (para o gestor ver inativos também na lista)
+  // Gestor vê também os inativos
   const todosLoja=isTecnico ? locaisFiltrados : locaisVistoria.filter(l=>_lojaMatch(l) && _matchBusca(l));
 
   // Vistorias deste mês
