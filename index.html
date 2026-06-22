@@ -2981,6 +2981,12 @@
         </select>
       </div>
       <div class="cal-wrap"><table class="cal" id="cal-tabela"></table></div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;padding:10px 4px 0;font-size:11px;color:var(--gray)">
+        <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:3px;background:#7c3aed;display:inline-block"></span>🔍 Vistoria mensal</span>
+        <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:3px;background:#c45e0a;display:inline-block"></span>📄 Do orçamento</span>
+        <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:3px;background:#2563eb;display:inline-block"></span>🔧 Serviço avulso</span>
+        <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:3px;background:#16a34a;display:inline-block"></span>✅ Concluída</span>
+      </div>
     </div>
 
     <!-- Aba Lista de Contratos -->
@@ -8017,6 +8023,20 @@ async function gerarOSdoAgendamento(ag, agId){
   }
 }
 
+// Ao concluir uma OS de agendamento recorrente, gera a ocorrência seguinte.
+// dataConcluidaStr = data_servico da OS recém concluída (YYYY-MM-DD).
+async function _gerarProximaOSdoAg(agId, dataConcluidaStr){
+  const ag=todosAg.find(a=>a.id===agId);
+  if(!ag||ag.ativo===false) return; // contrato encerrado
+  // Calcula todas as ocorrências futuras a partir do dia seguinte à concluída
+  const base=new Date((dataConcluidaStr||new Date().toISOString().split('T')[0])+'T12:00:00');
+  const fakeAg={...ag, data_inicio: new Date(base.getTime()+86400000).toISOString().split('T')[0]};
+  const proximas=proximasOcorrencias(fakeAg, 1);
+  if(!proximas.length) return;
+  await gerarOSdoAgendamento({...ag, data_inicio: fakeAg.data_inicio}, agId);
+  renderCal();
+}
+
 function cancelarSerie(agId){
   confirmar('Cancelar TODAS as OS futuras deste agendamento?', ()=>_cancelarSerieConfirmado(agId), 'Cancelar Série');
 }
@@ -8102,10 +8122,16 @@ function renderCal(){
       h+=`<td class="${isHoje?'hoje':''}"><div style="font-size:10px;color:var(--gray);margin-bottom:2px">${dia}</div>`;
       osNoDia.slice(0,3).forEach(o=>{
         _nc[o.id]=o;
-        const isVis=_osTipo(o)==='vistoria';
-        const extraStyle=isVis&&o.status==='agendado'?'background:#7c3aed;':'';
-        const evLabel=(isVis?'🔍 ':'')+esc((o.cliente||'').split(' ')[0]);
-        h+=`<div class="cal-ev ${o.status||'agendado'}" title="${esc(o.cliente||'')} — ${esc(o.tecnico||'')}" onclick="verDetalhesOS('${o.id}')" style="cursor:pointer;${extraStyle}">${evLabel}</div>`;
+        const tipo=_osTipo(o);
+        let extraStyle='', emoji='🔧 ';
+        if(o.status==='concluido'){ extraStyle='background:#16a34a;'; emoji='✅ '; }
+        else if(o.status==='cancelado'){ extraStyle='background:#9ca3af;'; emoji='🚫 '; }
+        else if(tipo==='vistoria'){ extraStyle='background:#7c3aed;'; emoji='🔍 '; }
+        else if(tipo==='orcamento'){ extraStyle='background:#c45e0a;'; emoji='📄 '; }
+        // avulso fica com a classe cal-ev padrão (azul)
+        const evLabel=emoji+esc((o.cliente||'').split(' ')[0]);
+        const title=`${esc(o.cliente||'')} — ${esc(o.tecnico||'')}${tipo==='vistoria'?' [Vistoria]':tipo==='orcamento'?' [Do orçamento]':' [Avulsa]'}`;
+        h+=`<div class="cal-ev ${o.status||'agendado'}" title="${title}" onclick="verDetalhesOS('${o.id}')" style="cursor:pointer;${extraStyle}">${evLabel}</div>`;
       });
       if(osNoDia.length>3) h+=`<div style="font-size:9px;color:var(--gray)">+${osNoDia.length-3}</div>`;
       h+='</td>';
@@ -8119,34 +8145,42 @@ function renderCal(){
 }
 
 function verDetalhesOS(id){
-  const o=getNC(id)||todosOS.find(x=>x.id===id)||(JSON.parse(ls('fluxa_os_hist')||'[]').find(x=>x.id===id));
+  const o=getNC(id)||todosOS.find(x=>x.id===id)||(()=>{ try{ return JSON.parse(ls('fluxa_os_hist')||'[]').find(x=>x.id===id); }catch(e){ return null; } })();
   if(!o){ toast('OS não encontrada'); return; }
-  const statusLabel={agendado:'📋 Agendado',concluido:'✅ Concluído',cancelado:'🚫 Cancelado',andamento:'🔧 Em andamento'};
+  const tipo=_osTipo(o);
+  const statusLabel={agendado:'📋 Agendado',concluido:'✅ Concluído',cancelado:'🚫 Cancelado',em_andamento:'🔧 Em andamento'};
+  const tipoBg={vistoria:'#f3e8ff',orcamento:'#fff7ed',servico:'#eff6ff'};
+  const tipoCor={vistoria:'#7c3aed',orcamento:'#c45e0a',servico:'#1d4ed8'};
+  const tipoLabel={vistoria:'🔍 Vistoria mensal',orcamento:'📄 Do orçamento',servico:'🔧 Serviço avulso'};
   const dataFmt=o.data_servico?new Date(o.data_servico+'T12:00:00').toLocaleDateString('pt-BR'):'—';
-  const svcs=Array.isArray(o.servicos)?o.servicos.map(s=>typeof s==='string'?s:(s.desc||s)).join(', '):'—';
+  const svcs=Array.isArray(o.servicos)?o.servicos.map(s=>typeof s==='string'?s:(s.desc||s)).filter(Boolean).join(', '):'—';
   const existing=document.getElementById('modal-detalhes-os');
   if(existing) existing.remove();
   const m=document.createElement('div');
   m.id='modal-detalhes-os';
   m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:1000;padding:16px';
-  m.innerHTML=`<div style="background:#fff;border-radius:16px;padding:24px;max-width:420px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.3);font-family:Inter,sans-serif">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-      <div style="font-size:16px;font-weight:800;color:#111">OS #${String(o.numero||'').padStart(3,'0')}</div>
+  const podeExecutar=o.status!=='concluido'&&o.status!=='cancelado';
+  m.innerHTML=`<div style="background:#fff;border-radius:16px;padding:24px;max-width:440px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.3);font-family:Inter,sans-serif">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div>
+        <div style="font-size:16px;font-weight:800;color:#111">OS #${String(o.numero||'').padStart(3,'0')}</div>
+        <span style="display:inline-block;margin-top:4px;padding:2px 8px;border-radius:50px;font-size:11px;font-weight:700;background:${tipoBg[tipo]};color:${tipoCor[tipo]}">${tipoLabel[tipo]}</span>
+      </div>
       <span style="padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;background:${o.status==='concluido'?'#dcfce7':o.status==='cancelado'?'#fee2e2':'#dbeafe'};color:${o.status==='concluido'?'#16a34a':o.status==='cancelado'?'#dc2626':'#2563eb'}">${statusLabel[o.status]||o.status}</span>
     </div>
-    <div style="display:flex;flex-direction:column;gap:10px;font-size:13px;color:#374151">
+    <div style="display:flex;flex-direction:column;gap:9px;font-size:13px;color:#374151">
       <div><span style="font-weight:700">👤 Cliente:</span> ${esc(o.cliente||'—')}</div>
       <div><span style="font-weight:700">📍 Local:</span> ${esc(o.local_servico||'—')}</div>
       <div><span style="font-weight:700">📅 Data:</span> ${dataFmt}${o.hora?' às '+esc(o.hora):''}</div>
       <div><span style="font-weight:700">🔧 Técnico:</span> ${esc(o.tecnico||'—')}</div>
       <div><span style="font-weight:700">🛠 Serviços:</span> ${esc(svcs)}</div>
-      ${o.total?`<div><span style="font-weight:700">💰 Total:</span> ${brl(o.total)}</div>`:''}
       ${o.obs_tecnica?`<div><span style="font-weight:700">📝 Obs:</span> ${esc(o.obs_tecnica)}</div>`:''}
+      ${o.duracao_min?`<div><span style="font-weight:700">⏱ Duração:</span> ${o.duracao_min} min</div>`:''}
       ${(()=>{ try{ const chk=o.checklist?(typeof o.checklist==='string'?JSON.parse(o.checklist):o.checklist):[]; const ok=chk.filter(x=>x.checked); if(!ok.length) return ''; return `<div><span style="font-weight:700">✅ Checklist:</span><div style="margin-top:6px;display:flex;flex-direction:column;gap:4px">${ok.map(x=>`<div style="display:flex;align-items:flex-start;gap:6px;font-size:12px"><span style="color:var(--green);font-weight:700">✓</span><span>${esc(x.nome)}${x.obs?` <span style="color:#6b7280">— ${esc(x.obs)}</span>`:''}</span></div>`).join('')}</div></div>`; }catch(e){ return ''; } })()}
     </div>
     <div style="display:flex;gap:8px;margin-top:18px">
-      <button onclick="this.closest('#modal-detalhes-os').remove()" style="flex:1;padding:10px;border-radius:8px;border:1.5px solid #e5e7eb;background:#fff;font-family:Inter,sans-serif;font-size:13px;font-weight:600;cursor:pointer">Fechar</button>
-      <button onclick="this.closest('#modal-detalhes-os').remove();editarOS('${o.id}')" style="flex:1;padding:10px;border-radius:8px;border:none;background:var(--c1);color:#fff;font-family:Inter,sans-serif;font-size:13px;font-weight:700;cursor:pointer">🔧 Abrir e executar</button>
+      <button onclick="this.closest('[id=modal-detalhes-os]').remove()" style="flex:1;padding:10px;border-radius:8px;border:1.5px solid #e5e7eb;background:#fff;font-family:Inter,sans-serif;font-size:13px;font-weight:600;cursor:pointer">Fechar</button>
+      ${podeExecutar?`<button onclick="this.closest('[id=modal-detalhes-os]').remove();editarOS('${o.id}');go('os')" style="flex:2;padding:10px;border-radius:8px;border:none;background:var(--c1);color:#fff;font-family:Inter,sans-serif;font-size:13px;font-weight:700;cursor:pointer">🔧 Abrir e executar</button>`:''}
     </div>
   </div>`;
   m.addEventListener('click',e=>{ if(e.target===m) m.remove(); });
@@ -8249,6 +8283,8 @@ function _fazerCheckoutConfirmado(){
   _entregarPelaOS(osCheckinId); // baixa do estoque do orçamento vinculado, se houver
   const _osConcl=(todosOS||[]).find(x=>x.id===osCheckinId);
   logAcao('os_concluida', `OS #${_osConcl?.numero||'?'} ${_osConcl?.cliente||''} · ${duracaoMin} min · ${dadosPreenchidos.tecnico||''}`);
+  // Se era OS de agendamento recorrente, gera a próxima ocorrência automaticamente
+  if(_osConcl?.agendamento_id) _gerarProximaOSdoAg(_osConcl.agendamento_id, _osConcl.data_servico).catch(e=>console.warn('[nextOS]',e?.message||e));
   checkinAt=null; osCheckinId=null;
   toast(`✅ Check-out! OS concluída · ${duracaoMin} min`);
 }
@@ -10792,6 +10828,8 @@ function concluirOSHistorico(osId){
     _entregarPelaOS(osId);
     const os=_acharOS(osId);
     logAcao('os_concluida',`OS #${String(os?.numero||'').padStart(3,'0')} ${os?.cliente||''}`);
+    // Se era OS de agendamento recorrente, gera a próxima ocorrência
+    if(os?.agendamento_id) _gerarProximaOSdoAg(os.agendamento_id, os.data_servico).catch(e=>console.warn('[nextOS]',e?.message||e));
     renderOSTabela();
     toast('✅ OS concluída · estoque baixado automaticamente');
   }, 'Concluir OS');
