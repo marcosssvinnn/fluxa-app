@@ -9557,14 +9557,16 @@ function renderLocaisTab(){
   const buscaTxt=(document.getElementById('loc-busca')?.value||'').toLowerCase().trim();
   const _matchBusca=l=>!buscaTxt||(l.cliente||'').toLowerCase().includes(buscaTxt)||(l.local||'').toLowerCase().includes(buscaTxt);
 
+  // Normaliza loja_id: "default" ou vazio equivale à loja padrão
+  const _lojaMatch=l=>{ const lid=l.loja_id||LOJA_PADRAO_ID; return lid===lojaAtiva || lid==='default' || lid===LOJA_PADRAO_ID; };
   // Filtra locais
   const locaisFiltrados=locaisVistoria.filter(l=>
-    l.loja_id===lojaAtiva && l.ativo!==false &&
+    _lojaMatch(l) && l.ativo!==false &&
     (!isTecnico || !l.tecnico || l.tecnico===nomeLogado) &&
     _matchBusca(l)
   );
   // Todos os locais desta loja (para o gestor ver inativos também na lista)
-  const todosLoja=isTecnico ? locaisFiltrados : locaisVistoria.filter(l=>l.loja_id===lojaAtiva && _matchBusca(l));
+  const todosLoja=isTecnico ? locaisFiltrados : locaisVistoria.filter(l=>_lojaMatch(l) && _matchBusca(l));
 
   // Vistorias deste mês
   const vis=lsVisLer().filter(v=>v.loja_id===lojaAtiva && v.mes_ref===locaisVisMesRef);
