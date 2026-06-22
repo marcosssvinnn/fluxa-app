@@ -12060,7 +12060,7 @@ if('serviceWorker' in navigator){
   });
   navigator.serviceWorker.register('sw.js').then(reg=>{
     console.log('Service Worker registrado');
-    setInterval(()=>reg.update(),5*60*1000);
+    setInterval(()=>reg.update(),60*1000);
   }).catch(()=>{});
 }
 
@@ -12079,9 +12079,9 @@ async function _verificarVersaoApp(){
     if(tag!==_appTag){ _appTag=tag; _forcarAtualizacao(); }
   }catch(e){ /* offline — ignora silenciosamente */ }
 }
-// Primeira checagem após 30s e depois a cada 3 min
-setTimeout(_verificarVersaoApp,30*1000);
-setInterval(_verificarVersaoApp,3*60*1000);
+// Primeira checagem após 5s e depois a cada 60s
+setTimeout(_verificarVersaoApp,5*1000);
+setInterval(_verificarVersaoApp,60*1000);
 // Verifica também quando a aba volta ao foco (técnico reabre o app no celular)
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') _verificarVersaoApp(); });
 </script>
