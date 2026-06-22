@@ -11275,7 +11275,7 @@ function abrirMovModal(produtoId, tipo){
   _movProdId=produtoId; _movTipo=tipo;
   const p=produtoById(produtoId); if(!p) return;
   const titulos={entrada:'Dar entrada',saida:'Dar saída',ajuste:'Ajuste de inventário'};
-  document.getElementById('mov-modal-titulo').textContent=titulos[tipo]+' — '+p.nome;
+  document.getElementById('mov-modal-titulo').innerHTML=esc(titulos[tipo]+' — '+p.nome)+'<button onclick="fecharMovModal()" aria-label="Fechar" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;line-height:1;margin-left:auto;padding:0 4px">×</button>';
   document.getElementById('mov-saldo-atual').textContent='Saldo atual: '+fmtQtd(saldoProduto(produtoId))+' '+(p.unidade||'un');
   setV('mov-qtd',''); setV('mov-motivo','');
   // No ajuste, o campo é "novo saldo contado"; nos outros é a quantidade.
