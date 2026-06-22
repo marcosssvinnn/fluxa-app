@@ -2637,6 +2637,7 @@
 <div class="qr-modal-bg" id="prod-modal" style="display:none" onclick="if(event.target===this)fecharProdutoModal()">
   <div class="card" style="max-width:560px;width:92%;max-height:88vh;overflow:auto">
     <div class="ct" id="prod-modal-titulo">Novo produto <button onclick="fecharProdutoModal()" aria-label="Fechar" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;float:right;line-height:1">×</button></div>
+    <div id="prod-loja-wrap"></div>
     <div class="row f1"><div class="fl"><label class="req">Nome do produto</label><input type="text" id="prod-nome" placeholder="Ex: Cloro granulado 10kg"></div></div>
     <div class="row">
       <div class="fl"><label>Código / SKU</label><input type="text" id="prod-codigo" placeholder="opcional"></div>
@@ -11484,6 +11485,22 @@ function abrirProdutoModal(id){
   setV('prod-inicial','');
   document.getElementById('prod-modal-titulo').textContent=id?'Editar produto':'Novo produto';
   const desBtn=document.getElementById('prod-desativar-btn'); if(desBtn) desBtn.style.display=id?'block':'none';
+  // ── Indicador / seletor de unidade ──
+  const wrap=document.getElementById('prod-loja-wrap');
+  if(wrap){
+    const s=getSessao();
+    const lojaFixa=p?.loja_id||s?.loja_id||lojaAtiva||'';
+    if(lojaFixa){
+      // Loja já definida (gestor com loja própria, master em loja específica, ou produto existente)
+      const loja=getLoja(lojaFixa);
+      const rotulo=id?'Unidade deste produto:':'Será cadastrado em:';
+      wrap.innerHTML=`<div style="display:flex;align-items:center;gap:8px;background:var(--gray-light);border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:12px;color:var(--gray)">🏪 ${rotulo} ${getLojaBadge(lojaFixa)}</div>`;
+    } else {
+      // Master no painel geral → precisa escolher a unidade
+      const opcs=LOJAS.filter(l=>GRUPO_FORTHEMP.includes(l.id)).map(l=>`<option value="${l.id}">${esc(l.nome)}</option>`).join('');
+      wrap.innerHTML=`<div style="margin-bottom:12px"><label style="font-size:11px;font-weight:700;color:var(--c1);text-transform:uppercase;letter-spacing:.5px">🏪 Em qual unidade cadastrar?</label><select id="prod-loja-select" style="width:100%;margin-top:4px;padding:9px 12px;border:2px solid var(--c1);border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;outline:none;color:var(--c2)">${opcs}</select></div>`;
+    }
+  }
   document.getElementById('prod-modal').style.display='flex';
 }
 function fecharProdutoModal(){ document.getElementById('prod-modal').style.display='none'; }
@@ -11495,7 +11512,7 @@ async function salvarProduto(){
   const existente=_prodEditId?produtoById(_prodEditId):null;
   const rec={
     id,
-    loja_id: existente?.loja_id || s?.loja_id || lojaAtiva || LOJA_PADRAO_ID,
+    loja_id: existente?.loja_id || s?.loja_id || document.getElementById('prod-loja-select')?.value || lojaAtiva || LOJA_PADRAO_ID,
     nome, codigo:(gV('prod-codigo')||'').trim(),
     unidade:gV('prod-unidade')||'un',
     preco_venda:parseFloat((gV('prod-preco')||'').replace(',','.'))||0,
