@@ -1068,6 +1068,48 @@ Criar orçamento → Aprovar → Reservar estoque → Gerar OS → Entregar (bai
 
 ---
 
+## Sessão 2026-06-22 — Performance e robustez do módulo de estoque
+
+### O que foi feito:
+
+#### Limpeza de dados fictícios
+- Produtos de simulação (`gerado de cloro 500`, `Motobomba Syllent 1 cv`) e as 18 movimentações de teste foram removidos do localStorage via `preview_eval`. Estoque limpo para uso real.
+
+#### Análise de confiabilidade (resultado: processo está correto)
+- Modelo ledger imutável ✅ — nenhum movimento é editado, só acrescentado
+- `sincronizarReservaOrcamento` é idempotente ✅ — pode chamar várias vezes sem duplicar reservas
+- Refs rastreáveis por orçamento (`baixa:orc:ID:prodID`) ✅ — auditoria e estorno funcionam
+- Ciclo completo aprovado → reserva → baixa → estorno testado e validado
+
+#### Performance — cache de saldo (`_getSaldoCache`)
+- **Problema:** `fisicaProduto()` e `reservadoProduto()` varriam TODO `todosMovEstoque` a cada produto durante `renderEstoque()`. Com 50 produtos e 500 movimentos = 100 varreduras do array.
+- **Solução:** cache `_getSaldoCache()` — uma única varredura que computa físico e reservado de TODOS os produtos de uma vez. Invalidado automaticamente por `_invalidarSaldoCache()` em:
+  - `registrarMovimento()` — a cada novo movimento
+  - Merge pós-sync com Supabase em `loadEstoque()`
+
+#### Histórico de movimentos global — paginação e filtros
+- De 15 linhas fixas para **30 por página** com navegação ←→
+- Filtros por tipo: Todos / ＋ Entradas / − Saídas / ⚖ Ajustes
+- Exibe contagem: "1–30 de 847"
+- Estados: `_movFiltroTipo`, `_movPagina`, constante `_MOV_POR_PAG=30`
+
+#### Histórico individual de produto — paginação e filtros
+- **Novo:** paginação de 25 por página com navegação ←→
+- Filtros por tipo: Todos / Ent. / Saída / Ajuste / 🔒 Reserva
+- Exibe contagem total de movimentos do produto
+- Estados: `_histProdId`, `_histProdPag`, `_histProdFiltro`, constante `_HIST_POR_PAG=25`
+- `abrirHistProduto()` agora delega para `_renderHistProduto()` (função interna paginável)
+
+#### Limite de segurança no localStorage
+- `lsMovSalvar()` agora salva apenas os **2000 movimentos mais recentes** localmente
+- Histórico completo continua disponível no Supabase (query `limit(5000)` no `loadEstoque`)
+- Evita estouro da cota de 5MB do localStorage com alto volume diário
+
+### Commits desta sessão:
+- `33ae75f` — `perf(estoque): cache de saldo, paginação e filtros no histórico de movimentos`
+
+---
+
 ## Perguntas em aberto (aguardando Marcos responder)
 
 1. **CNPJs reais** das 3 empresas — para preencher tabela `lojas` e emissão de NF
