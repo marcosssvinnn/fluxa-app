@@ -2589,6 +2589,7 @@
         <button class="ba" style="background:var(--gray-light);color:var(--c2);padding:9px 14px;font-size:13px" onclick="abrirFornecModal()">👥 Fornecedores</button>
         <button class="ba" style="background:var(--gray-light);color:var(--c2);padding:9px 14px;font-size:13px" onclick="abrirOCListModal()">📄 Ordens de Compra</button>
         <button class="ba" style="background:var(--gray-light);color:var(--c2);padding:9px 14px;font-size:13px" onclick="abrirListaCompras()">🛒 Lista de compras</button>
+        <button class="ba" style="background:var(--gray-light);color:var(--c2);padding:9px 14px;font-size:13px" onclick="abrirImportProdutos()">📥 Importar planilha</button>
         <button class="btn-primary" onclick="abrirProdutoModal()" style="padding:9px 16px">＋ Novo produto</button>
       </div>
     </div>
@@ -2695,6 +2696,49 @@
     </div>
     <div class="row f1"><div class="fl"><label>Motivo / observação</label><input type="text" id="transf-motivo" placeholder="opcional"></div></div>
     <button class="btn-primary" onclick="confirmarTransferencia()" style="width:100%">🔄 Confirmar transferência</button>
+  </div>
+</div>
+
+<!-- Modal: importar produtos de planilha -->
+<div class="qr-modal-bg" id="import-prod-modal" style="display:none" onclick="if(event.target===this)fecharImportProdutos()">
+  <div class="card" style="max-width:680px;width:95%;max-height:90vh;overflow:auto">
+    <div class="ct" style="position:sticky;top:0;z-index:2;background:var(--white);margin-top:-6px;padding-top:6px">
+      Importar produtos da planilha
+      <button onclick="fecharImportProdutos()" aria-label="Fechar" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;float:right;line-height:1">×</button>
+    </div>
+
+    <!-- Passo 1: upload -->
+    <div id="imp-step-upload">
+      <p style="font-size:13px;color:var(--gray);margin-bottom:14px">Selecione o arquivo <strong>Excel (.xlsx)</strong> ou <strong>CSV (.csv)</strong> com os produtos. O sistema detecta as colunas automaticamente.</p>
+      <label id="imp-drop-zone" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;border:2.5px dashed var(--gray-mid);border-radius:12px;padding:32px 20px;cursor:pointer;background:var(--gray-light);transition:border-color .2s" ondragover="event.preventDefault();this.style.borderColor='var(--c1)'" ondragleave="this.style.borderColor='var(--gray-mid)'" ondrop="_impDrop(event)">
+        <span style="font-size:36px">📊</span>
+        <span style="font-size:14px;font-weight:600;color:var(--c2)">Clique ou arraste o arquivo aqui</span>
+        <span style="font-size:12px;color:var(--gray)">.xlsx ou .csv — Excel, Google Sheets exportado</span>
+        <input type="file" id="imp-file-input" accept=".xlsx,.csv,.xls" style="display:none" onchange="_impArquivoSelecionado(this)">
+      </label>
+      <p style="font-size:11px;color:var(--gray);margin-top:10px;text-align:center">Google Sheets: Arquivo → Fazer download → CSV ou Excel</p>
+    </div>
+
+    <!-- Passo 2: mapeamento + preview -->
+    <div id="imp-step-map" style="display:none">
+      <div id="imp-map-fields" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px"></div>
+      <div style="font-size:12px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Preview (primeiras 5 linhas)</div>
+      <div style="overflow-x:auto;border-radius:8px;border:1.5px solid var(--gray-mid)">
+        <table id="imp-preview-table" style="width:100%;border-collapse:collapse;font-size:12px"></table>
+      </div>
+      <div style="margin-top:16px;display:flex;gap:10px;align-items:center">
+        <button class="btn-primary" id="imp-btn-confirmar" onclick="_impConfirmar()" style="flex:1;padding:11px">📥 Importar produtos</button>
+        <button onclick="fecharImportProdutos()" style="padding:11px 16px;border:1.5px solid var(--gray-mid);border-radius:10px;background:none;cursor:pointer;font-family:inherit;font-size:13px">Cancelar</button>
+      </div>
+    </div>
+
+    <!-- Passo 3: resultado -->
+    <div id="imp-step-result" style="display:none;text-align:center;padding:24px 0">
+      <div id="imp-result-icon" style="font-size:48px;margin-bottom:12px"></div>
+      <div id="imp-result-text" style="font-size:15px;font-weight:600;color:var(--c2);margin-bottom:8px"></div>
+      <div id="imp-result-sub" style="font-size:13px;color:var(--gray);margin-bottom:20px"></div>
+      <button class="btn-primary" onclick="fecharImportProdutos()" style="padding:10px 24px">✓ Fechar</button>
+    </div>
   </div>
 </div>
 
@@ -11485,6 +11529,179 @@ function copiarListaCompras(){
   const total=itens.reduce((a,x)=>a+(parseFloat(x.p.custo)||0)*x.qtd,0);
   txt+=`\n\n💰 Total estimado: ${brl(total)}`;
   navigator.clipboard.writeText(txt).then(()=>toast('📋 Lista copiada!')).catch(()=>toast('📋 Copiado'));
+}
+
+// ══════════════════════════════════════════
+//  IMPORTADOR DE PRODUTOS (planilha Excel/CSV)
+// ══════════════════════════════════════════
+let _impLinhas=[], _impCabecalho=[];
+
+// Mapa de detecção automática de colunas
+const _IMP_MAP={
+  nome:   ['descri','nome','produto','product','item','name'],
+  codigo: ['codigo','cód','cod ','cod.','sku','ref','code'],
+  gtin_ean:['ean','gtin','barras','barra','bar code'],
+  ncm:    ['ncm'],
+  preco_venda:['preco venda','preço venda','venda','unitario','unit','price','valor vend'],
+  custo:  ['custo','cost','compra','entrada'],
+  unidade:['unidade','unit','un'],
+};
+
+function _impDetectarCol(header){
+  const h=(header||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+  for(const [campo, pads] of Object.entries(_IMP_MAP)){
+    if(pads.some(p=>h.includes(p))) return campo;
+  }
+  return '';
+}
+
+async function _loadSheetJS(){
+  if(window.XLSX) return;
+  await new Promise((res,rej)=>{
+    const s=document.createElement('script');
+    s.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+    s.onload=res; s.onerror=()=>rej(new Error('Falha ao carregar biblioteca Excel'));
+    document.head.appendChild(s);
+  });
+}
+
+function abrirImportProdutos(){
+  _impLinhas=[]; _impCabecalho=[];
+  document.getElementById('imp-step-upload').style.display='';
+  document.getElementById('imp-step-map').style.display='none';
+  document.getElementById('imp-step-result').style.display='none';
+  document.getElementById('imp-file-input').value='';
+  document.getElementById('import-prod-modal').style.display='flex';
+}
+function fecharImportProdutos(){
+  document.getElementById('import-prod-modal').style.display='none';
+}
+
+function _impDrop(ev){
+  ev.preventDefault();
+  document.getElementById('imp-drop-zone').style.borderColor='var(--gray-mid)';
+  const f=ev.dataTransfer.files[0]; if(f) _impProcessarArquivo(f);
+}
+function _impArquivoSelecionado(inp){
+  const f=inp.files[0]; if(f) _impProcessarArquivo(f);
+}
+
+async function _impProcessarArquivo(file){
+  const zone=document.getElementById('imp-drop-zone');
+  zone.innerHTML='<span style="font-size:24px">⏳</span><span style="font-size:13px;color:var(--gray)">Lendo arquivo…</span>';
+  try{
+    await _loadSheetJS();
+    const buf=await file.arrayBuffer();
+    const wb=XLSX.read(buf,{type:'array'});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+    if(!rows.length) throw new Error('Planilha vazia');
+    // Primeira linha não vazia = cabeçalho
+    let hiCab=0;
+    while(hiCab<rows.length && rows[hiCab].every(c=>!String(c).trim())) hiCab++;
+    _impCabecalho=rows[hiCab].map(c=>String(c).trim());
+    _impLinhas=rows.slice(hiCab+1).filter(r=>r.some(c=>String(c).trim()));
+    _impMostrarMapa();
+  }catch(e){
+    zone.innerHTML=`<span style="font-size:24px">❌</span><span style="font-size:13px;color:var(--red)">${esc(e.message||'Erro ao ler arquivo')}</span><label style="margin-top:8px;cursor:pointer;font-size:12px;color:var(--c1)">Tentar novamente<input type="file" accept=".xlsx,.csv,.xls" style="display:none" onchange="_impArquivoSelecionado(this)"></label>`;
+  }
+}
+
+function _impMostrarMapa(){
+  document.getElementById('imp-step-upload').style.display='none';
+  document.getElementById('imp-step-map').style.display='';
+
+  // Campos do sistema que o usuário pode mapear
+  const campos=[
+    {k:'nome',      lbl:'Nome do produto',      req:true},
+    {k:'codigo',    lbl:'Código / SKU',          req:false},
+    {k:'gtin_ean',  lbl:'Código EAN / GTIN',     req:false},
+    {k:'ncm',       lbl:'Código NCM',            req:false},
+    {k:'preco_venda',lbl:'Preço de venda (R$)',  req:false},
+    {k:'custo',     lbl:'Custo (R$)',            req:false},
+    {k:'unidade',   lbl:'Unidade (un, kg, L…)',  req:false},
+  ];
+
+  const optsBase='<option value="">— não usar —</option>'+_impCabecalho.map((c,i)=>`<option value="${i}">${esc(c)}</option>`).join('');
+  let html='';
+  campos.forEach(({k,lbl,req})=>{
+    const auto=_impCabecalho.findIndex(c=>_impDetectarCol(c)===k);
+    html+=`<div><label style="font-size:11px;font-weight:700;color:var(--gray);display:block;margin-bottom:4px;text-transform:uppercase;letter-spacing:.4px">${esc(lbl)}${req?' <span style="color:var(--red)">*</span>':''}</label>
+      <select id="imp-col-${k}" style="width:100%;padding:8px 10px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:13px;font-family:inherit">
+        ${optsBase.replace(`value="${auto}"`,`value="${auto}" selected`)}
+      </select></div>`;
+  });
+  document.getElementById('imp-map-fields').innerHTML=html;
+
+  // Preview
+  const thead='<thead><tr style="background:var(--gray-light)">'+_impCabecalho.map(c=>`<th style="padding:6px 10px;text-align:left;font-size:11px;white-space:nowrap">${esc(c)}</th>`).join('')+'</tr></thead>';
+  const tbody='<tbody>'+_impLinhas.slice(0,5).map(r=>'<tr>'+_impCabecalho.map((_,i)=>`<td style="padding:5px 10px;border-top:1px solid var(--gray-light);font-size:12px;white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis">${esc(String(r[i]||''))}</td>`).join('')+'</tr>').join('')+'</tbody>';
+  document.getElementById('imp-preview-table').innerHTML=thead+tbody;
+  document.getElementById('imp-btn-confirmar').textContent=`📥 Importar ${_impLinhas.length} produto${_impLinhas.length!==1?'s':''}`;
+}
+
+function _impValorNum(v){ return parseFloat(String(v||'').replace(/[^\d,.-]/g,'').replace(',','.'))||0; }
+function _impNorm(v){ return String(v||'').trim(); }
+
+async function _impConfirmar(){
+  const getCol=k=>{ const s=document.getElementById('imp-col-'+k); return s&&s.value!==''?parseInt(s.value):-1; };
+  const iNome=getCol('nome');
+  if(iNome<0){ toast('⚠️ Selecione a coluna do nome do produto'); return; }
+
+  const btn=document.getElementById('imp-btn-confirmar');
+  btn.disabled=true; btn.textContent='Importando…';
+
+  const s=getSessao();
+  let ok=0, skip=0, erros=[];
+  const lojaId=s?.loja_id||lojaAtiva||LOJA_PADRAO_ID;
+
+  for(const row of _impLinhas){
+    const nome=_impNorm(row[iNome]);
+    if(!nome){ skip++; continue; }
+
+    const iCod=getCol('codigo'), iGtin=getCol('gtin_ean'), iNcm=getCol('ncm');
+    const iPreco=getCol('preco_venda'), iCusto=getCol('custo'), iUn=getCol('unidade');
+
+    const id='prod_'+Date.now()+'_'+Math.random().toString(36).slice(2,6);
+    const rec={
+      id, nome,
+      loja_id: lojaId,
+      codigo:  iCod>=0  ? _impNorm(row[iCod])   : '',
+      gtin_ean:iGtin>=0 ? _impNorm(row[iGtin])  : '',
+      ncm:     iNcm>=0  ? _impNorm(row[iNcm])   : '',
+      preco_venda: iPreco>=0 ? _impValorNum(row[iPreco]) : 0,
+      custo:   iCusto>=0 ? _impValorNum(row[iCusto]) : 0,
+      unidade: iUn>=0   ? (_impNorm(row[iUn])||'un') : 'un',
+      estoque_minimo:0, ativo:true,
+      data_criacao: new Date().toISOString()
+    };
+
+    // Checa duplicata por nome (mesmo nome + mesma loja)
+    const existe=todosProdutos.find(p=>(p.nome||'').toLowerCase()===nome.toLowerCase()&&(p.loja_id||'')===(lojaId||''));
+    if(existe){ skip++; continue; }
+
+    todosProdutos.unshift(rec);
+    lsProdSalvar(todosProdutos);
+    try{
+      await dbUpsert('produtos',rec);
+      ok++;
+    }catch(e){
+      erros.push(nome);
+      console.warn('[imp-prod]',e?.message||e);
+    }
+  }
+
+  // Resultado
+  document.getElementById('imp-step-map').style.display='none';
+  document.getElementById('imp-step-result').style.display='';
+  document.getElementById('imp-result-icon').textContent= erros.length?'⚠️':'✅';
+  document.getElementById('imp-result-text').textContent= `${ok} produto${ok!==1?'s':''} importado${ok!==1?'s':''}`;
+  document.getElementById('imp-result-sub').innerHTML=
+    (skip?`<span style="color:var(--gray)">${skip} ignorado${skip!==1?'s':''} (duplicata ou sem nome)</span><br>`:'') +
+    (erros.length?`<span style="color:var(--red)">${erros.length} com erro de sync: ${erros.slice(0,3).map(n=>esc(n)).join(', ')}${erros.length>3?'…':''}</span>`:'');
+
+  logAcao('estoque_mov',`Importação em lote: ${ok} produtos adicionados`);
+  renderEstoque();
 }
 
 // ── Modal de cadastro/edição de produto ──
