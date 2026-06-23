@@ -4284,7 +4284,8 @@ function lsOrcProxNum(){ return lsOrcLer().reduce((a,o)=>Math.max(a,o.numero||0)
         atualizarHeaderLoja(); // re-aplica após lojas_extra carregado do Supabase
         // Sincroniza select de loja no form de orçamento (pode estar desatualizado do boot)
         if(lojaAtiva && !editId) setV('orc-loja', lojaAtiva);
-        loadLocais(); // carrega locais_vistoria que vieram no CFG
+        loadLocais(); // carrega locais_vistoria que vieram no CFG (modo legado)
+        loadLocaisRemoto(); // tabela dedicada (se existir) — fonte de verdade + auto-migração
         await carregarClientesRemoto();
         await sincronizarSeedUsuarios();
         await carregarUsuarios();
@@ -9424,16 +9425,72 @@ function loadLocais(){
   });
   localStorage.setItem(LS_LOCAIS_VIS, JSON.stringify(locaisVistoria));
 }
+// null = ainda não sabemos se a tabela dedicada existe; true/false após 1ª tentativa.
+let _locaisTabelaOk=null;
+function _tabelaAusente(msg){ return /relation .* does not exist|could not find the table|schema cache|does not exist/i.test(msg||''); }
+
 async function saveLocais(){
   localStorage.setItem(LS_LOCAIS_VIS, JSON.stringify(locaisVistoria));
-  // Persiste no Supabase via empresa_config (sem precisar de nova tabela)
   CFG.locais_vistoria=locaisVistoria;
   lsSet('empresa_cfg', JSON.stringify(CFG));
-  if(dbOk&&db){
+  if(!dbOk||!db) return;
+  // ── Caminho primário: tabela dedicada locais_vistoria (1 linha por local) ──
+  // Sem clobber entre empresas — Tamara e Elisa salvam linhas independentes.
+  if(_locaisTabelaOk!==false){
     try{
-      await db.from('empresa_config').upsert([{id:1, dados:CFG, updated_at:new Date().toISOString()}]);
-    }catch(e){ console.warn('saveLocais sync falhou:', e.message); }
+      let okTabela=true;
+      for(const l of locaisVistoria){
+        const r=await dbUpsert('locais_vistoria', {...l, updated_at:new Date().toISOString()});
+        if(r&&r.error){
+          if(_tabelaAusente(r.error.message)){ _locaisTabelaOk=false; okTabela=false; break; }
+          console.warn('[saveLocais:tabela]', r.error.message);
+        }
+      }
+      if(okTabela){ _locaisTabelaOk=true; return; }
+    }catch(e){ console.warn('[saveLocais:tabela]', e?.message||e); }
   }
+  // ── Fallback legado: empresa_config com READ-MERGE-WRITE (corrige concorrência) ──
+  await _saveLocaisLegado();
+}
+
+// Grava locais no empresa_config sem sobrescrever o que outro device salvou:
+// lê o remoto, mescla por id (versão deste device prevalece) e regrava.
+async function _saveLocaisLegado(){
+  try{
+    const {data}=await db.from('empresa_config').select('dados').eq('id',1).single();
+    const dados=(data&&data.dados)?data.dados:CFG;
+    const mapa=new Map((dados.locais_vistoria||[]).map(l=>[l.id,l]));
+    locaisVistoria.forEach(l=>mapa.set(l.id,l));
+    dados.locais_vistoria=[...mapa.values()];
+    await db.from('empresa_config').upsert([{id:1, dados, updated_at:new Date().toISOString()}]);
+  }catch(e){ console.warn('saveLocais legado sync falhou:', e?.message||e); }
+}
+
+// Carrega locais da tabela dedicada (fonte de verdade quando existe). Reenvia ao
+// banco os locais presos só no aparelho (migra automaticamente do modo legado).
+async function loadLocaisRemoto(){
+  if(!dbOk||!db) return;
+  try{
+    const {data,error}=await db.from('locais_vistoria').select('*');
+    if(error){
+      if(_tabelaAusente(error.message)) _locaisTabelaOk=false;
+      console.warn('[loadLocaisRemoto]', error.message); return;
+    }
+    _locaisTabelaOk=true;
+    const remoto=(data||[]).map(r=>({...r, equipamentos: typeof r.equipamentos==='string'?JSON.parse(r.equipamentos||'[]'):(r.equipamentos||[])}));
+    let local=[]; try{ local=JSON.parse(localStorage.getItem(LS_LOCAIS_VIS)||'[]'); }catch(e){ console.warn('[loadLocaisRemoto:ls]', e?.message||e); }
+    const remotoIds=new Set(remoto.map(r=>r.id));
+    const soLocal=local.filter(l=>!remotoIds.has(l.id));
+    // Migra/reenvia ao banco o que ainda não está na tabela (ex.: vindos do legado)
+    for(const l of soLocal){
+      try{ const r=await dbUpsert('locais_vistoria', {...l, updated_at:new Date().toISOString()}); if(r&&r.error&&_tabelaAusente(r.error.message)){ _locaisTabelaOk=false; return; } }
+      catch(e){ console.warn('[loadLocaisRemoto:migra]', e?.message||e); }
+    }
+    locaisVistoria=[...remoto, ...soLocal];
+    localStorage.setItem(LS_LOCAIS_VIS, JSON.stringify(locaisVistoria));
+    CFG.locais_vistoria=locaisVistoria;
+    if(document.getElementById('vis-view-locais')?.style.display!=='none') renderLocaisTab();
+  }catch(e){ console.warn('[loadLocaisRemoto]', e?.message||e); }
 }
 
 // ── LOCAIS: formulário de plano ──────────────────────────────────────────────
@@ -9699,6 +9756,10 @@ function excluirLocal(id){
       }
     }
     locaisVistoria=locaisVistoria.filter(x=>x.id!==id);
+    // Remove a linha na tabela dedicada (upsert não apaga). Ignora erro se tabela ausente.
+    if(dbOk&&db&&_locaisTabelaOk!==false){
+      try{ await db.from('locais_vistoria').delete().eq('id',id); }catch(e){ console.warn('[excluirLocal:tabela]',e?.message||e); }
+    }
     await saveLocais();
     renderLocaisTab();
     toast('Local removido');
