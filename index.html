@@ -2649,24 +2649,24 @@
     <div class="row f4">
       <div class="fl"><label>Preço de venda (R$)</label><input type="text" inputmode="decimal" id="prod-preco" placeholder="0,00"></div>
       <div class="fl"><label>Custo (R$)</label><input type="text" inputmode="decimal" id="prod-custo" placeholder="0,00"></div>
-      <div class="fl"><label>Estoque mínimo</label><input type="text" inputmode="decimal" id="prod-min" placeholder="0"></div>
-      <div class="fl" id="prod-inicial-wrap"><label>Saldo inicial</label><input type="text" inputmode="decimal" id="prod-inicial" placeholder="0"></div>
+      <div class="fl"><label title="Avisar quando a quantidade cair abaixo desse número">Alerta de quantidade baixa</label><input type="text" inputmode="decimal" id="prod-min" placeholder="0"></div>
+      <div class="fl" id="prod-inicial-wrap"><label>Quantidade em estoque hoje</label><input type="text" inputmode="decimal" id="prod-inicial" placeholder="0"></div>
     </div>
     <div class="row f4">
       <div class="fl"><label>Fornecedor</label><select id="prod-fornecedor"><option value="">— nenhum —</option></select></div>
-      <div class="fl"><label>Lead time (dias)</label><input type="text" inputmode="decimal" id="prod-leadtime" placeholder="7"></div>
-      <div class="fl"><label>Estoque segurança</label><input type="text" inputmode="decimal" id="prod-seguranca" placeholder="0"></div>
-      <div class="fl"><label>Lote mínimo</label><input type="text" inputmode="decimal" id="prod-lote" placeholder="1"></div>
+      <div class="fl"><label title="Quantos dias até o produto chegar após o pedido">Prazo de entrega (dias)</label><input type="text" inputmode="decimal" id="prod-leadtime" placeholder="7"></div>
+      <div class="fl"><label title="Quantidade extra que fica reservada para emergências">Reserva de segurança</label><input type="text" inputmode="decimal" id="prod-seguranca" placeholder="0"></div>
+      <div class="fl"><label title="Quantidade mínima por pedido de compra">Compra mínima (qtd)</label><input type="text" inputmode="decimal" id="prod-lote" placeholder="1"></div>
     </div>
     <details style="margin:6px 0 12px">
-      <summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--c1)">📄 Dados fiscais (para Nota Fiscal — opcional)</summary>
+      <summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--c1)">🧾 Dados para Nota Fiscal (preencher só quando precisar emitir NF)</summary>
       <div class="row f4" style="margin-top:8px">
-        <div class="fl"><label>NCM</label><input type="text" id="prod-ncm" placeholder="0000.00.00"></div>
-        <div class="fl"><label>CEST</label><input type="text" id="prod-cest" placeholder="opcional"></div>
-        <div class="fl"><label>CFOP padrão</label><input type="text" id="prod-cfop" placeholder="5102"></div>
-        <div class="fl"><label>Origem</label><input type="text" id="prod-origem" placeholder="0"></div>
+        <div class="fl"><label title="Código que classifica o produto para a Receita Federal">NCM — código fiscal</label><input type="text" id="prod-ncm" placeholder="0000.00.00"></div>
+        <div class="fl"><label title="Usado apenas para produtos com substituição tributária">CEST — sub. tributária</label><input type="text" id="prod-cest" placeholder="opcional"></div>
+        <div class="fl"><label title="Código da operação fiscal (ex: 5102 = venda de produção própria)">CFOP — tipo de operação</label><input type="text" id="prod-cfop" placeholder="5102"></div>
+        <div class="fl"><label title="0 = Nacional · 1 = Importado">Origem do produto</label><input type="text" id="prod-origem" placeholder="0 = Nacional"></div>
       </div>
-      <div class="row f1" style="margin-top:8px"><div class="fl"><label>GTIN / EAN (código de barras)</label><input type="text" id="prod-gtin" placeholder="SEM GTIN"></div></div>
+      <div class="row f1" style="margin-top:8px"><div class="fl"><label>Código de barras (EAN / GTIN)</label><input type="text" id="prod-gtin" placeholder="SEM GTIN"></div></div>
     </details>
     <button class="btn-primary" onclick="salvarProduto()" style="width:100%">💾 Salvar produto</button>
     <button id="prod-desativar-btn" onclick="desativarProduto(_prodEditId)" style="display:none;width:100%;margin-top:8px;background:none;border:none;color:var(--red);font-size:12px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;padding:6px">🚫 Desativar produto</button>
@@ -2679,8 +2679,8 @@
     <div class="ct" id="mov-modal-titulo">Movimento <button onclick="fecharMovModal()" aria-label="Fechar" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;float:right;line-height:1">×</button></div>
     <div id="mov-saldo-atual" style="font-size:12px;color:var(--gray);margin-bottom:10px"></div>
     <div class="row f1"><div class="fl"><label id="mov-qtd-label">Quantidade</label><input type="text" inputmode="decimal" id="mov-qtd" placeholder="0"></div></div>
-    <div class="row f1" id="mov-custo-wrap"><div class="fl"><label>Custo unitário (R$)</label><input type="text" inputmode="decimal" id="mov-custo" placeholder="0,00"></div></div>
-    <div class="row f1"><div class="fl"><label>Motivo / observação</label><input type="text" id="mov-motivo" placeholder="opcional"></div></div>
+    <div class="row f1" id="mov-custo-wrap"><div class="fl"><label>Custo por unidade (R$)</label><input type="text" inputmode="decimal" id="mov-custo" placeholder="0,00"></div></div>
+    <div class="row f1"><div class="fl"><label>Motivo</label><input type="text" id="mov-motivo" placeholder="opcional — ex: compra, perda, acerto de inventário"></div></div>
     <button class="btn-primary" onclick="confirmarMovimento()" style="width:100%">Confirmar</button>
   </div>
 </div>
