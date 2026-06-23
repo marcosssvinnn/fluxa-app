@@ -3611,7 +3611,13 @@ function atualizarBadgeUsuario(){
   const elNome=document.getElementById('hdr-user-nome');
   const avatarExtra = s?.perfil==='gestor'?' gestor': s?.perfil==='vendas'?' vendas':'';
   if(el){ el.textContent=s?.perfil==='vendas'?'💼':inicial; el.className='hdr-user-avatar'+avatarExtra; }
-  if(elNome) elNome.textContent=nome;
+  // Técnico: mostra a empresa da sessão ao lado do nome (Fortemp/Aquamotor)
+  let suf='';
+  if(s?.perfil==='tecnico'){
+    const emp=s?.empresa_tec||visEmpresaTecnico||sessionStorage.getItem('fluxa_vis_empresa_tec')||'';
+    if(emp) suf=' · '+(emp==='aquamotor'?'Aquamotor':'Fortemp');
+  }
+  if(elNome) elNome.textContent=nome+suf;
 }
 
 function fazerLogout(){
@@ -3657,6 +3663,9 @@ const LOJA_PADRAO_ID = FLUXA_CONFIG.lojaPadrao; // loja padrão — usada como f
 try{ if(FLUXA_CONFIG.appName) document.title = FLUXA_CONFIG.appName; }catch(e){ console.warn('[appName]', e?.message||e); }
 
 let lojaAtiva = ''; // '' = todas do grupo; string = empresa específica
+// Empresa escolhida pelo técnico no login ('forthemp' | 'aquamotor').
+// Técnico atende as duas empresas, mas escolhe uma por sessão p/ não misturar vistorias.
+let visEmpresaTecnico = '';
 
 // Retorna true só para o gestor principal da Forthemp (sem loja fixa na sessão)
 function isMainGestor(){ const s=getSessao(); return (s?.perfil==='gestor'||s?.perfil==='master')&&!s?.loja_id; }
@@ -4020,8 +4029,12 @@ async function fazerLogin(){
       atualizarHeaderLoja();
       logAcao('login', loginUserSelecionado.nome+' (gestor '+(getLojaNome(loginUserSelecionado.loja_id))+')');
       go('history');
+    } else if(loginUserSelecionado.perfil==='tecnico' && !loginUserSelecionado.loja_id){
+      // Técnico que atende mais de uma empresa → escolhe a empresa da sessão
+      document.getElementById('login-step-pin').classList.remove('show');
+      mostrarSelecaoEmpresaTecnico();
     } else {
-      // Técnico/Vendas → lojaAtiva = sua empresa
+      // Técnico de empresa fixa / Vendas → lojaAtiva = sua empresa
       lojaAtiva = loginUserSelecionado.loja_id || '';
       const sessao = {perfil:loginUserSelecionado.perfil, loja_id:loginUserSelecionado.loja_id, nome:loginUserSelecionado.nome};
       setSessao(sessao);
@@ -4097,6 +4110,43 @@ function confirmarLojaGestor(lojaId){
   aplicarPermissoesPerfil();
   atualizarHeaderLoja();
   go('history');
+}
+
+// Técnico escolhe a empresa da sessão (Fortemp ou Aquamotor) — reusa a tela de seleção
+function mostrarSelecaoEmpresaTecnico(){
+  const list=document.getElementById('login-loja-list');
+  const corGrupo={forthemp:'var(--c1)',aquamotor:'#16a34a'};
+  function empBtn(grupo,icon,nome,sub){
+    return `<button class="login-loja-btn" onclick="confirmarEmpresaTecnico('${grupo}')">
+      <div class="login-loja-circle" style="background:${corGrupo[grupo]}">${icon}</div>
+      <div>
+        <div class="login-loja-info-nome">${nome}</div>
+        <div class="login-loja-info-sub">${sub}</div>
+      </div>
+    </button>`;
+  }
+  list.innerHTML =
+    empBtn('forthemp','F','Fortemp','Vistorias Camboriú + Itapema')+
+    empBtn('aquamotor','A','Aquamotor','Vistorias da Aquamotor');
+  document.getElementById('login-step-users').style.display='none';
+  document.getElementById('login-step-loja').classList.add('show');
+}
+
+function confirmarEmpresaTecnico(grupo){
+  visEmpresaTecnico = grupo;
+  // lojaAtiva guia cor/header; vistorias herdam a empresa do LOCAL, não daqui
+  lojaAtiva = (grupo==='aquamotor') ? 'aquamotor' : '';
+  sessionStorage.setItem('fluxa_loja_ativa', lojaAtiva);
+  sessionStorage.setItem('fluxa_vis_empresa_tec', grupo);
+  const sessao={perfil:'tecnico', loja_id:loginUserSelecionado.loja_id||null, nome:loginUserSelecionado.nome, empresa_tec:grupo};
+  setSessao(sessao);
+  document.getElementById('login-overlay').style.display='none';
+  document.getElementById('login-step-loja').classList.remove('show');
+  atualizarBadgeUsuario();
+  aplicarPermissoesPerfil();
+  atualizarHeaderLoja();
+  logAcao('login', loginUserSelecionado.nome+' (técnico '+(grupo==='aquamotor'?'Aquamotor':'Fortemp')+')');
+  go('minhas-os');
 }
 
 function voltarParaPin(){
@@ -4208,6 +4258,8 @@ function lsOrcProxNum(){ return lsOrcLer().reduce((a,o)=>Math.max(a,o.numero||0)
     // gestor principal usa o valor salvo no sessionStorage (persiste em F5)
     if(sessaoExistente.loja_id) lojaAtiva = sessaoExistente.loja_id;
     else { const sal=sessionStorage.getItem('fluxa_loja_ativa'); if(sal) lojaAtiva=sal; }
+    // Restaura a empresa escolhida pelo técnico (Fortemp/Aquamotor) em F5
+    visEmpresaTecnico = sessaoExistente.empresa_tec || sessionStorage.getItem('fluxa_vis_empresa_tec') || '';
     document.getElementById('login-overlay').style.display='none';
     atualizarBadgeUsuario();
     aplicarPermissoesPerfil();
@@ -9572,8 +9624,10 @@ async function salvarLocal(){
   if(!cli||!end){ toast('⚠️ Preencha cliente e endereço'); return; }
   const editId=document.getElementById('loc-edit-id').value;
   const s=getSessao();
-  const lojaId=s?.loja_id||lojaAtiva||LOJA_PADRAO_ID;
   const existingLocal=editId?locaisVistoria.find(x=>x.id===editId):null;
+  // Na edição preserva a empresa original do local; só define pela view ao criar.
+  const _lojaPrev=existingLocal&&existingLocal.loja_id&&existingLocal.loja_id!=='default'?existingLocal.loja_id:null;
+  const lojaId=_lojaPrev||s?.loja_id||lojaAtiva||LOJA_PADRAO_ID;
   // valida ao menos nome de cada equipamento
   const equipsValidos=_locEquipCustom.filter(e=>e.nome.trim());
   const rec={
@@ -9904,31 +9958,30 @@ function renderLocaisTab(){
   const buscaTxt=(document.getElementById('loc-busca')?.value||'').toLowerCase().trim();
   const _matchBusca=l=>!buscaTxt||(l.cliente||'').toLowerCase().includes(buscaTxt)||(l.local||'').toLowerCase().includes(buscaTxt);
 
-  // Match de loja: normaliza 'default'/vazio para LOJA_PADRAO_ID
-  // - Técnico: vê todos (sem restrição de loja)
-  // - Gestor sem lojaAtiva (visão geral): vê todos do GRUPO_FORTHEMP
-  // - Gestor com lojaAtiva específica: vê só aquela loja
+  // Match de empresa — normaliza 'default'/vazio para LOJA_PADRAO_ID:
+  // - Técnico: vê só a empresa escolhida no login (Fortemp = grupo forthemp; Aquamotor)
+  // - Gestor sem lojaAtiva (visão geral): vê todos do GRUPO_FORTHEMP (Aquamotor não mistura)
+  // - Gestor com lojaAtiva específica: vê só aquela loja (inclui Aquamotor)
   const _normLoja=lid=>((!lid||lid==='default')?LOJA_PADRAO_ID:lid);
+  const _grupoDe=lid=>{ const L=LOJAS.find(x=>x.id===_normLoja(lid)); return L?L.grupo:'forthemp'; };
+  const _empTec=visEmpresaTecnico||s?.empresa_tec||sessionStorage.getItem('fluxa_vis_empresa_tec')||'forthemp';
   const _lojaMatch=l=>{
-    if(isTecnico) return true;
     const lid=_normLoja(l.loja_id);
+    if(isTecnico) return _grupoDe(lid)===_empTec;
     if(!lojaAtiva) return GRUPO_FORTHEMP.includes(lid);
     return lid===lojaAtiva;
   };
-  // Filtra locais ativos (técnico vê todos os locais de todas as unidades)
+  // Filtra locais ativos da empresa atual
   const locaisFiltrados=locaisVistoria.filter(l=>
     _lojaMatch(l) && l.ativo!==false && _matchBusca(l)
   );
   // Gestor vê também os inativos
   const todosLoja=isTecnico ? locaisFiltrados : locaisVistoria.filter(l=>_lojaMatch(l) && _matchBusca(l));
 
-  // Vistorias deste mês com filtro de loja correto
+  // Vistorias deste mês com o mesmo filtro de empresa
   const vis=lsVisLer().filter(v=>{
     if(v.mes_ref!==locaisVisMesRef) return false;
-    if(isTecnico) return true;
-    const vlid=_normLoja(v.loja_id);
-    if(!lojaAtiva) return GRUPO_FORTHEMP.includes(vlid);
-    return vlid===lojaAtiva;
+    return _lojaMatch(v);
   });
 
   // Build tracking somente dos ativos para stats
@@ -10368,9 +10421,15 @@ function _montarRecVistoria(){
   const s=getSessao();
   const id=visEditId||_visDraftId||('vis_'+Date.now());
   const hora=document.getElementById('vis-hora')?.value||'';
+  // A vistoria herda a empresa do LOCAL/plano — não da sessão do técnico.
+  // Era a causa do vazamento: técnico sem loja_id caía em LOJA_PADRAO_ID e
+  // marcava vistoria da Aquamotor como Fortemp Camboriú.
+  const _loc=window._visLocalId ? (locaisVistoria||[]).find(x=>x.id===window._visLocalId) : null;
+  const _lojaRec=(_loc&&_loc.loja_id&&_loc.loja_id!=='default') ? _loc.loja_id
+                 : (s?.loja_id||lojaAtiva||LOJA_PADRAO_ID);
   return {
     id,
-    loja_id: s?.loja_id||lojaAtiva||LOJA_PADRAO_ID,
+    loja_id: _lojaRec,
     local_id: window._visLocalId||'',
     cliente:(document.getElementById('vis-cli')?.value||'').trim(),
     local:(document.getElementById('vis-loc')?.value||'').trim(),
