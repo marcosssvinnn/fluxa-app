@@ -9856,8 +9856,10 @@ async function salvarConcluirVis(){
   const tec=document.getElementById('concluir-vis-tec').value.trim();
   const obs=document.getElementById('concluir-vis-obs').value.trim();
   const s=getSessao();
-  const lojaId=loc.loja_id||s?.loja_id||getLojaFiltro()||CFG?.lojas?.[0]?.id||'default'; // fix #2: usa loja do plano, não do usuário logado
+  const lojaId=_lojaDaVistoria(loc); // herda a empresa do plano (consistente com os demais fluxos)
   const mes=data.slice(0,7); // usa mês da data informada, não visMesRef
+  // Idempotência: se já há vistoria deste local neste mês, atualiza em vez de duplicar
+  const _jaExiste=_vistoriaExistente(id, mes);
   // Monta array de equipamentos com status/obs/fotos coletados no modal
   const equipsBase=window._concluirVisEquips||[];
   const equipamentos=equipsBase.map((eq,i)=>({
@@ -9871,7 +9873,7 @@ async function salvarConcluirVis(){
     fotos:(_cvEquipData[i]?.fotos)||[]
   }));
   const rec={
-    id:'vis_'+Date.now(),
+    id:_jaExiste?_jaExiste.id:('vis_'+Date.now()),
     loja_id:lojaId,
     local_id:id,
     cliente:loc.cliente,
@@ -9885,10 +9887,12 @@ async function salvarConcluirVis(){
     obs_geral:obs,
     email_responsavel:loc.email_responsavel||null,
     equipamentos,
-    created_at:new Date().toISOString()
+    created_at:_jaExiste?.created_at||new Date().toISOString()
   };
+  // Atualiza no lugar se já existia (idempotente); senão insere no topo
   const lista=lsVisLer();
-  lista.unshift(rec);
+  const _ix=lista.findIndex(x=>x.id===rec.id);
+  if(_ix>=0) lista[_ix]=rec; else lista.unshift(rec);
   lsVisSalvar(lista);
   if(dbOk&&db){
     // Sincroniza em background (não trava o fechamento do modal)
@@ -10427,16 +10431,32 @@ function _montarEquipamentosVistoria(){
 // Monta o registro da vistoria a partir do formulário. Reusa o mesmo id durante
 // toda a edição (visEditId ou _visDraftId) — Salvar e Gerar PDF gravam o MESMO
 // registro, sem criar duplicata.
+// Idempotência: acha vistoria já existente do mesmo local no mesmo mês, para
+// reaproveitar o id em vez de criar duplicata. Usado pelos 3 fluxos de vistoria.
+function _vistoriaExistente(localId, mesRef){
+  if(!localId||!mesRef) return null;
+  return lsVisLer().find(v=> v.local_id===localId && ((v.mes_ref||'')===mesRef || (v.data||'').startsWith(mesRef))) || null;
+}
+// Empresa de uma vistoria/local: herda do LOCAL/plano; fallback à sessão/loja ativa.
+function _lojaDaVistoria(loc){
+  const s=getSessao();
+  if(loc && loc.loja_id && loc.loja_id!=='default') return loc.loja_id;
+  return s?.loja_id||lojaAtiva||LOJA_PADRAO_ID;
+}
 function _montarRecVistoria(){
   const s=getSessao();
-  const id=visEditId||_visDraftId||('vis_'+Date.now());
+  const mesRef=document.getElementById('vis-mes-ref')?.value||new Date().toISOString().slice(0,7);
+  // Reusa o MESMO registro durante a edição; e, vindo de um plano, reusa a
+  // vistoria já existente do local naquele mês (não duplica).
+  let id=visEditId||_visDraftId;
+  if(!id){
+    const exist=window._visLocalId ? _vistoriaExistente(window._visLocalId, mesRef) : null;
+    id=exist?exist.id:('vis_'+Date.now());
+  }
   const hora=document.getElementById('vis-hora')?.value||'';
   // A vistoria herda a empresa do LOCAL/plano — não da sessão do técnico.
-  // Era a causa do vazamento: técnico sem loja_id caía em LOJA_PADRAO_ID e
-  // marcava vistoria da Aquamotor como Fortemp Camboriú.
   const _loc=window._visLocalId ? (locaisVistoria||[]).find(x=>x.id===window._visLocalId) : null;
-  const _lojaRec=(_loc&&_loc.loja_id&&_loc.loja_id!=='default') ? _loc.loja_id
-                 : (s?.loja_id||lojaAtiva||LOJA_PADRAO_ID);
+  const _lojaRec=_lojaDaVistoria(_loc);
   return {
     id,
     loja_id: _lojaRec,
@@ -10446,7 +10466,7 @@ function _montarRecVistoria(){
     data: document.getElementById('vis-data')?.value||new Date().toISOString().slice(0,10),
     hora,
     tecnico: (document.getElementById('vis-tec')?.value||'')||(s?.nome||''),
-    mes_ref: document.getElementById('vis-mes-ref')?.value||new Date().toISOString().slice(0,7),
+    mes_ref: mesRef,
     hora_checkin: visCheckinTime?visCheckinTime.toTimeString().slice(0,5):hora,
     hora_checkout: visCheckoutTime?visCheckoutTime.toTimeString().slice(0,5):null,
     obs_geral: document.getElementById('vis-obs')?.value||'',
