@@ -871,11 +871,17 @@
     .est-qty-n{font-size:15px;font-weight:700}
     .est-qty-u{font-size:10px;color:var(--gray)}
     .est-qty-d{font-size:9.5px;color:var(--gray);margin-top:1px}
-    .est-acts{display:flex;gap:4px;flex-shrink:0;align-items:center}
-    .eb{border:none;border-radius:7px;cursor:pointer;font-size:11.5px;font-weight:700;padding:6px 11px;font-family:'Inter',sans-serif}
-    .eb.ein{background:#dcfce7;color:#15803d}
-    .eb.eout{background:#fff7ed;color:#c2410c}
-    .eb.emore{background:var(--gray-light);color:var(--c2);font-size:14px;padding:5px 9px}
+    .est-acts{display:flex;flex-direction:column;gap:5px;flex-shrink:0;align-items:flex-end}
+    .est-acts-row{display:flex;gap:4px;align-items:center}
+    .eb{border:none;border-radius:7px;cursor:pointer;font-family:'Inter',sans-serif;transition:opacity .1s}
+    .eb:hover{opacity:.82}
+    .eb.ein{background:#dcfce7;color:#15803d;font-size:11.5px;font-weight:700;padding:6px 12px}
+    .eb.eout{background:#fff7ed;color:#c2410c;font-size:11.5px;font-weight:700;padding:6px 12px}
+    .eb.eico{background:var(--gray-light);color:var(--c2);font-size:13px;padding:5px 9px;border-radius:7px}
+    .eb.eico.edit{background:#eff6ff;color:#1d4ed8}
+    .eb.eico.fix{background:#f0fdf4;color:#15803d}
+    .eb.eico.trf{background:#faf5ff;color:#7c3aed}
+    .eb.ehist{background:var(--gray-light);color:var(--gray);font-size:12px;padding:4px 8px}
 
     /* ── PRODUTIVIDADE ── */
     .prod-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:20px}
@@ -11292,20 +11298,18 @@ function renderEstoque(){
       const qtdCor=encomenda?'#ef4444':baixo?'#d97706':'var(--c2)';
       const detQtd=res>0?`<div class="est-qty-d">Fís:${fmtQtd(fis)} Res:${fmtQtd(res)}</div>`:'';
 
-      // Botões
-      const menuId=`emenu_${p.id.replace(/[^a-z0-9]/gi,'_')}`;
+      // Botões — todos visíveis, sem menu ⋮
       const btns=ehInativo
-        ? `<button class="eb ein" onclick="reativarProduto('${p.id}')">↺ Reativar</button>`
-        : `<button class="eb ein" onclick="abrirMovModal('${p.id}','entrada')" title="Registrar entrada">＋ Entrada</button>
-           <button class="eb eout" onclick="abrirMovModal('${p.id}','saida')" title="Registrar saída">− Saída</button>
-           <div style="position:relative">
-             <button class="eb emore" onclick="toggleMenuEstoque('${menuId}')">⋮</button>
-             <div id="${menuId}" style="display:none;position:absolute;right:0;top:calc(100% + 4px);background:white;border:1.5px solid var(--gray-mid);border-radius:12px;padding:4px;z-index:99;min-width:190px;box-shadow:0 6px 20px rgba(0,0,0,.13)">
-               <button onclick="abrirMovModal('${p.id}','ajuste');toggleMenuEstoque('${menuId}')" style="display:block;width:100%;padding:9px 13px;text-align:left;border:none;background:none;cursor:pointer;font-size:13px;border-radius:8px;font-family:inherit" onmouseenter="this.style.background='var(--c1-bg)'" onmouseleave="this.style.background='none'">⚖️ Corrigir saldo / Inventário</button>
-               ${LOJAS.length>1?`<button onclick="abrirTransfModal('${p.id}');toggleMenuEstoque('${menuId}')" style="display:block;width:100%;padding:9px 13px;text-align:left;border:none;background:none;cursor:pointer;font-size:13px;border-radius:8px;font-family:inherit" onmouseenter="this.style.background='var(--c1-bg)'" onmouseleave="this.style.background='none'">🔄 Transferir para outra unidade</button>`:''}
-               <button onclick="abrirHistProduto('${p.id}');toggleMenuEstoque('${menuId}')" style="display:block;width:100%;padding:9px 13px;text-align:left;border:none;background:none;cursor:pointer;font-size:13px;border-radius:8px;font-family:inherit" onmouseenter="this.style.background='var(--c1-bg)'" onmouseleave="this.style.background='none'">📜 Histórico de movimentos</button>
-               <button onclick="abrirProdutoModal('${p.id}');toggleMenuEstoque('${menuId}')" style="display:block;width:100%;padding:9px 13px;text-align:left;border:none;background:none;cursor:pointer;font-size:13px;border-radius:8px;font-family:inherit" onmouseenter="this.style.background='var(--c1-bg)'" onmouseleave="this.style.background='none'">✏️ Editar produto</button>
-             </div>
+        ? `<div class="est-acts-row"><button class="eb ein" onclick="reativarProduto('${p.id}')">↺ Reativar</button></div>`
+        : `<div class="est-acts-row">
+             <button class="eb ein" onclick="abrirMovModal('${p.id}','entrada')" title="Registrar entrada de mercadoria">＋ Entrada</button>
+             <button class="eb eout" onclick="abrirMovModal('${p.id}','saida')" title="Registrar saída">− Saída</button>
+           </div>
+           <div class="est-acts-row">
+             <button class="eb eico edit" onclick="abrirProdutoModal('${p.id}')" title="Editar produto">✏️ Editar</button>
+             <button class="eb eico fix" onclick="abrirMovModal('${p.id}','ajuste')" title="Corrigir saldo / Inventário">⚖️ Corrigir</button>
+             ${LOJAS.length>1?`<button class="eb eico trf" onclick="abrirTransfModal('${p.id}')" title="Transferir para outra unidade">🔄 Transf.</button>`:''}
+             <button class="eb ehist" onclick="abrirHistProduto('${p.id}')" title="Ver histórico de movimentos">📜</button>
            </div>`;
 
       h+=`<div class="est-item"${ehInativo?' style="opacity:.5"':''}>
