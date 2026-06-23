@@ -190,6 +190,9 @@ Linhas 2050+:    JavaScript
 - Fortemp Camboriú e Itapema compartilham o mesmo CNPJ (gestão separada, CNPJ único)
 - Josimar e Eldecir **não aparecem** em OS/agendamentos da Aquamotor
 - Técnico vê **todas as suas OS** consolidadas (sem filtro de empresa)
+- **Vistorias são separadas por empresa** (desde 2026-06-23): técnico escolhe a
+  empresa no login; gestor/master pela tela de empresa no login + seletor do header.
+  Filtro central: `escopoEmpresaMatch()`. Aquamotor não mistura com Forthemp.
 
 ```js
 const LOJAS = [
@@ -240,7 +243,14 @@ if(_tecnico && !pagesTecnico.includes(p)) { toast('Acesso não permitido.'); ret
    - Digitar nome mostra sugestões dos usuários ativos; clicar foca no campo de senha
    - Ao completar 4 dígitos o login é tentado automaticamente
    - Nenhum nome é exibido na tela antes do usuário digitar (privacidade)
-2. **`login-step-loja`** — gestor/master sem loja escolhe empresa (os demais pulam)
+2. **`login-step-loja`** — escolha de empresa no login (atualizado 2026-06-23):
+   - **master/gestor sem loja_id** (Marcos, Tamara, Elis) → `mostrarSelecaoLojaGestor()`:
+     "Todas as unidades" (Forthemp) / cada unidade / **Outras empresas → Aquamotor**.
+     `confirmarLojaGestor()` preserva perfil/nome reais (não rebaixa master).
+   - **técnico sem loja_id** → `mostrarSelecaoEmpresaTecnico()`: escolhe **Fortemp** ou
+     **Aquamotor** (uma empresa por sessão, p/ não misturar vistorias). Guardado em
+     `sessao.empresa_tec` + `sessionStorage('fluxa_vis_empresa_tec')`, restaurado em F5.
+   - gestor/técnico com loja_id fixa entram direto na sua empresa.
 
 ```js
 // Cache interno de usuários para autocomplete
@@ -251,7 +261,8 @@ function loginEscolherSugestao(id) // seleciona usuário e foca no PIN
 
 ### Sessão (sessionStorage):
 ```js
-{ perfil: 'master'|'gestor'|'vendas'|'tecnico', loja_id: null|'string-id', nome: 'Marcos' }
+{ perfil: 'master'|'gestor'|'vendas'|'tecnico', loja_id: null|'string-id', nome: 'Marcos',
+  empresa_tec?: 'forthemp'|'aquamotor' /* só técnico — empresa da sessão */ }
 ```
 
 **Persistência de usuários locais:** Usuários criados localmente recebem `id` com prefixo `usr_`. Na próxima conexão com Supabase, `carregarUsuarios()` tenta sincronizá-los. Se falhar, mantém o registro local em `todosUsuarios` — nunca descarta.
@@ -299,6 +310,7 @@ function filtrarPorLoja(lista, campo='loja_id'){
 | `usuarios` | Técnicos, vendas, gestores e masters com PIN (SHA-256), perfil, loja_id |
 | `notas_fiscais` | NF-e/NFS-e emitidas via Focus NFe |
 | `vistorias` | Relatórios de vistoria de manutenção preventiva de piscinas |
+| `locais_vistoria` | Planos recorrentes de vistoria (1 linha por local) — **dedicada** desde 2026-06-23; antes ficava em `empresa_config.dados` |
 | `auditoria` | Log de ações: login, status ORC, movimentos estoque, OS concluídas, usuários |
 | `produtos` | Cadastro de produtos com código, unidade, preço, custo, estoque mínimo, CMP |
 | `estoque_movimentos` | Ledger de movimentos: entrada/saida/ajuste/transf/reserva/liberacao_reserva |
@@ -370,13 +382,31 @@ CREATE TABLE IF NOT EXISTS vistorias (
   created_at timestamptz DEFAULT now()
 );
 
+-- ─── NOVA: tabela dedicada de locais de vistoria (✅ executada 2026-06-23) ────
+-- Antes os planos ficavam num array em empresa_config.dados → salvar reescrevia
+-- o blob inteiro e dois gestores simultâneos sobrescreviam um ao outro. Agora
+-- cada local é sua própria linha. Script: migracao-locais-vistoria.sql.
+-- O app detecta a tabela e migra sozinho (loadLocaisRemoto). Fallback legado
+-- (empresa_config com read-merge-write) enquanto a tabela não existir.
+CREATE TABLE IF NOT EXISTS locais_vistoria (
+  id text PRIMARY KEY,
+  loja_id text, cliente text, local text,
+  email_responsavel text, tecnico text,
+  dia_pref text, hora_pref text,
+  equipamentos jsonb DEFAULT '[]',
+  agendamento_id text,
+  ativo boolean DEFAULT true,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+
 -- ─── RLS (já aplicado) ──────────────────────────────────────────────────────
 -- Todas as tabelas têm RLS ativo com policy "anon full access" (FOR ALL TO anon)
 -- ⚠️ ATENÇÃO: esta policy concede leitura e escrita a QUALQUER pessoa com a anon
 -- key (que está no código-fonte público). O controle de acesso acontece APENAS no
 -- JS do cliente. Antes de adicionar tabela com dados sensíveis, registrar em
 -- "Perguntas em aberto" a necessidade de policy RLS mais restritiva.
--- Tabelas com Realtime: orcamentos, equipamentos, despesas, agendamentos, vistorias
+-- Tabelas com Realtime: orcamentos, equipamentos, despesas, agendamentos, vistorias, locais_vistoria
 ```
 
 ---
@@ -439,9 +469,9 @@ CREATE TABLE IF NOT EXISTS vistorias (
 - **Vistoria por equipamento** — painel colapsável por equipamento com:
   - Botões de status: ✅ Bom / ⚠️ Atenção / 🔴 Crítico / — N/A
   - Campo de observações
-  - 3 slots de foto com câmera direta (mobile) ou upload
+  - 3 slots de foto — o celular oferece **Câmera OU Galeria** (sem `capture=`, desde 2026-06-23)
 - Campo de observações gerais
-- **Salvar** (persiste local + Supabase) + **Gerar PDF**
+- **Salvar** (persiste local + Supabase) + **Gerar PDF** (download via html2pdf)
 
 ### Equipamentos disponíveis (configurados em `VIS_EQUIPAMENTOS_DEFAULT`):
 ```js
@@ -461,7 +491,8 @@ CREATE TABLE IF NOT EXISTS vistorias (
 - 🏆 Ranking de técnicos por vistorias no mês filtrado
 - Filtro: busca por texto + mês + técnico
 - Linha de histórico mostra: data, cliente, local, técnico, nº equipamentos, e-mail, badges de status
-- Botões por item: 📧 Reenviar e-mail (se tiver e-mail) | 📄 PDF | ✕ Excluir
+- Botões por item: 📧 Reenviar e-mail | 💬 WhatsApp | **✏️ Editar/refazer** | 📥 PDF | ✕ Excluir
+- **Filtrado por empresa** (escopoEmpresaMatch) — lista, stats, ranking e alertas só da empresa em foco
 
 ### PDF "Relatório de Vistoria":
 - Header com branding da empresa (logo, cores)
@@ -474,13 +505,32 @@ CREATE TABLE IF NOT EXISTS vistorias (
 ### Persistência:
 ```js
 // localStorage
-const LS_VIS = 'fluxa_visitas';
-lsVisLer()         // lê array do localStorage
-lsVisSalvar(lista) // salva array no localStorage
+const LS_VIS = 'fluxa_visitas';          // vistorias feitas
+const LS_LOCAIS_VIS = 'fluxa_locais_vistoria'; // planos/locais recorrentes
+lsVisLer() / lsVisSalvar(lista)          // vistorias no localStorage
 
-// Supabase: salvo em tabela 'vistorias' (id = 'vis_' + Date.now())
-// Boot: loadVistoriasRemoto() faz merge Supabase + local ao conectar
+// Vistorias: tabela 'vistorias' (id = 'vis_' + Date.now())
+//   loadVistoriasRemoto() faz merge Supabase + local ao conectar
+// Locais: tabela dedicada 'locais_vistoria' (1 linha por local) desde 2026-06-23
+//   loadLocaisRemoto() = fonte de verdade + auto-migração; saveLocais() upsert
+//   por linha; fallback legado (_saveLocaisLegado) = read-merge-write no
+//   empresa_config enquanto a tabela não existir. _locaisTabelaOk detecta.
 ```
+
+### Separação por empresa + idempotência (refatorado 2026-06-23):
+- **`escopoEmpresaMatch(loja_id)`** — fonte única de verdade do filtro de empresa,
+  usado por `renderLocaisTab` E `renderVisHistorico` (não divergem). Técnico → grupo
+  do login; gestor "Todas" → grupo forthemp (Aquamotor não mistura); gestor em loja
+  específica → aquela loja. Helpers: `_normLojaId`, `_grupoDaLoja`, `_empresaEmFoco`.
+- **`_lojaDaVistoria(loc)`** — etiquetagem única: a vistoria herda a empresa do
+  LOCAL/plano (não da sessão do técnico). Era a causa do vazamento Aquamotor→Fortemp.
+- **`_vistoriaExistente(local, mês)`** — idempotência: reusa o mesmo registro do
+  local no mês em vez de duplicar (nos 3 fluxos: form, modal rápido, detalhada).
+- **PDF unificado** — `_gerarPDFVistoria(vis)` (download html2pdf) usado por
+  `baixarPDFVistoria`, `abrirVisRelatorio` e `gerarRelatorioVistoria`; `window.print`
+  só como fallback de desktop (evita PDF em branco no mobile).
+- **`editarVistoria(id)`** — reabre a vistoria no form preservando status/obs/fotos,
+  grava no mesmo `visEditId` (preserva a empresa original). Botão ✏️ no histórico.
 
 ---
 
