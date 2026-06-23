@@ -11458,13 +11458,14 @@ function renderEstoque(){
       if(capitalEstoque>0) priceParts.push(`Capital: <strong>${brl(capitalEstoque)}</strong>`);
       const pricesHtml=priceParts.length?`<div class="est-prices">${priceParts.join(' · ')}</div>`:'';
 
-      // Por loja (modo master)
+      // Por loja — sempre visível para lojas do grupo Forthemp
       let porLoja='';
-      if(!lojaAtiva&&GRUPO_FORTHEMP&&GRUPO_FORTHEMP.length>1){
+      if(GRUPO_FORTHEMP&&GRUPO_FORTHEMP.length>1&&(!lojaAtiva||GRUPO_FORTHEMP.includes(lojaAtiva))){
         const spl=_saldoPorLoja(p.id);
         porLoja=`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">`+LOJAS.filter(l=>GRUPO_FORTHEMP.includes(l.id)).map(l=>{
           const s=spl[l.id]||{fisico:0,reservado:0}; const d=s.fisico-s.reservado;
-          return `<span class="loja-badge ${l.cor}" style="font-size:10px">${esc(l.nome)}: <strong style="color:${d<0?'#b91c1c':d===0?'var(--gray)':'inherit'}">${fmtQtd(d)}</strong></span>`;
+          const isAtiva=l.id===lojaAtiva;
+          return `<span class="loja-badge ${l.cor}" style="font-size:10px${isAtiva?';outline:2px solid currentColor;outline-offset:1px':''}">${esc(l.nome)}: <strong style="color:${d<0?'#b91c1c':d===0?'var(--gray)':'inherit'}">${fmtQtd(d)}</strong></span>`;
         }).join('')+`</div>`;
       }
 
