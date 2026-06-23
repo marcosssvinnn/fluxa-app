@@ -5063,7 +5063,7 @@ async function criarOSdeAprovacao(){
     const dataFmt=new Date(data+'T12:00:00').toLocaleDateString('pt-BR');
     toast(`✅ OS #${numStr} criada — agendada para ${dataFmt} às ${hora} · Técnico: ${tec}`);
     logAcao('os_criada',`#${numStr} via aprovação do orçamento #${String(orc.numero||'?').padStart(3,'0')}`);
-    if(typeof carregarOS==='function') await carregarOS();
+    await loadOSHist();
   }catch(e){
     console.error('criarOSdeAprovacao:',e); toast('⚠️ Erro ao criar OS: '+e.message);
   }finally{
@@ -5883,7 +5883,9 @@ async function gerarOSPDF(modo='os'){
   }
 
   autoSalvarClienteDoOrc({cli:dados.cli, loc:dados.loc, tel:dados.tel||'', cnpj:dados.cnpj||''});
-  preencherDocOS({...dados, fotos:dados.fotos, videoLink:dados.videoLink}, numStr);
+  const _orcRef=osOrcId?todosOrc.find(x=>x.id===osOrcId):null;
+  const _orcNumStr=_orcRef?String(_orcRef.numero||'').padStart(3,'0'):null;
+  preencherDocOS({...dados, fotos:dados.fotos, videoLink:dados.videoLink, orcNum:_orcNumStr}, numStr);
   printMode=modo; window.print();
   // OS salva → limpa o rascunho para não vazar dados na próxima OS
   if(numStr!=='???') limparRascunho('os');
@@ -5906,7 +5908,8 @@ function preencherDocOS(d, num){
   const contato=[LC.tel,LC.cidades].filter(Boolean).join('  ·  ');
   setV_el('pd-cont-os',contato||LC.nome,'textContent');
   setV_el('pd-num-os','#'+num,'textContent');
-  document.getElementById('pd-meta-os').innerHTML=`Emitida em: <strong>${new Date().toLocaleDateString('pt-BR')}</strong>`;
+  const _orcRef=d.orcNum?` · Referente ao Orçamento <strong>#${d.orcNum}</strong>`:'';
+  document.getElementById('pd-meta-os').innerHTML=`Emitida em: <strong>${new Date().toLocaleDateString('pt-BR')}</strong>${_orcRef}`;
   setV_el('pd-cli-nm-os',d.cli,'textContent');
   setV_el('pd-cli-loc-os',d.loc||'','textContent');
   setV_el('pd-data-os',d.data?new Date(d.data+'T12:00:00').toLocaleDateString('pt-BR'):'—','textContent');
