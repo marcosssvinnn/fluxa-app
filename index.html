@@ -5347,7 +5347,8 @@ async function salvarApenas(){
       loja_id:dados.loja_id||LOJA_PADRAO_ID,
       origem_cliente:dados.origem||null,
       servicos:dados.svcs, subtotal:dados.sub, desconto:dados.desc, total:dados.tot,
-      pagamento:dados.pag, validade_dias:dados.dias, validade_data:dados.vData,
+      pagamento:dados.pagFormatado, pag_cod:dados.pag, pag_parcelas:dados.pagParcelas, pag_entrada:dados.pagEntrada,
+      validade_dias:dados.dias, validade_data:dados.vData,
       data_servico:dados.dataSvc, escopo:dados.escopo, obs:dados.obs,
       foto_base64:fotosB64.filter(Boolean).length?JSON.stringify(fotosB64.filter(Boolean)):null, nota_interna:gV('nota-interna')||null
     };
@@ -5434,7 +5435,8 @@ async function gerarPDF(){
     loja_id:dados.loja_id||LOJA_PADRAO_ID,
     origem_cliente:dados.origem||null,
     servicos:dados.svcs, subtotal:dados.sub, desconto:dados.desc, total:dados.tot,
-    pagamento:dados.pag, validade_dias:dados.dias, validade_data:dados.vData,
+    pagamento:dados.pagFormatado, pag_cod:dados.pag, pag_parcelas:dados.pagParcelas, pag_entrada:dados.pagEntrada,
+    validade_dias:dados.dias, validade_data:dados.vData,
     data_servico:dados.dataSvc, escopo:dados.escopo, obs:dados.obs,
     foto_base64:fotosB64.filter(Boolean).length?JSON.stringify(fotosB64.filter(Boolean)):null, nota_interna:gV('nota-interna')||null
   };
@@ -5519,7 +5521,10 @@ function coletarForm(){
   return { cli:gV('cli')||'—', loc:gV('loc'), tel:gV('tel-cli'), cnpj:gV('cnpj-cli'),
     loja_id:gV('orc-loja')||LOJA_PADRAO_ID,
     origem:getOrigemCli(),
-    pag:gV('pag'), pagFormatado:formatPagamento(gV('pag'),tot()), dias, obs:gV('obs'),
+    pag:gV('pag'), pagFormatado:formatPagamento(gV('pag'),tot()),
+    pagParcelas:parseInt(gV('pag-parcelas'))||null,
+    pagEntrada:parseFloat((gV('pag-entrada')||'').replace(',','.'))||null,
+    dias, obs:gV('obs'),
     escopo:gV('escopo'), dataSvc:gV('data-svc'), dataStr, vData, sub:sub(), desc:disc(sub()), tot:tot(),
     svcs:svcs.filter(s=>s.d.trim()).map(s=>({desc:s.d.trim(),preco:gP(s),precoUnit:parseFloat(s.p)||0,qty:parseInt(s.qty)||1,produto_id:s.produto_id||null})) };
 }
@@ -6320,7 +6325,13 @@ function abrirOrc(id){
   editId=id;
   setV('cli',o.cliente||''); setV('loc',o.local_servico||''); setV('tel-cli',o.tel_cliente||''); setV('cnpj-cli',o.cnpj||'');
   setV('orc-loja',o.loja_id||lojaAtiva||LOJA_PADRAO_ID); // fix #4: lojaAtiva como fallback para registros antigos
-  setV('pag',o.pagamento||'A combinar'); updPag(); setV('val',String(o.validade_dias||5));
+  // Restaura condição de pagamento: pag_cod=código do select; pag_parcelas/pag_entrada=detalhes
+  const _PAG_CODIGOS=['boleto-parc','entrada-boleto','entrada-pix','cartao-parc'];
+  const _pagCod=o.pag_cod||(_PAG_CODIGOS.includes(o.pagamento)?o.pagamento:'A combinar');
+  setV('pag',_pagCod); updPag();
+  if(o.pag_parcelas) setV('pag-parcelas',String(o.pag_parcelas));
+  if(o.pag_entrada!=null&&o.pag_entrada!==0) setV('pag-entrada',String(o.pag_entrada).replace('.',','));
+  setV('val',String(o.validade_dias||5));
   setV('obs',o.obs||''); setV('escopo',o.escopo||''); setV('data-svc',o.data_servico||'');
   setV('nota-interna',o.nota_interna||'');
   setOrigemCli(o.origem_cliente||'');
@@ -6347,7 +6358,7 @@ function verOrcPDF(id){
   const numStr=String(o.numero||'').padStart(3,'0');
   const dadosOrc={
     cli:o.cliente||'—', loc:o.local_servico||'', tel:o.tel_cliente||'', cnpj:o.cnpj||'',
-    pag:o.pagamento||'A combinar', pagFormatado:o.pagamento||'A combinar',
+    pag:o.pag_cod||o.pagamento||'A combinar', pagFormatado:o.pagamento||'A combinar',
     dias:o.validade_dias||5, obs:o.obs||'', escopo:o.escopo||'',
     dataSvc:o.data_servico||'', vData:o.validade_data||'',
     dataStr:new Date(o.data_criacao||Date.now()).toLocaleDateString('pt-BR'),
@@ -6365,7 +6376,11 @@ function duplicarOrc(id){
   const o=todosOrc.find(x=>x.id===id); if(!o) return;
   editId=null; fotosB64=[];
   setV('cli',o.cliente||''); setV('loc',o.local_servico||''); setV('tel-cli',o.tel_cliente||''); setV('cnpj-cli',o.cnpj||'');
-  setV('pag',o.pagamento||'A combinar'); updPag(); setV('val',String(o.validade_dias||5));
+  const _PAG_COD2=['boleto-parc','entrada-boleto','entrada-pix','cartao-parc'];
+  setV('pag',o.pag_cod||(_PAG_COD2.includes(o.pagamento)?o.pagamento:'A combinar')); updPag();
+  if(o.pag_parcelas) setV('pag-parcelas',String(o.pag_parcelas));
+  if(o.pag_entrada!=null&&o.pag_entrada!==0) setV('pag-entrada',String(o.pag_entrada).replace('.',','));
+  setV('val',String(o.validade_dias||5));
   setV('obs',o.obs||''); setV('escopo',o.escopo||'');
   setV('nota-interna',''); // não copia nota interna
   setV('data-svc','');
