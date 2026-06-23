@@ -3199,6 +3199,33 @@
   </div>
 </div>
 
+<!-- ══ MODAL: Criar OS ao aprovar orçamento ══ -->
+<div class="modal-bg" id="aprov-os-bg" onclick="if(event.target===this)fecharAprovOS()">
+  <div class="modal" style="max-width:460px">
+    <div style="text-align:center;margin-bottom:18px">
+      <div style="font-size:32px;margin-bottom:6px">📋</div>
+      <h3 id="aprov-os-titulo" style="margin:0 0 6px">Orçamento aprovado!</h3>
+      <p style="font-size:13px;color:var(--gray);margin:0">Deseja agendar uma Ordem de Serviço para este trabalho?</p>
+    </div>
+    <input type="hidden" id="aprov-os-orc-id">
+    <div style="background:#f8fafc;border-radius:12px;padding:14px;margin-bottom:16px;display:flex;flex-direction:column;gap:10px">
+      <div class="row">
+        <div class="fl"><label>Data do serviço</label><input type="date" id="aprov-os-data" style="padding:9px 12px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:14px;font-family:'Inter',sans-serif;outline:none;width:100%;box-sizing:border-box"></div>
+        <div class="fl"><label>Hora</label><input type="time" id="aprov-os-hora" value="08:00" style="padding:9px 12px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:14px;font-family:'Inter',sans-serif;outline:none;width:100%;box-sizing:border-box"></div>
+      </div>
+      <div class="fl"><label>Técnico responsável</label>
+        <select id="aprov-os-tec" style="padding:9px 12px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:14px;font-family:'Inter',sans-serif;outline:none;width:100%;box-sizing:border-box;background:white">
+          <option value="">Selecione…</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn-sec" onclick="fecharAprovOS()" style="flex:1">Não por agora</button>
+      <button id="aprov-os-btn" class="btn-primary" onclick="criarOSdeAprovacao()" style="flex:2">📋 Criar OS agendada</button>
+    </div>
+  </div>
+</div>
+
 <!-- ══ MODAL: Concluir Vistoria Rápida ══ -->
 <div class="modal-bg" id="concluir-vis-bg" role="dialog" aria-modal="true" onclick="if(event.target===this)fecharConcluirVis()">
   <div class="modal" style="max-width:520px;max-height:90vh;overflow-y:auto">
@@ -4989,6 +5016,61 @@ async function criarOSjunto(dados, orcNum){
   }catch(e){ console.error('criarOSjunto:',e); toast('⚠️ Erro ao gerar OS: '+e.message); }
 }
 
+// ── Modal: Criar OS a partir da aprovação do orçamento ──
+function _perguntarCriarOS(orc){
+  document.getElementById('aprov-os-orc-id').value=orc.id;
+  document.getElementById('aprov-os-titulo').textContent=`Orçamento #${String(orc.numero||'?').padStart(3,'0')} aprovado!`;
+  const dataEl=document.getElementById('aprov-os-data');
+  dataEl.value=orc.data_servico||new Date().toISOString().slice(0,10);
+  document.getElementById('aprov-os-hora').value='08:00';
+  const sel=document.getElementById('aprov-os-tec');
+  const tecs=getTecnicos();
+  sel.innerHTML='<option value="">Selecione…</option>'+tecs.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join('');
+  document.getElementById('aprov-os-bg').classList.add('on');
+}
+function fecharAprovOS(){ document.getElementById('aprov-os-bg').classList.remove('on'); }
+
+async function criarOSdeAprovacao(){
+  const orcId=document.getElementById('aprov-os-orc-id').value;
+  const data=document.getElementById('aprov-os-data').value;
+  const hora=document.getElementById('aprov-os-hora').value||'08:00';
+  const tec=document.getElementById('aprov-os-tec').value;
+  if(!data){ toast('⚠️ Informe a data do serviço'); return; }
+  if(!tec){ toast('⚠️ Selecione o técnico responsável'); return; }
+  const orc=todosOrc.find(x=>x.id===orcId);
+  if(!orc){ toast('⚠️ Orçamento não encontrado'); fecharAprovOS(); return; }
+  const btn=document.getElementById('aprov-os-btn');
+  if(btn){ btn.disabled=true; btn.textContent='Criando…'; }
+  try{
+    const osSvcs=(orc.servicos||[]).map(s=>({desc:s.desc||s.d||'',produto_id:s.produto_id||null,qty:s.qty||1,precoUnit:parseFloat(s.p||s.preco||0)||0}));
+    let numStr='???';
+    if(dbOk&&db){
+      const {data:rows}=await db.from('ordens_servico').select('numero').order('numero',{ascending:false}).limit(1);
+      const num=rows&&rows.length?(rows[0].numero||0)+1:1;
+      const {error}=await db.from('ordens_servico').insert([{
+        numero:num, orcamento_id:String(orcId).startsWith('local_')?null:orcId,
+        cliente:orc.cliente, local_servico:orc.local_servico,
+        data_servico:data, hora, tecnico:tec,
+        servicos:osSvcs, materiais:'', obs_tecnica:'',
+        total:orc.total, status:'agendado', loja_id:orc.loja_id||LOJA_PADRAO_ID
+      }]);
+      if(error) throw error;
+      numStr=String(num).padStart(3,'0');
+    }else{
+      const n=(parseInt(ls('fluxa_os_num')||'0'))+1; lsSet('fluxa_os_num',String(n)); numStr=String(n).padStart(3,'0');
+    }
+    fecharAprovOS();
+    const dataFmt=new Date(data+'T12:00:00').toLocaleDateString('pt-BR');
+    toast(`✅ OS #${numStr} criada — agendada para ${dataFmt} às ${hora} · Técnico: ${tec}`);
+    logAcao('os_criada',`#${numStr} via aprovação do orçamento #${String(orc.numero||'?').padStart(3,'0')}`);
+    if(typeof carregarOS==='function') await carregarOS();
+  }catch(e){
+    console.error('criarOSdeAprovacao:',e); toast('⚠️ Erro ao criar OS: '+e.message);
+  }finally{
+    if(btn){ btn.disabled=false; btn.textContent='📋 Criar OS agendada'; }
+  }
+}
+
 // Limpar formulário para novo orçamento
 function novoOrc(){
   editId=null; fotosB64=[];
@@ -6311,7 +6393,7 @@ async function mudarSt(id, sel){
   if(dbOk&&db&&!String(id).startsWith('local_'))
     db.from('orcamentos').update({status:st}).eq('id',id).then(()=>{}).catch(()=>{});
   logAcao('orcamento_status', `#${o?.numero||'?'} ${o?.cliente||''} → ${st}`);
-  // Feedback de reserva de estoque ao aprovar
+  // Feedback de reserva de estoque ao aprovar + modal para criar OS
   if(st==='aprovado' && o){
     const prods=(o.servicos||[]).filter(s=>s.produto_id);
     if(prods.length){
@@ -6320,7 +6402,8 @@ async function mudarSt(id, sel){
         return `${Math.abs(parseInt(s.qty)||1)}× ${p?.nome||s.desc||s.produto_id}`;
       }).join(', ');
       toast(`✅ Aprovado · 📦 Reservado: ${resumo}`);
-    } else { toast('✅ Status atualizado'); }
+    } else { toast('✅ Orçamento aprovado!'); }
+    setTimeout(()=>_perguntarCriarOS(o), 700);
   } else { toast('✅ Status atualizado'); }
 }
 
