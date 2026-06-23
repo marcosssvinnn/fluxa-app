@@ -9377,6 +9377,29 @@ let locaisVisMesRef = '';  // currently viewed month in locais tab, e.g. '2026-0
 function lsVisLer(){ try{ return JSON.parse(localStorage.getItem(LS_VIS)||'[]'); }catch(e){ return []; } }
 function lsVisSalvar(lista){ localStorage.setItem(LS_VIS, JSON.stringify(lista)); }
 
+// ══ ESCOPO DE EMPRESA (vistorias/locais) ══
+// Fonte única de verdade para "este local/vistoria pertence à empresa em foco?".
+// Usado por renderLocaisTab E renderVisHistorico para nunca divergirem.
+function _normLojaId(lid){ return (!lid||lid==='default')?LOJA_PADRAO_ID:lid; }
+function _grupoDaLoja(lid){ const L=LOJAS.find(x=>x.id===_normLojaId(lid)); return L?L.grupo:'forthemp'; }
+// Empresa atualmente em foco: técnico → grupo escolhido no login; gestor sem
+// loja → grupo forthemp (Aquamotor não mistura); gestor em loja específica → aquela loja.
+function _empresaEmFoco(){
+  const s=getSessao();
+  if(s?.perfil==='tecnico'){
+    const emp=visEmpresaTecnico||s?.empresa_tec||sessionStorage.getItem('fluxa_vis_empresa_tec')||'forthemp';
+    return {tipo:'grupo', valor:emp};
+  }
+  if(!lojaAtiva) return {tipo:'grupo', valor:'forthemp'};
+  return {tipo:'loja', valor:lojaAtiva};
+}
+// true se a loja_id (de um local ou vistoria) está dentro da empresa em foco
+function escopoEmpresaMatch(lojaId){
+  const lid=_normLojaId(lojaId);
+  const f=_empresaEmFoco();
+  return f.tipo==='grupo' ? _grupoDaLoja(lid)===f.valor : lid===f.valor;
+}
+
 /* ══ LOCAIS RECORRENTES ══ */
 function loadLocais(){
   // Lê localStorage
@@ -9391,10 +9414,11 @@ function loadLocais(){
   } else {
     locaisVistoria=local;
   }
-  // Deduplicar por cliente+local (evita duplicatas de simulação)
+  // Deduplicar por ID (não por cliente+local — dois locais distintos podem ter
+  // o mesmo nome, ex.: unidades diferentes do mesmo condomínio).
   const _vistosLoc=new Set();
   locaisVistoria=locaisVistoria.filter(l=>{
-    const k=(l.cliente||'').trim()+'|'+(l.local||'').trim();
+    const k=l.id||((l.cliente||'').trim()+'|'+(l.local||'').trim());
     if(_vistosLoc.has(k)) return false;
     _vistosLoc.add(k); return true;
   });
@@ -9958,19 +9982,8 @@ function renderLocaisTab(){
   const buscaTxt=(document.getElementById('loc-busca')?.value||'').toLowerCase().trim();
   const _matchBusca=l=>!buscaTxt||(l.cliente||'').toLowerCase().includes(buscaTxt)||(l.local||'').toLowerCase().includes(buscaTxt);
 
-  // Match de empresa — normaliza 'default'/vazio para LOJA_PADRAO_ID:
-  // - Técnico: vê só a empresa escolhida no login (Fortemp = grupo forthemp; Aquamotor)
-  // - Gestor sem lojaAtiva (visão geral): vê todos do GRUPO_FORTHEMP (Aquamotor não mistura)
-  // - Gestor com lojaAtiva específica: vê só aquela loja (inclui Aquamotor)
-  const _normLoja=lid=>((!lid||lid==='default')?LOJA_PADRAO_ID:lid);
-  const _grupoDe=lid=>{ const L=LOJAS.find(x=>x.id===_normLoja(lid)); return L?L.grupo:'forthemp'; };
-  const _empTec=visEmpresaTecnico||s?.empresa_tec||sessionStorage.getItem('fluxa_vis_empresa_tec')||'forthemp';
-  const _lojaMatch=l=>{
-    const lid=_normLoja(l.loja_id);
-    if(isTecnico) return _grupoDe(lid)===_empTec;
-    if(!lojaAtiva) return GRUPO_FORTHEMP.includes(lid);
-    return lid===lojaAtiva;
-  };
+  // Filtro de empresa unificado (ver escopoEmpresaMatch) — técnico/gestor/loja
+  const _lojaMatch=l=>escopoEmpresaMatch(l.loja_id);
   // Filtra locais ativos da empresa atual
   const locaisFiltrados=locaisVistoria.filter(l=>
     _lojaMatch(l) && l.ativo!==false && _matchBusca(l)
@@ -9979,10 +9992,7 @@ function renderLocaisTab(){
   const todosLoja=isTecnico ? locaisFiltrados : locaisVistoria.filter(l=>_lojaMatch(l) && _matchBusca(l));
 
   // Vistorias deste mês com o mesmo filtro de empresa
-  const vis=lsVisLer().filter(v=>{
-    if(v.mes_ref!==locaisVisMesRef) return false;
-    return _lojaMatch(v);
-  });
+  const vis=lsVisLer().filter(v=> v.mes_ref===locaisVisMesRef && _lojaMatch(v));
 
   // Build tracking somente dos ativos para stats
   const trackingAtivos=locaisFiltrados.map(loc=>{
@@ -10515,7 +10525,8 @@ function renderVisHistorico(){
   const busca = (document.getElementById('vis-hist-busca')?.value||'').toLowerCase();
   const mes   = document.getElementById('vis-hist-mes')?.value||'';
   const tecFilt = document.getElementById('vis-hist-tec')?.value||'';
-  let listaTotal = lsVisLer();
+  // Escopo de empresa: histórico, stats, ranking e alertas só da empresa em foco
+  let listaTotal = lsVisLer().filter(v=>escopoEmpresaMatch(v.loja_id));
   let lista = listaTotal;
   // Filtros textuais + mês + técnico
   if(busca) lista = lista.filter(v=>(v.cliente||'').toLowerCase().includes(busca)||(v.local||'').toLowerCase().includes(busca));
@@ -10643,23 +10654,19 @@ function excluirVistoria(id){
   confirmar('Excluir esta vistoria?', ()=>{ lsVisSalvar(lsVisLer().filter(x=>x.id!==id)); if(dbOk&&db) db.from('vistorias').delete().eq('id',id).then(()=>{}).catch(()=>{}); renderVisHistorico(); toast('Vistoria excluída'); }, 'Excluir Vistoria');
 }
 
-async function baixarPDFVistoria(id, btn){
-  if(typeof html2pdf === 'undefined'){ toast('⚠️ html2pdf não carregado, tente novamente em instantes'); return; }
-  const vis = lsVisLer().find(x=>x.id===id);
-  if(!vis){ toast('Vistoria não encontrada'); return; }
-
-  const origTxt = btn ? btn.textContent : '';
-  if(btn){ btn.disabled=true; btn.textContent='⏳'; }
-  toast('⏳ Gerando PDF…');
-
+// Núcleo único de geração de PDF de vistoria (download via html2pdf).
+// Usado por baixarPDFVistoria (📥), abrirVisRelatorio (📄 / tap na linha) e
+// gerarRelatorioVistoria — todos com o MESMO comportamento (sem branco no mobile).
+async function _gerarPDFVistoria(vis){
+  // Corrige loja_id legado ('default'/vazio) antes de montar o branding
+  if(!vis.loja_id || vis.loja_id==='default') vis.loja_id = lojaAtiva || LOJA_PADRAO_ID;
+  preencherRelatorioVistoria(vis);
+  const el = document.getElementById('pdoc-visita');
+  if(!el) throw new Error('template pdoc-visita ausente');
+  const prevStyle = el.getAttribute('style') || '';
   try{
-    preencherRelatorioVistoria(vis);
-    const el = document.getElementById('pdoc-visita');
-    // Torna o elemento visível temporariamente (fora da tela) para o html2canvas capturar
-    const prevStyle = el.getAttribute('style') || '';
     el.setAttribute('style', 'display:block!important;position:fixed;top:0;left:-9999px;width:794px;z-index:-1');
     await new Promise(r => setTimeout(r, 350));
-
     const nomeArq = `Vistoria-${(vis.cliente||'').replace(/[^a-z0-9]/gi,'-')}-${vis.data||new Date().toISOString().slice(0,10)}.pdf`;
     await html2pdf()
       .set({
@@ -10671,14 +10678,25 @@ async function baixarPDFVistoria(id, btn){
       })
       .from(el)
       .save();
-
+  }finally{
     el.setAttribute('style', prevStyle || 'display:none');
+  }
+}
+
+async function baixarPDFVistoria(id, btn){
+  if(typeof html2pdf === 'undefined'){ toast('⚠️ html2pdf não carregado, tente novamente em instantes'); return; }
+  const vis = lsVisLer().find(x=>x.id===id);
+  if(!vis){ toast('Vistoria não encontrada'); return; }
+
+  const origTxt = btn ? btn.textContent : '';
+  if(btn){ btn.disabled=true; btn.textContent='⏳'; }
+  toast('⏳ Gerando PDF…');
+  try{
+    await _gerarPDFVistoria(vis);
     toast('✅ PDF baixado!');
   }catch(e){
     console.warn('baixarPDFVistoria error:', e);
-    toast('❌ Falha ao gerar PDF — tente pelo botão 📄 PDF (imprimir)');
-    const el = document.getElementById('pdoc-visita');
-    if(el) el.setAttribute('style','display:none');
+    toast('❌ Falha ao gerar PDF — tente novamente em instantes');
   }finally{
     if(btn){ btn.disabled=false; btn.textContent=origTxt; }
   }
@@ -10713,12 +10731,16 @@ function enviarWAResumoVistoria(id){
   window.open(url,'_blank');
 }
 
-// ── Gerar PDF do relatório ──
-function abrirVisRelatorio(id){
-  const lista = lsVisLer();
-  const vis = lista.find(x=>x.id===id);
+// ── Gerar PDF do relatório (download — mesmo núcleo do botão 📥) ──
+async function abrirVisRelatorio(id){
+  const vis = lsVisLer().find(x=>x.id===id);
   if(!vis){ toast('⚠️ Vistoria não encontrada'); return; }
-  // Corrige loja_id legado (gravado como 'default' ou vazio antes da correção)
+  if(typeof html2pdf!=='undefined'){
+    toast('⏳ Gerando PDF…');
+    try{ await _gerarPDFVistoria(vis); toast('✅ PDF baixado!'); return; }
+    catch(e){ console.warn('[abrirVisRelatorio]',e?.message||e); /* cai no fallback */ }
+  }
+  // Fallback: impressão do sistema (desktop ou html2pdf indisponível)
   if(!vis.loja_id || vis.loja_id==='default') vis.loja_id = lojaAtiva || LOJA_PADRAO_ID;
   preencherRelatorioVistoria(vis);
   printMode = 'vis';
@@ -10737,29 +10759,11 @@ async function gerarRelatorioVistoria(){
   const planoBanner=document.getElementById('vis-plano-banner');
   if(planoBanner) planoBanner.style.display='none';
 
-  const el=document.getElementById('pdoc-visita');
-
   // Prefere html2pdf (download direto, sem diálogo de impressão que fica na tela)
-  if(typeof html2pdf!=='undefined' && el){
+  if(typeof html2pdf!=='undefined'){
     toast('⏳ Gerando PDF…');
-    const prevStyle=el.getAttribute('style')||'';
-    try{
-      preencherRelatorioVistoria(rec);
-      el.setAttribute('style','display:block!important;position:fixed;top:0;left:-9999px;width:794px;z-index:-1');
-      await new Promise(r=>setTimeout(r,350));
-      const nomeArq=`Vistoria-${(rec.cliente||'').replace(/[^a-z0-9]/gi,'-')}-${rec.data||new Date().toISOString().slice(0,10)}.pdf`;
-      await html2pdf()
-        .set({margin:0,filename:nomeArq,image:{type:'jpeg',quality:0.88},
-              html2canvas:{scale:2,useCORS:true,allowTaint:true,logging:false,width:794},
-              jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}})
-        .from(el).save();
-      el.setAttribute('style',prevStyle||'display:none');
-      toast('✅ Vistoria salva — PDF baixado!');
-    }catch(e){
-      console.warn('[gerarRelatorioVistoria]',e?.message||e);
-      el.setAttribute('style',prevStyle||'display:none');
-      toast('⚠️ Falha no PDF — vistoria salva. Tente pelo histórico.');
-    }
+    try{ await _gerarPDFVistoria(rec); toast('✅ Vistoria salva — PDF baixado!'); }
+    catch(e){ console.warn('[gerarRelatorioVistoria]',e?.message||e); toast('⚠️ Falha no PDF — vistoria salva. Tente pelo histórico.'); }
   } else {
     // Fallback: diálogo de impressão do sistema
     preencherRelatorioVistoria(rec);
