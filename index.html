@@ -856,6 +856,26 @@
     .desp-dash{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
     @media(max-width:680px){.desp-dash{grid-template-columns:1fr 1fr}}
 
+    /* ── ESTOQUE: CARDS ── */
+    .est-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:10px}
+    .est-card{display:flex;border-radius:14px;border:1.5px solid var(--gray-light);overflow:hidden;background:var(--white);transition:box-shadow .15s}
+    .est-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.09)}
+    .est-card-bar{width:5px;flex-shrink:0}
+    .est-card-inner{flex:1;padding:13px 14px;min-width:0}
+    .est-card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+    .est-card-nome{font-size:13px;font-weight:700;color:var(--c2);line-height:1.35;flex:1;min-width:0}
+    .est-card-sub{font-size:11px;color:var(--gray);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .est-card-footer{display:flex;justify-content:space-between;align-items:flex-end;margin-top:10px;gap:8px}
+    .est-qty-num{font-size:22px;font-weight:800;line-height:1}
+    .est-qty-unit{font-size:11px;color:var(--gray);font-weight:600;margin-left:3px}
+    .est-qty-det{font-size:10px;color:var(--gray);margin-top:2px}
+    .est-btns{display:flex;gap:5px;flex-shrink:0}
+    .est-btn{border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;padding:6px 12px;font-family:'Inter',sans-serif;transition:opacity .1s}
+    .est-btn:hover{opacity:.82}
+    .est-btn-in{background:#dcfce7;color:#15803d}
+    .est-btn-out{background:#fff7ed;color:#c2410c}
+    .est-btn-more{background:var(--gray-light);color:var(--c2);padding:6px 9px}
+
     /* ── PRODUTIVIDADE ── */
     .prod-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:20px}
     .prod-card{background:var(--white);border-radius:var(--r);padding:16px;box-shadow:var(--sh);text-align:center}
@@ -11221,13 +11241,7 @@ function renderEstoque(){
     body.innerHTML=`<div class="empty-st"><div class="ei">📦</div><p>${estoqueBusca?'Nenhum produto encontrado.':estoqueFiltro==='todos'?'Nenhum produto cadastrado ainda.':'Nada neste filtro. 🎉'}</p>${estoqueFiltro==='todos'?'<button class="btn-primary" style="margin-top:12px" onclick="abrirProdutoModal()">＋ Cadastrar produto</button>':''}</div>`;
   } else {
     const ehInativo=estoqueFiltro==='inativos';
-    // ── Tabela simplificada: Produto | Em estoque | Status | Ações ──
-    let h=`<div class="htw"><table class="ht"><thead><tr>
-      <th>Produto</th>
-      <th title="Quantidade disponível para uso/venda (física menos reservada em orçamentos)">Em estoque</th>
-      <th>Status</th>
-      <th>Ações</th>
-    </tr></thead><tbody>`;
+    let h=`<div class="est-grid">`;
     lista.forEach(p=>{
       const fis=fisicaProduto(p.id), res=reservadoProduto(p.id), disp=disponivelProduto(p.id);
       const min=parseFloat(p.estoque_minimo)||0;
@@ -11236,56 +11250,67 @@ function renderEstoque(){
       const forn=todosFornecedores.find(f=>f.id===p.fornecedor_id);
       const pp=pontoDePedido(p.id);
       const precisaRepor=!encomenda && pp>0 && disp<=pp;
-      // Badge de status principal (um só, o mais urgente)
-      let statusBadge='';
+
+      // Cor da barra lateral + badge de status
+      let barCor='#22c55e', badge='';
       if(!ehInativo){
-        if(encomenda)      statusBadge=`<span style="display:inline-flex;align-items:center;gap:4px;background:#fee2e2;color:#b91c1c;padding:3px 10px;border-radius:50px;font-size:11px;font-weight:700">📥 Pedir</span>`;
-        else if(baixo)     statusBadge=`<span style="display:inline-flex;align-items:center;gap:4px;background:#fef3c7;color:#92400e;padding:3px 10px;border-radius:50px;font-size:11px;font-weight:700">⚠️ Baixo</span>`;
-        else if(precisaRepor) statusBadge=`<span style="display:inline-flex;align-items:center;gap:4px;background:#fef9c3;color:#713f12;padding:3px 10px;border-radius:50px;font-size:11px;font-weight:700">🔄 Repor</span>`;
-        else if(produtoParado(p.id)) statusBadge=`<span style="display:inline-flex;align-items:center;gap:4px;background:#eff6ff;color:#1d4ed8;padding:3px 10px;border-radius:50px;font-size:11px;font-weight:700">💤 Parado</span>`;
-        else statusBadge=`<span style="display:inline-flex;align-items:center;gap:4px;background:#dcfce7;color:#15803d;padding:3px 10px;border-radius:50px;font-size:11px;font-weight:700">✅ OK</span>`;
+        if(encomenda){      barCor='#ef4444'; badge=`<span style="background:#fee2e2;color:#b91c1c;padding:2px 9px;border-radius:50px;font-size:10px;font-weight:700;white-space:nowrap">📥 Pedir</span>`; }
+        else if(baixo){     barCor='#f59e0b'; badge=`<span style="background:#fef3c7;color:#92400e;padding:2px 9px;border-radius:50px;font-size:10px;font-weight:700;white-space:nowrap">⚠️ Baixo</span>`; }
+        else if(precisaRepor){ barCor='#eab308'; badge=`<span style="background:#fef9c3;color:#713f12;padding:2px 9px;border-radius:50px;font-size:10px;font-weight:700;white-space:nowrap">🔄 Repor</span>`; }
+        else if(produtoParado(p.id)){ barCor='#94a3b8'; badge=`<span style="background:#f1f5f9;color:#475569;padding:2px 9px;border-radius:50px;font-size:10px;font-weight:700;white-space:nowrap">💤 Parado</span>`; }
+        else { badge=`<span style="background:#dcfce7;color:#15803d;padding:2px 9px;border-radius:50px;font-size:10px;font-weight:700;white-space:nowrap">✅ OK</span>`; }
       }
-      // Quantidade: mostra disponível em destaque; se há reserva, mostra nota
-      const qtdDisp=`<span style="font-size:18px;font-weight:700;color:${encomenda?'var(--red)':baixo?'var(--yellow)':'var(--c2)'}">${fmtQtd(disp)}</span> <span style="font-size:11px;color:var(--gray)">${esc(p.unidade||'un')}</span>`;
-      const qtdDetalhe=res>0?`<div style="font-size:10px;color:var(--gray);margin-top:1px">${fmtQtd(fis)} físico · ${fmtQtd(res)} reservado</div>`:'';
-      // No painel geral (todas as lojas), mostra de onde vem o estoque
-      let qtdPorLoja='';
+
+      // Quantidade
+      const qtdCor=encomenda?'#ef4444':baixo?'#d97706':'var(--c2)';
+      const subInfo=[p.codigo?`Cód: ${esc(p.codigo)}`:'', forn?`🏭 ${esc(forn.nome)}`:''].filter(Boolean).join(' · ');
+      const detQtd=res>0?`<div class="est-qty-det">${fmtQtd(fis)} físico · ${fmtQtd(res)} reservado</div>`:'';
+
+      // Por loja (modo master sem loja ativa)
+      let porLoja='';
       if(!lojaAtiva&&GRUPO_FORTHEMP&&GRUPO_FORTHEMP.length>1){
         const spl=_saldoPorLoja(p.id);
-        const partes=LOJAS.filter(l=>GRUPO_FORTHEMP.includes(l.id)).map(l=>{
-          const s=spl[l.id]||{fisico:0,reservado:0};
-          const d=s.fisico-s.reservado;
-          const cor=d<0?'#b91c1c':d===0?'var(--gray)':'inherit';
-          return `<span class="loja-badge ${l.cor}" style="font-size:10px">${esc(l.nome)}: <strong style="color:${cor}">${fmtQtd(d)}</strong></span>`;
-        });
-        qtdPorLoja=`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">${partes.join('')}</div>`;
+        porLoja=`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">`+LOJAS.filter(l=>GRUPO_FORTHEMP.includes(l.id)).map(l=>{
+          const s=spl[l.id]||{fisico:0,reservado:0}; const d=s.fisico-s.reservado;
+          return `<span class="loja-badge ${l.cor}" style="font-size:10px">${esc(l.nome)}: <strong style="color:${d<0?'#b91c1c':d===0?'var(--gray)':'inherit'}">${fmtQtd(d)}</strong></span>`;
+        }).join('')+`</div>`;
       }
-      // Menu "⋮" para ações secundárias
+
+      // Botões / menu
       const menuId=`emenu_${p.id.replace(/[^a-z0-9]/gi,'_')}`;
-      const menuAcoes=ehInativo
-        ? `<button class="tb g" onclick="reativarProduto('${p.id}')">↺ Reativar</button>`
-        : `<button class="tb g" style="font-size:13px;padding:6px 14px" onclick="abrirMovModal('${p.id}','entrada')">＋ Entrada</button>
-           <button class="tb" style="font-size:13px;padding:6px 14px;background:#fff7ed;color:#c2410c;border-color:#fed7aa" onclick="abrirMovModal('${p.id}','saida')">− Saída</button>
-           <div style="position:relative;display:inline-block">
-             <button class="tb" style="font-size:16px;padding:4px 10px;line-height:1" onclick="toggleMenuEstoque('${menuId}')" title="Mais opções">⋮</button>
-             <div id="${menuId}" style="display:none;position:absolute;right:0;top:100%;background:white;border:1.5px solid var(--gray-mid);border-radius:10px;padding:4px;z-index:99;min-width:160px;box-shadow:0 4px 16px rgba(0,0,0,.12)">
-               <button onclick="abrirMovModal('${p.id}','ajuste');toggleMenuEstoque('${menuId}')" style="display:block;width:100%;padding:8px 12px;text-align:left;border:none;background:none;cursor:pointer;font-size:13px;border-radius:7px;font-family:inherit" onmouseenter="this.style.background='var(--c1-bg)'" onmouseleave="this.style.background='none'">⚖ Inventário / Corrigir saldo</button>
-               ${LOJAS.length>1?`<button onclick="abrirTransfModal('${p.id}');toggleMenuEstoque('${menuId}')" style="display:block;width:100%;padding:8px 12px;text-align:left;border:none;background:none;cursor:pointer;font-size:13px;border-radius:7px;font-family:inherit" onmouseenter="this.style.background='var(--c1-bg)'" onmouseleave="this.style.background='none'">🔄 Transferir para outra unidade</button>`:''}
-               <button onclick="abrirHistProduto('${p.id}');toggleMenuEstoque('${menuId}')" style="display:block;width:100%;padding:8px 12px;text-align:left;border:none;background:none;cursor:pointer;font-size:13px;border-radius:7px;font-family:inherit" onmouseenter="this.style.background='var(--c1-bg)'" onmouseleave="this.style.background='none'">📜 Ver histórico de movimentos</button>
-               <button onclick="abrirProdutoModal('${p.id}');toggleMenuEstoque('${menuId}')" style="display:block;width:100%;padding:8px 12px;text-align:left;border:none;background:none;cursor:pointer;font-size:13px;border-radius:7px;font-family:inherit" onmouseenter="this.style.background='var(--c1-bg)'" onmouseleave="this.style.background='none'">✎ Editar produto</button>
+      const btns=ehInativo
+        ? `<button class="est-btn est-btn-in" onclick="reativarProduto('${p.id}')">↺ Reativar</button>`
+        : `<button class="est-btn est-btn-in" onclick="abrirMovModal('${p.id}','entrada')" title="Registrar entrada">＋ Entrada</button>
+           <button class="est-btn est-btn-out" onclick="abrirMovModal('${p.id}','saida')" title="Registrar saída">− Saída</button>
+           <div style="position:relative">
+             <button class="est-btn est-btn-more" onclick="toggleMenuEstoque('${menuId}')" title="Mais opções">⋮</button>
+             <div id="${menuId}" style="display:none;position:absolute;right:0;top:calc(100% + 4px);background:white;border:1.5px solid var(--gray-mid);border-radius:12px;padding:4px;z-index:99;min-width:190px;box-shadow:0 6px 20px rgba(0,0,0,.13)">
+               <button onclick="abrirMovModal('${p.id}','ajuste');toggleMenuEstoque('${menuId}')" style="display:block;width:100%;padding:9px 13px;text-align:left;border:none;background:none;cursor:pointer;font-size:13px;border-radius:8px;font-family:inherit" onmouseenter="this.style.background='var(--c1-bg)'" onmouseleave="this.style.background='none'">⚖️ Corrigir saldo / Inventário</button>
+               ${LOJAS.length>1?`<button onclick="abrirTransfModal('${p.id}');toggleMenuEstoque('${menuId}')" style="display:block;width:100%;padding:9px 13px;text-align:left;border:none;background:none;cursor:pointer;font-size:13px;border-radius:8px;font-family:inherit" onmouseenter="this.style.background='var(--c1-bg)'" onmouseleave="this.style.background='none'">🔄 Transferir para outra unidade</button>`:''}
+               <button onclick="abrirHistProduto('${p.id}');toggleMenuEstoque('${menuId}')" style="display:block;width:100%;padding:9px 13px;text-align:left;border:none;background:none;cursor:pointer;font-size:13px;border-radius:8px;font-family:inherit" onmouseenter="this.style.background='var(--c1-bg)'" onmouseleave="this.style.background='none'">📜 Histórico de movimentos</button>
+               <button onclick="abrirProdutoModal('${p.id}');toggleMenuEstoque('${menuId}')" style="display:block;width:100%;padding:9px 13px;text-align:left;border:none;background:none;cursor:pointer;font-size:13px;border-radius:8px;font-family:inherit" onmouseenter="this.style.background='var(--c1-bg)'" onmouseleave="this.style.background='none'">✏️ Editar produto</button>
              </div>
            </div>`;
-      h+=`<tr${ehInativo?' style="opacity:.55"':''}>
-        <td>
-          <div style="font-weight:600;color:var(--c2)">${esc(p.nome)}</div>
-          <div style="font-size:11px;color:var(--gray);margin-top:2px">${[p.codigo,forn?'🏭 '+forn.nome:''].filter(Boolean).map(esc).join(' · ')||'&nbsp;'}</div>
-        </td>
-        <td>${qtdDisp}${qtdDetalhe}${qtdPorLoja}</td>
-        <td>${statusBadge}</td>
-        <td><div class="ta" style="gap:6px">${menuAcoes}</div></td>
-      </tr>`;
+
+      h+=`<div class="est-card"${ehInativo?' style="opacity:.5"':''}>
+        <div class="est-card-bar" style="background:${barCor}"></div>
+        <div class="est-card-inner">
+          <div class="est-card-top">
+            <div class="est-card-nome">${esc(p.nome)}</div>
+            ${badge}
+          </div>
+          ${subInfo?`<div class="est-card-sub">${subInfo}</div>`:''}
+          <div class="est-card-footer">
+            <div>
+              <div><span class="est-qty-num" style="color:${qtdCor}">${fmtQtd(disp)}</span><span class="est-qty-unit">${esc(p.unidade||'un')}</span></div>
+              ${detQtd}${porLoja}
+            </div>
+            <div class="est-btns">${btns}</div>
+          </div>
+        </div>
+      </div>`;
     });
-    h+='</tbody></table></div>';
+    h+=`</div>`;
     body.innerHTML=h;
   }
 
