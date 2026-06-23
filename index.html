@@ -11967,6 +11967,8 @@ function fecharProdutoModal(){ document.getElementById('prod-modal').style.displ
 async function salvarProduto(){
   const nome=(gV('prod-nome')||'').trim();
   if(!nome){ toast('⚠️ Informe o nome do produto'); return; }
+  const _cat=(gV('prod-categoria')==='Outro'?(gV('prod-catoutra')||'').trim():gV('prod-categoria')||'');
+  if(!_cat){ toast('⚠️ Selecione a categoria do produto'); document.getElementById('prod-categoria')?.focus(); return; }
   const s=getSessao();
   const id=_prodEditId||'prod_'+Date.now();
   const existente=_prodEditId?produtoById(_prodEditId):null;
@@ -11985,7 +11987,7 @@ async function salvarProduto(){
     ncm:(gV('prod-ncm')||'').trim(), cest:(gV('prod-cest')||'').trim(),
     cfop_padrao:(gV('prod-cfop')||'').trim(), origem:(gV('prod-origem')||'').trim(),
     gtin_ean:(gV('prod-gtin')||'').trim(),
-    categoria:(gV('prod-categoria')==='Outro'?(gV('prod-catoutra')||'').trim():gV('prod-categoria')||''),
+    categoria:_cat,
     ativo:true, data_criacao: existente?.data_criacao || new Date().toISOString()
   };
   const idx=todosProdutos.findIndex(x=>x.id===id);
