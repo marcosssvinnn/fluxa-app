@@ -4007,16 +4007,10 @@ async function fazerLogin(){
       document.getElementById('login-step-pin').classList.remove('show');
       mostrarSelecaoLojaGestor();
     } else if((loginUserSelecionado.perfil==='master'||loginUserSelecionado.perfil==='gestor') && !loginUserSelecionado.loja_id){
-      // Master ou gestor geral → vê todas as lojas do grupo
-      lojaAtiva = '';
-      sessionStorage.setItem('fluxa_loja_ativa', '');
-      setSessao({perfil:loginUserSelecionado.perfil, loja_id:null, nome:loginUserSelecionado.nome});
-      document.getElementById('login-overlay').style.display = 'none';
-      atualizarBadgeUsuario();
-      aplicarPermissoesPerfil();
-      atualizarHeaderLoja();
-      logAcao('login', loginUserSelecionado.nome+' ('+loginUserSelecionado.perfil+')');
-      go('history');
+      // Master/gestor geral → escolhe a empresa (Forthemp todas/unidade ou Aquamotor)
+      // Era aqui que o Marcos caía direto em "Todas" sem ver a opção da Aquamotor.
+      document.getElementById('login-step-pin').classList.remove('show');
+      mostrarSelecaoLojaGestor();
     } else if(loginUserSelecionado.perfil === 'gestor' && loginUserSelecionado.loja_id){
       // Gestor de empresa específica (ex: Acquamotor) → entra direto na sua empresa
       lojaAtiva = loginUserSelecionado.loja_id;
@@ -4101,8 +4095,13 @@ function confirmarLojaGestor(lojaId){
   lojaAtiva=lojaId;
   sessionStorage.setItem('fluxa_loja_ativa', lojaId||'');
   const loja=getLoja(lojaId);
-  const nomeGestor=loja?'Gestor '+loja.nome:'Gestor';
-  const sessao={perfil:'gestor',loja_id:null,nome:nomeGestor};
+  // Preserva perfil/nome reais do usuário (ex.: Marcos master); só o PIN genérico
+  // "__gestor__" vira "Gestor <unidade>".
+  const u=loginUserSelecionado;
+  const ehReal=u&&u.id&&u.id!=='__gestor__';
+  const perfil=ehReal&&u.perfil?u.perfil:'gestor';
+  const nome=ehReal&&u.nome?u.nome:(loja?'Gestor '+loja.nome:'Gestor');
+  const sessao={perfil,loja_id:null,nome};
   setSessao(sessao);
   document.getElementById('login-overlay').style.display='none';
   document.getElementById('login-step-loja').classList.remove('show');
@@ -9605,7 +9604,7 @@ function renderConcluirVisEquips(equips){
       </div>
       <textarea class="cv-eq-obs" rows="2" placeholder="Descrição da condição do equipamento…" oninput="_cvEquipData[${i}].obs=this.value" id="cv-eq-obs-${i}"></textarea>
       <div class="cv-eq-fotos" id="cv-eq-fotos-${i}">
-        <input type="file" accept="image/*" capture="environment" id="cv-eq-file-${i}" style="display:none" onchange="cvCapturarFoto(${i},this)">
+        <input type="file" accept="image/*" id="cv-eq-file-${i}" style="display:none" onchange="cvCapturarFoto(${i},this)">
         <button type="button" class="cv-eq-foto-btn" onclick="document.getElementById('cv-eq-file-${i}').click()">📷 Foto</button>
       </div>
     </div>
@@ -10264,7 +10263,7 @@ function buildEquipBlock(id,emoji,nome,d,modelo,potencia){
   const fotosHtml=[0,1,2].map(i=>{
     const f=(d.fotos||[])[i];
     return `<div class="vis-foto-slot${f?' filled':''}" onclick="visClickFotoSlot('${id}',${i})">
-      <input type="file" id="vis-f-${id}-${i}" accept="image/*" capture="environment" style="display:none" onchange="visCarregarFoto(this,'${id}',${i})">
+      <input type="file" id="vis-f-${id}-${i}" accept="image/*" style="display:none" onchange="visCarregarFoto(this,'${id}',${i})">
       ${f?`<img src="${f}" alt="">`:''}
       <div class="vis-foto-slot-icon">📷</div>
       <button class="vis-foto-rm" onclick="event.stopPropagation();visRemoverFoto('${id}',${i})" title="Remover">✕</button>
@@ -10516,8 +10515,10 @@ function _montarRecVistoria(){
   }
   const hora=document.getElementById('vis-hora')?.value||'';
   // A vistoria herda a empresa do LOCAL/plano — não da sessão do técnico.
+  // Ao EDITAR uma vistoria existente, preserva a empresa original (não recalcula).
   const _loc=window._visLocalId ? (locaisVistoria||[]).find(x=>x.id===window._visLocalId) : null;
-  const _lojaRec=_lojaDaVistoria(_loc);
+  const _editExist=visEditId ? lsVisLer().find(v=>v.id===visEditId) : null;
+  const _lojaRec=(_editExist&&_editExist.loja_id&&_editExist.loja_id!=='default') ? _editExist.loja_id : _lojaDaVistoria(_loc);
   return {
     id,
     loja_id: _lojaRec,
@@ -10722,8 +10723,8 @@ function renderVisHistorico(){
         <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end">
           ${v.email_responsavel?`<button class="tb" title="Reenviar e-mail" onclick="event.stopPropagation();reenviarEmailVistoria('${v.id}')" style="font-size:11px;background:var(--blue-bg);color:var(--blue);border-color:var(--blue-bg)">📧</button>`:''}
           <button class="tb" title="Enviar resumo via WhatsApp" onclick="event.stopPropagation();enviarWAResumoVistoria('${v.id}')" style="font-size:11px;background:var(--wa-light,#dcfce7);color:var(--wa);border-color:var(--wa-light,#dcfce7)">💬</button>
-          <button class="tb" title="Gerar PDF (imprimir)" onclick="event.stopPropagation();abrirVisRelatorio('${v.id}')" style="font-size:11px">📄 PDF</button>
-          <button class="tb" title="Baixar PDF" onclick="event.stopPropagation();baixarPDFVistoria('${v.id}',this)" style="font-size:11px;background:var(--c1-light);color:var(--c1);border-color:var(--c1-light)">📥</button>
+          <button class="tb" title="Editar / refazer vistoria" onclick="event.stopPropagation();editarVistoria('${v.id}')" style="font-size:11px;background:var(--blue-bg);color:var(--blue);border-color:var(--blue-bg)">✏️</button>
+          <button class="tb" title="Baixar PDF" onclick="event.stopPropagation();baixarPDFVistoria('${v.id}',this)" style="font-size:11px;background:var(--c1-light);color:var(--c1);border-color:var(--c1-light)">📥 PDF</button>
           <button class="tb" title="Excluir" onclick="event.stopPropagation();excluirVistoria('${v.id}')" style="background:var(--red-bg);color:var(--red);border-color:var(--red-bg);font-size:11px">✕</button>
         </div>
       </div>
@@ -11035,6 +11036,44 @@ function novaVistoria(cliNome, cliLocal, tecNome){
   }
   renderVisChips();
   renderVisEquipGrid();
+}
+
+// Reabre uma vistoria já feita para EDITAR / REFAZER — mantém status, obs e fotos.
+// Grava no MESMO registro (visEditId), então não duplica.
+function editarVistoria(id){
+  const vis=lsVisLer().find(x=>x.id===id);
+  if(!vis){ toast('⚠️ Vistoria não encontrada'); return; }
+  const equips=(typeof vis.equipamentos==='string'?JSON.parse(vis.equipamentos||'[]'):vis.equipamentos)||[];
+  // Reset de estado
+  visEquipSelecionados=[]; visEquipDados={}; _visEquipsCustom=[];
+  visCheckinTime=null; visCheckoutTime=null;
+  if(visCheckinInterval){ clearInterval(visCheckinInterval); visCheckinInterval=null; }
+  visEditId=id; _visDraftId=id;            // edita o mesmo registro
+  window._visLocalId=vis.local_id||null;   // mantém vínculo com o plano (e a empresa)
+  go('visitas'); visTab('nova');
+  // Esconde banners de plano/pré-carga (estamos editando algo existente)
+  const pb=document.getElementById('vis-plano-banner'); if(pb) pb.style.display='none';
+  const pc=document.getElementById('vis-precarga-banner'); if(pc) pc.style.display='none';
+  const set=(elId,val)=>{ const e=document.getElementById(elId); if(e) e.value=val||''; };
+  set('vis-cli',vis.cliente); set('vis-loc',vis.local);
+  set('vis-data',vis.data||new Date().toISOString().slice(0,10));
+  set('vis-mes-ref',vis.mes_ref||new Date().toISOString().slice(0,7));
+  set('vis-hora',vis.hora||vis.hora_checkin||'');
+  set('vis-obs',vis.obs_geral);
+  set('vis-email-resp',vis.email_responsavel);
+  const tecSel=document.getElementById('vis-tec');
+  if(tecSel&&vis.tecnico){ for(const o of tecSel.options){ if(o.text===vis.tecnico||o.value===vis.tecnico){ o.selected=true; break; } } }
+  // Equipamentos: separa padrão de custom e PRESERVA status/obs/fotos
+  const stdDefs=VIS_EQUIPAMENTOS_DEFAULT.map(x=>x.id);
+  visEquipSelecionados=equips.filter(e=>stdDefs.includes(e.id)).map(e=>e.id);
+  _visEquipsCustom=equips.filter(e=>!stdDefs.includes(e.id)).map(e=>({id:e.id,nome:e.nome,emoji:e.emoji||'⚙️',modelo:e.modelo||'',potencia:e.potencia||''}));
+  equips.forEach(e=>{ visEquipDados[e.id]={status:e.status||'na',obs:e.obs||'',fotos:(e.fotos||[]).filter(Boolean)}; });
+  renderVisChips();
+  renderVisEquipGrid();
+  const card=document.getElementById('vis-equip-card');
+  if(card) card.style.display=(visEquipSelecionados.length||_visEquipsCustom.length)?'':'none';
+  window.scrollTo({top:0,behavior:'smooth'});
+  toast('✏️ Editando vistoria — ajuste e salve/gere o PDF');
 }
 
 // ══════════════════════════════════════════════════
