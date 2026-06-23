@@ -856,25 +856,26 @@
     .desp-dash{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
     @media(max-width:680px){.desp-dash{grid-template-columns:1fr 1fr}}
 
-    /* ── ESTOQUE: CARDS ── */
-    .est-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:10px}
-    .est-card{display:flex;border-radius:14px;border:1.5px solid var(--gray-light);overflow:hidden;background:var(--white);transition:box-shadow .15s}
-    .est-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.09)}
-    .est-card-bar{width:5px;flex-shrink:0}
-    .est-card-inner{flex:1;padding:13px 14px;min-width:0}
-    .est-card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
-    .est-card-nome{font-size:13px;font-weight:700;color:var(--c2);line-height:1.35;flex:1;min-width:0}
-    .est-card-sub{font-size:11px;color:var(--gray);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .est-card-footer{display:flex;justify-content:space-between;align-items:flex-end;margin-top:10px;gap:8px}
-    .est-qty-num{font-size:22px;font-weight:800;line-height:1}
-    .est-qty-unit{font-size:11px;color:var(--gray);font-weight:600;margin-left:3px}
-    .est-qty-det{font-size:10px;color:var(--gray);margin-top:2px}
-    .est-btns{display:flex;gap:5px;flex-shrink:0}
-    .est-btn{border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;padding:6px 12px;font-family:'Inter',sans-serif;transition:opacity .1s}
-    .est-btn:hover{opacity:.82}
-    .est-btn-in{background:#dcfce7;color:#15803d}
-    .est-btn-out{background:#fff7ed;color:#c2410c}
-    .est-btn-more{background:var(--gray-light);color:var(--c2);padding:6px 9px}
+    /* ── ESTOQUE: LISTA ── */
+    .est-list{background:var(--white);border-radius:14px;border:1.5px solid var(--gray-light);overflow:hidden}
+    .est-item{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--gray-light);transition:background .1s}
+    .est-item:last-child{border-bottom:none}
+    .est-item:hover{background:#fafafa}
+    .est-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;align-self:flex-start;margin-top:5px}
+    .est-main{flex:1;min-width:0}
+    .est-nome{font-size:13px;font-weight:600;color:var(--c2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .est-meta{display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin-top:2px;font-size:10.5px;color:var(--gray)}
+    .est-badge{padding:1px 7px;border-radius:50px;font-size:10px;font-weight:700;white-space:nowrap}
+    .est-prices{font-size:10.5px;color:var(--gray);margin-top:3px}
+    .est-qty-col{text-align:right;flex-shrink:0;line-height:1.2}
+    .est-qty-n{font-size:15px;font-weight:700}
+    .est-qty-u{font-size:10px;color:var(--gray)}
+    .est-qty-d{font-size:9.5px;color:var(--gray);margin-top:1px}
+    .est-acts{display:flex;gap:4px;flex-shrink:0;align-items:center}
+    .eb{border:none;border-radius:7px;cursor:pointer;font-size:11.5px;font-weight:700;padding:6px 11px;font-family:'Inter',sans-serif}
+    .eb.ein{background:#dcfce7;color:#15803d}
+    .eb.eout{background:#fff7ed;color:#c2410c}
+    .eb.emore{background:var(--gray-light);color:var(--c2);font-size:14px;padding:5px 9px}
 
     /* ── PRODUTIVIDADE ── */
     .prod-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:20px}
@@ -11241,49 +11242,64 @@ function renderEstoque(){
     body.innerHTML=`<div class="empty-st"><div class="ei">📦</div><p>${estoqueBusca?'Nenhum produto encontrado.':estoqueFiltro==='todos'?'Nenhum produto cadastrado ainda.':'Nada neste filtro. 🎉'}</p>${estoqueFiltro==='todos'?'<button class="btn-primary" style="margin-top:12px" onclick="abrirProdutoModal()">＋ Cadastrar produto</button>':''}</div>`;
   } else {
     const ehInativo=estoqueFiltro==='inativos';
-    let h=`<div class="est-grid">`;
+    let h=`<div class="est-list">`;
     lista.forEach(p=>{
       const fis=fisicaProduto(p.id), res=reservadoProduto(p.id), disp=disponivelProduto(p.id);
       const min=parseFloat(p.estoque_minimo)||0;
+      const preco=parseFloat(p.preco_venda)||0, custo=parseFloat(p.custo)||0;
       const encomenda=disp<0;
       const baixo=!encomenda && min>0 && disp<=min;
       const forn=todosFornecedores.find(f=>f.id===p.fornecedor_id);
       const pp=pontoDePedido(p.id);
       const precisaRepor=!encomenda && pp>0 && disp<=pp;
 
-      // Cor da barra lateral + badge de status
-      let barCor='#22c55e', badge='';
+      // Ponto colorido + badge status
+      let dotCor='#22c55e', badge='';
       if(!ehInativo){
-        if(encomenda){      barCor='#ef4444'; badge=`<span style="background:#fee2e2;color:#b91c1c;padding:2px 9px;border-radius:50px;font-size:10px;font-weight:700;white-space:nowrap">📥 Pedir</span>`; }
-        else if(baixo){     barCor='#f59e0b'; badge=`<span style="background:#fef3c7;color:#92400e;padding:2px 9px;border-radius:50px;font-size:10px;font-weight:700;white-space:nowrap">⚠️ Baixo</span>`; }
-        else if(precisaRepor){ barCor='#eab308'; badge=`<span style="background:#fef9c3;color:#713f12;padding:2px 9px;border-radius:50px;font-size:10px;font-weight:700;white-space:nowrap">🔄 Repor</span>`; }
-        else if(produtoParado(p.id)){ barCor='#94a3b8'; badge=`<span style="background:#f1f5f9;color:#475569;padding:2px 9px;border-radius:50px;font-size:10px;font-weight:700;white-space:nowrap">💤 Parado</span>`; }
-        else { badge=`<span style="background:#dcfce7;color:#15803d;padding:2px 9px;border-radius:50px;font-size:10px;font-weight:700;white-space:nowrap">✅ OK</span>`; }
+        if(encomenda){         dotCor='#ef4444'; badge=`<span class="est-badge" style="background:#fee2e2;color:#b91c1c">📥 Pedir</span>`; }
+        else if(baixo){        dotCor='#f59e0b'; badge=`<span class="est-badge" style="background:#fef3c7;color:#92400e">⚠️ Baixo</span>`; }
+        else if(precisaRepor){ dotCor='#eab308'; badge=`<span class="est-badge" style="background:#fef9c3;color:#713f12">🔄 Repor</span>`; }
+        else if(produtoParado(p.id)){ dotCor='#94a3b8'; badge=`<span class="est-badge" style="background:#f1f5f9;color:#475569">💤 Parado</span>`; }
+        else { badge=`<span class="est-badge" style="background:#dcfce7;color:#15803d">✅ OK</span>`; }
       }
 
-      // Quantidade
-      const qtdCor=encomenda?'#ef4444':baixo?'#d97706':'var(--c2)';
-      const subInfo=[p.codigo?`Cód: ${esc(p.codigo)}`:'', forn?`🏭 ${esc(forn.nome)}`:''].filter(Boolean).join(' · ');
-      const detQtd=res>0?`<div class="est-qty-det">${fmtQtd(fis)} físico · ${fmtQtd(res)} reservado</div>`:'';
+      // Meta: código, fornecedor, badge
+      const metaParts=[
+        p.codigo?`<span>Cód: ${esc(p.codigo)}</span>`:'',
+        forn?`<span>🏭 ${esc(forn.nome)}</span>`:'',
+        badge,
+      ].filter(Boolean).join('');
 
-      // Por loja (modo master sem loja ativa)
+      // Insight de valores
+      const capitalEstoque=Math.max(0,fis)*custo;
+      const priceParts=[];
+      if(preco>0) priceParts.push(`Venda: <strong>${brl(preco)}</strong>`);
+      if(custo>0) priceParts.push(`Custo: <strong>${brl(custo)}</strong>`);
+      if(capitalEstoque>0) priceParts.push(`Capital: <strong>${brl(capitalEstoque)}</strong>`);
+      const pricesHtml=priceParts.length?`<div class="est-prices">${priceParts.join(' · ')}</div>`:'';
+
+      // Por loja (modo master)
       let porLoja='';
       if(!lojaAtiva&&GRUPO_FORTHEMP&&GRUPO_FORTHEMP.length>1){
         const spl=_saldoPorLoja(p.id);
-        porLoja=`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">`+LOJAS.filter(l=>GRUPO_FORTHEMP.includes(l.id)).map(l=>{
+        porLoja=`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">`+LOJAS.filter(l=>GRUPO_FORTHEMP.includes(l.id)).map(l=>{
           const s=spl[l.id]||{fisico:0,reservado:0}; const d=s.fisico-s.reservado;
           return `<span class="loja-badge ${l.cor}" style="font-size:10px">${esc(l.nome)}: <strong style="color:${d<0?'#b91c1c':d===0?'var(--gray)':'inherit'}">${fmtQtd(d)}</strong></span>`;
         }).join('')+`</div>`;
       }
 
-      // Botões / menu
+      // Qtd
+      const qtdCor=encomenda?'#ef4444':baixo?'#d97706':'var(--c2)';
+      const detQtd=res>0?`<div class="est-qty-d">Fís:${fmtQtd(fis)} Res:${fmtQtd(res)}</div>`:'';
+
+      // Botões
       const menuId=`emenu_${p.id.replace(/[^a-z0-9]/gi,'_')}`;
       const btns=ehInativo
-        ? `<button class="est-btn est-btn-in" onclick="reativarProduto('${p.id}')">↺ Reativar</button>`
-        : `<button class="est-btn est-btn-in" onclick="abrirMovModal('${p.id}','entrada')" title="Registrar entrada">＋ Entrada</button>
-           <button class="est-btn est-btn-out" onclick="abrirMovModal('${p.id}','saida')" title="Registrar saída">− Saída</button>
+        ? `<button class="eb ein" onclick="reativarProduto('${p.id}')">↺ Reativar</button>`
+        : `<button class="eb ein" onclick="abrirMovModal('${p.id}','entrada')" title="Registrar entrada">＋ Entrada</button>
+           <button class="eb eout" onclick="abrirMovModal('${p.id}','saida')" title="Registrar saída">− Saída</button>
            <div style="position:relative">
-             <button class="est-btn est-btn-more" onclick="toggleMenuEstoque('${menuId}')" title="Mais opções">⋮</button>
+             <button class="eb emore" onclick="toggleMenuEstoque('${menuId}')">⋮</button>
              <div id="${menuId}" style="display:none;position:absolute;right:0;top:calc(100% + 4px);background:white;border:1.5px solid var(--gray-mid);border-radius:12px;padding:4px;z-index:99;min-width:190px;box-shadow:0 6px 20px rgba(0,0,0,.13)">
                <button onclick="abrirMovModal('${p.id}','ajuste');toggleMenuEstoque('${menuId}')" style="display:block;width:100%;padding:9px 13px;text-align:left;border:none;background:none;cursor:pointer;font-size:13px;border-radius:8px;font-family:inherit" onmouseenter="this.style.background='var(--c1-bg)'" onmouseleave="this.style.background='none'">⚖️ Corrigir saldo / Inventário</button>
                ${LOJAS.length>1?`<button onclick="abrirTransfModal('${p.id}');toggleMenuEstoque('${menuId}')" style="display:block;width:100%;padding:9px 13px;text-align:left;border:none;background:none;cursor:pointer;font-size:13px;border-radius:8px;font-family:inherit" onmouseenter="this.style.background='var(--c1-bg)'" onmouseleave="this.style.background='none'">🔄 Transferir para outra unidade</button>`:''}
@@ -11292,22 +11308,19 @@ function renderEstoque(){
              </div>
            </div>`;
 
-      h+=`<div class="est-card"${ehInativo?' style="opacity:.5"':''}>
-        <div class="est-card-bar" style="background:${barCor}"></div>
-        <div class="est-card-inner">
-          <div class="est-card-top">
-            <div class="est-card-nome">${esc(p.nome)}</div>
-            ${badge}
-          </div>
-          ${subInfo?`<div class="est-card-sub">${subInfo}</div>`:''}
-          <div class="est-card-footer">
-            <div>
-              <div><span class="est-qty-num" style="color:${qtdCor}">${fmtQtd(disp)}</span><span class="est-qty-unit">${esc(p.unidade||'un')}</span></div>
-              ${detQtd}${porLoja}
-            </div>
-            <div class="est-btns">${btns}</div>
-          </div>
+      h+=`<div class="est-item"${ehInativo?' style="opacity:.5"':''}>
+        <div class="est-dot" style="background:${dotCor}"></div>
+        <div class="est-main">
+          <div class="est-nome">${esc(p.nome)}</div>
+          <div class="est-meta">${metaParts}</div>
+          ${pricesHtml}${porLoja}
         </div>
+        <div class="est-qty-col">
+          <div class="est-qty-n" style="color:${qtdCor}">${fmtQtd(disp)}</div>
+          <div class="est-qty-u">${esc(p.unidade||'un')}</div>
+          ${detQtd}
+        </div>
+        <div class="est-acts">${btns}</div>
       </div>`;
     });
     h+=`</div>`;
