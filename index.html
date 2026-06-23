@@ -2630,6 +2630,20 @@
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
         <div id="estoque-tabs" style="display:flex;gap:6px;flex-wrap:wrap"></div>
         <div style="flex:1;min-width:120px"></div>
+        <select id="estoque-categ-filtro" onchange="filtCategoria(this.value)" style="padding:6px 10px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Inter',sans-serif;outline:none;background:white;cursor:pointer;color:var(--c2)">
+          <option value="">Todas as categorias</option>
+          <option value="Tratamento de Água">💧 Tratamento de Água</option>
+          <option value="Produto Químico">🧪 Produto Químico</option>
+          <option value="Filtragem">🔵 Filtragem</option>
+          <option value="Filtro">🔵 Filtro</option>
+          <option value="Bomba">⚙️ Bomba</option>
+          <option value="Trocador de Calor">🌡️ Trocador de Calor</option>
+          <option value="Peça de Piscina">🏊 Peça de Piscina</option>
+          <option value="Peça de Spa">🛁 Peça de Spa</option>
+          <option value="Acessório">🔧 Acessório</option>
+          <option value="Equipamento">🏭 Equipamento</option>
+          <option value="Outro">✏️ Outro</option>
+        </select>
         <select id="estoque-sort" onchange="renderEstoque()" style="padding:6px 10px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Inter',sans-serif;outline:none;background:white;cursor:pointer;color:var(--c2)">
           <option value="nome">A-Z</option>
           <option value="valor">Maior valor parado</option>
@@ -2667,6 +2681,25 @@
   <div class="card" style="max-width:560px;width:92%;max-height:88vh;overflow:auto">
     <div class="ct" id="prod-modal-titulo">Novo produto <button onclick="fecharProdutoModal()" aria-label="Fechar" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;float:right;line-height:1">×</button></div>
     <div id="prod-loja-wrap"></div>
+    <div class="row">
+      <div class="fl"><label>Categoria</label>
+        <select id="prod-categoria" onchange="toggleCategOutro()" style="padding:9px 12px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:14px;font-family:'Inter',sans-serif;outline:none;width:100%">
+          <option value="">— sem categoria —</option>
+          <option value="Tratamento de Água">💧 Tratamento de Água</option>
+          <option value="Produto Químico">🧪 Produto Químico</option>
+          <option value="Filtragem">🔵 Filtragem</option>
+          <option value="Filtro">🔵 Filtro</option>
+          <option value="Bomba">⚙️ Bomba</option>
+          <option value="Trocador de Calor">🌡️ Trocador de Calor</option>
+          <option value="Peça de Piscina">🏊 Peça de Piscina</option>
+          <option value="Peça de Spa">🛁 Peça de Spa</option>
+          <option value="Acessório">🔧 Acessório</option>
+          <option value="Equipamento">🏭 Equipamento</option>
+          <option value="Outro">✏️ Outro…</option>
+        </select>
+      </div>
+      <div class="fl" id="prod-catoutra-wrap" style="display:none"><label>Nome da categoria</label><input type="text" id="prod-catoutra" placeholder="Ex: Automatização…"></div>
+    </div>
     <div class="row f1"><div class="fl"><label class="req">Nome do produto</label><input type="text" id="prod-nome" placeholder="Ex: Cloro granulado 10kg"></div></div>
     <div class="row">
       <div class="fl"><label>Código / SKU</label><input type="text" id="prod-codigo" placeholder="opcional"></div>
@@ -11291,7 +11324,14 @@ function transferirProduto(produtoId, qtd, lojaDestino, motivo){
 // ── UI do estoque ──
 function buscaEstoque(v){ estoqueBusca=(v||'').toLowerCase(); renderEstoque(); }
 let estoqueFiltro='todos';
+let estoqueCategoria='';
 function filtEstoque(f){ estoqueFiltro=f; renderEstoque(); }
+function filtCategoria(v){ estoqueCategoria=v; renderEstoque(); }
+function toggleCategOutro(){
+  const v=gV('prod-categoria');
+  const wrap=document.getElementById('prod-catoutra-wrap');
+  if(wrap) wrap.style.display=(v==='Outro')?'':'none';
+}
 
 // ── Analíticos de estoque ──
 function giroProduto(pid, dias){ // total de SAÍDA (consumo) nos últimos N dias
@@ -11367,6 +11407,7 @@ function renderEstoque(){
     : estoqueFiltro==='parados' ? parados.slice()
     : todos.slice();
   if(estoqueBusca) lista=lista.filter(p=>(p.nome||'').toLowerCase().includes(estoqueBusca)||(p.codigo||'').toLowerCase().includes(estoqueBusca));
+  if(estoqueCategoria) lista=lista.filter(p=>(p.categoria||'')===estoqueCategoria);
   const sort=document.getElementById('estoque-sort')?.value||'nome';
   lista.sort((a,b)=>{
     if(sort==='valor') return (Math.max(0,fisicaProduto(b.id))*(parseFloat(b.custo)||0))-(Math.max(0,fisicaProduto(a.id))*(parseFloat(a.custo)||0));
@@ -11401,9 +11442,11 @@ function renderEstoque(){
       }
 
       // Meta: código, fornecedor, badge
+      const categBadge=p.categoria?`<span style="background:#e0f2fe;color:#0369a1;padding:1px 7px;border-radius:50px;font-size:10px;font-weight:700;white-space:nowrap">${esc(p.categoria)}</span>`:'';
       const metaParts=[
         p.codigo?`<span>Cód: ${esc(p.codigo)}</span>`:'',
         forn?`<span>🏭 ${esc(forn.nome)}</span>`:'',
+        categBadge,
         badge,
       ].filter(Boolean).join('');
 
@@ -11882,6 +11925,11 @@ let _prodEditId=null;
 function abrirProdutoModal(id){
   _prodEditId=id||null;
   const p=id?produtoById(id):null;
+  const cat=p?.categoria||'';
+  setV('prod-categoria', cat);
+  const catOutraWrap=document.getElementById('prod-catoutra-wrap');
+  if(catOutraWrap) catOutraWrap.style.display=(cat==='Outro')?'':'none';
+  setV('prod-catoutra', cat==='Outro'?'':'');
   setV('prod-nome',p?.nome||''); setV('prod-codigo',p?.codigo||'');
   setV('prod-unidade',p?.unidade||'un'); setV('prod-preco',p?.preco_venda?String(p.preco_venda):'');
   setV('prod-custo',p?.custo?String(p.custo):''); setV('prod-min',p?.estoque_minimo?String(p.estoque_minimo):'');
@@ -11937,6 +11985,7 @@ async function salvarProduto(){
     ncm:(gV('prod-ncm')||'').trim(), cest:(gV('prod-cest')||'').trim(),
     cfop_padrao:(gV('prod-cfop')||'').trim(), origem:(gV('prod-origem')||'').trim(),
     gtin_ean:(gV('prod-gtin')||'').trim(),
+    categoria:(gV('prod-categoria')==='Outro'?(gV('prod-catoutra')||'').trim():gV('prod-categoria')||''),
     ativo:true, data_criacao: existente?.data_criacao || new Date().toISOString()
   };
   const idx=todosProdutos.findIndex(x=>x.id===id);
