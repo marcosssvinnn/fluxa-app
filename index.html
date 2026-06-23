@@ -212,6 +212,7 @@
     .os-agendado{background:var(--blue-bg);color:var(--blue)}
     .os-concluido{background:var(--green-bg);color:var(--green)}
     .os-cancelado{background:var(--red-bg);color:var(--red)}
+    .os-atrasado{background:#fff7ed;color:#c2410c}
 
     /* ── HISTÓRICO ── */
     .dash{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
@@ -3205,7 +3206,7 @@
     <div style="text-align:center;margin-bottom:18px">
       <div style="font-size:32px;margin-bottom:6px">📋</div>
       <h3 id="aprov-os-titulo" style="margin:0 0 6px">Orçamento aprovado!</h3>
-      <p style="font-size:13px;color:var(--gray);margin:0">Deseja agendar uma Ordem de Serviço para este trabalho?</p>
+      <p style="font-size:13px;color:var(--gray);margin:0">Deseja agendar uma OS? Data e técnico podem ser preenchidos agora ou depois.</p>
     </div>
     <input type="hidden" id="aprov-os-orc-id">
     <div style="background:#f8fafc;border-radius:12px;padding:14px;margin-bottom:16px;display:flex;flex-direction:column;gap:10px">
@@ -5035,8 +5036,7 @@ async function criarOSdeAprovacao(){
   const data=document.getElementById('aprov-os-data').value;
   const hora=document.getElementById('aprov-os-hora').value||'08:00';
   const tec=document.getElementById('aprov-os-tec').value;
-  if(!data){ toast('⚠️ Informe a data do serviço'); return; }
-  if(!tec){ toast('⚠️ Selecione o técnico responsável'); return; }
+  // data e tec são opcionais — podem ser preenchidos depois via "Editar OS"
   const orc=todosOrc.find(x=>x.id===orcId);
   if(!orc){ toast('⚠️ Orçamento não encontrado'); fecharAprovOS(); return; }
   const btn=document.getElementById('aprov-os-btn');
@@ -6698,13 +6698,23 @@ function renderOSTabela(){
     String(o.numero||'').includes(buscaOS.replace('#',''))
   );
   if(!lista.length){ document.getElementById('osh-body').innerHTML=`<div class="empty-st"><div class="ei">📋</div><p>Nenhuma OS encontrada.</p><button class="btn-primary" style="margin-top:12px" onclick="novaOS();go('os')">＋ Nova OS</button></div>`; return; }
+  // Ordena: pendentes/atrasadas por data crescente primeiro; concluídas/canceladas no final
+  const _hoje=new Date().toISOString().slice(0,10);
+  lista=lista.slice().sort((a,b)=>{
+    const ac=a.status==='concluido'||a.status==='cancelado';
+    const bc=b.status==='concluido'||b.status==='cancelado';
+    if(ac&&!bc) return 1; if(!ac&&bc) return -1;
+    const da=a.data_servico||'9999'; const db2=b.data_servico||'9999';
+    return da<db2?-1:da>db2?1:0;
+  });
   let h=`<div class="htw"><table class="ht"><thead><tr><th>#</th><th>Cliente</th><th>Local</th><th>Data</th><th>Técnico</th><th>Status</th><th>Ações</th></tr></thead><tbody>`;
   lista.forEach(o=>{
     _nc[o.id]=o;
     const num=String(o.numero||'—').padStart(3,'0');
     const dt=o.data_servico?new Date(o.data_servico+'T12:00:00').toLocaleDateString('pt-BR'):(o.data_criacao?new Date(o.data_criacao).toLocaleDateString('pt-BR'):'—');
-    const stCl=o.status==='concluido'?'os-concluido':o.status==='cancelado'?'os-cancelado':'os-agendado';
-    const stTx=o.status==='concluido'?'Concluído':o.status==='cancelado'?'Cancelado':'Agendado';
+    const atrasado=o.status==='agendado'&&o.data_servico&&o.data_servico<_hoje;
+    const stCl=o.status==='concluido'?'os-concluido':o.status==='cancelado'?'os-cancelado':atrasado?'os-atrasado':'os-agendado';
+    const stTx=o.status==='concluido'?'✅ Concluído':o.status==='cancelado'?'Cancelado':atrasado?'⚠️ Atrasado':'📅 Agendado';
     h+=`<tr>
       <td><span class="on">#${num}</span></td>
       <td><div class="ocl">${esc(o.cliente||'—')}</div>
@@ -6715,9 +6725,10 @@ function renderOSTabela(){
       <td><span class="os-badge ${stCl}">${stTx}</span></td>
       <td><div class="ta">
         <button class="tb" onclick="editarOS('${o.id}')">✎ Editar</button>
+        <button class="tb" title="Gerar PDF desta OS" onclick="_gerarPDFdaOS('${o.id}')">📄 PDF</button>
         ${o.status!=='concluido'&&o.status!=='cancelado'?`<button class="tb" title="Marcar como concluída (baixa de estoque automática)" onclick="concluirOSHistorico('${o.id}')" style="background:#16a34a;color:white;border-color:#16a34a;font-weight:700">✅ Concluir</button>`:''}
         ${o.status==='concluido'?`<button class="tb" title="Notif. OS concluída" style="background:var(--wa);color:white;border-color:var(--wa)" onclick="enviarNotifWA(notifConcluida(getNC('${o.id}')), '${o.tel_cliente||''}')">✅💬</button>`:''}
-        ${o.status==='agendado'?`<button class="tb" title="Lembrete de visita" style="background:var(--wa);color:white;border-color:var(--wa)" onclick="enviarNotifWA(notifVisita(getNC('${o.id}')), '${o.tel_cliente||''}')">📅💬</button>`:''}
+        ${o.status==='agendado'||atrasado?`<button class="tb" title="Lembrete de visita" style="background:var(--wa);color:white;border-color:var(--wa)" onclick="enviarNotifWA(notifVisita(getNC('${o.id}')), '${o.tel_cliente||''}')">📅💬</button>`:''}
         <button class="tb d" onclick="excluirOS('${o.id}')">🗑</button>
       </div></td>
     </tr>`;
@@ -6907,27 +6918,44 @@ function renderMinhasOS(){
     el.innerHTML = `<div class="empty-st"><div class="ei">📋</div><p>Nenhuma OS encontrada.</p></div>`;
     return;
   }
+  const _hj=new Date().toISOString().slice(0,10);
+  // Ordena: pendentes por data crescente; concluídas/canceladas no final
+  lista=lista.slice().sort((a,b)=>{
+    const ac=a.status==='concluido'||a.status==='cancelado';
+    const bc=b.status==='concluido'||b.status==='cancelado';
+    if(ac&&!bc) return 1; if(!ac&&bc) return -1;
+    const da=a.data_servico||'9999'; const db2=b.data_servico||'9999';
+    return da<db2?-1:da>db2?1:0;
+  });
   el.innerHTML = lista.map(o => {
     const num = String(o.numero||'?').padStart(3,'0');
     const dt = o.data_servico ? new Date(o.data_servico+'T12:00:00').toLocaleDateString('pt-BR') : '—';
-    const stCl = o.status==='concluido'?'os-concluido':o.status==='cancelado'?'os-cancelado':'os-agendado';
-    const stTx = o.status==='concluido'?'Concluído':o.status==='cancelado'?'Cancelado':'Agendado';
-    const svcs = (o.servicos||[]).join(', ');
+    const atrasado=o.status==='agendado'&&o.data_servico&&o.data_servico<_hj;
+    const stCl = o.status==='concluido'?'os-concluido':o.status==='cancelado'?'os-cancelado':atrasado?'os-atrasado':'os-agendado';
+    const stTx = o.status==='concluido'?'✅ Concluído':o.status==='cancelado'?'Cancelado':atrasado?'⚠️ Atrasado':'📅 Agendado';
+    const svcs = (o.servicos||[]).map(s=>typeof s==='string'?s:(s.desc||s.d||'')).filter(Boolean).join(', ');
     const tipo=_osTipo(o);
     const tipoBadge = tipo==='vistoria'
-      ? '<span style="font-size:10px;font-weight:700;background:#f3e8ff;color:#7c3aed;padding:2px 8px;border-radius:50px">🔍 Vistoria mensal</span>'
+      ? '<span style="font-size:10px;font-weight:700;background:#f3e8ff;color:#7c3aed;padding:2px 8px;border-radius:50px">🔍 Vistoria</span>'
       : tipo==='orcamento'
-      ? '<span style="font-size:10px;font-weight:700;background:var(--c1-light);color:var(--c1);padding:2px 8px;border-radius:50px">📄 Do orçamento</span>'
+      ? '<span style="font-size:10px;font-weight:700;background:var(--c1-light);color:var(--c1);padding:2px 8px;border-radius:50px">📄 Orçamento</span>'
       : '<span style="font-size:10px;font-weight:700;background:#e0f2fe;color:#0369a1;padding:2px 8px;border-radius:50px">🔧 Serviço</span>';
+    const telCli=(o.tel_cliente||'').replace(/\D/g,'');
+    const btnWA=o.status==='concluido'&&telCli
+      ?`<button class="tb" style="background:var(--wa);color:white;border-color:var(--wa);font-size:11px;padding:5px 8px" title="Enviar relatório ao cliente via WhatsApp" onclick="event.stopPropagation();_enviarRelatorioOSWhats('${o.id}','${telCli}')">💬 WA</button>`:'';
+    const btnPDF=`<button class="tb" style="font-size:11px;padding:5px 8px" title="Gerar PDF desta OS" onclick="event.stopPropagation();_gerarPDFdaOS('${o.id}')">📄 PDF</button>`;
     return `<div class="tec-os-card" onclick="editarOS('${o.id}')">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;gap:8px">
         <span class="on">#${num}</span>
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end">${tipoBadge}<span class="os-badge ${stCl}">${stTx}</span></div>
       </div>
       <div class="tec-os-cli">${esc(o.cliente||'—')}</div>
-      <div class="tec-os-det">${esc(o.local_servico||'')}${o.local_servico&&dt!=='—'?' · ':''}${dt!=='—'?dt:''}</div>
+      <div class="tec-os-det">${esc(o.local_servico||'')}${o.local_servico&&dt!=='—'?' · ':''}${dt!=='—'?`<strong>${dt}</strong>`:''}</div>
       ${svcs?`<div class="tec-os-det" style="margin-top:2px;color:var(--gray)">${esc(svcs)}</div>`:''}
-      <div style="margin-top:6px">${getLojaBadge(o.loja_id)}</div>
+      <div style="margin-top:8px;display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <div>${getLojaBadge(o.loja_id)}</div>
+        <div style="display:flex;gap:6px">${btnWA}${btnPDF}</div>
+      </div>
     </div>`;
   }).join('');
 }
@@ -6936,6 +6964,20 @@ function filtTecOS(btn){
   btn.classList.add('on');
   tecOSFiltro = btn.dataset.tecSt;
   renderMinhasOS();
+}
+
+// Abre a OS no formulário e dispara geração de PDF
+async function _gerarPDFdaOS(id){
+  const o=_acharOS(id); if(!o){ toast('OS não encontrada'); return; }
+  _abrirOSForm(o); go('os');
+  await new Promise(r=>setTimeout(r,350));
+  gerarOSPDF('os');
+}
+
+// Envia mensagem de relatório da OS finalizada para o cliente via WhatsApp
+function _enviarRelatorioOSWhats(id, tel){
+  const o=_acharOS(id)||{}; const msg=notifConcluida(o);
+  enviarNotifWA(msg, tel||o.tel_cliente||'');
 }
 
 // ──────────────────────────────────────────────────
