@@ -5477,7 +5477,7 @@ async function salvarApenas(){
     atualizarDash(); renderTabela();
     if(document.getElementById('toggle-os')?.checked) await criarOSjunto(dados, savedNum);
     limparRascunho('form');
-    setTimeout(()=>{ mostrarBannerNovo(savedNum); },600);
+    toast(`✅ Orçamento #${String(savedNum).padStart(3,'0')} salvo!`);
   }catch(e){ console.error(e); toast('⚠️ Erro ao salvar: '+e.message); }
   btn.disabled=false; btn.textContent='Salvar Orçamento';
 }
