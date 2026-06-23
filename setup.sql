@@ -143,6 +143,24 @@ ALTER TABLE vistorias      ADD COLUMN IF NOT EXISTS local_id text;
 ALTER TABLE equipamentos   ADD COLUMN IF NOT EXISTS loja_id text;
 ALTER TABLE despesas       ADD COLUMN IF NOT EXISTS loja_id text;
 
+-- ─────────────  LOCAIS DE VISTORIA (planos recorrentes — 1 linha por local)  ─────────────
+--  Antes ficavam num array dentro de empresa_config.dados → salvar reescrevia o
+--  blob inteiro e dois gestores simultâneos sobrescreviam um ao outro. Agora cada
+--  local é sua própria linha (sem clobber entre empresas). O app migra sozinho.
+CREATE TABLE IF NOT EXISTS locais_vistoria (
+  id text PRIMARY KEY,
+  loja_id text,
+  cliente text, local text,
+  email_responsavel text, tecnico text,
+  dia_pref text, hora_pref text,
+  equipamentos jsonb DEFAULT '[]',
+  agendamento_id text,
+  ativo boolean DEFAULT true,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_locais_loja ON locais_vistoria(loja_id);
+
 -- ─────────────  ESTOQUE  ─────────────
 CREATE TABLE IF NOT EXISTS produtos (
   id text PRIMARY KEY,
@@ -191,7 +209,7 @@ BEGIN
   FOREACH t IN ARRAY ARRAY[
     'orcamentos','ordens_servico','empresa_config','clientes','agendamentos',
     'vistorias','equipamentos','despesas','lojas','usuarios','notas_fiscais',
-    'produtos','estoque_movimentos','auditoria'
+    'produtos','estoque_movimentos','auditoria','locais_vistoria'
   ] LOOP
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY;', t);
     EXECUTE format('DROP POLICY IF EXISTS "anon full access" ON %I;', t);
@@ -203,7 +221,7 @@ END $$;
 DO $$
 DECLARE t text;
 BEGIN
-  FOREACH t IN ARRAY ARRAY['orcamentos','clientes','agendamentos','equipamentos','despesas','vistorias','produtos','estoque_movimentos'] LOOP
+  FOREACH t IN ARRAY ARRAY['orcamentos','clientes','agendamentos','equipamentos','despesas','vistorias','produtos','estoque_movimentos','locais_vistoria'] LOOP
     BEGIN
       EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE %I;', t);
     EXCEPTION WHEN duplicate_object THEN NULL; -- já está na publicação
