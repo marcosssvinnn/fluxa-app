@@ -2695,7 +2695,10 @@
       </div>
       <div class="row f1" style="margin-top:8px"><div class="fl"><label>Código de barras (EAN / GTIN)</label><input type="text" id="prod-gtin" placeholder="SEM GTIN"></div></div>
     </details>
-    <button class="btn-primary" onclick="salvarProduto()" style="width:100%">💾 Salvar produto</button>
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <button onclick="fecharProdutoModal()" style="flex:1;padding:11px;border:1.5px solid var(--gray-mid);border-radius:10px;background:none;color:var(--gray);font-size:13px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif">Cancelar</button>
+      <button class="btn-primary" onclick="salvarProduto()" style="flex:2">💾 Salvar produto</button>
+    </div>
     <button id="prod-desativar-btn" onclick="desativarProduto(_prodEditId)" style="display:none;width:100%;margin-top:8px;background:none;border:none;color:var(--red);font-size:12px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;padding:6px">🚫 Desativar produto</button>
   </div>
 </div>
