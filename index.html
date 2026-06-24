@@ -10878,23 +10878,38 @@ function enviarWAResumoVistoria(id){
 }
 
 // ── Ver relatório em nova aba (sem download) ──
-async function abrirVisRelatorio(id){
+function abrirVisRelatorio(id){
   const vis = lsVisLer().find(x=>x.id===id);
   if(!vis){ toast('⚠️ Vistoria não encontrada'); return; }
-  if(typeof html2pdf!=='undefined'){
-    toast('⏳ Preparando relatório…');
-    try{
-      const url = await _gerarPDFVistoria(vis, {output:'bloburl'});
-      window.open(url, '_blank');
-      toast('✅ Relatório aberto!');
-      return;
-    }catch(e){ console.warn('[abrirVisRelatorio]',e?.message||e); /* cai no fallback */ }
-  }
-  // Fallback: impressão do sistema
   if(!vis.loja_id || vis.loja_id==='default') vis.loja_id = lojaAtiva || LOJA_PADRAO_ID;
   preencherRelatorioVistoria(vis);
-  printMode = 'vis';
-  window.print();
+
+  const el = document.getElementById('pdoc-visita');
+  if(!el){ toast('⚠️ Template não encontrado'); return; }
+
+  // Coleta todos os estilos do documento — inclui as regras .pdoc, .pd-*, etc.
+  const stylesTxt = [...document.querySelectorAll('style')].map(s=>s.innerHTML).join('\n');
+  const html = `<!DOCTYPE html><html lang="pt-BR"><head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>${stylesTxt}</style>
+    <style>
+      body{margin:0;padding:24px;background:#f3f4f6}
+      .pdoc{display:block!important;max-width:794px;margin:0 auto;
+            box-shadow:0 4px 24px rgba(0,0,0,.15);border-radius:8px;overflow:hidden}
+    </style>
+    </head><body>${el.outerHTML}</body></html>`;
+
+  const newWin = window.open('', '_blank');
+  if(newWin){
+    newWin.document.open();
+    newWin.document.write(html);
+    newWin.document.close();
+    toast('✅ Relatório aberto em nova aba!');
+  } else {
+    toast('⚠️ Pop-up bloqueado — permita pop-ups para este site e tente novamente');
+  }
 }
 
 async function gerarRelatorioVistoria(){
