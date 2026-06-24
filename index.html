@@ -3019,13 +3019,9 @@
       </div>
 
       <!-- Ações -->
-      <div class="acts" style="grid-template-columns:1fr 1fr">
-        <button class="ba" style="background:var(--c2);color:white" onclick="salvarVistoria()">
-          💾 Salvar Relatório
-        </button>
-        <button class="ba ba-pdf" onclick="gerarRelatorioVistoria()">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h9l5 5v15a2 2 0 01-2 2H6a2 2 0 01-2-2V4a2 2 0 012-2z"/><polyline points="14 2 14 8 20 8"/></svg>
-          Gerar Relatório PDF
+      <div class="acts" style="grid-template-columns:1fr">
+        <button class="btn-primary" style="font-size:15px;padding:14px" onclick="finalizarVistoria()">
+          ✅ Finalizar Vistoria
         </button>
       </div>
 
@@ -10604,48 +10600,63 @@ function _persistVistoria(rec){
 }
 
 // ── Salvar vistoria (não-bloqueante: local imediato, rede em background) ──
+// Retorna true se salvou com sucesso (para finalizarVistoria poder navegar).
 async function salvarVistoria(){
   autoCheckoutSeNecessario();
   const cli  = (document.getElementById('vis-cli')?.value||'').trim();
   const emailResp = (document.getElementById('vis-email-resp')?.value||'').trim();
-  if(!cli){ toast('⚠️ Informe o cliente'); return; }
-  if(emailResp && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailResp)){ toast('⚠️ E-mail inválido — corrija ou deixe em branco'); return; }
-  const _btnVis=document.querySelector('button[onclick="salvarVistoria()"]');
+  if(!cli){ toast('⚠️ Informe o cliente'); return false; }
+  if(emailResp && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailResp)){ toast('⚠️ E-mail inválido — corrija ou deixe em branco'); return false; }
+  const _btnVis=document.querySelector('button[onclick="finalizarVistoria()"]');
   if(_btnVis){ _btnVis.disabled=true; _btnVis.textContent='Salvando…'; }
 
-  const veioDoPlano = !!(window._visLocalId); // lido ANTES de zerar
-  const rec = _montarRecVistoria();
-  _persistVistoria(rec);          // local imediato + nuvem em background
-  window._visLocalId = null;
+  try{
+    const veioDoPlano = !!(window._visLocalId); // lido ANTES de zerar
+    const rec = _montarRecVistoria();
+    _persistVistoria(rec);          // local imediato + nuvem em background
+    window._visLocalId = null;
 
-  // Feedback IMEDIATO — não espera a rede. O botão volta na hora.
-  toast('✅ Vistoria salva!');
-  visEditId = null;
-  renderVisHistorico();
-  const planoBanner = document.getElementById('vis-plano-banner');
-  if(planoBanner) planoBanner.style.display='none';
-  if(_btnVis){ _btnVis.disabled=false; _btnVis.textContent='💾 Salvar Relatório'; }
-  if(veioDoPlano){ setTimeout(()=>visTab('locais'), 600); }
+    // Feedback IMEDIATO — não espera a rede.
+    toast('✅ Vistoria salva!');
+    visEditId = null;
+    renderVisHistorico();
+    const planoBanner = document.getElementById('vis-plano-banner');
+    if(planoBanner) planoBanner.style.display='none';
+    if(veioDoPlano){ setTimeout(()=>visTab('locais'), 600); }
 
-  // ── Auto-envio de e-mail em BACKGROUND (com timeout — nunca trava a tela) ──
-  const stEl = document.getElementById('vis-email-status');
-  if(emailResp && emailJSConfigurado()){
-    if(stEl) stEl.textContent = '📨 Enviando e-mail…';
-    (async()=>{
-      try{
-        const ok = await _comTimeout(enviarEmailVistoria(rec), 60000, 'email vistoria');
-        if(stEl) stEl.textContent = ok ? `✅ E-mail enviado para ${emailResp}` : '❌ Falha no envio do e-mail (ver console)';
-        toast(ok ? `📧 Relatório enviado para ${emailResp}` : '⚠️ E-mail não enviado (confira Empresa → E-mail)');
-      }catch(e){
-        console.warn('[email vistoria]', e?.message||e);
-        if(stEl) stEl.textContent = '❌ E-mail demorou demais ou falhou';
-        toast('⚠️ E-mail não enviado — verifique a conexão');
-      }
-    })();
-  } else if(emailResp && !emailJSConfigurado()){
-    if(stEl) stEl.textContent = '⚠️ Configure o EmailJS em Empresa → E-mail Automático para enviar';
-    toast('⚠️ EmailJS não configurado — e-mail não enviado');
+    // ── Auto-envio de e-mail em BACKGROUND ──
+    const stEl = document.getElementById('vis-email-status');
+    if(emailResp && emailJSConfigurado()){
+      if(stEl) stEl.textContent = '📨 Enviando e-mail…';
+      (async()=>{
+        try{
+          const ok = await _comTimeout(enviarEmailVistoria(rec), 60000, 'email vistoria');
+          if(stEl) stEl.textContent = ok ? `✅ E-mail enviado para ${emailResp}` : '❌ Falha no envio do e-mail (ver console)';
+          toast(ok ? `📧 Relatório enviado para ${emailResp}` : '⚠️ E-mail não enviado (confira Empresa → E-mail)');
+        }catch(e){
+          console.warn('[email vistoria]', e?.message||e);
+          if(stEl) stEl.textContent = '❌ E-mail demorou demais ou falhou';
+          toast('⚠️ E-mail não enviado — verifique a conexão');
+        }
+      })();
+    } else if(emailResp && !emailJSConfigurado()){
+      if(stEl) stEl.textContent = '⚠️ Configure o EmailJS em Empresa → E-mail Automático para enviar';
+      toast('⚠️ EmailJS não configurado — e-mail não enviado');
+    }
+    return true;
+  }catch(e){
+    console.warn('[salvarVistoria]', e?.message||e);
+    toast('❌ Erro ao salvar — tente novamente');
+    return false;
+  }finally{
+    if(_btnVis){ _btnVis.disabled=false; _btnVis.textContent='✅ Finalizar Vistoria'; }
   }
+}
+
+// ── Finalizar vistoria: salva e navega para o histórico ──
+async function finalizarVistoria(){
+  const ok = await salvarVistoria();
+  if(ok) setTimeout(()=>visTab('hist'), 300);
 }
 
 // ── Histórico ──
@@ -10771,6 +10782,7 @@ function renderVisHistorico(){
           ${v.email_responsavel?`<button class="tb" title="Reenviar e-mail" onclick="event.stopPropagation();reenviarEmailVistoria('${v.id}')" style="font-size:11px;background:var(--blue-bg);color:var(--blue);border-color:var(--blue-bg)">📧</button>`:''}
           <button class="tb" title="Enviar resumo via WhatsApp" onclick="event.stopPropagation();enviarWAResumoVistoria('${v.id}')" style="font-size:11px;background:var(--wa-light,#dcfce7);color:var(--wa);border-color:var(--wa-light,#dcfce7)">💬</button>
           <button class="tb" title="Editar / refazer vistoria" onclick="event.stopPropagation();editarVistoria('${v.id}')" style="font-size:11px;background:var(--blue-bg);color:var(--blue);border-color:var(--blue-bg)">✏️</button>
+          <button class="tb" title="Ver relatório" onclick="event.stopPropagation();abrirVisRelatorio('${v.id}')" style="font-size:11px;background:var(--blue-bg);color:var(--blue);border-color:var(--blue-bg)">👁 Ver</button>
           <button class="tb" title="Baixar PDF" onclick="event.stopPropagation();baixarPDFVistoria('${v.id}',this)" style="font-size:11px;background:var(--c1-light);color:var(--c1);border-color:var(--c1-light)">📥 PDF</button>
           <button class="tb" title="Excluir" onclick="event.stopPropagation();excluirVistoria('${v.id}')" style="background:var(--red-bg);color:var(--red);border-color:var(--red-bg);font-size:11px">✕</button>
         </div>
@@ -10798,20 +10810,20 @@ function desfazerVistoriaLocal(vistoriaId){
 // Núcleo único de geração de PDF de vistoria (download via html2pdf).
 // Usado por baixarPDFVistoria (📥), abrirVisRelatorio (📄 / tap na linha) e
 // gerarRelatorioVistoria — todos com o MESMO comportamento (sem branco no mobile).
-async function _gerarPDFVistoria(vis){
-  // Corrige loja_id legado ('default'/vazio) antes de montar o branding
+// opts.output: undefined → save (download), 'bloburl' → retorna URL para abrir em nova aba
+async function _gerarPDFVistoria(vis, opts={}){
   if(!vis.loja_id || vis.loja_id==='default') vis.loja_id = lojaAtiva || LOJA_PADRAO_ID;
   preencherRelatorioVistoria(vis);
   const el = document.getElementById('pdoc-visita');
   if(!el) throw new Error('template pdoc-visita ausente');
   const prevStyle = el.getAttribute('style') || '';
   try{
-    // position:absolute (não fixed) + dentro do fluxo: html2canvas captura de forma
-    // confiável no mobile. left:-9999px tirava a captura em branco no Safari.
-    el.setAttribute('style', 'display:block!important;position:absolute;top:0;left:0;width:794px;background:#fff;z-index:-1');
+    // position:fixed;top:-9999px → fora da tela mas dentro do viewport de renderização
+    // do html2canvas. z-index:-1 causava PDF em branco (elemento atrás do stacking context).
+    el.setAttribute('style', 'display:block!important;position:fixed;top:-9999px;left:0;width:794px;background:#fff');
     await new Promise(r => setTimeout(r, 350));
     const nomeArq = `Vistoria-${(vis.cliente||'').replace(/[^a-z0-9]/gi,'-')}-${vis.data||new Date().toISOString().slice(0,10)}.pdf`;
-    await html2pdf()
+    const inst = html2pdf()
       .set({
         margin: 0,
         filename: nomeArq,
@@ -10819,8 +10831,9 @@ async function _gerarPDFVistoria(vis){
         html2canvas: { scale:2, useCORS:true, allowTaint:true, logging:false, width:794 },
         jsPDF: { unit:'mm', format:'a4', orientation:'portrait' }
       })
-      .from(el)
-      .save();
+      .from(el);
+    if(opts.output) return await inst.output(opts.output);
+    await inst.save();
   }finally{
     el.setAttribute('style', prevStyle || 'display:none');
   }
@@ -10874,16 +10887,20 @@ function enviarWAResumoVistoria(id){
   window.open(url,'_blank');
 }
 
-// ── Gerar PDF do relatório (download — mesmo núcleo do botão 📥) ──
+// ── Ver relatório em nova aba (sem download) ──
 async function abrirVisRelatorio(id){
   const vis = lsVisLer().find(x=>x.id===id);
   if(!vis){ toast('⚠️ Vistoria não encontrada'); return; }
   if(typeof html2pdf!=='undefined'){
-    toast('⏳ Gerando PDF…');
-    try{ await _gerarPDFVistoria(vis); toast('✅ PDF baixado!'); return; }
-    catch(e){ console.warn('[abrirVisRelatorio]',e?.message||e); /* cai no fallback */ }
+    toast('⏳ Preparando relatório…');
+    try{
+      const url = await _gerarPDFVistoria(vis, {output:'bloburl'});
+      window.open(url, '_blank');
+      toast('✅ Relatório aberto!');
+      return;
+    }catch(e){ console.warn('[abrirVisRelatorio]',e?.message||e); /* cai no fallback */ }
   }
-  // Fallback: impressão do sistema (desktop ou html2pdf indisponível)
+  // Fallback: impressão do sistema
   if(!vis.loja_id || vis.loja_id==='default') vis.loja_id = lojaAtiva || LOJA_PADRAO_ID;
   preencherRelatorioVistoria(vis);
   printMode = 'vis';
