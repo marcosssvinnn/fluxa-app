@@ -8558,7 +8558,19 @@ function renderCal(){
   const _osById={};
   try{ (JSON.parse(ls('fluxa_os_hist')||'[]')||[]).forEach(o=>{ if(o&&o.id) _osById[o.id]=o; }); }catch(e){ console.warn('[renderCal]',e?.message||e); }
   (todosOS||[]).forEach(o=>{ if(o&&o.id) _osById[o.id]=o; });
-  const osLocal=Object.values(_osById);
+  // Filtro de empresa: o calendário da Aquamotor não pode mostrar OS da Fortemp
+  // (e vice-versa). Era a causa de aparecerem clientes de outra empresa.
+  let osLocal=filtrarPorLoja(Object.values(_osById));
+  // Dedup defensivo: OS do mesmo plano na mesma data (gerações repetidas).
+  // Mantém a mais relevante: concluído > em andamento > agendado > cancelado.
+  const _rank=s=>({concluido:3,em_andamento:2,agendado:1,cancelado:0}[s]??1);
+  const _dedupOS=new Map();
+  osLocal.forEach(o=>{
+    const k=o.agendamento_id?('ag:'+o.agendamento_id+'|'+(o.data_servico||'')):('id:'+o.id);
+    const prev=_dedupOS.get(k);
+    if(!prev||_rank(o.status)>_rank(prev.status)) _dedupOS.set(k,o);
+  });
+  osLocal=[..._dedupOS.values()];
   while(dia<=ultimo){
     h+='<tr>';
     for(let col=0;col<7;col++){
@@ -8566,7 +8578,8 @@ function renderCal(){
       const d=new Date(calAno,calMes,dia); d.setHours(0,0,0,0);
       const isHoje=d.getTime()===hoje.getTime();
       const dStr=`${calAno}-${String(calMes+1).padStart(2,'0')}-${String(dia).padStart(2,'0')}`;
-      const osNoDia=osLocal.filter(o=>o.data_servico===dStr&&(!filtTec||o.tecnico===filtTec));
+      const osNoDia=osLocal.filter(o=>o.data_servico===dStr&&(!filtTec||o.tecnico===filtTec))
+        .sort((a,b)=>(a.hora||'').localeCompare(b.hora||'')||(a.cliente||'').localeCompare(b.cliente||''));
       h+=`<td class="${isHoje?'hoje':''}"><div style="font-size:10px;color:var(--gray);margin-bottom:2px">${dia}</div>`;
       osNoDia.slice(0,3).forEach(o=>{
         _nc[o.id]=o;
