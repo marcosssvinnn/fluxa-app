@@ -3056,6 +3056,7 @@
         <button class="fb on" id="vis-fst-todos" onclick="filtVisStatus('')">Todos</button>
         <button class="fb" id="vis-fst-critico" onclick="filtVisStatus('critico')">🔴 Com Crítico</button>
         <button class="fb" id="vis-fst-atencao" onclick="filtVisStatus('atencao')">⚠️ Com Atenção</button>
+        <button class="fb" id="vis-btn-limpar-mes" onclick="limparVistoriasMes()" style="margin-left:auto;color:var(--red);border-color:var(--red-bg);background:var(--red-bg)" title="Excluir todos os relatórios do mês selecionado (desta empresa)">🗑️ Limpar mês</button>
       </div>
 
       <!-- Painel de alertas críticos -->
@@ -10613,6 +10614,9 @@ function renderVisHistorico(){
   const busca = (document.getElementById('vis-hist-busca')?.value||'').toLowerCase();
   const mes   = document.getElementById('vis-hist-mes')?.value||'';
   const tecFilt = document.getElementById('vis-hist-tec')?.value||'';
+  // Botão "Limpar mês" só para gestor
+  const _btnLimpar=document.getElementById('vis-btn-limpar-mes');
+  if(_btnLimpar) _btnLimpar.style.display=eGestor()?'':'none';
   // Escopo de empresa: histórico, stats, ranking e alertas só da empresa em foco
   let listaTotal = lsVisLer().filter(v=>escopoEmpresaMatch(v.loja_id));
   let lista = listaTotal;
@@ -10740,6 +10744,36 @@ function renderVisHistorico(){
 
 function excluirVistoria(id){
   confirmar('Excluir esta vistoria?', ()=>{ lsVisSalvar(lsVisLer().filter(x=>x.id!==id)); if(dbOk&&db) db.from('vistorias').delete().eq('id',id).then(()=>{}).catch(()=>{}); renderVisHistorico(); toast('Vistoria excluída'); }, 'Excluir Vistoria');
+}
+
+// Limpa TODOS os relatórios do mês selecionado (apenas da empresa em foco).
+// Apaga no localStorage E no Supabase — só gestor. Útil para zerar relatórios
+// de teste antes de começar o mês de verdade.
+async function limparVistoriasMes(){
+  if(!eGestor()){ toast('⚠️ Apenas gestor pode limpar relatórios'); return; }
+  const mes = document.getElementById('vis-hist-mes')?.value || new Date().toISOString().slice(0,7);
+  const todas = lsVisLer();
+  const alvo = todas.filter(v => (v.mes_ref||v.data||'').startsWith(mes) && escopoEmpresaMatch(v.loja_id));
+  if(!alvo.length){ toast('Nenhum relatório neste mês para esta empresa'); return; }
+  const f = _empresaEmFoco();
+  const empNome = f.tipo==='loja' ? (getLoja(f.valor)?.nome||f.valor) : (f.valor==='aquamotor'?'Aquamotor':'Fortemp');
+  const mesNome = new Date(mes+'-02').toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+  confirmar(
+    `Excluir ${alvo.length} relatório(s) de ${mesNome} — ${empNome}?\n\nApaga no aparelho e no banco. Não pode ser desfeito.`,
+    async ()=>{
+      const ids = alvo.map(v=>v.id);
+      const idSet = new Set(ids);
+      lsVisSalvar(todas.filter(v=>!idSet.has(v.id)));      // remove do aparelho
+      if(dbOk&&db){                                          // remove do banco (1 chamada)
+        try{ await db.from('vistorias').delete().in('id', ids); }
+        catch(e){ console.warn('[limparVistoriasMes]', e?.message||e); }
+      }
+      renderVisHistorico();
+      try{ logAcao('vistorias_limpas', `${ids.length} de ${mesNome} (${empNome})`); }catch(e){ console.warn('[limparVistoriasMes:log]', e?.message||e); }
+      toast(`🗑️ ${ids.length} relatório(s) excluído(s)`);
+    },
+    'Limpar relatórios do mês', null, 'Cancelar', 'Excluir tudo'
+  );
 }
 
 // Núcleo único de geração de PDF de vistoria (download via html2pdf).
