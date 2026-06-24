@@ -10125,7 +10125,8 @@ function renderLocaisTab(){
     if(ativo && feita){
       acoesHtml=`
         <button class="tb" onclick="abrirVisRelatorio('${vistoria.id}')" title="Ver relatório PDF" style="font-size:12px;padding:5px 10px">📄 Relatório</button>
-        <button class="tb" onclick="reenviarEmailVistoria('${vistoria.id}')" title="Reenviar e-mail">✉️</button>`;
+        <button class="tb" onclick="reenviarEmailVistoria('${vistoria.id}')" title="Reenviar e-mail">✉️</button>
+        ${!isTecnico?`<button class="tb" onclick="desfazerVistoriaLocal('${vistoria.id}')" title="Apagar esta visita do mês (volta a pendente)" style="font-size:12px;padding:5px 10px;color:var(--red)">🗑️ Desfazer</button>`:''}`;
     } else if(ativo){
       acoesHtml=`<button class="btn-primary" style="padding:7px 14px;font-size:13px;white-space:nowrap" onclick="iniciarVistoriaPlena('${loc.id}')">🔍 Fazer Vistoria</button>`;
     }
@@ -10740,6 +10741,18 @@ function renderVisHistorico(){
 
 function excluirVistoria(id){
   confirmar('Excluir esta vistoria?', ()=>{ lsVisSalvar(lsVisLer().filter(x=>x.id!==id)); if(dbOk&&db) db.from('vistorias').delete().eq('id',id).then(()=>{}).catch(()=>{}); renderVisHistorico(); toast('Vistoria excluída'); }, 'Excluir Vistoria');
+}
+
+// Desfaz a visita do mês de um plano: apaga a vistoria (aparelho + banco) e o
+// card volta a "Pendente". Útil p/ remover relatório de teste sem apagar o plano.
+function desfazerVistoriaLocal(vistoriaId){
+  confirmar('Desfazer esta visita do mês?\n\nO relatório será apagado e o plano volta a ficar pendente. O cadastro do plano é mantido.', ()=>{
+    lsVisSalvar(lsVisLer().filter(x=>x.id!==vistoriaId));
+    if(dbOk&&db) db.from('vistorias').delete().eq('id',vistoriaId).then(()=>{}).catch(e=>console.warn('[desfazerVistoriaLocal]',e?.message||e));
+    renderLocaisTab();
+    renderVisHistorico();
+    toast('🗑️ Visita desfeita — plano voltou a pendente');
+  }, 'Desfazer visita', null, 'Cancelar', 'Desfazer');
 }
 
 // Núcleo único de geração de PDF de vistoria (download via html2pdf).
