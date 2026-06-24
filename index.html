@@ -10653,10 +10653,35 @@ async function salvarVistoria(){
   }
 }
 
-// ── Finalizar vistoria: salva e navega para o histórico ──
+// ── Limpa o estado e os campos do formulário de vistoria (sem mudar de aba) ──
+function _limparFormVistoria(){
+  visEquipDados = {};
+  _visEquipsCustom = [];
+  visCheckinTime = null;
+  visCheckoutTime = null;
+  visEditId = null;
+  _visDraftId = null;
+  if(visCheckinInterval){ clearInterval(visCheckinInterval); visCheckinInterval = null; }
+  window._visLocalId = null;
+  // Limpa campos do form
+  ['vis-cli','vis-loc','vis-hora','vis-obs','vis-email-resp'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.value='';
+  });
+  const hoje = new Date();
+  const dd = document.getElementById('vis-data'); if(dd) dd.value = hoje.toISOString().slice(0,10);
+  const mm = document.getElementById('vis-mes-ref'); if(mm) mm.value = hoje.toISOString().slice(0,7);
+  const st = document.getElementById('vis-email-status'); if(st) st.textContent='';
+  renderVisChips();
+  renderVisEquipGrid();
+}
+
+// ── Finalizar vistoria: salva, limpa o form e navega para o histórico ──
 async function finalizarVistoria(){
   const ok = await salvarVistoria();
-  if(ok) setTimeout(()=>visTab('hist'), 300);
+  if(ok){
+    _limparFormVistoria(); // previne re-submit acidental ao voltar para "Nova Vistoria"
+    setTimeout(()=>visTab('hist'), 300);
+  }
 }
 
 // ── Histórico ──
