@@ -10818,9 +10818,10 @@ async function _gerarPDFVistoria(vis, opts={}){
   if(!el) throw new Error('template pdoc-visita ausente');
   const prevStyle = el.getAttribute('style') || '';
   try{
-    // position:fixed;top:-9999px → fora da tela mas dentro do viewport de renderização
-    // do html2canvas. z-index:-1 causava PDF em branco (elemento atrás do stacking context).
-    el.setAttribute('style', 'display:block!important;position:fixed;top:-9999px;left:0;width:794px;background:#fff');
+    // position:absolute;top:0;left:0 → html2canvas captura confiável no mobile e Safari.
+    // z-index:-1 (versão anterior) colocava o elemento atrás do stacking context → PDF em branco.
+    // z-index:99999 garante renderização visível pelo browser; o toast cobre o flash de 350ms.
+    el.setAttribute('style', 'display:block!important;position:absolute;top:0;left:0;width:794px;background:#fff;z-index:99999');
     await new Promise(r => setTimeout(r, 350));
     const nomeArq = `Vistoria-${(vis.cliente||'').replace(/[^a-z0-9]/gi,'-')}-${vis.data||new Date().toISOString().slice(0,10)}.pdf`;
     const inst = html2pdf()
