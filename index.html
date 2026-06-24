@@ -2914,7 +2914,7 @@
         <div style="font-size:18px;font-weight:800;color:var(--c2)">🔍 Vistorias de Manutenção</div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="fb on" id="vis-tab-nova" onclick="visTab('nova');window._visLocalId=null;document.getElementById('vis-plano-banner').style.display='none'">📋 Nova Vistoria</button>
+        <button class="fb on" id="vis-tab-nova" onclick="visTab('nova');window._visLocalId=null;visEditId=null;_visDraftId=null;document.getElementById('vis-plano-banner').style.display='none'">📋 Nova Vistoria</button>
         <button class="fb" id="vis-tab-hist" onclick="visTab('hist')">📜 Histórico</button>
         <button class="fb" id="vis-tab-locais" onclick="visTab('locais')">📍 Meus Locais</button>
       </div>
@@ -10810,56 +10810,39 @@ function desfazerVistoriaLocal(vistoriaId){
 // Núcleo único de geração de PDF de vistoria (download via html2pdf).
 // Usado por baixarPDFVistoria (📥), abrirVisRelatorio (📄 / tap na linha) e
 // gerarRelatorioVistoria — todos com o MESMO comportamento (sem branco no mobile).
-// opts.output: undefined → save (download), 'bloburl' → retorna URL para abrir em nova aba
+// Abre o relatório de vistoria em nova aba (modo ver) ou imprime (modo pdf).
+// html2pdf foi descartado — gerava PDF em branco de forma consistente.
+// Mesma abordagem confiável dos orçamentos e OS: window.print().
 async function _gerarPDFVistoria(vis, opts={}){
   if(!vis.loja_id || vis.loja_id==='default') vis.loja_id = lojaAtiva || LOJA_PADRAO_ID;
   preencherRelatorioVistoria(vis);
-  const el = document.getElementById('pdoc-visita');
-  if(!el) throw new Error('template pdoc-visita ausente');
 
-  // Clona o template já preenchido num container temporário fixo e visível.
-  // html2canvas só captura elementos que o browser efetivamente renderizou na viewport —
-  // position:absolute fora do fluxo ou z-index negativo resultam em PDF em branco.
-  const wrap = document.createElement('div');
-  wrap.style.cssText = 'position:fixed;top:0;left:0;width:794px;overflow:visible;z-index:99999;pointer-events:none';
-  const clone = el.cloneNode(true);
-  clone.style.cssText = 'display:block;width:794px;background:#fff;font-family:Inter,sans-serif';
-  wrap.appendChild(clone);
-  document.body.appendChild(wrap);
-
-  try{
-    await new Promise(r => setTimeout(r, 400));
-    const nomeArq = `Vistoria-${(vis.cliente||'').replace(/[^a-z0-9]/gi,'-')}-${vis.data||new Date().toISOString().slice(0,10)}.pdf`;
-    const inst = html2pdf()
-      .set({
-        margin: 0,
-        filename: nomeArq,
-        image: { type:'jpeg', quality:0.88 },
-        html2canvas: { scale:2, useCORS:true, allowTaint:true, logging:false, width:794, windowWidth:794 },
-        jsPDF: { unit:'mm', format:'a4', orientation:'portrait' }
-      })
-      .from(clone);
-    if(opts.output) return await inst.output(opts.output);
-    await inst.save();
-  }finally{
-    document.body.removeChild(wrap);
+  if(opts.output === 'bloburl'){
+    // Abre em nova aba: monta HTML completo com todos os estilos da página e o template preenchido
+    const stylesTxt = [...document.querySelectorAll('style')].map(s=>s.innerHTML).join('\n');
+    const el = document.getElementById('pdoc-visita');
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+      <link rel="preconnect" href="https://fonts.googleapis.com">
+      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+      <style>${stylesTxt}</style>
+      <style>body{margin:0;padding:0;background:white}.pdoc{display:block!important}</style>
+      </head><body>${el?el.outerHTML:''}</body></html>`;
+    const blob = new Blob([html], {type:'text/html'});
+    return URL.createObjectURL(blob);
   }
+
+  // Download: usa window.print() (igual orçamentos/OS)
+  printMode = 'vis';
+  window.print();
 }
 
 async function baixarPDFVistoria(id, btn){
-  if(typeof html2pdf === 'undefined'){ toast('⚠️ html2pdf não carregado, tente novamente em instantes'); return; }
   const vis = lsVisLer().find(x=>x.id===id);
   if(!vis){ toast('Vistoria não encontrada'); return; }
-
   const origTxt = btn ? btn.textContent : '';
   if(btn){ btn.disabled=true; btn.textContent='⏳'; }
-  toast('⏳ Gerando PDF…');
   try{
-    await _gerarPDFVistoria(vis);
-    toast('✅ PDF baixado!');
-  }catch(e){
-    console.warn('baixarPDFVistoria error:', e);
-    toast('❌ Falha ao gerar PDF — tente novamente em instantes');
+    await _gerarPDFVistoria(vis); // usa window.print()
   }finally{
     if(btn){ btn.disabled=false; btn.textContent=origTxt; }
   }
