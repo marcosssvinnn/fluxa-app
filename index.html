@@ -3656,6 +3656,9 @@ const FLUXA_CONFIG = Object.assign({
   lojaPadrao: 'fortemp-camboriu',
   todasLabel: 'Forthemp — Todas',
   grupoPrincipal: ['fortemp-camboriu','fortemp-itapema'],
+  // Acesso a grupos "separados": grupos NÃO listados (ex.: forthemp) são abertos
+  // a todos os gestores. A Aquamotor é restrita — só estes usuários (por nome).
+  acessoGrupo: { aquamotor: ['Marcos','Tamara'] },
   lojas: [
     { id:'fortemp-camboriu', nome:'Fortemp Camboriú',  cor:'loja-0', grupo:'forthemp', tecs:['Marcos','Josimar','Eldecir','Bruno'] },
     { id:'fortemp-itapema',  nome:'Fortemp Itapema',   cor:'loja-1', grupo:'forthemp', tecs:['Marcos','Josimar','Eldecir','Bruno'] },
@@ -3675,6 +3678,18 @@ let visEmpresaTecnico = '';
 
 // Retorna true só para o gestor principal da Forthemp (sem loja fixa na sessão)
 function isMainGestor(){ const s=getSessao(); return (s?.perfil==='gestor'||s?.perfil==='master')&&!s?.loja_id; }
+
+// ── ACESSO POR GRUPO (empresas separadas) ──
+// Grupos não listados em FLUXA_CONFIG.acessoGrupo são abertos a todos. A Aquamotor
+// é restrita aos nomes da lista (ex.: Marcos e Tamara).
+function _normNome(s){ return (s||'').toString().trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
+function _nomeUsuarioAtual(){ return getSessao()?.nome || (typeof loginUserSelecionado!=='undefined' && loginUserSelecionado?.nome) || ''; }
+function podeAcessarGrupo(grupo, nome){
+  const lista=(FLUXA_CONFIG.acessoGrupo||{})[grupo];
+  if(!lista||!lista.length) return true; // grupo aberto a todos
+  const n=_normNome(nome!==undefined?nome:_nomeUsuarioAtual());
+  return lista.map(_normNome).includes(n);
+}
 
 // Filtra lista pelo contexto de loja/grupo ativo
 function filtrarPorLoja(lista, campo='loja_id'){
@@ -3709,7 +3724,8 @@ function getOrigemBadge(origem){
 function populaLojaSelect(){
   const sel=document.getElementById('hdr-loja-select'); if(!sel) return;
   const principais=LOJAS.filter(l=>GRUPO_FORTHEMP.includes(l.id));
-  const outros=LOJAS.filter(l=>!GRUPO_FORTHEMP.includes(l.id));
+  // Empresas separadas (ex.: Aquamotor) só entram se o usuário tiver acesso ao grupo
+  const outros=LOJAS.filter(l=>!GRUPO_FORTHEMP.includes(l.id) && podeAcessarGrupo(l.grupo));
   sel.innerHTML=
     `<option value="">${esc(FLUXA_CONFIG.todasLabel||'Todas')}</option>`+
     principais.map(l=>`<option value="${l.id}">${esc(l.nome)}</option>`).join('')+
@@ -3726,6 +3742,9 @@ function popularSelectsLojaForm(){
 }
 
 function trocarLojaAtiva(id){
+  // Defesa: não deixa entrar em empresa separada sem acesso (ex.: Aquamotor)
+  const _lojaAlvo=getLoja(id);
+  if(_lojaAlvo && !podeAcessarGrupo(_lojaAlvo.grupo)){ toast('⚠️ Você não tem acesso a esta empresa'); return; }
   lojaAtiva=id;
   sessionStorage.setItem('fluxa_loja_ativa', id||'');
   _invalidarSaldoCache(); // cache de saldos depende de lojaAtiva — deve ser limpo a cada troca
@@ -3742,6 +3761,7 @@ function trocarLojaAtiva(id){
   else if(pid==='agendamentos'){ renderAgLista(); renderCal(); }
   else if(pid==='estoque') renderEstoque();
   else if(pid==='auditoria') renderAuditoria();
+  else if(pid==='visitas'){ renderLocaisTab(); renderVisHistorico(); } // faltava — trocar empresa não atualizava as Vistorias
 }
 
 function atualizarHeaderLoja(){
@@ -4067,8 +4087,10 @@ async function fazerLogin(){
 
 function mostrarSelecaoLojaGestor(){
   const list=document.getElementById('login-loja-list');
+  const _nomeLogin=loginUserSelecionado?.nome;
   const forthemp=LOJAS.filter(l=>l.grupo==='forthemp');
-  const outros=LOJAS.filter(l=>l.grupo!=='forthemp');
+  // Empresas separadas só aparecem para quem tem acesso (ex.: Aquamotor → Marcos/Tamara)
+  const outros=LOJAS.filter(l=>l.grupo!=='forthemp' && podeAcessarGrupo(l.grupo, _nomeLogin));
   const corGrupo={aquamotor:'#16a34a'};
 
   function lojaBtn(id, cor, icon, nome, sub){
@@ -4130,6 +4152,9 @@ function mostrarSelecaoEmpresaTecnico(){
       </div>
     </button>`;
   }
+  // Aquamotor só para técnicos com acesso. Se só sobrar Fortemp, entra direto (sem picker).
+  const temAquamotor=podeAcessarGrupo('aquamotor', loginUserSelecionado?.nome);
+  if(!temAquamotor){ confirmarEmpresaTecnico('forthemp'); return; }
   list.innerHTML =
     empBtn('forthemp','F','Fortemp','Vistorias Camboriú + Itapema')+
     empBtn('aquamotor','A','Aquamotor','Vistorias da Aquamotor');
@@ -4263,6 +4288,8 @@ function lsOrcProxNum(){ return lsOrcLer().reduce((a,o)=>Math.max(a,o.numero||0)
     // gestor principal usa o valor salvo no sessionStorage (persiste em F5)
     if(sessaoExistente.loja_id) lojaAtiva = sessaoExistente.loja_id;
     else { const sal=sessionStorage.getItem('fluxa_loja_ativa'); if(sal) lojaAtiva=sal; }
+    // Defesa: se restaurou uma empresa separada sem acesso, volta p/ Forthemp
+    { const _lr=getLoja(lojaAtiva); if(_lr && !podeAcessarGrupo(_lr.grupo, sessaoExistente.nome)){ lojaAtiva=''; sessionStorage.setItem('fluxa_loja_ativa',''); } }
     // Restaura a empresa escolhida pelo técnico (Fortemp/Aquamotor) em F5
     visEmpresaTecnico = sessaoExistente.empresa_tec || sessionStorage.getItem('fluxa_vis_empresa_tec') || '';
     document.getElementById('login-overlay').style.display='none';
