@@ -10645,8 +10645,8 @@ async function salvarVistoria(){
     }
     return true;
   }catch(e){
-    console.warn('[salvarVistoria]', e?.message||e);
-    toast('❌ Erro ao salvar — tente novamente');
+    console.error('[salvarVistoria]', e);
+    toast('❌ Erro: '+(e?.message||String(e)));
     return false;
   }finally{
     if(_btnVis){ _btnVis.disabled=false; _btnVis.textContent='✅ Finalizar Vistoria'; }
