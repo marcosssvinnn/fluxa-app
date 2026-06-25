@@ -9924,10 +9924,12 @@ function iniciarVistoriaPlena(locId){
     planoSub.textContent=`📍 ${loc.local||''}${equips.length?' · 🔧 '+equips.length+' equipamentos':''}`;
   }
 
-  // Preenche data e mês de referência
+  // Preenche data e mês de referência usando hora LOCAL (não UTC)
   const hoje=new Date();
-  const ddEl=document.getElementById('vis-data'); if(ddEl) ddEl.value=hoje.toISOString().slice(0,10);
-  const mmEl=document.getElementById('vis-mes-ref'); if(mmEl) mmEl.value=hoje.toISOString().slice(0,7);
+  const localDate=`${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}-${String(hoje.getDate()).padStart(2,'0')}`;
+  const localMes=localDate.slice(0,7);
+  const ddEl=document.getElementById('vis-data'); if(ddEl) ddEl.value=localDate;
+  const mmEl=document.getElementById('vis-mes-ref'); if(mmEl) mmEl.value=localMes;
 
   // Preenche cliente e local
   const cliInp=document.getElementById('vis-cli'); if(cliInp) cliInp.value=loc.cliente||'';
@@ -10756,8 +10758,9 @@ function _limparFormVistoria(){
     const el=document.getElementById(id); if(el) el.value='';
   });
   const hoje = new Date();
-  const dd = document.getElementById('vis-data'); if(dd) dd.value = hoje.toISOString().slice(0,10);
-  const mm = document.getElementById('vis-mes-ref'); if(mm) mm.value = hoje.toISOString().slice(0,7);
+  const _ld=`${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}-${String(hoje.getDate()).padStart(2,'0')}`;
+  const dd = document.getElementById('vis-data'); if(dd) dd.value = _ld;
+  const mm = document.getElementById('vis-mes-ref'); if(mm) mm.value = _ld.slice(0,7);
   const st = document.getElementById('vis-email-status'); if(st) st.textContent='';
   renderVisChips();
   renderVisEquipGrid();
@@ -11026,13 +11029,16 @@ function abrirVisRelatorio(id){
     ${el.outerHTML}
     </body></html>`;
 
-  const newWin = window.open('', '_blank');
+  // Usa Blob URL para evitar limites do document.write com HTML grande (base64/imagens)
+  const blob = new Blob([html], {type:'text/html;charset=utf-8'});
+  const blobUrl = URL.createObjectURL(blob);
+  const newWin = window.open(blobUrl, '_blank');
   if(newWin){
-    newWin.document.open();
-    newWin.document.write(html);
-    newWin.document.close();
     toast('✅ Relatório aberto em nova aba!');
+    // Revoga o blob URL após 60s (tempo suficiente para o browser carregá-lo)
+    setTimeout(()=>URL.revokeObjectURL(blobUrl), 60000);
   } else {
+    URL.revokeObjectURL(blobUrl);
     toast('⚠️ Pop-up bloqueado — permita pop-ups para este site e tente novamente');
   }
 }
