@@ -10422,6 +10422,47 @@ function visRemoverFoto(id, idx){
   renderVisEquipGrid();
 }
 
+// Faz upload de uma foto (base64) para o Supabase Storage e retorna a URL pública.
+// Retorna null se falhar (a foto base64 original fica preservada localmente).
+async function _uploadFotoStorage(base64, path){
+  if(!base64 || base64.startsWith('http')) return base64; // já é URL ou vazio
+  try{
+    const [meta, data] = base64.split(',');
+    const mime = (meta.match(/:(.*?);/)||[])[1]||'image/jpeg';
+    const bytes = atob(data);
+    const arr = new Uint8Array(bytes.length);
+    for(let i=0;i<bytes.length;i++) arr[i]=bytes.charCodeAt(i);
+    const blob = new Blob([arr], {type:mime});
+    const sbUrl = FLUXA_CONFIG.supabaseUrl;
+    const sbKey = FLUXA_CONFIG.supabaseKey;
+    const res = await fetch(`${sbUrl}/storage/v1/object/vistorias-fotos/${path}`, {
+      method:'POST',
+      headers:{ 'apikey':sbKey, 'Authorization':'Bearer '+sbKey, 'Content-Type':mime, 'x-upsert':'true' },
+      body: blob
+    });
+    if(!res.ok){ console.warn('[uploadFoto] HTTP', res.status, await res.text()); return null; }
+    return `${sbUrl}/storage/v1/object/public/vistorias-fotos/${path}`;
+  }catch(e){ console.warn('[uploadFoto]', e?.message||e); return null; }
+}
+
+// Faz upload de todas as fotos base64 de uma vistoria para o Storage.
+// Retorna novo objeto rec com URLs no lugar de base64.
+// Fotos que falhar no upload ficam como base64 (sem perder a foto).
+async function _uploadFotosVistoria(rec){
+  const equipamentos = (rec.equipamentos||[]).map(eq=>({...eq, fotos:[...(eq.fotos||[])]}));
+  for(const eq of equipamentos){
+    for(let i=0;i<(eq.fotos||[]).length;i++){
+      const foto = eq.fotos[i];
+      if(!foto || foto.startsWith('http')) continue; // null ou já é URL
+      const path = `${rec.id}/${eq.id}/${i}.jpg`;
+      const url = await _uploadFotoStorage(foto, path);
+      if(url) eq.fotos[i] = url; // substitui base64 por URL
+      // se falhar, mantém base64 para não perder a foto
+    }
+  }
+  return {...rec, equipamentos};
+}
+
 // ── Check-in / Check-out ──
 function autoCheckoutSeNecessario(){
   if(visCheckoutTime) return; // já foi feito manualmente
@@ -10620,13 +10661,26 @@ function _persistVistoria(rec){
   if(dbOk&&db){
     (async()=>{
       try{
-        // Remove fotos base64 antes de enviar ao Supabase (linhas ficariam muito grandes)
-        // As fotos ficam apenas no localStorage do dispositivo que fez a vistoria
-        const recSemFotos = {
-          ...rec,
-          equipamentos: (rec.equipamentos||[]).map(eq=>({...eq, fotos:[]}))
+        // Faz upload das fotos base64 para o Storage e substitui por URLs públicas.
+        // Fotos com upload bem-sucedido ficam acessíveis de qualquer dispositivo.
+        // Fotos que falharem ficam como base64 localmente (sem perder a foto);
+        // o campo no Supabase fica vazio para esse slot (null).
+        const recComUrls = await _uploadFotosVistoria(rec);
+        // Atualiza localStorage com as URLs (substitui base64 pelas URLs que subiram)
+        const listaAtual = lsVisLer();
+        const idxAtual = listaAtual.findIndex(x=>x.id===rec.id);
+        if(idxAtual>=0) listaAtual[idxAtual]=recComUrls;
+        else listaAtual.unshift(recComUrls);
+        lsVisSalvar(listaAtual);
+        // Envia ao Supabase com as fotos como URLs (ou null onde falhou)
+        const recParaSupabase = {
+          ...recComUrls,
+          equipamentos: (recComUrls.equipamentos||[]).map(eq=>({
+            ...eq,
+            fotos: (eq.fotos||[]).map(f=>f&&f.startsWith('http')?f:null)
+          }))
         };
-        const r=await _comTimeout(dbUpsert('vistorias', recSemFotos), 20000, 'sync vistoria');
+        const r=await _comTimeout(dbUpsert('vistorias', recParaSupabase), 20000, 'sync vistoria');
         if(r&&r.error){ console.warn('Visita Supabase err:', r.error.message); toast('⚠️ Vistoria salva localmente mas não sincronizou: '+r.error.message); }
       }catch(e){ console.warn('Visita Supabase sync (bg):', e?.message||e); toast('⚠️ Vistoria salva localmente mas não sincronizou com a nuvem. Será reenviada na próxima conexão.'); }
     })();
@@ -11406,24 +11460,45 @@ async function loadVistoriasRemoto(){
     if(soLocal.length){
       for(const v of soLocal){
         try{
-          const vSemFotos={...v, equipamentos:(v.equipamentos||[]).map(eq=>({...eq,fotos:[]}))};
-          const r=await _comTimeout(dbUpsert('vistorias', vSemFotos), 20000, 'reenvio vistoria');
+          // Faz upload das fotos e sincroniza com URLs
+          const vComUrls = await _uploadFotosVistoria(v);
+          // Atualiza localStorage com as URLs obtidas
+          const _ls = lsVisLer();
+          const _i = _ls.findIndex(x=>x.id===v.id);
+          if(_i>=0){ _ls[_i]=vComUrls; lsVisSalvar(_ls); }
+          const vParaSupabase = {
+            ...vComUrls,
+            equipamentos:(vComUrls.equipamentos||[]).map(eq=>({
+              ...eq, fotos:(eq.fotos||[]).map(f=>f&&f.startsWith('http')?f:null)
+            }))
+          };
+          const r=await _comTimeout(dbUpsert('vistorias', vParaSupabase), 20000, 'reenvio vistoria');
           if(r&&r.error) console.warn('[reenvioVistoria] '+v.id+':', r.error.message);
         }catch(e){ console.warn('[reenvioVistoria]', e?.message||e); }
       }
     }
     if(!remoto.length && !soLocal.length) return;
-    // Merge: remoto prevalece nos campos de texto, mas preserva fotos do local
+    // Merge: remoto prevalece nos campos de texto.
+    // Para fotos: URLs do Storage têm prioridade; base64 local é usado quando
+    // o slot remoto está vazio (ex: upload falhou ou vistoria antiga).
     const merged = remoto.map(r=>{
       const eq = typeof r.equipamentos==='string'?JSON.parse(r.equipamentos||'[]'):r.equipamentos||[];
       const localVer = local.find(l=>l.id===r.id);
       const eqMerged = eq.map((e,i)=>{
         const lEq=(localVer?.equipamentos||[])[i];
-        // mantém fotos do local se o remoto não tem (fotos nunca sobem ao Supabase)
-        if(lEq && (lEq.fotos||[]).some(Boolean) && !(e.fotos||[]).some(Boolean)){
-          return {...e, fotos:lEq.fotos};
+        const fotosRemoto = e.fotos||[];
+        const fotosLocal  = lEq?.fotos||[];
+        const fotosMerged = fotosRemoto.map((fR,fi)=>{
+          if(fR && fR.startsWith('http')) return fR; // URL do Storage — usa sempre
+          if(fotosLocal[fi] && fotosLocal[fi].startsWith('http')) return fotosLocal[fi];
+          if(fotosLocal[fi] && fotosLocal[fi].startsWith('data:')) return fotosLocal[fi]; // base64 local como fallback
+          return null;
+        });
+        // slots locais além do tamanho do remoto (raro, mas garante)
+        for(let fi=fotosRemoto.length;fi<fotosLocal.length;fi++){
+          if(fotosLocal[fi]) fotosMerged.push(fotosLocal[fi]);
         }
-        return e;
+        return {...e, fotos:fotosMerged};
       });
       return {...r, equipamentos:eqMerged};
     });
