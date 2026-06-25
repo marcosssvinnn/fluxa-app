@@ -11253,13 +11253,16 @@ function novaVistoria(cliNome, cliLocal, tecNome){
   go('visitas');
   visTab('nova');
   const hoje=new Date();
-  const dd=document.getElementById('vis-data'); if(dd) dd.value=hoje.toISOString().slice(0,10);
-  const mm=document.getElementById('vis-mes-ref'); if(mm) mm.value=hoje.toISOString().slice(0,7);
+  const _hd=`${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}-${String(hoje.getDate()).padStart(2,'0')}`;
+  const dd=document.getElementById('vis-data'); if(dd) dd.value=_hd;
+  const mm=document.getElementById('vis-mes-ref'); if(mm) mm.value=_hd.slice(0,7);
   if(cliNome){ const inp=document.getElementById('vis-cli'); if(inp) inp.value=cliNome; }
   if(cliLocal){ const inp=document.getElementById('vis-loc'); if(inp) inp.value=cliLocal; }
-  if(tecNome){
+  // Auto-seleciona o técnico: prioridade → tecNome passado → nome do usuário logado
+  const _nomeTec = tecNome || getSessao()?.nome || '';
+  if(_nomeTec){
     const sel=document.getElementById('vis-tec');
-    if(sel){ for(let o of sel.options){ if(o.text===tecNome||o.value===tecNome){ o.selected=true; break; } } }
+    if(sel){ for(let o of sel.options){ if(o.text===_nomeTec||o.value===_nomeTec){ o.selected=true; break; } } }
   }
   renderVisChips();
   renderVisEquipGrid();
@@ -11283,8 +11286,9 @@ function editarVistoria(id){
   const pc=document.getElementById('vis-precarga-banner'); if(pc) pc.style.display='none';
   const set=(elId,val)=>{ const e=document.getElementById(elId); if(e) e.value=val||''; };
   set('vis-cli',vis.cliente); set('vis-loc',vis.local);
-  set('vis-data',vis.data||new Date().toISOString().slice(0,10));
-  set('vis-mes-ref',vis.mes_ref||new Date().toISOString().slice(0,7));
+  const _en=new Date(); const _ed=`${_en.getFullYear()}-${String(_en.getMonth()+1).padStart(2,'0')}-${String(_en.getDate()).padStart(2,'0')}`;
+  set('vis-data',vis.data||_ed);
+  set('vis-mes-ref',vis.mes_ref||_ed.slice(0,7));
   set('vis-hora',vis.hora||vis.hora_checkin||'');
   set('vis-obs',vis.obs_geral);
   set('vis-email-resp',vis.email_responsavel);
