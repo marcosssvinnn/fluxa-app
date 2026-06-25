@@ -10948,17 +10948,29 @@ function abrirVisRelatorio(id){
 
   // Coleta todos os estilos do documento — inclui as regras .pdoc, .pd-*, etc.
   const stylesTxt = [...document.querySelectorAll('style')].map(s=>s.innerHTML).join('\n');
+  const nomeArq = `Vistoria-${(vis.cliente||'relatorio').replace(/\s+/g,'-')}-${vis.data||''}.pdf`;
   const html = `<!DOCTYPE html><html lang="pt-BR"><head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>${nomeArq}</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>${stylesTxt}</style>
     <style>
-      body{margin:0;padding:24px;background:#f3f4f6}
+      body{margin:0;padding:80px 24px 24px;background:#f3f4f6}
       .pdoc{display:block!important;max-width:794px;margin:0 auto;
             box-shadow:0 4px 24px rgba(0,0,0,.15);border-radius:8px;overflow:hidden}
+      #btn-baixar-pdf{position:fixed;top:16px;left:50%;transform:translateX(-50%);
+        background:#F07820;color:#fff;border:none;border-radius:10px;
+        padding:12px 28px;font-size:15px;font-weight:700;cursor:pointer;
+        box-shadow:0 4px 16px rgba(0,0,0,.2);z-index:9999;font-family:Inter,sans-serif;
+        display:flex;align-items:center;gap:8px;white-space:nowrap}
+      #btn-baixar-pdf:hover{background:#d96010}
+      @media print{#btn-baixar-pdf{display:none!important}body{padding:0;background:white}}
     </style>
-    </head><body>${el.outerHTML}</body></html>`;
+    </head><body>
+    <button id="btn-baixar-pdf" onclick="window.print()">📥 Baixar / Imprimir PDF</button>
+    ${el.outerHTML}
+    </body></html>`;
 
   const newWin = window.open('', '_blank');
   if(newWin){
