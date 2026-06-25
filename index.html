@@ -10065,7 +10065,8 @@ function concluirVisDetalhada(){
     const emailEl=document.getElementById('vis-email-resp');
     if(emailEl && loc.email_responsavel) emailEl.value=loc.email_responsavel;
     const mesEl=document.getElementById('vis-mes-ref');
-    const mesData=new Date().toISOString().slice(0,7);
+    const _n=new Date();
+    const mesData=`${_n.getFullYear()}-${String(_n.getMonth()+1).padStart(2,'0')}`;
     if(mesEl) mesEl.value=mesData;
     const horaEl=document.getElementById('vis-hora');
     if(horaEl && loc.hora_pref) horaEl.value=loc.hora_pref;
@@ -10619,7 +10620,8 @@ function _lojaDaVistoria(loc){
 }
 function _montarRecVistoria(){
   const s=getSessao();
-  const mesRef=document.getElementById('vis-mes-ref')?.value||new Date().toISOString().slice(0,7);
+  const _nw=new Date(); const _nm=`${_nw.getFullYear()}-${String(_nw.getMonth()+1).padStart(2,'0')}`;
+  const mesRef=document.getElementById('vis-mes-ref')?.value||_nm;
   // Reusa o MESMO registro durante a edição; e, vindo de um plano, reusa a
   // vistoria já existente do local naquele mês (não duplica).
   let id=visEditId||_visDraftId;
