@@ -10656,7 +10656,8 @@ function _montarRecVistoria(){
 function _persistVistoria(rec){
   const lista=lsVisLer();
   const idx=lista.findIndex(x=>x.id===rec.id);
-  if(idx>=0){ rec.created_at = lista[idx].created_at || rec.created_at; lista[idx]=rec; } // preserva data original na atualização
+  rec._pendingSync = true; // marcada para reenvio; limpa após sync com sucesso
+  if(idx>=0){ rec.created_at = lista[idx].created_at || rec.created_at; lista[idx]=rec; }
   else lista.unshift(rec);
   lsVisSalvar(lista);
   _visDraftId = rec.id; // marca: este form já tem registro → próximas gravações atualizam o mesmo
@@ -10684,6 +10685,11 @@ function _persistVistoria(rec){
         };
         const r=await _comTimeout(dbUpsert('vistorias', recParaSupabase), 20000, 'sync vistoria');
         if(r&&r.error){ console.warn('Visita Supabase err:', r.error.message); toast('⚠️ Vistoria salva localmente mas não sincronizou: '+r.error.message); }
+        else{
+          // Sync bem-sucedido — remove flag _pendingSync do localStorage
+          const _ls=lsVisLer(); const _i=_ls.findIndex(x=>x.id===rec.id);
+          if(_i>=0){ delete _ls[_i]._pendingSync; lsVisSalvar(_ls); }
+        }
       }catch(e){ console.warn('Visita Supabase sync (bg):', e?.message||e); toast('⚠️ Vistoria salva localmente mas não sincronizou com a nuvem. Será reenviada na próxima conexão.'); }
     })();
   }
@@ -11459,10 +11465,10 @@ async function loadVistoriasRemoto(){
     // o localStorage com vistorias de outros grupos (ex: gestor "Todas" receberia Aquamotor)
     const remoto = (data||[]).filter(r=>escopoEmpresaMatch(r.loja_id));
     const local = lsVisLer();
-    // Reenvia ao banco as vistorias presas só no aparelho (nunca sincronizadas)
-    // Remove fotos antes de enviar para evitar falha por payload muito grande
+    // Reenvia ao banco vistorias presas no aparelho (nunca sincronizadas).
+    // Só reenvia se _pendingSync=true — evita ressuscitar vistorias deletadas remotamente.
     const remotoIds = new Set(remoto.map(r=>r.id));
-    const soLocal = local.filter(l=>!remotoIds.has(l.id));
+    const soLocal = local.filter(l=>!remotoIds.has(l.id) && l._pendingSync===true);
     if(soLocal.length){
       for(const v of soLocal){
         try{
@@ -11480,6 +11486,7 @@ async function loadVistoriasRemoto(){
           };
           const r=await _comTimeout(dbUpsert('vistorias', vParaSupabase), 20000, 'reenvio vistoria');
           if(r&&r.error) console.warn('[reenvioVistoria] '+v.id+':', r.error.message);
+          else{ const _ls2=lsVisLer(); const _i2=_ls2.findIndex(x=>x.id===v.id); if(_i2>=0){ delete _ls2[_i2]._pendingSync; lsVisSalvar(_ls2); } }
         }catch(e){ console.warn('[reenvioVistoria]', e?.message||e); }
       }
     }
@@ -11508,7 +11515,9 @@ async function loadVistoriasRemoto(){
       });
       return {...r, equipamentos:eqMerged};
     });
-    local.forEach(l=>{ if(!merged.find(r=>r.id===l.id)) merged.push(l); });
+    // Vistorias só-locais: mantém apenas as pendentes de sync (_pendingSync=true).
+    // Sem a flag = foram deletadas remotamente → não ressuscitar.
+    local.forEach(l=>{ if(!merged.find(r=>r.id===l.id) && l._pendingSync===true) merged.push(l); });
     lsVisSalvar(merged);
     // Atualiza view se estiver visível
     if(document.getElementById('page-visitas')?.classList.contains('on')) renderVisHistorico();
