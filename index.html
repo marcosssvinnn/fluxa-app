@@ -1955,7 +1955,10 @@
     <div class="dash-chart-card" id="dash-estoque-card" style="display:none">
       <div class="dash-chart-hdr">
         <div class="dash-chart-titulo">📦 Estoque — comprar / repor</div>
-        <button class="ba" style="background:var(--gray-light);color:var(--c2);padding:5px 12px;font-size:12px" onclick="go('estoque')">Abrir estoque →</button>
+        <div style="display:flex;gap:6px;align-items:center">
+          <button class="ba" style="background:var(--gray-light);color:var(--c2);padding:5px 12px;font-size:12px" onclick="go('estoque')">Abrir estoque →</button>
+          <button class="ba" style="background:transparent;color:var(--gray);padding:5px 8px;font-size:12px;border:1.5px solid var(--gray-mid)" onclick="dispensarAlertaEstoque()" title="Ocultar este aviso por 7 dias">✕ Ignorar 7 dias</button>
+        </div>
       </div>
       <div id="dash-estoque-body"></div>
     </div>
@@ -6146,6 +6149,19 @@ function atualizarDash(){
   renderEstoqueDash();
 }
 
+function dispensarAlertaEstoque(){
+  // Salva timestamp de dismiss — oculta reposição por 7 dias.
+  // Encomendas urgentes (estoque negativo) sempre aparecem, ignoram o dismiss.
+  localStorage.setItem('fluxa_estoque_dismiss', String(Date.now()));
+  const card=document.getElementById('dash-estoque-card');
+  if(card) card.style.display='none';
+  toast('🔕 Alertas de reposição ocultados por 7 dias');
+}
+function _estoqueDismissAtivo(){
+  const t=parseInt(localStorage.getItem('fluxa_estoque_dismiss')||'0');
+  return t>0 && (Date.now()-t) < 7*24*60*60*1000; // 7 dias em ms
+}
+
 // Card de estoque no dashboard: produtos abaixo do mínimo (lista de reposição)
 function renderEstoqueDash(){
   const card=document.getElementById('dash-estoque-card');
@@ -6153,12 +6169,14 @@ function renderEstoqueDash(){
   if(!card||!body) return;
   if(!eGestor()){ card.style.display='none'; return; }
   const prods=produtosVisiveis();
-  // Encomendas (disponível negativo = vendido/comprometido sem estoque)
+  // Encomendas (disponível negativo = vendido/comprometido sem estoque) — sempre visíveis
   const enc=listaEncomendas();
   // Reposição (disponível no/abaixo do mínimo, mas ainda positivo)
   const baixo=prods.filter(p=>{ const m=parseFloat(p.estoque_minimo)||0; const d=disponivelProduto(p.id); return m>0 && d>=0 && d<=m; })
     .sort((a,b)=>disponivelProduto(a.id)-disponivelProduto(b.id));
-  if(!enc.length && !baixo.length){ card.style.display='none'; return; }
+  // Se dismiss ativo: mostra só encomendas urgentes (negativo), oculta reposição
+  const baixoVis = _estoqueDismissAtivo() ? [] : baixo;
+  if(!enc.length && !baixoVis.length){ card.style.display='none'; return; }
   card.style.display='';
   let html='';
   if(enc.length){
@@ -6171,9 +6189,9 @@ function renderEstoqueDash(){
       </div>`;
     }).join('')+(enc.length>6?`<div style="font-size:11px;color:var(--gray);padding:6px 0;text-align:right">+${enc.length-6} outros</div>`:'');
   }
-  if(baixo.length){
+  if(baixoVis.length){
     html+=`<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#b45309;margin:${enc.length?'10px':'0'} 0 4px">🔄 Repor (estoque mínimo)</div>`;
-    html+=baixo.slice(0,6).map(p=>{
+    html+=baixoVis.slice(0,6).map(p=>{
       const disp=disponivelProduto(p.id), min=parseFloat(p.estoque_minimo)||0;
       const sugestao=Math.max(1, Math.ceil(min*2 - disp));
       return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--gray-light)">
@@ -6181,7 +6199,12 @@ function renderEstoqueDash(){
           <div style="font-size:11px;color:var(--gray)">disponível <span style="color:var(--yellow);font-weight:700">${fmtQtd(disp)}</span> · mín ${fmtQtd(min)}</div></div>
         <button class="tb g" style="flex-shrink:0;font-size:11px" onclick="go('estoque');setTimeout(()=>abrirMovModal('${p.id}','entrada'),250)">＋ Repor ${fmtQtd(sugestao)}</button>
       </div>`;
-    }).join('')+(baixo.length>6?`<div style="font-size:11px;color:var(--gray);padding-top:6px;text-align:right">+${baixo.length-6} outros</div>`:'');
+    }).join('')+(baixoVis.length>6?`<div style="font-size:11px;color:var(--gray);padding-top:6px;text-align:right">+${baixoVis.length-6} outros</div>`:'');
+  }
+  // Rodapé: aviso de dismiss ativo
+  if(_estoqueDismissAtivo()&&baixo.length){
+    const dias=Math.ceil((7*86400000-(Date.now()-parseInt(localStorage.getItem('fluxa_estoque_dismiss'))))/86400000);
+    html+=`<div style="font-size:11px;color:var(--gray);margin-top:8px;padding-top:8px;border-top:1px solid var(--gray-light)">🔕 ${baixo.length} produto(s) com reposição pendente · oculto por mais ${dias} dia(s) <button class="ba" style="font-size:10px;padding:2px 8px;margin-left:6px" onclick="localStorage.removeItem('fluxa_estoque_dismiss');renderEstoqueDash()">Mostrar</button></div>`;
   }
   body.innerHTML=html;
 }
