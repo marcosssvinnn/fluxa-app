@@ -2967,7 +2967,7 @@
           </div>
           <div class="fl"><label>Mês de Referência</label><input type="month" id="vis-mes-ref"></div>
         </div>
-        <div class="row">
+        <div class="row" id="vis-email-row">
           <div class="fl">
             <label>E-mail do Responsável / Síndico <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--gray)">(relatório enviado automaticamente ao salvar)</span></label>
             <input type="email" id="vis-email-resp" placeholder="sindico@condominio.com.br">
@@ -10185,6 +10185,10 @@ function renderLocaisTab(){
     } else if(ativo){
       acoesHtml=`<button class="btn-primary" style="padding:7px 14px;font-size:13px;white-space:nowrap" onclick="iniciarVistoriaPlena('${loc.id}')">🔍 Fazer Vistoria</button>`;
     }
+    // Botão Google Maps sempre visível quando há endereço
+    const mapsUrl='https://maps.google.com/?q='+encodeURIComponent((loc.local||'')+' '+(loc.cliente||''));
+    const mapsBtn=loc.local?`<a href="${mapsUrl}" target="_blank" rel="noopener" class="tb" style="font-size:12px;padding:5px 10px;text-decoration:none;display:inline-flex;align-items:center;gap:3px" title="Abrir no Google Maps">📍 Maps</a>`:'';
+    if(mapsBtn) acoesHtml = mapsBtn + ' ' + acoesHtml;
 
     // Rodapé com ações de gestão (só gestor)
     const rodape=!isTecnico?`
@@ -10244,7 +10248,12 @@ function visTab(tab){
     if(v) v.style.display = t===tab ? '' : 'none';
     if(b){ b.classList.toggle('on', t===tab); }
   });
-  if(tab!=='nova') window._visPreCargaRec = null; // limpa pré-carga ao sair da aba
+  if(tab==='nova'){
+    // técnico não precisa ver campo de e-mail
+    const emailRow=document.getElementById('vis-email-row');
+    if(emailRow) emailRow.style.display = eTecnico() ? 'none' : '';
+  }
+  if(tab!=='nova') window._visPreCargaRec = null;
   if(tab==='hist') renderVisHistorico();
   if(tab==='locais') renderLocaisTab();
 }
@@ -11089,11 +11098,12 @@ function preencherRelatorioVistoria(vis){
   // Summary table
   const sumTable=document.getElementById('pd-vis-sumtable');
   if(sumTable){
+    const equipsVistoriados = equips.filter(e=>e.status && e.status!=='na');
     sumTable.innerHTML=`<thead><tr><th>Equipamento</th><th>Modelo / Pot.</th><th>Status</th><th>Observação</th></tr></thead>
-      <tbody>${equips.map(e=>`<tr>
+      <tbody>${equipsVistoriados.map(e=>`<tr>
         <td><strong>${esc(e.nome||e.id)}</strong></td>
         <td style="font-size:11px;color:#6b7280">${[e.modelo,e.potencia].filter(Boolean).map(esc).join(' · ')||'—'}</td>
-        <td><span class="st-dot ${dotCls[e.status]||'na'}"></span>${statusTxt[e.status]||'N/A'}</td>
+        <td><span class="st-dot ${dotCls[e.status]||'na'}"></span>${statusTxt[e.status]||'—'}</td>
         <td style="color:#6b7280;font-size:11px">${esc((e.obs||'').slice(0,90))}</td>
       </tr>`).join('')}</tbody>`;
   }
@@ -11135,9 +11145,13 @@ function preencherRelatorioVistoria(vis){
   if(obsBar)  obsBar.style.background=cor;
   if(obsTxt)  obsTxt.textContent=vis.obs_geral||'';
 
-  // Technician signature label
+  // Technician signature label — nome + empresa
   const signTec=document.getElementById('pd-vis-sign-tec');
-  if(signTec) signTec.textContent=(vis.tecnico||'Técnico Responsável');
+  if(signTec){
+    const nomeTec = vis.tecnico||'Técnico Responsável';
+    const empresaTec = LC.nome||'';
+    signTec.innerHTML=`${esc(nomeTec)}<br><span style="font-size:10px;font-weight:400;color:#6b7280">${esc(empresaTec)}</span>`;
+  }
 
   // Footer
   const tel=LC.tel||''; const email=LC.email||'';
