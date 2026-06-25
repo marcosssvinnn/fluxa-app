@@ -9417,7 +9417,26 @@ const LS_LOCAIS_VIS = 'fluxa_locais_vistoria';
 let locaisVistoria = [];
 let locaisVisMesRef = '';  // currently viewed month in locais tab, e.g. '2026-05'
 function lsVisLer(){ try{ return JSON.parse(localStorage.getItem(LS_VIS)||'[]'); }catch(e){ return []; } }
-function lsVisSalvar(lista){ localStorage.setItem(LS_VIS, JSON.stringify(lista)); }
+function lsVisSalvar(lista){
+  try{
+    localStorage.setItem(LS_VIS, JSON.stringify(lista));
+  }catch(e){
+    if(e.name==='QuotaExceededError'||e.name==='NS_ERROR_DOM_QUOTA_REACHED'||(e.message||'').includes('quota')){
+      // tenta salvar sem fotos para não perder os dados da vistoria
+      try{
+        const semFotos = lista.map(v=>({
+          ...v,
+          equipamentos:(v.equipamentos||[]).map(eq=>({...eq,fotos:[]}))
+        }));
+        localStorage.setItem(LS_VIS, JSON.stringify(semFotos));
+        toast('⚠️ Armazenamento cheio — vistoria salva sem fotos. As fotos ficam na nuvem.');
+      }catch(e2){
+        console.warn('[lsVisSalvar] localStorage cheio mesmo sem fotos:', e2?.message||e2);
+        toast('⚠️ Armazenamento do celular cheio. Libere espaço e tente novamente.');
+      }
+    }else{ throw e; }
+  }
+}
 
 // ══ ESCOPO DE EMPRESA (vistorias/locais) ══
 // Fonte única de verdade para "este local/vistoria pertence à empresa em foco?".
@@ -10381,7 +10400,7 @@ function visCarregarFoto(inp, id, idx){
   if(f.size > FOTO_MAX_BYTES){ toast('⚠️ Foto muito grande (máx 20 MB).'); inp.value=''; return; }
   const r = new FileReader();
   r.onload = async e => {
-    const compressed=await compressImage(e.target.result); // fix #5: comprime antes de armazenar
+    const compressed=await compressImage(e.target.result, 800, 0.55);
     if(!visEquipDados[id]) visEquipDados[id]={ status:'na', obs:'', fotos:[] };
     if(!visEquipDados[id].fotos) visEquipDados[id].fotos=[];
     visEquipDados[id].fotos[idx] = compressed;
