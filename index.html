@@ -10056,7 +10056,7 @@ function concluirVisDetalhada(){
   visEquipSelecionados=equipsPlano.map(e=>e.id);
   // Pré-carrega dados nos equipamentos do formulário (para mostrar modelo/potência)
   visEquipDados={};
-  equipsPlano.forEach(e=>{ visEquipDados[e.id]={status:'',obs:'',fotos:[],modelo:e.modelo,potencia:e.potencia}; });
+  equipsPlano.forEach(e=>{ visEquipDados[e.id]={status:'na',obs:'',fotos:[],modelo:e.modelo,potencia:e.potencia}; });
   // Abre formulário completo com dados do local
   novaVistoria(loc.cliente, loc.local, loc.tecnico||'');
   setTimeout(()=>{
@@ -10628,7 +10628,7 @@ function _persistVistoria(rec){
         };
         const r=await _comTimeout(dbUpsert('vistorias', recSemFotos), 20000, 'sync vistoria');
         if(r&&r.error){ console.warn('Visita Supabase err:', r.error.message); toast('⚠️ Vistoria salva localmente mas não sincronizou: '+r.error.message); }
-      }catch(e){ console.warn('Visita Supabase sync (bg):', e?.message||e); }
+      }catch(e){ console.warn('Visita Supabase sync (bg):', e?.message||e); toast('⚠️ Vistoria salva localmente mas não sincronizou com a nuvem. Será reenviada na próxima conexão.'); }
     })();
   }
 }
@@ -11395,7 +11395,9 @@ async function loadVistoriasRemoto(){
     const lojaFiltro = getLojaFiltro();
     if(lojaFiltro) q = q.eq('loja_id', lojaFiltro);
     const {data} = await q;
-    const remoto = data||[];
+    // Filtra em memória pelo escopo da empresa ativa para não contaminar
+    // o localStorage com vistorias de outros grupos (ex: gestor "Todas" receberia Aquamotor)
+    const remoto = (data||[]).filter(r=>escopoEmpresaMatch(r.loja_id));
     const local = lsVisLer();
     // Reenvia ao banco as vistorias presas só no aparelho (nunca sincronizadas)
     // Remove fotos antes de enviar para evitar falha por payload muito grande
