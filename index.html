@@ -10627,7 +10627,7 @@ function _persistVistoria(rec){
           equipamentos: (rec.equipamentos||[]).map(eq=>({...eq, fotos:[]}))
         };
         const r=await _comTimeout(dbUpsert('vistorias', recSemFotos), 20000, 'sync vistoria');
-        if(r&&r.error) console.warn('Visita Supabase err:', r.error.message);
+        if(r&&r.error){ console.warn('Visita Supabase err:', r.error.message); toast('⚠️ Vistoria salva localmente mas não sincronizou: '+r.error.message); }
       }catch(e){ console.warn('Visita Supabase sync (bg):', e?.message||e); }
     })();
   }
@@ -11386,17 +11386,33 @@ async function loadVistoriasRemoto(){
     const remoto = data||[];
     const local = lsVisLer();
     // Reenvia ao banco as vistorias presas só no aparelho (nunca sincronizadas)
+    // Remove fotos antes de enviar para evitar falha por payload muito grande
     const remotoIds = new Set(remoto.map(r=>r.id));
     const soLocal = local.filter(l=>!remotoIds.has(l.id));
     if(soLocal.length){
       for(const v of soLocal){
-        try{ const r=await _comTimeout(dbUpsert('vistorias', v), 20000, 'reenvio vistoria'); if(r&&r.error) console.warn('[reenvioVistoria] '+v.id+':', r.error.message); }
-        catch(e){ console.warn('[reenvioVistoria]', e?.message||e); }
+        try{
+          const vSemFotos={...v, equipamentos:(v.equipamentos||[]).map(eq=>({...eq,fotos:[]}))};
+          const r=await _comTimeout(dbUpsert('vistorias', vSemFotos), 20000, 'reenvio vistoria');
+          if(r&&r.error) console.warn('[reenvioVistoria] '+v.id+':', r.error.message);
+        }catch(e){ console.warn('[reenvioVistoria]', e?.message||e); }
       }
     }
     if(!remoto.length && !soLocal.length) return;
-    // Merge: remoto prevalece, mantém locais que não estão no remoto
-    const merged = [...remoto.map(r=>({...r, equipamentos: typeof r.equipamentos==='string'?JSON.parse(r.equipamentos||'[]'):r.equipamentos}))];
+    // Merge: remoto prevalece nos campos de texto, mas preserva fotos do local
+    const merged = remoto.map(r=>{
+      const eq = typeof r.equipamentos==='string'?JSON.parse(r.equipamentos||'[]'):r.equipamentos||[];
+      const localVer = local.find(l=>l.id===r.id);
+      const eqMerged = eq.map((e,i)=>{
+        const lEq=(localVer?.equipamentos||[])[i];
+        // mantém fotos do local se o remoto não tem (fotos nunca sobem ao Supabase)
+        if(lEq && (lEq.fotos||[]).some(Boolean) && !(e.fotos||[]).some(Boolean)){
+          return {...e, fotos:lEq.fotos};
+        }
+        return e;
+      });
+      return {...r, equipamentos:eqMerged};
+    });
     local.forEach(l=>{ if(!merged.find(r=>r.id===l.id)) merged.push(l); });
     lsVisSalvar(merged);
     // Atualiza view se estiver visível
