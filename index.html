@@ -1243,23 +1243,23 @@
 
 <!-- ══ BOTTOM NAV (mobile) ══ -->
 <nav class="mob-nav" id="mob-nav">
-  <button class="mob-nb on" id="mnb-form" onclick="go('form')">
-    <span class="micon">＋</span><span>Orçam.</span>
-  </button>
-  <button class="mob-nb" id="mnb-os" onclick="novaOS();go('os')">
-    <span class="micon">📋</span><span>OS</span>
+  <!-- Técnico: Minhas OS | Vistorias | Mais -->
+  <!-- Gestor/Master: Vistorias | Orçam. | OS | Histórico | Mais -->
+  <!-- Vendas: Orçam. | OS | Histórico | Mais -->
+  <button class="mob-nb" id="mnb-visitas" onclick="go('visitas')" style="display:none">
+    <span class="micon">🔍</span><span>Vistorias</span>
   </button>
   <button class="mob-nb" id="mnb-minhas-os" onclick="go('minhas-os')" style="display:none">
     <span class="micon">🗂️</span><span>Minhas OS</span>
   </button>
-  <button class="mob-nb" id="mnb-history" onclick="go('history')">
+  <button class="mob-nb on" id="mnb-form" onclick="go('form')" style="display:none">
+    <span class="micon">＋</span><span>Orçam.</span>
+  </button>
+  <button class="mob-nb" id="mnb-os" onclick="novaOS();go('os')" style="display:none">
+    <span class="micon">📋</span><span>OS</span>
+  </button>
+  <button class="mob-nb" id="mnb-history" onclick="go('history')" style="display:none">
     <span class="micon">📊</span><span>Histórico</span>
-  </button>
-  <button class="mob-nb" id="mnb-visitas" onclick="go('visitas')">
-    <span class="micon">🔍</span><span>Vistorias</span>
-  </button>
-  <button class="mob-nb" id="mnb-agendamentos" onclick="go('agendamentos')">
-    <span class="micon">📅</span><span>Agenda</span>
   </button>
   <button class="mob-nb" id="mnb-mais" onclick="openSidebar()">
     <span class="micon">☰</span><span>Mais</span>
@@ -3580,15 +3580,16 @@ function aplicarPermissoesPerfil(){
       btn.style.display=(vendas||tecnico)?'none':'';
   });
 
-  // ── Mobile nav ──
+  // ── Mobile nav — prioridade por perfil ──
+  // Técnico:       Vistorias | Minhas OS | Mais
+  // Gestor/Master: Vistorias | Orçam. | OS | Histórico | Mais
+  // Vendas:        Orçam. | OS | Histórico | Mais
   const mnbRules = {
-    'mnb-form'        : gestor||vendas,
-    'mnb-os'          : gestor||vendas,
-    'mnb-minhas-os'   : tecnico,
-    'mnb-history'     : gestor||vendas,
-    'mnb-agendamentos': gestor||vendas,
-    'mnb-equipamentos': gestor,
-    'mnb-visitas'     : gestor||tecnico,
+    'mnb-visitas'  : gestor||tecnico,
+    'mnb-minhas-os': tecnico,
+    'mnb-form'     : gestor||vendas,
+    'mnb-os'       : gestor||vendas,
+    'mnb-history'  : gestor||vendas,
   };
   Object.entries(mnbRules).forEach(([id,pode])=>{
     const el=document.getElementById(id); if(el) el.style.display=pode?'':'none';
