@@ -2947,8 +2947,12 @@
       </div>
 
       <!-- Dados gerais -->
-      <div class="card">
-        <div class="ct">Dados da Visita</div>
+      <div class="card" id="vis-dados-card">
+        <div class="ct" style="cursor:pointer;user-select:none;display:flex;align-items:center;justify-content:space-between" onclick="toggleVisDados()">
+          <span>Dados da Visita</span>
+          <span id="vis-dados-toggle" style="font-size:12px;font-weight:400;color:var(--gray)">▼ expandir</span>
+        </div>
+        <div id="vis-dados-body">
         <div class="row">
           <div class="fl"><label>Cliente</label>
             <div class="cli-input-wrap">
@@ -2979,6 +2983,7 @@
             </div>
           </div>
         </div>
+        </div><!-- /vis-dados-body -->
       </div>
 
       <!-- Check-in -->
@@ -11259,13 +11264,33 @@ function novaVistoria(cliNome, cliLocal, tecNome){
   if(cliNome){ const inp=document.getElementById('vis-cli'); if(inp) inp.value=cliNome; }
   if(cliLocal){ const inp=document.getElementById('vis-loc'); if(inp) inp.value=cliLocal; }
   // Auto-seleciona o técnico: prioridade → tecNome passado → nome do usuário logado
+  // Se o nome não está na lista (ex: master), adiciona como opção e seleciona
   const _nomeTec = tecNome || getSessao()?.nome || '';
   if(_nomeTec){
     const sel=document.getElementById('vis-tec');
-    if(sel){ for(let o of sel.options){ if(o.text===_nomeTec||o.value===_nomeTec){ o.selected=true; break; } } }
+    if(sel){
+      let found=false;
+      for(let o of sel.options){ if(o.text===_nomeTec||o.value===_nomeTec){ o.selected=true; found=true; break; } }
+      if(!found){ const op=new Option(_nomeTec,_nomeTec,true,true); sel.appendChild(op); }
+    }
   }
+  // Oculta "Dados da Visita" quando vem de um plano (campos já preenchidos)
+  // O técnico pode expandir clicando no título se precisar corrigir algo
+  const _vdb = document.getElementById('vis-dados-body');
+  const _vdt = document.getElementById('vis-dados-toggle');
+  if(window._visLocalId && _vdb){ _vdb.style.display='none'; if(_vdt) _vdt.textContent='▼ expandir'; }
+  else if(_vdb){ _vdb.style.display=''; if(_vdt) _vdt.textContent='▲ recolher'; }
   renderVisChips();
   renderVisEquipGrid();
+}
+
+function toggleVisDados(){
+  const body=document.getElementById('vis-dados-body');
+  const lbl=document.getElementById('vis-dados-toggle');
+  if(!body) return;
+  const open = body.style.display!=='none';
+  body.style.display = open?'none':'';
+  if(lbl) lbl.textContent = open?'▼ expandir':'▲ recolher';
 }
 
 // Reabre uma vistoria já feita para EDITAR / REFAZER — mantém status, obs e fotos.
