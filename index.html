@@ -10611,7 +10611,13 @@ function _persistVistoria(rec){
   if(dbOk&&db){
     (async()=>{
       try{
-        const r=await _comTimeout(dbUpsert('vistorias', rec), 20000, 'sync vistoria');
+        // Remove fotos base64 antes de enviar ao Supabase (linhas ficariam muito grandes)
+        // As fotos ficam apenas no localStorage do dispositivo que fez a vistoria
+        const recSemFotos = {
+          ...rec,
+          equipamentos: (rec.equipamentos||[]).map(eq=>({...eq, fotos:[]}))
+        };
+        const r=await _comTimeout(dbUpsert('vistorias', recSemFotos), 20000, 'sync vistoria');
         if(r&&r.error) console.warn('Visita Supabase err:', r.error.message);
       }catch(e){ console.warn('Visita Supabase sync (bg):', e?.message||e); }
     })();
