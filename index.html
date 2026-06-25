@@ -3100,6 +3100,7 @@
         <div class="ct">➕ Novo Plano de Acompanhamento</div>
         <div class="row"><div class="fl"><label class="req">Cliente / Nome do local</label><input type="text" id="loc-cli" placeholder="Ex: Condomínio Sol Nascente" autocomplete="off"></div><div class="fl"><label class="req">Endereço</label><input type="text" id="loc-end" placeholder="Rua, número, bairro"></div></div>
         <div class="row"><div class="fl"><label>E-mail responsável</label><input type="email" id="loc-email" placeholder="sindico@condominio.com.br"></div><div class="fl"><label>Técnico responsável</label><select id="loc-tec"><option value="">Qualquer técnico</option></select></div></div>
+        <div class="fl" id="loc-loja-row" style="display:none;margin-bottom:12px"><label>Unidade</label><select id="loc-loja" style="width:100%;padding:9px 12px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:13px;font-family:'Inter',sans-serif"></select></div>
         <div class="row"><div class="fl"><label>Dia de preferência (do mês)</label><select id="loc-dia-pref" style="width:100%;padding:9px 12px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;outline:none"><option value="">Qualquer dia</option></select></div><div class="fl"><label>Horário preferencial</label><input type="time" id="loc-hora-pref" value="08:00"></div></div>
         <div class="fl" style="margin-bottom:4px">
           <label style="display:flex;align-items:center;justify-content:space-between">
@@ -9570,6 +9571,14 @@ function abrirLocForm(id){
   sel.innerHTML='<option value="">Qualquer técnico</option>';
   const tecList=(typeof CFG!=='undefined'&&CFG.tecnicos)?CFG.tecnicos:[];
   tecList.forEach(t=>{ const o=document.createElement('option'); o.value=t; o.textContent=t; sel.appendChild(o); });
+  // seletor de unidade — visível quando gestor está em "Todas" e há múltiplas unidades no grupo
+  const lojaRow=document.getElementById('loc-loja-row');
+  const lojaSel=document.getElementById('loc-loja');
+  const _unidades=LOJAS.filter(l=>l.grupo===(_grupoDaLoja(lojaAtiva)||'forthemp'));
+  if(lojaRow&&lojaSel&&!lojaAtiva&&_unidades.length>1){
+    lojaSel.innerHTML=_unidades.map(l=>`<option value="${l.id}">${l.nome}</option>`).join('');
+    lojaRow.style.display='';
+  } else if(lojaRow){ lojaRow.style.display='none'; }
   // dia de preferência select (1-28)
   const diaSel=document.getElementById('loc-dia-pref');
   if(diaSel){ diaSel.innerHTML='<option value="">Qualquer dia</option>'; for(let i=1;i<=28;i++){ const o=document.createElement('option'); o.value=i; o.textContent='Dia '+i; diaSel.appendChild(o); } }
@@ -9593,6 +9602,7 @@ function abrirLocForm(id){
       sel.value=loc.tecnico||'';
       if(diaSel) diaSel.value=loc.dia_pref||'';
       if(horaPref) horaPref.value=loc.hora_pref||'08:00';
+      if(lojaSel&&loc.loja_id) lojaSel.value=loc.loja_id;
       _locEquipCustom=normalizeLocEquips(loc.equipamentos||[]);
       renderLocEquipList();
     }
@@ -9776,7 +9786,8 @@ async function salvarLocal(){
   const existingLocal=editId?locaisVistoria.find(x=>x.id===editId):null;
   // Na edição preserva a empresa original do local; só define pela view ao criar.
   const _lojaPrev=existingLocal&&existingLocal.loja_id&&existingLocal.loja_id!=='default'?existingLocal.loja_id:null;
-  const lojaId=_lojaPrev||s?.loja_id||lojaAtiva||LOJA_PADRAO_ID;
+  const _lojaSelVal=(document.getElementById('loc-loja-row')?.style.display!=='none'&&document.getElementById('loc-loja')?.value)||'';
+  const lojaId=_lojaPrev||_lojaSelVal||s?.loja_id||lojaAtiva||LOJA_PADRAO_ID;
   // valida ao menos nome de cada equipamento
   const equipsValidos=_locEquipCustom.filter(e=>e.nome.trim());
   const rec={
@@ -10213,7 +10224,7 @@ function renderLocaisTab(){
       <div class="loc-ucard-top">
         <span class="loc-ucard-icon">${icon}</span>
         <div class="loc-ucard-info">
-          <div class="loc-ucard-nome">${esc(loc.cliente)}</div>
+          <div class="loc-ucard-nome">${esc(loc.cliente)}${(()=>{ if(!lojaAtiva&&loc.loja_id&&loc.loja_id!=='default'){ const _l=getLoja(loc.loja_id); return _l?` <span class="loja-badge ${_l.cor}" style="font-size:9px;vertical-align:middle">${_l.nome.replace('Fortemp ','')}</span>`:'' } return ''; })()}</div>
           <div class="loc-ucard-det">📍 ${esc(loc.local)}${loc.tecnico?' · 👤 '+esc(loc.tecnico):''}${loc.hora_pref?' · 🕐 '+esc(loc.hora_pref):''}${(()=>{const eq=normalizeLocEquips(loc.equipamentos||[]);return eq.length?' · 🔧 '+eq.length+' equip.':'';})()} </div>
           ${statusHtml}
         </div>
@@ -10901,7 +10912,7 @@ function renderVisHistorico(){
     return `<div class="vis-history-item" onclick="abrirVisRelatorio('${v.id}')">
       <div style="flex:1;min-width:0">
         <div class="vis-hist-data">${dataFmt}${mRef?' · '+mRef:''}</div>
-        <div class="vis-hist-cli">${esc(v.cliente||'')}${v.local?' · '+esc(v.local):''}</div>
+        <div class="vis-hist-cli">${esc(v.cliente||'')}${v.local?' · '+esc(v.local):''}${(()=>{ if(!lojaAtiva&&v.loja_id&&v.loja_id!=='default'){ const _lv=getLoja(v.loja_id); return _lv?` <span class="loja-badge ${_lv.cor}" style="font-size:9px;vertical-align:middle">${_lv.nome.replace('Fortemp ','')}</span>`:'' } return ''; })()}</div>
         <div class="vis-hist-cli" style="margin-top:2px">👤 ${esc(v.tecnico||'')} · ${equips.length} equip.${v.email_responsavel?' · 📧 '+esc(v.email_responsavel):''}</div>
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0">
