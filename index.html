@@ -9480,13 +9480,16 @@ function loadLocais(){
   } else {
     locaisVistoria=local;
   }
-  // Deduplicar por ID (não por cliente+local — dois locais distintos podem ter
-  // o mesmo nome, ex.: unidades diferentes do mesmo condomínio).
-  const _vistosLoc=new Set();
+  // Deduplicar por ID E por cliente+local (ambas as chaves devem ser únicas).
+  // Mantém o primeiro registro encontrado para cada combinação.
+  const _vistosId=new Set(); const _vistosNome=new Set();
   locaisVistoria=locaisVistoria.filter(l=>{
-    const k=l.id||((l.cliente||'').trim()+'|'+(l.local||'').trim());
-    if(_vistosLoc.has(k)) return false;
-    _vistosLoc.add(k); return true;
+    const kId=l.id||''; const kNome=((l.cliente||'').trim()+'|'+(l.local||'').trim()).toLowerCase();
+    if(kId && _vistosId.has(kId)) return false;
+    if(kNome && _vistosNome.has(kNome)) return false;
+    if(kId) _vistosId.add(kId);
+    if(kNome) _vistosNome.add(kNome);
+    return true;
   });
   localStorage.setItem(LS_LOCAIS_VIS, JSON.stringify(locaisVistoria));
 }
@@ -10890,7 +10893,7 @@ function renderVisHistorico(){
   const statusClr  = { bom:'var(--green)', atencao:'var(--yellow)', critico:'var(--red)', na:'var(--gray)' };
   el.innerHTML = lista.map(v=>{
     const equips = (typeof v.equipamentos==='string'?JSON.parse(v.equipamentos||'[]'):v.equipamentos)||[];
-    const mRef = v.mes_ref?new Date(v.mes_ref+'-01').toLocaleDateString('pt-BR',{month:'long',year:'numeric'}):'';
+    const mRef = v.mes_ref?new Date(+v.mes_ref.split('-')[0],+v.mes_ref.split('-')[1]-1,1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'}):'';
     // Conta status
     const cnt = { bom:0, atencao:0, critico:0 };
     equips.filter(e=>e.status!=='na').forEach(e=>{ if(cnt[e.status]!==undefined) cnt[e.status]++; });
@@ -11135,7 +11138,7 @@ function preencherRelatorioVistoria(vis){
 
   // Meta strip
   const cont=document.getElementById('pd-cont-vis');
-  if(cont){ const mRef=vis.mes_ref?new Date(vis.mes_ref+'-01').toLocaleDateString('pt-BR',{month:'long',year:'numeric'}):''; cont.textContent=`Referência: ${mRef}`; }
+  if(cont){ const mRef=vis.mes_ref?new Date(+vis.mes_ref.split('-')[0],+vis.mes_ref.split('-')[1]-1,1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'}):''; cont.textContent=`Referência: ${mRef}`; }
   const meta=document.getElementById('pd-meta-vis');
   if(meta){ const tel=LC.tel||''; meta.innerHTML=`${LC.nome||''}<br>${tel}`; }
 
@@ -11405,7 +11408,7 @@ async function enviarEmailVistoria(vis){
   const statusTxt={bom:'✅ Bom',atencao:'⚠️ Atenção',critico:'🔴 Crítico',na:'N/A'};
   const resumoLinhas = equips.filter(e=>e.status!=='na').map(e=>`• ${e.nome}: ${statusTxt[e.status]||e.status}${e.obs?' — '+e.obs:''}`);
   const resumo = resumoLinhas.join('\n') || 'Nenhum equipamento vistoriado com problemas.';
-  const mesRef = vis.mes_ref ? new Date(vis.mes_ref+'-01').toLocaleDateString('pt-BR',{month:'long',year:'numeric'}) : '';
+  const mesRef = vis.mes_ref ? new Date(+vis.mes_ref.split('-')[0],+vis.mes_ref.split('-')[1]-1,1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'}) : '';
   const dataVisita = vis.data ? new Date(vis.data+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric'}) : '';
 
   // Conta críticos e atenções para assunto dinâmico
