@@ -5662,7 +5662,7 @@ async function salvarApenas(){
           try{
             const {data:rows}=await db.from('orcamentos').select('numero').order('numero',{ascending:false}).limit(1);
             const dbNum=rows&&rows.length?(rows[0].numero||0)+1:num;
-            const {data:ins,error:insErr}=await orcSyncInsert({...camposBase,numero:dbNum,status:'pendente'});
+            const {data:ins,error:insErr}=await orcSyncInsert({...camposBase,numero:dbNum,status:'pendente',data_criacao:now});
             if(insErr){ console.warn('Sync BD falhou — orçamento permanece local:', insErr.message); return; }
             if(ins){
               lsOrcRemover(tempId);
@@ -5746,7 +5746,7 @@ async function gerarPDF(){
         try{
           const {data:rows}=await db.from('orcamentos').select('numero').order('numero',{ascending:false}).limit(1);
           const dbNum=rows&&rows.length?(rows[0].numero||0)+1:num;
-          const {data:ins,error:insErr}=await orcSyncInsert({...camposBase,numero:dbNum,status:'pendente'});
+          const {data:ins,error:insErr}=await orcSyncInsert({...camposBase,numero:dbNum,status:'pendente',data_criacao:now});
           if(insErr){ console.warn('gerarPDF: sync BD falhou — orçamento permanece local:', insErr.message); return; }
           if(ins){
             lsOrcRemover(tempId);
@@ -6435,8 +6435,9 @@ function _orcListaMes(){
   let lista=filtrarPorLoja(todosOrc);
   if(orcMesRef){
     lista=lista.filter(o=>{
-      const d=o.data_criacao?new Date(o.data_criacao):null;
-      if(!d) return false;
+      // usa _orcData para fallback em registros antigos sem data_criacao
+      const d=_orcData(o);
+      if(!d||isNaN(d)) return true; // sem data → inclui (evita sumir no filtro)
       return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')===orcMesRef;
     });
   }
