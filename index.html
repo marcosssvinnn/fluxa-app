@@ -6533,8 +6533,9 @@ function renderTabela(){
     const recCl=rec>=ttl&&ttl>0?'opaid':rec>0?'opaid partial':'opaid none';
     const recTxt=rec>0?brl(rec):'—';
     const notaIcon=o.nota_interna?` <span title="${esc(o.nota_interna)}" style="cursor:help">📝</span>`:'';
+    const pendSync=String(o.id).startsWith('local_');
     h+=`<tr>
-      <td><span class="on">#${num}</span></td>
+      <td><span class="on">#${num}</span>${pendSync?'<div title="Não sincronizado com o banco — aguardando conexão" style="font-size:9px;font-weight:700;color:#dc2626;background:#fee2e2;border-radius:4px;padding:1px 5px;margin-top:2px;text-align:center">⚠ PEND.</div>':''}</td>
       <td><div class="ocl">${esc(o.cliente||'—')}${notaIcon}</div><div class="oloc">${esc(o.local_servico||'')}</div><div class="osvc" title="${esc(svs)}">${esc(svs)}</div><div style="margin-top:3px;display:flex;gap:5px;flex-wrap:wrap;align-items:center">${getLojaBadge(o.loja_id)}${getOrigemBadge(o.origem_cliente)}</div>${(()=>{ const etapas=[]; const st=o.status||'pendente'; const osVinc=(todosOS||[]).find(x=>x.orcamento_id===o.id); const entregue=!orcTemEntregaPendente(o)&&(o.servicos||[]).some(s=>s.produto_id); const etApr=st==='aprovado'||st==='recusado'||osVinc||entregue; const etOS=!!osVinc; const etConc=osVinc?.status==='concluido'; const dot=(ok,lbl)=>`<span style="display:flex;align-items:center;gap:2px;font-size:10px;color:${ok?'#16a34a':'#9ca3af'};font-weight:${ok?'700':'400'}">${ok?'●':'○'} ${lbl}</span>`; return `<div style="display:flex;gap:6px;align-items:center;margin-top:4px;flex-wrap:wrap">${dot(true,'Criado')}›${dot(etApr,'Aprovado')}›${dot(etOS,'OS')}›${dot(etConc,'Concluído')}</div>`; })()}</td>
       ${ocultarFinanceiro?'':'<td><span class="otot">'+brl(ttl)+'</span><br><span class="'+recCl+'" style="font-size:11px">'+recTxt+'</span></td>'}
       <td><span class="odt">${dt}</span></td>
@@ -7773,9 +7774,34 @@ window.addEventListener('beforeunload', function(e){
   if(!activePage) return;
   const pid = activePage.id;
   if((pid === 'page-form' || pid === 'page-os') && gV(pid==='page-form'?'cli':'os-cli')){
-    e.preventDefault(); e.returnValue = '';
+    e.preventDefault(); e.returnValue = ''; return;
+  }
+  // Avisa se há orçamentos não sincronizados com o banco
+  const pendentes=lsOrcLer().filter(x=>String(x.id).startsWith('local_'));
+  if(pendentes.length){
+    e.preventDefault();
+    e.returnValue=`Atenção: ${pendentes.length} orçamento(s) ainda não foram sincronizados com o banco. Feche somente após ver o indicador ✅ na tabela.`;
   }
 });
+
+// Sync automático em background: tenta reenviar local_* a cada 90 segundos
+(function _iniciarSyncPeriodico(){
+  async function _tentarSync(){
+    if(!dbOk||!db) return;
+    const pendentes=lsOrcLer().filter(x=>String(x.id).startsWith('local_'));
+    if(!pendentes.length) return;
+    console.log(`[sync-auto] ${pendentes.length} orçamento(s) pendente(s), reenviando…`);
+    const mudou=await _reenviarOrcamentosLocais(pendentes).catch(()=>false);
+    if(mudou){
+      lsOrcSalvar(todosOrc);
+      atualizarDash(); renderTabela();
+      toast('✅ Orçamentos pendentes sincronizados!');
+    }
+  }
+  setInterval(_tentarSync, 90000);
+  // Também tenta ao voltar para a aba (ex.: usuário estava offline e voltou)
+  document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') setTimeout(_tentarSync,2000); });
+})();
 
 // M-01 — Diálogo de confirmação acessível (substitui window.confirm)
 function confirmar(msg, cbSim, titulo, cbNao, labelNao, labelSim){
