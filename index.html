@@ -7116,7 +7116,9 @@ async function loadMinhasOS(){
   if(dbOk && db){
     try{
       // Carrega TODAS e filtra no cliente (casar por nome exato no banco era frágil)
-      const {data} = await db.from('ordens_servico').select('*').order('data_servico', {ascending:true});
+      let q = db.from('ordens_servico').select('*').order('data_servico', {ascending:true});
+      if(lojaAtiva) q=q.eq('loja_id', lojaAtiva);
+      const {data} = await q;
       if(data) lista = data;
     }catch(e){ console.warn('[loadMinhasOS]', e?.message||e); }
   }
@@ -7281,7 +7283,7 @@ function renderClientes(){
   }
   // Faturamento por cliente (todos os orçamentos aprovados, todas as lojas)
   const fatPorNome={};
-  todosOrc.filter(o=>o.status==='aprovado').forEach(o=>{ const n=(o.cliente||'').toLowerCase(); fatPorNome[n]=(fatPorNome[n]||0)+(o.total||0); });
+  filtrarPorLoja(todosOrc).filter(o=>o.status==='aprovado').forEach(o=>{ const n=(o.cliente||'').toLowerCase(); fatPorNome[n]=(fatPorNome[n]||0)+(o.total||0); });
   lista.sort((a,b)=>(fatPorNome[(b.nome||'').toLowerCase()]||0)-(fatPorNome[(a.nome||'').toLowerCase()]||0) || (a.nome||'').localeCompare(b.nome||''));
   if(!lista.length){ el.innerHTML=`<div class="empty-st"><div class="ei">👥</div><p>${busca?'Nenhum cliente encontrado.':'Nenhum cliente cadastrado.'}</p>${busca?'':'<button class="btn-primary" style="margin-top:12px" onclick="mostrarFormCliente()">＋ Cadastrar Cliente</button>'}</div>`; return; }
   el.innerHTML=lista.map(c=>{
@@ -7340,10 +7342,10 @@ function verHistoricoCliente(cliId){
   const lista=lsCliLer();
   const cli=lista.find(x=>x.id===cliId); if(!cli){ toast('Cliente não encontrado'); return; }
   const nomeL=cli.nome.toLowerCase();
-  const orcCli=todosOrc.filter(o=>(o.cliente||'').toLowerCase()===nomeL||o.cliente_id===cliId);
-  const osCli=todosOS.filter(o=>(o.cliente||'').toLowerCase()===nomeL||o.cliente_id===cliId);
-  const visCli=lsVisLer().filter(v=>(v.cliente||'').toLowerCase()===nomeL);
-  const agCli=todosAg.filter(a=>(a.cliente||'').toLowerCase()===nomeL);
+  const orcCli=filtrarPorLoja(todosOrc).filter(o=>(o.cliente||'').toLowerCase()===nomeL||o.cliente_id===cliId);
+  const osCli=filtrarPorLoja(todosOS).filter(o=>(o.cliente||'').toLowerCase()===nomeL||o.cliente_id===cliId);
+  const visCli=filtrarPorLoja(lsVisLer(),'loja_id').filter(v=>(v.cliente||'').toLowerCase()===nomeL);
+  const agCli=filtrarPorLoja(todosAg).filter(a=>(a.cliente||'').toLowerCase()===nomeL);
   const totalFat=orcCli.filter(o=>o.status==='aprovado').reduce((a,o)=>a+(o.total||0),0);
   const totalOS=osCli.filter(o=>o.status==='concluido').reduce((a,o)=>a+(o.total||0),0);
   const stC={aprovado:'var(--green)',pendente:'var(--yellow)',recusado:'var(--red)',vencido:'var(--gray)',agendado:'var(--blue)',concluido:'var(--green)',cancelado:'var(--red)'};
@@ -8105,10 +8107,12 @@ async function renderPortal(cli){
   }
 
   // Orçamentos pendentes — fix #D: busca do Supabase se todosOrc estiver vazio (portal aberto sem login prévio)
-  let orcsCliente=todosOrc.filter(o=>(o.cliente||'').toLowerCase()===cli.nome.toLowerCase()&&o.status==='pendente');
+  let orcsCliente=filtrarPorLoja(todosOrc).filter(o=>(o.cliente||'').toLowerCase()===cli.nome.toLowerCase()&&o.status==='pendente');
   if(!orcsCliente.length && dbOk && db){
     try{
-      const {data:orcDb}=await db.from('orcamentos').select('*').ilike('cliente',cli.nome).eq('status','pendente').order('data_criacao',{ascending:false});
+      let qOrc=db.from('orcamentos').select('*').ilike('cliente',cli.nome).eq('status','pendente').order('data_criacao',{ascending:false});
+      if(cli.loja_id) qOrc=qOrc.eq('loja_id',cli.loja_id);
+      const {data:orcDb}=await qOrc;
       if(orcDb&&orcDb.length){
         orcsCliente=orcDb;
         // Adiciona ao cache em memória para aprovarOrcPortal funcionar
@@ -8539,7 +8543,7 @@ function renderDespesas(){
   if(filtTec) lista=lista.filter(d=>d.tecnico===filtTec);
   if(filtSt) lista=lista.filter(d=>d.status===filtSt);
   const agora=new Date(), mesAtual=agora.getMonth(), anoAtual=agora.getFullYear();
-  const doMes=todasDesp.filter(d=>{ if(!d.data) return false; const dd=new Date(d.data+'T12:00:00'); return dd.getMonth()===mesAtual&&dd.getFullYear()===anoAtual; });
+  const doMes=filtrarPorLoja(todasDesp).filter(d=>{ if(!d.data) return false; const dd=new Date(d.data+'T12:00:00'); return dd.getMonth()===mesAtual&&dd.getFullYear()===anoAtual; });
   const pend=doMes.filter(d=>d.status==='pendente');
   const reimb=doMes.filter(d=>d.status==='reembolsado');
   setV_el('desp-d-pend',brl(pend.reduce((a,d)=>a+(d.valor||0),0)),'textContent');
