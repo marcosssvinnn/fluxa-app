@@ -5056,7 +5056,7 @@ function go(p){
     if(!osEditId) restaurarRascunho('os'); // não restaura draft quando editando OS existente
     // A-04: pré-preenche data de hoje se vazio
     const osDataEl=document.getElementById('os-data');
-    if(osDataEl && !osDataEl.value) osDataEl.value=new Date().toISOString().slice(0,10);
+    if(osDataEl && !osDataEl.value) osDataEl.value=_hojeLocal();
     const l=gV('os-loja')||LOJA_PADRAO_ID;
     atualizarTecsPorLoja(l,'os-tec');
     atualizarTecsPorLoja(l,'os-tec-checkin');
@@ -5146,7 +5146,7 @@ function _perguntarCriarOS(orc){
   document.getElementById('aprov-os-orc-id').value=orc.id;
   document.getElementById('aprov-os-titulo').textContent=`Orçamento #${String(orc.numero||'?').padStart(3,'0')} aprovado!`;
   const dataEl=document.getElementById('aprov-os-data');
-  dataEl.value=orc.data_servico||new Date().toISOString().slice(0,10);
+  dataEl.value=orc.data_servico||_hojeLocal();
   document.getElementById('aprov-os-hora').value='08:00';
   const sel=document.getElementById('aprov-os-tec');
   const tecs=getTecnicos();
@@ -6766,7 +6766,7 @@ function novaOS(){
   renderOsChecklist();
   // Limpa campos de texto (bug: dados da OS anterior ficavam no formulário)
   ['os-cli','os-loc','os-cnpj','os-obs','os-mat','os-total','os-tec'].forEach(id=>setV(id,''));
-  setV('os-data', new Date().toISOString().slice(0,10));
+  setV('os-data', _hojeLocal());
   setV('os-hora','08:00');
   osSvcs=[{id:Date.now(),d:''}]; renderOSSvcs();
 }
@@ -6849,7 +6849,7 @@ function renderOSTabela(){
   );
   if(!lista.length){ document.getElementById('osh-body').innerHTML=`<div class="empty-st"><div class="ei">📋</div><p>Nenhuma OS encontrada.</p><button class="btn-primary" style="margin-top:12px" onclick="novaOS();go('os')">＋ Nova OS</button></div>`; return; }
   // Ordena: pendentes/atrasadas por data crescente primeiro; concluídas/canceladas no final
-  const _hoje=new Date().toISOString().slice(0,10);
+  const _hoje=_hojeLocal();
   lista=lista.slice().sort((a,b)=>{
     const ac=a.status==='concluido'||a.status==='cancelado';
     const bc=b.status==='concluido'||b.status==='cancelado';
@@ -7068,7 +7068,7 @@ function renderMinhasOS(){
     el.innerHTML = `<div class="empty-st"><div class="ei">📋</div><p>Nenhuma OS encontrada.</p></div>`;
     return;
   }
-  const _hj=new Date().toISOString().slice(0,10);
+  const _hj=_hojeLocal();
   // Ordena: pendentes por data crescente; concluídas/canceladas no final
   lista=lista.slice().sort((a,b)=>{
     const ac=a.status==='concluido'||a.status==='cancelado';
@@ -9921,7 +9921,7 @@ function iniciarVistoriaLocal(id){
   document.getElementById('concluir-vis-id').value=id;
   document.getElementById('concluir-vis-nome').textContent=loc.cliente+' — '+loc.local;
   // Data = hoje
-  document.getElementById('concluir-vis-data').value=new Date().toISOString().slice(0,10);
+  document.getElementById('concluir-vis-data').value=_hojeLocal();
   // Horário = hora preferencial do plano, ou hora atual
   const horaEl=document.getElementById('concluir-vis-hora');
   if(horaEl) horaEl.value=loc.hora_pref||new Date().toTimeString().slice(0,5);
@@ -10025,7 +10025,7 @@ async function salvarConcluirVis(){
   const id=window._concluirVisLocalId;
   const loc=locaisVistoria.find(x=>x.id===id);
   if(!loc){ fecharConcluirVis(); return; }
-  const data=document.getElementById('concluir-vis-data').value||new Date().toISOString().slice(0,10);
+  const data=document.getElementById('concluir-vis-data').value||_hojeLocal();
   const hora=document.getElementById('concluir-vis-hora')?.value||new Date().toTimeString().slice(0,5);
   const tec=document.getElementById('concluir-vis-tec').value.trim();
   const obs=document.getElementById('concluir-vis-obs').value.trim();
@@ -10275,13 +10275,13 @@ function initVisitas(){
   const hoje = new Date();
   const dd = document.getElementById('vis-data');
   const mm = document.getElementById('vis-mes-ref');
-  if(dd && !dd.value) dd.value = hoje.toISOString().slice(0,10);
-  if(mm && !mm.value) mm.value = hoje.toISOString().slice(0,7);
+  if(dd && !dd.value) dd.value = _hojeLocal();
+  if(mm && !mm.value) mm.value = _hojeLocal().slice(0,7);
   // Chips de equipamentos
   renderVisChips();
   // Histórico — default = mês atual
   const hmEl = document.getElementById('vis-hist-mes');
-  if(hmEl && !hmEl.value) hmEl.value = hoje.toISOString().slice(0,7);
+  if(hmEl && !hmEl.value) hmEl.value = _hojeLocal().slice(0,7);
   renderVisHistorico();
   // Popula autocomplete técnico no select
   const sel = document.getElementById('vis-tec');
@@ -10692,7 +10692,7 @@ function _montarRecVistoria(){
     local_id: window._visLocalId||'',
     cliente:(document.getElementById('vis-cli')?.value||'').trim(),
     local:(document.getElementById('vis-loc')?.value||'').trim(),
-    data: document.getElementById('vis-data')?.value||new Date().toISOString().slice(0,10),
+    data: document.getElementById('vis-data')?.value||_hojeLocal(),
     hora,
     tecnico: (document.getElementById('vis-tec')?.value||'')||(s?.nome||''),
     mes_ref: mesRef,
@@ -10876,7 +10876,7 @@ function renderVisHistorico(){
   // ── Painel de alertas críticos (clientes com ≥1 item crítico, mês atual se sem filtro) ──
   const alertPanel = document.getElementById('vis-alerta-criticos-panel');
   if(alertPanel){
-    const mesAlerta = mes || new Date().toISOString().slice(0,7);
+    const mesAlerta = mes || _hojeLocal().slice(0,7);
     const scopeAlerta = listaTotal.filter(v=>(v.mes_ref||v.data||'').startsWith(mesAlerta));
     const criticos = scopeAlerta.filter(v=>{
       const equips=(typeof v.equipamentos==='string'?JSON.parse(v.equipamentos||'[]'):v.equipamentos)||[];
@@ -11504,8 +11504,8 @@ async function testarEmailJS(){
   if(st) st.textContent='📨 Enviando…';
   const s=getSessao();
   const testVis={
-    cliente:'TESTE VISTORIA', local:'Endereço de teste', data:new Date().toISOString().slice(0,10),
-    hora:'09:00', tecnico: s?.nome||'Técnico', mes_ref:new Date().toISOString().slice(0,7),
+    cliente:'TESTE VISTORIA', local:'Endereço de teste', data:_hojeLocal(),
+    hora:'09:00', tecnico: s?.nome||'Técnico', mes_ref:_hojeLocal().slice(0,7),
     hora_checkin:'09:00', hora_checkout:'10:30', obs_geral:'E-mail de teste do sistema Fluxa.',
     email_responsavel: (document.getElementById('ejs-test-email')?.value||'').trim(),
     equipamentos:[
@@ -12887,7 +12887,7 @@ function _abrirOCFormModal(oc){
       setTimeout(()=>{ const s=document.getElementById('oc-fornecedor'); if(s) s.value=oc.fornecedor_id||''; },30);
       document.getElementById('oc-form-titulo').innerHTML=`OC #${oc.numero} <button onclick="fecharOCFormModal()" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;line-height:1;margin-left:auto;padding:0 4px">×</button>`;
     } else {
-      setV('oc-edit-id',''); setV('oc-obs',''); setV('oc-data',new Date().toISOString().slice(0,10));
+      setV('oc-edit-id',''); setV('oc-obs',''); setV('oc-data',_hojeLocal());
       document.getElementById('oc-form-titulo').innerHTML=`Nova Ordem de Compra <button onclick="fecharOCFormModal()" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;line-height:1;margin-left:auto;padding:0 4px">×</button>`;
     }
     renderOCItens();
@@ -12928,7 +12928,7 @@ async function salvarOC(status){
   let numero;
   if(!editId){ const max=todasOC.reduce((a,o)=>Math.max(a,o.numero||0),0); numero=max+1; }
   const existente=todasOC.find(o=>o.id===editId);
-  const rec={id, loja_id:lojaAtiva||LOJA_PADRAO_ID, numero:numero||existente?.numero||1, fornecedor_id:fornId, data:gV('oc-data')||new Date().toISOString().slice(0,10), status: existente?.status==='recebida'?'recebida':(status||'rascunho'), itens:_ocEditItens, total, obs:(gV('oc-obs')||'').trim(), data_criacao:existente?.data_criacao||new Date().toISOString()};
+  const rec={id, loja_id:lojaAtiva||LOJA_PADRAO_ID, numero:numero||existente?.numero||1, fornecedor_id:fornId, data:gV('oc-data')||_hojeLocal(), status: existente?.status==='recebida'?'recebida':(status||'rascunho'), itens:_ocEditItens, total, obs:(gV('oc-obs')||'').trim(), data_criacao:existente?.data_criacao||new Date().toISOString()};
   const idx=todasOC.findIndex(o=>o.id===id);
   if(idx>=0) todasOC[idx]=rec; else todasOC.unshift(rec);
   lsOCSalvar(todasOC);
