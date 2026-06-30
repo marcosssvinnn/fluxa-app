@@ -7261,13 +7261,16 @@ function renderClientes(){
 function novoOrcParaCliente(id){
   const c=lsCliLer().find(x=>x.id===id); if(!c) return;
   novoOrc();
+  // Mantém _skipDraftForm=true até depois de preencher os campos do cliente,
+  // evitando que o rascunho antigo sobrescreva os dados ao chamar go('form')
+  window._skipDraftForm=true;
   setTimeout(()=>{
     setV('cli', c.nome);
     if(c.end)  setV('loc', c.end);
     if(c.tel)  setV('tel-cli', c.tel);
     if(c.cnpj) setV('cnpj-cli', c.cnpj);
-    setOrigemCli('Já é cliente'); // veio da ficha do cliente cadastrado
-    go('form');
+    setOrigemCli('Já é cliente');
+    upd();
   }, 50);
 }
 
