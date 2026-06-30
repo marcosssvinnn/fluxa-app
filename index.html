@@ -5219,7 +5219,7 @@ function novoOrc(){
 // ──────────────────────────────────────────────────
 let fotosB64 = []; // array de até 6 base64 strings
 function initForm(){
-  document.getElementById('data-orc').valueAsDate=new Date();
+  document.getElementById('data-orc').value=_hojeLocal();
   svcs=[]; editId=null; fotosB64=[];
   addSvc('',''); renderPresets(); upd(); renderChips(); renderFotosOrcSlots();
 }
@@ -6691,7 +6691,7 @@ function duplicarOrc(id){
   setV('data-svc','');
   setOrigemCli(o.origem_cliente||'');
   setV('orc-loja',o.loja_id||LOJA_PADRAO_ID);
-  document.getElementById('data-orc').valueAsDate=new Date();
+  document.getElementById('data-orc').value=_hojeLocal();
   setV('disc-v',String(o.desconto||0)); setV('disc-t','R$');
   svcs=(o.servicos||[]).map(s=>({id:Date.now()+Math.random(),d:s.desc,p:String(s.precoUnit||s.preco||''),qty:s.qty||1,produto_id:s.produto_id||null}));
   if(!svcs.length) svcs=[{id:Date.now(),d:'',p:''}];
@@ -7607,6 +7607,8 @@ function iniciarRealtimeSync(){
 // ──────────────────────────────────────────────────
 function gV(id){ return (document.getElementById(id)||{}).value||''; }
 function setV(id,v){ const el=document.getElementById(id); if(el) el.value=v; }
+// Retorna a data de hoje no formato YYYY-MM-DD em horário local (não UTC)
+function _hojeLocal(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function setV_el(id,v,prop){ const el=document.getElementById(id); if(el) el[prop]=v; }
 function show(id){ const el=document.getElementById(id); if(el) el.style.display='flex'; }
 function hide(id){ const el=document.getElementById(id); if(el) el.style.display='none'; }
@@ -8219,7 +8221,7 @@ let todasDesp = [], despFotoB64 = '';
 
 function abrirFormDesp(){
   document.getElementById('desp-form-card').style.display='block';
-  document.getElementById('desp-data').valueAsDate=new Date();
+  document.getElementById('desp-data').value=_hojeLocal();
   populaDespTecSelect();
   filtrarOSDesp('');
   document.getElementById('desp-form-card').scrollIntoView({behavior:'smooth'});
@@ -8422,7 +8424,7 @@ function filtrarCliAg(v){
 
 function abrirFormAg(){
   document.getElementById('ag-form-card').style.display='block';
-  document.getElementById('ag-inicio').valueAsDate=new Date();
+  document.getElementById('ag-inicio').value=_hojeLocal();
   populaTecSelects(); updAgForm();
   document.getElementById('ag-form-card').scrollIntoView({behavior:'smooth'});
 }
