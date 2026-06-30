@@ -6121,14 +6121,21 @@ async function loadHist(){
 
 // Migração única: aprovados sem data_aprovacao → usa data_criacao como referência contábil
 // Importa clientes de orçamentos/OS históricos para a base de clientes (roda uma vez após sync)
+// Aquamotor é sempre isolada — nunca mescla com Fortemp
 function _migrarClientesDeOrcamentos(){
   let mudou=false;
   const todos=[...todosOrc, ...todosOS];
   todos.forEach(o=>{
     const nome=(o.cliente||'').trim(); if(!nome||nome==='—') return;
     const lojaId=o.loja_id||LOJA_PADRAO_ID;
+    const eAqua=lojaId==='aquamotor';
     const lista=lsCliLer();
-    const idx=lista.findIndex(c=>(c.nome||'').toLowerCase()===nome.toLowerCase());
+    const idx=lista.findIndex(c=>{
+      if((c.nome||'').toLowerCase()!==nome.toLowerCase()) return false;
+      const lojas=c.lojas||[c.loja_id].filter(Boolean);
+      if(eAqua) return lojas.includes('aquamotor');
+      return lojas.some(l=>GRUPO_FORTHEMP.includes(l)||!l);
+    });
     if(idx>=0){
       const c=lista[idx];
       const lojas=c.lojas||[c.loja_id].filter(Boolean);
@@ -7252,7 +7259,17 @@ function lsCliSalvar(l){ lsSet(LS_CLI_FULL,JSON.stringify(l)); }
 
 
 function renderClientes(){
-  let lista=lsCliLer(); // base unificada — sem filtro de loja
+  // Fortemp: base unificada entre Camboriú e Itapema.
+  // Aquamotor: totalmente separada — só vê os próprios clientes.
+  let lista=lsCliLer();
+  if(lojaAtiva==='aquamotor'){
+    lista=lista.filter(c=>(c.lojas||[c.loja_id]).includes('aquamotor'));
+  } else {
+    lista=lista.filter(c=>{
+      const lojas=c.lojas||[c.loja_id].filter(Boolean);
+      return lojas.length===0 || lojas.some(l=>GRUPO_FORTHEMP.includes(l)||!l);
+    });
+  }
   const el=document.getElementById('clientes-lista');
   const busca=(document.getElementById('cli-busca')?.value||'').toLowerCase().trim();
   if(busca){
@@ -7440,14 +7457,22 @@ function editarCliente(id){
   if(titulo) titulo.textContent='Editar Cliente';
 }
 
-// Auto-cadastra cliente ao gerar orçamento/OS — base unificada entre lojas
+// Auto-cadastra cliente ao gerar orçamento/OS.
+// Aquamotor é isolada: clientes dela nunca se mesclam com a Fortemp.
+// Fortemp Camboriú e Itapema compartilham a mesma base.
 function _autoSalvarCliente(nome, tel, end, cnpj, lojaId){
   if(!nome||nome==='—') return;
   const nomeL=nome.toLowerCase();
+  const eAqua=lojaId==='aquamotor';
   const lista=lsCliLer();
-  const idx=lista.findIndex(c=>(c.nome||'').toLowerCase()===nomeL);
+  // Busca apenas dentro do mesmo grupo
+  const idx=lista.findIndex(c=>{
+    if((c.nome||'').toLowerCase()!==nomeL) return false;
+    const lojas=c.lojas||[c.loja_id].filter(Boolean);
+    if(eAqua) return lojas.includes('aquamotor');
+    return lojas.some(l=>GRUPO_FORTHEMP.includes(l)||!l);
+  });
   if(idx>=0){
-    // Já existe: acrescenta loja se ainda não estiver registrada
     const c=lista[idx];
     const lojas=c.lojas||[c.loja_id].filter(Boolean);
     if(lojaId&&!lojas.includes(lojaId)){ lojas.push(lojaId); lista[idx]={...c,lojas}; lsCliSalvar(lista);
@@ -7455,7 +7480,6 @@ function _autoSalvarCliente(nome, tel, end, cnpj, lojaId){
     }
     return;
   }
-  // Novo cliente
   const novo={id:'cli_'+Date.now(),nome,tel:tel||'',end:end||'',cnpj:cnpj||'',email_responsavel:'',tipo:'',portal_token:crypto.randomUUID(),loja_id:lojaId||LOJA_PADRAO_ID,lojas:[lojaId||LOJA_PADRAO_ID].filter(Boolean)};
   lista.unshift(novo); lsCliSalvar(lista);
   if(dbOk&&db) dbInsert('clientes',{id:novo.id,nome,telefone:tel||null,endereco:end||null,cnpj:cnpj||null,loja_id:novo.loja_id,lojas:novo.lojas}).catch(()=>{});
