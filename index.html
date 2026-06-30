@@ -4692,10 +4692,9 @@ async function carregarClientesRemoto(){
   if(!dbOk||!db) return;
   try{
     let qCli=db.from('clientes').select('*').order('data_criacao',{ascending:false});
-    // Aquamotor isolada no banco. Fortemp sem filtro no banco — filtra localmente
-    // para não perder clientes com loja_id divergente ou recém-migrados só no localStorage
+    // Aquamotor: filtro no banco. Fortemp: sem filtro — clientes têm loja_id=null no banco
+    // (NULL != 'aquamotor' = NULL em SQL, então neq excluiria todos), filtra localmente
     if(lojaAtiva==='aquamotor') qCli=qCli.eq('loja_id','aquamotor');
-    else qCli=qCli.neq('loja_id','aquamotor');
     const {data} = await qCli;
     if(data){
       // merge: BD é fonte de verdade + preserva clientes só no localStorage
