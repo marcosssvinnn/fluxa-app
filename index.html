@@ -4691,24 +4691,23 @@ function uploadLojaLogo(input, lojaId){
 async function carregarClientesRemoto(){
   if(!dbOk||!db) return;
   try{
-    // Regra simples: loja_id='aquamotor' → Aquamotor. Tudo mais (null/fortemp-*) → Fortemp.
-    // Para Fortemp buscamos tudo e filtramos localmente (clientes legados têm loja_id=null).
-    let qCli=db.from('clientes').select('*').order('nome',{ascending:true});
-    if(lojaAtiva==='aquamotor') qCli=qCli.eq('loja_id','aquamotor');
-    const {data,error}=await qCli;
+    // Sempre busca TODOS os clientes — nunca filtra no banco.
+    // A separação Aquamotor/Fortemp é feita em renderClientes().
+    // Filtrar no banco causava sobrescrita do localStorage com só um grupo,
+    // apagando os clientes do outro grupo ao trocar de contexto.
+    const {data,error}=await db.from('clientes').select('*').order('nome',{ascending:true});
     if(error) throw error;
     const local=lsCliLer();
     const dbIds=new Set((data||[]).map(x=>x.id));
-    // BD é fonte de verdade; preserva clientes só locais (criados offline)
+    // Merge: BD é fonte de verdade + preserva clientes criados offline
     const merged=[...(data||[])];
     const soLocal=local.filter(l=>!dbIds.has(l.id));
     soLocal.forEach(l=>merged.push(l));
     lsCliSalvar(merged);
     if(document.getElementById('page-clientes').classList.contains('on')) renderClientes();
-    // Sobe ao Supabase clientes que estão só no localStorage
+    // Sobe ao Supabase clientes criados offline
     soLocal.forEach(c=>{
-      const payload={id:c.id,nome:c.nome,telefone:c.tel||null,endereco:c.end||null,cnpj:c.cnpj||null,email_responsavel:c.email_responsavel||null,loja_id:c.loja_id||null};
-      dbInsert('clientes',payload).catch(()=>{});
+      dbInsert('clientes',{id:c.id,nome:c.nome,telefone:c.tel||null,endereco:c.end||null,cnpj:c.cnpj||null,email_responsavel:c.email_responsavel||null,loja_id:c.loja_id||null}).catch(()=>{});
     });
   }catch(e){ console.warn('[carregarClientesRemoto]', e?.message||e); }
 }
@@ -5045,7 +5044,7 @@ function go(p){
     if(!editId && lojaAtiva) setV('orc-loja', lojaAtiva);
   }
   if(p==='os-history') loadOSHist();
-  if(p==='clientes') renderClientes();
+  if(p==='clientes'){ renderClientes(); carregarClientesRemoto(); }
   if(p==='empresa') preencherFormEmpresa();
   if(p==='equipamentos') loadEquipamentos();
   if(p==='agendamentos'){ loadAgendamentos(); populaTecSelects(); initCal(); renderCal(); }
