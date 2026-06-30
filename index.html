@@ -4691,29 +4691,25 @@ function uploadLojaLogo(input, lojaId){
 async function carregarClientesRemoto(){
   if(!dbOk||!db) return;
   try{
-    let qCli=db.from('clientes').select('*').order('data_criacao',{ascending:false});
-    // Aquamotor: filtro no banco. Fortemp: sem filtro — clientes têm loja_id=null no banco
-    // (NULL != 'aquamotor' = NULL em SQL, então neq excluiria todos), filtra localmente
+    // Regra simples: loja_id='aquamotor' → Aquamotor. Tudo mais (null/fortemp-*) → Fortemp.
+    // Para Fortemp buscamos tudo e filtramos localmente (clientes legados têm loja_id=null).
+    let qCli=db.from('clientes').select('*').order('nome',{ascending:true});
     if(lojaAtiva==='aquamotor') qCli=qCli.eq('loja_id','aquamotor');
-    const {data} = await qCli;
-    if(data){
-      // merge: BD é fonte de verdade + preserva clientes só no localStorage
-      const local = lsCliLer();
-      const dbIds = new Set(data.map(x=>x.id));
-      const merged = [...data];
-      const soLocal = [];
-      local.forEach(l=>{ if(!dbIds.has(l.id)){ merged.push(l); soLocal.push(l); } });
-      lsCliSalvar(merged);
-      if(document.getElementById('page-clientes').classList.contains('on')) renderClientes();
-      // Reenvia ao Supabase clientes que ficaram só no localStorage (migração ou offline)
-      if(soLocal.length){
-        soLocal.forEach(c=>{
-          dbInsert('clientes',{id:c.id,nome:c.nome,telefone:c.tel||null,endereco:c.end||null,cnpj:c.cnpj||null,email_responsavel:c.email_responsavel||null,loja_id:c.loja_id||LOJA_PADRAO_ID,lojas:c.lojas||[]})
-            .catch(()=>{});
-        });
-        console.log(`[clientes] ${soLocal.length} cliente(s) local-only reenviado(s) ao Supabase`);
-      }
-    }
+    const {data,error}=await qCli;
+    if(error) throw error;
+    const local=lsCliLer();
+    const dbIds=new Set((data||[]).map(x=>x.id));
+    // BD é fonte de verdade; preserva clientes só locais (criados offline)
+    const merged=[...(data||[])];
+    const soLocal=local.filter(l=>!dbIds.has(l.id));
+    soLocal.forEach(l=>merged.push(l));
+    lsCliSalvar(merged);
+    if(document.getElementById('page-clientes').classList.contains('on')) renderClientes();
+    // Sobe ao Supabase clientes que estão só no localStorage
+    soLocal.forEach(c=>{
+      const payload={id:c.id,nome:c.nome,telefone:c.tel||null,endereco:c.end||null,cnpj:c.cnpj||null,email_responsavel:c.email_responsavel||null,loja_id:c.loja_id||null};
+      dbInsert('clientes',payload).catch(()=>{});
+    });
   }catch(e){ console.warn('[carregarClientesRemoto]', e?.message||e); }
 }
 function aplicarCFG(){
@@ -6132,35 +6128,26 @@ async function loadHist(){
 }
 
 // Migração única: aprovados sem data_aprovacao → usa data_criacao como referência contábil
-// Importa clientes de orçamentos/OS históricos para a base de clientes (roda uma vez após sync)
-// Aquamotor é sempre isolada — nunca mescla com Fortemp
+// Importa clientes de orçamentos/OS históricos para a base (roda uma vez após sync)
+// Regra: loja_id='aquamotor' → grupo Aquamotor. Qualquer outra → grupo Fortemp.
 function _migrarClientesDeOrcamentos(){
+  const todos=[...todosOrc,...todosOS];
+  let lista=lsCliLer();
   let mudou=false;
-  const todos=[...todosOrc, ...todosOS];
   todos.forEach(o=>{
     const nome=(o.cliente||'').trim(); if(!nome||nome==='—') return;
-    const lojaId=o.loja_id||LOJA_PADRAO_ID;
+    const lojaId=o.loja_id||null;
     const eAqua=lojaId==='aquamotor';
-    const lista=lsCliLer();
-    const idx=lista.findIndex(c=>{
-      if((c.nome||'').toLowerCase()!==nome.toLowerCase()) return false;
-      const lojas=c.lojas||[c.loja_id].filter(Boolean);
-      if(eAqua) return lojas.includes('aquamotor');
-      return lojas.some(l=>GRUPO_FORTHEMP.includes(l)||!l);
-    });
-    if(idx>=0){
-      const c=lista[idx];
-      const lojas=c.lojas||[c.loja_id].filter(Boolean);
-      if(lojaId&&!lojas.includes(lojaId)){ lojas.push(lojaId); lista[idx]={...c,lojas}; lsCliSalvar(lista); mudou=true;
-        if(dbOk&&db&&c.id) dbUpdate('clientes',{lojas},'id',c.id).catch(()=>{});
-      }
-    } else {
-      const novo={id:'cli_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),nome,tel:o.tel_cliente||'',end:o.local_servico||'',cnpj:o.cnpj||'',email_responsavel:'',tipo:'',portal_token:crypto.randomUUID(),loja_id:lojaId,lojas:[lojaId]};
-      lista.unshift(novo); lsCliSalvar(lista); mudou=true;
-      if(dbOk&&db) dbInsert('clientes',{id:novo.id,nome,telefone:novo.tel||null,endereco:novo.end||null,cnpj:novo.cnpj||null,loja_id:lojaId,lojas:novo.lojas}).catch(()=>{});
-    }
+    const jaExiste=lista.some(c=>
+      (c.nome||'').toLowerCase()===nome.toLowerCase() &&
+      (eAqua ? c.loja_id==='aquamotor' : c.loja_id!=='aquamotor')
+    );
+    if(jaExiste) return;
+    const novo={id:'cli_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),nome,tel:o.tel_cliente||'',end:o.local_servico||'',cnpj:o.cnpj||'',email_responsavel:'',tipo:'',portal_token:crypto.randomUUID(),loja_id:lojaId};
+    lista.unshift(novo); mudou=true;
+    if(dbOk&&db) dbInsert('clientes',{id:novo.id,nome,telefone:novo.tel||null,endereco:novo.end||null,cnpj:novo.cnpj||null,loja_id:lojaId}).catch(()=>{});
   });
-  if(mudou) console.log('[migração] base de clientes atualizada a partir dos orçamentos/OS');
+  if(mudou){ lsCliSalvar(lista); console.log('[migração] base de clientes atualizada'); }
 }
 
 async function _migrarDataAprovacao(){
@@ -7273,16 +7260,12 @@ function lsCliSalvar(l){ lsSet(LS_CLI_FULL,JSON.stringify(l)); }
 
 
 function renderClientes(){
-  // Fortemp: base unificada entre Camboriú e Itapema.
-  // Aquamotor: totalmente separada — só vê os próprios clientes.
+  // Regra simples: loja_id='aquamotor' → Aquamotor. Tudo mais → Fortemp.
   let lista=lsCliLer();
   if(lojaAtiva==='aquamotor'){
-    lista=lista.filter(c=>(c.lojas||[c.loja_id]).includes('aquamotor'));
+    lista=lista.filter(c=>c.loja_id==='aquamotor');
   } else {
-    lista=lista.filter(c=>{
-      const lojas=c.lojas||[c.loja_id].filter(Boolean);
-      return lojas.length===0 || lojas.some(l=>GRUPO_FORTHEMP.includes(l)||!l);
-    });
+    lista=lista.filter(c=>c.loja_id!=='aquamotor');
   }
   const el=document.getElementById('clientes-lista');
   const busca=(document.getElementById('cli-busca')?.value||'').toLowerCase().trim();
@@ -7474,29 +7457,22 @@ function editarCliente(id){
 // Auto-cadastra cliente ao gerar orçamento/OS.
 // Aquamotor é isolada: clientes dela nunca se mesclam com a Fortemp.
 // Fortemp Camboriú e Itapema compartilham a mesma base.
+// Auto-cadastra cliente ao salvar orçamento.
+// Regra: loja_id='aquamotor' → grupo Aquamotor. Qualquer outra → grupo Fortemp.
+// Nunca mistura entre grupos.
 function _autoSalvarCliente(nome, tel, end, cnpj, lojaId){
   if(!nome||nome==='—') return;
   const nomeL=nome.toLowerCase();
   const eAqua=lojaId==='aquamotor';
   const lista=lsCliLer();
-  // Busca apenas dentro do mesmo grupo
-  const idx=lista.findIndex(c=>{
-    if((c.nome||'').toLowerCase()!==nomeL) return false;
-    const lojas=c.lojas||[c.loja_id].filter(Boolean);
-    if(eAqua) return lojas.includes('aquamotor');
-    return lojas.some(l=>GRUPO_FORTHEMP.includes(l)||!l);
-  });
-  if(idx>=0){
-    const c=lista[idx];
-    const lojas=c.lojas||[c.loja_id].filter(Boolean);
-    if(lojaId&&!lojas.includes(lojaId)){ lojas.push(lojaId); lista[idx]={...c,lojas}; lsCliSalvar(lista);
-      if(dbOk&&db&&c.id) dbUpdate('clientes',{lojas},'id',c.id).catch(()=>{});
-    }
-    return;
-  }
-  const novo={id:'cli_'+Date.now(),nome,tel:tel||'',end:end||'',cnpj:cnpj||'',email_responsavel:'',tipo:'',portal_token:crypto.randomUUID(),loja_id:lojaId||LOJA_PADRAO_ID,lojas:[lojaId||LOJA_PADRAO_ID].filter(Boolean)};
+  const idx=lista.findIndex(c=>
+    (c.nome||'').toLowerCase()===nomeL &&
+    (eAqua ? c.loja_id==='aquamotor' : c.loja_id!=='aquamotor')
+  );
+  if(idx>=0) return; // já existe neste grupo
+  const novo={id:'cli_'+Date.now(),nome,tel:tel||'',end:end||'',cnpj:cnpj||'',email_responsavel:'',tipo:'',portal_token:crypto.randomUUID(),loja_id:lojaId||null};
   lista.unshift(novo); lsCliSalvar(lista);
-  if(dbOk&&db) dbInsert('clientes',{id:novo.id,nome,telefone:tel||null,endereco:end||null,cnpj:cnpj||null,loja_id:novo.loja_id,lojas:novo.lojas}).catch(()=>{});
+  if(dbOk&&db) dbInsert('clientes',{id:novo.id,nome,telefone:tel||null,endereco:end||null,cnpj:cnpj||null,loja_id:novo.loja_id}).catch(()=>{});
 }
 
 async function salvarNovoCliente(){
