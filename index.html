@@ -821,6 +821,7 @@
     .chi-right{text-align:right;flex-shrink:0}
     .chi-val{font-size:13px;font-weight:700}
     .chi-badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:50px;margin-top:4px}
+    .chi-contato{display:flex;flex-wrap:wrap;gap:6px 14px;padding:10px 20px;font-size:12px;color:var(--gray);border-bottom:1px solid var(--gray-light)}
 
     /* ── ASSINATURA PORTAL ── */
     .sig-section{margin-top:14px;padding:16px;background:var(--white);border-radius:12px;border:1.5px solid var(--gray-mid)}
@@ -7236,17 +7237,21 @@ function verHistoricoCliente(cliId){
   const cli=lista.find(x=>x.id===cliId); if(!cli){ toast('Cliente não encontrado'); return; }
   const nomeL=cli.nome.toLowerCase();
   const orcCli=todosOrc.filter(o=>(o.cliente||'').toLowerCase()===nomeL||o.cliente_id===cliId);
-  const osCli=todosOS.filter(o=>(o.cliente||'').toLowerCase()===nomeL);
+  const osCli=todosOS.filter(o=>(o.cliente||'').toLowerCase()===nomeL||o.cliente_id===cliId);
+  const visCli=lsVisLer().filter(v=>(v.cliente||'').toLowerCase()===nomeL);
+  const agCli=todosAg.filter(a=>(a.cliente||'').toLowerCase()===nomeL);
   const totalFat=orcCli.filter(o=>o.status==='aprovado').reduce((a,o)=>a+(o.total||0),0);
+  const totalOS=osCli.filter(o=>o.status==='concluido').reduce((a,o)=>a+(o.total||0),0);
   const stC={aprovado:'var(--green)',pendente:'var(--yellow)',recusado:'var(--red)',vencido:'var(--gray)',agendado:'var(--blue)',concluido:'var(--green)',cancelado:'var(--red)'};
   const stBg={aprovado:'var(--green-bg)',pendente:'var(--yellow-bg)',recusado:'var(--red-bg)',vencido:'var(--gray-light)',agendado:'var(--blue-bg)',concluido:'var(--green-bg)',cancelado:'var(--red-bg)'};
+  const _dt=(d,safe)=>{ if(!d) return '—'; try{ return new Date(safe?d+'T12:00:00':d).toLocaleDateString('pt-BR'); }catch(e){ return '—'; } };
   const existing=document.getElementById('modal-hist-cli'); if(existing) existing.remove();
   const m=document.createElement('div'); m.id='modal-hist-cli'; m.className='cli-hist-overlay';
   const orcHTML=orcCli.length?[...orcCli].sort((a,b)=>(b.numero||0)-(a.numero||0)).map(o=>`
     <div class="chi">
       <div>
         <div class="chi-desc">Orçamento #${String(o.numero||'').padStart(3,'0')}</div>
-        <div class="chi-sub">${esc((o.servicos||[]).map(s=>s.desc||s).slice(0,2).join(', '))||'—'} · ${o.data_criacao?new Date(o.data_criacao).toLocaleDateString('pt-BR'):'—'}</div>
+        <div class="chi-sub">${esc((o.servicos||[]).map(s=>s.desc||s).slice(0,2).join(', '))||'—'} · ${_dt(o.data_criacao)}</div>
       </div>
       <div class="chi-right">
         <div class="chi-val">${brl(o.total||0)}</div>
@@ -7258,7 +7263,7 @@ function verHistoricoCliente(cliId){
     <div class="chi">
       <div>
         <div class="chi-desc">OS #${String(o.numero||'').padStart(3,'0')} · ${esc(o.tecnico||'—')}</div>
-        <div class="chi-sub">${esc(Array.isArray(o.servicos)?o.servicos.map(s=>typeof s==='string'?s:(s.desc||s)).slice(0,2).join(', '):'')||'—'} · ${o.data_servico?new Date(o.data_servico+'T12:00:00').toLocaleDateString('pt-BR'):'—'}</div>
+        <div class="chi-sub">${esc(Array.isArray(o.servicos)?o.servicos.map(s=>typeof s==='string'?s:(s.desc||s)).slice(0,2).join(', '):'')||'—'} · ${_dt(o.data_servico, true)}</div>
       </div>
       <div class="chi-right">
         <div class="chi-val">${o.total?brl(o.total):'—'}</div>
@@ -7266,22 +7271,57 @@ function verHistoricoCliente(cliId){
       </div>
     </div>`).join('')
     :'<div style="padding:10px 0;font-size:13px;color:var(--gray)">Nenhuma OS encontrada</div>';
+  const visHTML=visCli.length?[...visCli].sort((a,b)=>(b.data||'').localeCompare(a.data||'')).map(v=>`
+    <div class="chi">
+      <div>
+        <div class="chi-desc">Vistoria · ${esc(v.local||v.local_servico||'—')}</div>
+        <div class="chi-sub">${esc(v.tecnico||'—')} · ${_dt(v.data, true)}</div>
+      </div>
+      <div class="chi-right">
+        <span class="chi-badge" style="background:${v.status==='concluido'?'var(--green-bg)':'var(--blue-bg)'};color:${v.status==='concluido'?'var(--green)':'var(--blue)'}">${v.status||'realizada'}</span>
+      </div>
+    </div>`).join('')
+    :'<div style="padding:10px 0;font-size:13px;color:var(--gray)">Nenhuma vistoria encontrada</div>';
+  const agHTML=agCli.length?[...agCli].sort((a,b)=>(b.data||'').localeCompare(a.data||'')).map(a=>`
+    <div class="chi">
+      <div>
+        <div class="chi-desc">${esc(a.tipo_servico||'Agendamento')} · ${esc(a.local_servico||'—')}</div>
+        <div class="chi-sub">${esc(a.tecnico||'—')} · ${_dt(a.data, true)}${a.hora?' às '+a.hora:''}</div>
+      </div>
+      <div class="chi-right">
+        <span class="chi-badge" style="background:${stBg[a.status]||'var(--blue-bg)'};color:${stC[a.status]||'var(--blue)'}">${a.status||'agendado'}</span>
+      </div>
+    </div>`).join('')
+    :'<div style="padding:10px 0;font-size:13px;color:var(--gray)">Nenhum agendamento encontrado</div>';
+  const totalGeral=totalFat+totalOS;
   m.innerHTML=`<div class="cli-hist-box">
     <div class="cli-hist-hdr">
       <div class="cli-hist-titulo">📋 ${esc(cli.nome)}</div>
       <button class="cli-hist-close" onclick="document.getElementById('modal-hist-cli').remove()">×</button>
     </div>
     <div class="cli-hist-body">
+      ${cli.tel||cli.email_responsavel||cli.cnpj?`<div class="chi-contato">
+        ${cli.tel?`<span>📞 ${esc(cli.tel)}</span>`:''}
+        ${cli.email_responsavel?`<span>✉ ${esc(cli.email_responsavel)}</span>`:''}
+        ${cli.cnpj?`<span>🏢 ${esc(cli.cnpj)}</span>`:''}
+      </div>`:''}
       <div class="cli-hist-resumo">
         <div class="chr-item"><span class="chr-val">${orcCli.length}</span><div class="chr-label">Orçamentos</div></div>
-        <div class="chr-item"><span class="chr-val">${osCli.length}</span><div class="chr-label">OS realizadas</div></div>
-        <div class="chr-item"><span class="chr-val">${brl(totalFat)}</span><div class="chr-label">Faturado</div></div>
+        <div class="chr-item"><span class="chr-val">${osCli.length}</span><div class="chr-label">OS</div></div>
+        <div class="chr-item"><span class="chr-val">${visCli.length}</span><div class="chr-label">Vistorias</div></div>
+        <div class="chr-item"><span class="chr-val">${brl(totalGeral)}</span><div class="chr-label">Faturado</div></div>
       </div>
       <div class="cli-hist-secao">
         <div class="cli-hist-sec-titulo">Orçamentos</div>${orcHTML}
       </div>
       <div class="cli-hist-secao">
         <div class="cli-hist-sec-titulo">Ordens de Serviço</div>${osHTML}
+      </div>
+      <div class="cli-hist-secao">
+        <div class="cli-hist-sec-titulo">Vistorias</div>${visHTML}
+      </div>
+      <div class="cli-hist-secao">
+        <div class="cli-hist-sec-titulo">Agendamentos</div>${agHTML}
       </div>
     </div>
   </div>`;
