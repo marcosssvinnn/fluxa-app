@@ -6435,10 +6435,13 @@ function _orcListaMes(){
   let lista=filtrarPorLoja(todosOrc);
   if(orcMesRef){
     lista=lista.filter(o=>{
-      // usa _orcData para fallback em registros antigos sem data_criacao
-      const d=_orcData(o);
-      if(!d||isNaN(d)) return true; // sem data → inclui (evita sumir no filtro)
-      return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')===orcMesRef;
+      // Aprovados: referência contábil = data_aprovacao (mês em que a venda foi fechada)
+      // Demais status: data_criacao (mês em que foi proposto)
+      const ref = (o.status==='aprovado' && o.data_aprovacao)
+        ? new Date(o.data_aprovacao)
+        : _orcData(o);
+      if(!ref||isNaN(ref)) return true; // sem data → inclui para não sumir
+      return ref.getFullYear()+'-'+String(ref.getMonth()+1).padStart(2,'0')===orcMesRef;
     });
   }
   return lista;
@@ -6534,12 +6537,14 @@ function renderTabela(){
 
 async function mudarSt(id, sel){
   const st=sel.value; sel.className='ss '+st;
-  const o=todosOrc.find(x=>x.id===id); if(o) o.status=st;
-  lsOrcAtualizar(id,{status:st});
+  const changes={status:st};
+  if(st==='aprovado') changes.data_aprovacao=new Date().toISOString();
+  const o=todosOrc.find(x=>x.id===id); if(o) Object.assign(o, changes);
+  lsOrcAtualizar(id, changes);
   if(o) sincronizarBaixaOrcamento(o);
   atualizarDash();
   if(dbOk&&db&&!String(id).startsWith('local_'))
-    db.from('orcamentos').update({status:st}).eq('id',id).then(()=>{}).catch(()=>{});
+    orcSyncUpdate(id, changes).catch(e=>console.warn('[mudarSt]', e?.message||e));
   logAcao('orcamento_status', `#${o?.numero||'?'} ${o?.cliente||''} → ${st}`);
   // Feedback de reserva de estoque ao aprovar + modal para criar OS
   if(st==='aprovado' && o){
@@ -8007,12 +8012,12 @@ async function confirmarAssinatura(orcId){
 }
 
 async function aprovarOrcPortal(id, sigB64){
-  const upd={status:'aprovado'};
+  const upd={status:'aprovado', data_aprovacao:new Date().toISOString()};
   if(sigB64) upd.assinatura_base64=sigB64;
   todosOrc=todosOrc.map(o=>o.id===id?{...o,...upd}:o);
   lsOrcAtualizar(id,upd);
   sincronizarBaixaOrcamento(todosOrc.find(o=>o.id===id)); // baixa do estoque na aprovação pelo cliente
-  if(dbOk&&db) db.from('orcamentos').update(upd).eq('id',id).then(()=>{}).catch(()=>{});
+  if(dbOk&&db) orcSyncUpdate(id, upd).catch(e=>console.warn('[aprovarOrcPortal]', e?.message||e));
   if(portalCliente) await renderPortal(portalCliente);
   toast('✅ Orçamento aprovado e assinado!');
 }
