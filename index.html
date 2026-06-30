@@ -6108,8 +6108,28 @@ async function loadHist(){
         const mudou=await _reenviarOrcamentosLocais(soLocal);
         if(mudou){ lsOrcSalvar(todosOrc); verificarVencidos(); atualizarDash(); renderTabela(); }
       }
+      // Migração única: aprovados sem data_aprovacao recebem data_criacao como referência
+      await _migrarDataAprovacao();
     }catch(e){ console.warn('Sync do histórico falhou:', e?.message||e); }
   }
+}
+
+// Migração única: aprovados sem data_aprovacao → usa data_criacao como referência contábil
+async function _migrarDataAprovacao(){
+  const semData=todosOrc.filter(o=>o.status==='aprovado'&&!o.data_aprovacao&&(o.data_criacao||o.data_orc||o.data));
+  if(!semData.length) return;
+  semData.forEach(o=>{
+    const ref=o.data_criacao||o.data_orc||o.data;
+    o.data_aprovacao=ref;
+    lsOrcAtualizar(o.id,{data_aprovacao:ref});
+  });
+  // Sincroniza cada um com o Supabase em background
+  if(dbOk&&db){
+    for(const o of semData){
+      orcSyncUpdate(o.id,{data_aprovacao:o.data_aprovacao}).catch(e=>console.warn('[migrarDataAprovacao]',e?.message||e));
+    }
+  }
+  console.log(`[migração] data_aprovacao preenchida em ${semData.length} orçamento(s) aprovado(s)`);
 }
 
 function verificarVencidos(){
