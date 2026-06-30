@@ -6546,6 +6546,7 @@ function renderTabela(){
         ${(()=>{ const osVinc=(todosOS||[]).find(x=>x.orcamento_id===o.id); if(osVinc){ const stOS=osVinc.status||'agendado'; const stLabel={agendado:'agendada',em_andamento:'em andamento',concluido:'concluída'}[stOS]||stOS; return `<button class="tb" title="OS #${String(osVinc.numero||'').padStart(3,'0')} — ${stLabel}" onclick="verDetalhesOS('${osVinc.id}')" style="background:#16a34a;color:white;border-color:#16a34a;font-weight:700">✅ OS#${String(osVinc.numero||'').padStart(3,'0')}</button>`; } if(o.status==='aprovado') return `<button class="tb" title="Gerar Ordem de Serviço" onclick="gerarOS_deOrc('${o.id}')" style="background:#C45E0A;color:white;border-color:#C45E0A;font-weight:700">📋 Gerar OS</button>`; return `<button class="tb" title="Gerar OS" onclick="gerarOS_deOrc('${o.id}')">📋</button>`; })()}
         ${orcTemEntregaPendente(o)?`<button class="tb g" title="Marcar como entregue (baixa do estoque)" onclick="entregarOrcamento(getNC('${o.id}'),'manual')">📦 Entregar</button>`:''}
         ${ocultarFinanceiro?'':'<button class="tb g" title="Registrar pagamento" onclick="abrirModalPg(\''+o.id+'\','+ttl+')">💰</button>'}
+        ${o.status==='aprovado'?`<button class="tb" title="Corrigir data de aprovação" onclick="corrigirDataAprovacao('${o.id}')" style="font-size:11px">📅</button>`:''}
         ${!ocultarFinanceiro&&o.status==='aprovado'?`<button class="tb" title="Emitir Nota Fiscal" onclick="abrirModalNFe('${o.id}')" style="background:#7c3aed;color:white;border-radius:6px;padding:4px 7px;font-size:11px;font-weight:700;border:none;cursor:pointer">NF</button>`:''}
         <button class="tb" title="Enviar no WhatsApp" style="background:var(--wa);color:white;border-color:var(--wa)" onclick="enviarNotifWA(notifOrcamento(getNC('${o.id}')), '${o.tel_cliente||''}')">💬 WA</button>
         ${ocultarFinanceiro?'':'<button class="tb d" title="Excluir" onclick="excluirOrc(\''+o.id+'\')">🗑</button>'}
@@ -6554,6 +6555,37 @@ function renderTabela(){
   });
   h+='</tbody></table></div>';
   document.getElementById('hist-body').innerHTML=h;
+}
+
+function corrigirDataAprovacao(id){
+  const o=todosOrc.find(x=>x.id===id); if(!o) return;
+  const atual=o.data_aprovacao?o.data_aprovacao.slice(0,10):'';
+  const m=document.createElement('div');
+  m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center';
+  m.innerHTML=`<div style="background:var(--white);border-radius:14px;padding:22px 24px;width:320px;box-shadow:0 8px 32px rgba(0,0,0,.18)">
+    <div style="font-size:15px;font-weight:800;color:var(--c2);margin-bottom:4px">📅 Data de aprovação</div>
+    <div style="font-size:12px;color:var(--gray);margin-bottom:14px">Orçamento #${String(o.numero||'').padStart(3,'0')} — ${esc(o.cliente||'')}</div>
+    <input type="date" id="_fix-aprov-inp" value="${atual}" style="width:100%;padding:10px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:14px;box-sizing:border-box">
+    <div style="display:flex;gap:10px;margin-top:16px">
+      <button onclick="this.closest('div[style]').remove()" style="flex:1;padding:10px;border:1.5px solid var(--gray-mid);border-radius:8px;background:var(--white);cursor:pointer;font-size:13px">Cancelar</button>
+      <button onclick="_salvarDataAprovacao('${id}')" style="flex:1;padding:10px;border:none;border-radius:8px;background:var(--c1);color:white;cursor:pointer;font-size:13px;font-weight:700">Salvar</button>
+    </div>
+  </div>`;
+  document.body.appendChild(m);
+  m.addEventListener('click',e=>{ if(e.target===m) m.remove(); });
+}
+
+function _salvarDataAprovacao(id){
+  const inp=document.getElementById('_fix-aprov-inp'); if(!inp) return;
+  const val=inp.value; if(!val){ toast('Informe a data'); return; }
+  const iso=val+'T12:00:00.000Z';
+  const o=todosOrc.find(x=>x.id===id); if(o) o.data_aprovacao=iso;
+  lsOrcAtualizar(id,{data_aprovacao:iso});
+  if(dbOk&&db&&!String(id).startsWith('local_'))
+    orcSyncUpdate(id,{data_aprovacao:iso}).catch(e=>console.warn('[fixDataAprov]',e?.message||e));
+  document.querySelector('div[style*="z-index:9999"]')?.remove();
+  atualizarDash(); renderTabela();
+  toast('✅ Data de aprovação corrigida');
 }
 
 async function mudarSt(id, sel){
