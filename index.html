@@ -7446,15 +7446,33 @@ function mostrarFormCliente(){
   wrap.style.display='block';
 }
 
+// Une cadastro de clientes + nomes vistos em orçamentos/OS (mesmo sem cadastro formal)
+function _baseClientesUnificada(){
+  const cadastrados=lsCliLer();
+  const vistos=new Map(); // nome lowercase → {nome, end, tel, cnpj, _cadastrado}
+  cadastrados.forEach(c=>{ if(c.nome) vistos.set(c.nome.toLowerCase(),{nome:c.nome,end:c.end||'',tel:c.tel||'',cnpj:c.cnpj||'',_cadastrado:true}); });
+  (todosOrc||[]).forEach(o=>{
+    const n=(o.cliente||'').trim(); if(!n) return;
+    const k=n.toLowerCase();
+    if(!vistos.has(k)) vistos.set(k,{nome:n,end:o.local_servico||'',tel:o.tel_cliente||'',cnpj:o.cnpj||'',_cadastrado:false});
+  });
+  (todosOS||[]).forEach(o=>{
+    const n=(o.cliente||'').trim(); if(!n) return;
+    const k=n.toLowerCase();
+    if(!vistos.has(k)) vistos.set(k,{nome:n,end:o.local_servico||'',tel:'',cnpj:o.cnpj||'',_cadastrado:false});
+  });
+  return [...vistos.values()];
+}
+
 function mostrarSugestoesCli(val){
   const box=document.getElementById('cli-suggestions'); if(!box) return;
   if(!val||val.length<2){ box.style.display='none'; return; }
   const q=val.toLowerCase();
-  const lista=lsCliLer().filter(c=>
+  const lista=_baseClientesUnificada().filter(c=>
     (c.nome||'').toLowerCase().includes(q)||(c.cnpj||'').replace(/\D/g,'').includes(q.replace(/\D/g,''))
-  ).slice(0,6);
+  ).sort((a,b)=>(b._cadastrado-a._cadastrado)).slice(0,6);
   if(!lista.length){ box.style.display='none'; return; }
-  box.innerHTML=lista.map(c=>`<div class="cli-suggestion-item" onmousedown="selecionarSugestaoCli('${esc(c.nome)}','${esc(c.end||'')}','${esc(c.tel||'')}','${esc(c.cnpj||'')}')"><div class="cli-sug-name">${esc(c.nome)}</div><div class="cli-sug-tel">${[c.tel,c.cnpj].filter(Boolean).map(x=>esc(x)).join(' · ')}</div></div>`).join('');
+  box.innerHTML=lista.map(c=>`<div class="cli-suggestion-item" onmousedown="selecionarSugestaoCli('${esc(c.nome)}','${esc(c.end||'')}','${esc(c.tel||'')}','${esc(c.cnpj||'')}')"><div class="cli-sug-name">${esc(c.nome)}${c._cadastrado?'':' <span style=\'font-size:10px;color:var(--gray);font-weight:400\'>(sem cadastro)</span>'}</div><div class="cli-sug-tel">${[c.tel,c.cnpj].filter(Boolean).map(x=>esc(x)).join(' · ')}</div></div>`).join('');
   box.style.display='block';
 }
 function selecionarSugestaoCli(nome,end,tel,cnpj){
@@ -7469,11 +7487,11 @@ function mostrarSugestoesCliOS(val){
   const box=document.getElementById('os-cli-suggestions'); if(!box) return;
   if(!val||val.length<2){ box.style.display='none'; return; }
   const q=val.toLowerCase();
-  const lista=lsCliLer().filter(c=>
+  const lista=_baseClientesUnificada().filter(c=>
     (c.nome||'').toLowerCase().includes(q)||(c.cnpj||'').replace(/\D/g,'').includes(q.replace(/\D/g,''))
-  ).slice(0,6);
+  ).sort((a,b)=>(b._cadastrado-a._cadastrado)).slice(0,6);
   if(!lista.length){ box.style.display='none'; return; }
-  box.innerHTML=lista.map(c=>`<div class="cli-suggestion-item" onmousedown="selecionarSugestaoCliOS('${esc(c.nome)}','${esc(c.end||'')}','${esc(c.cnpj||'')}')"><div class="cli-sug-name">${esc(c.nome)}</div><div class="cli-sug-tel">${[c.tel,c.cnpj].filter(Boolean).map(x=>esc(x)).join(' · ')}</div></div>`).join('');
+  box.innerHTML=lista.map(c=>`<div class="cli-suggestion-item" onmousedown="selecionarSugestaoCliOS('${esc(c.nome)}','${esc(c.end||'')}','${esc(c.cnpj||'')}')"><div class="cli-sug-name">${esc(c.nome)}${c._cadastrado?'':' <span style=\'font-size:10px;color:var(--gray);font-weight:400\'>(sem cadastro)</span>'}</div><div class="cli-sug-tel">${[c.tel,c.cnpj].filter(Boolean).map(x=>esc(x)).join(' · ')}</div></div>`).join('');
   box.style.display='block';
 }
 function selecionarSugestaoCliOS(nome,end,cnpj){
