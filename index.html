@@ -4545,6 +4545,7 @@ CREATE TABLE IF NOT EXISTS usuarios (
 ALTER TABLE orcamentos     ADD COLUMN IF NOT EXISTS loja_id text; -- fix #B: text, não uuid (valores são strings como 'fortemp-camboriu')
 ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS loja_id text;
 ALTER TABLE clientes       ADD COLUMN IF NOT EXISTS loja_id text;
+ALTER TABLE clientes       ADD COLUMN IF NOT EXISTS lojas jsonb DEFAULT '[]';
 ALTER TABLE agendamentos   ADD COLUMN IF NOT EXISTS loja_id text;
 ALTER TABLE equipamentos   ADD COLUMN IF NOT EXISTS loja_id text;
 ALTER TABLE despesas       ADD COLUMN IF NOT EXISTS loja_id text;
@@ -5646,12 +5647,14 @@ async function salvarApenas(){
       // 2. Tenta sincronizar com BD (sem bloquear)
       if(dbOk&&db&&!String(editId).startsWith('local_'))
         orcSyncUpdate(editId, camposBase).then(r=>{ if(r.error) console.warn('[salvarApenas] update falhou:', r.error.message); }).catch(e=>console.warn('[salvarApenas] update erro:', e?.message||e));
+      _autoSalvarCliente(dados.cli, dados.tel, dados.loc, dados.cnpj, dados.loja_id);
       toast('✅ Orçamento atualizado!');
     } else {
       // ── NOVO ──
       const tempId='local_'+Date.now();
       const num=lsOrcProxNum(); savedNum=num;
       const rec={...camposBase, id:tempId, numero:num, status:'pendente', data_criacao:now};
+      _autoSalvarCliente(dados.cli, dados.tel, dados.loc, dados.cnpj, dados.loja_id);
       // 1. Salva local IMEDIATAMENTE
       lsOrcUpsert(rec);
       todosOrc.unshift(rec);
@@ -5722,6 +5725,7 @@ async function gerarPDF(){
     foto_base64:fotosB64.filter(Boolean).length?JSON.stringify(fotosB64.filter(Boolean)):null, nota_interna:gV('nota-interna')||null
   };
   let num=null;
+  _autoSalvarCliente(dados.cli, dados.tel, dados.loc, dados.cnpj, dados.loja_id);
 
   if(editId){
     // Editando: mantém número existente
@@ -6110,11 +6114,36 @@ async function loadHist(){
       }
       // Migração única: aprovados sem data_aprovacao recebem data_criacao como referência
       await _migrarDataAprovacao();
+      _migrarClientesDeOrcamentos();
     }catch(e){ console.warn('Sync do histórico falhou:', e?.message||e); }
   }
 }
 
 // Migração única: aprovados sem data_aprovacao → usa data_criacao como referência contábil
+// Importa clientes de orçamentos/OS históricos para a base de clientes (roda uma vez após sync)
+function _migrarClientesDeOrcamentos(){
+  let mudou=false;
+  const todos=[...todosOrc, ...todosOS];
+  todos.forEach(o=>{
+    const nome=(o.cliente||'').trim(); if(!nome||nome==='—') return;
+    const lojaId=o.loja_id||LOJA_PADRAO_ID;
+    const lista=lsCliLer();
+    const idx=lista.findIndex(c=>(c.nome||'').toLowerCase()===nome.toLowerCase());
+    if(idx>=0){
+      const c=lista[idx];
+      const lojas=c.lojas||[c.loja_id].filter(Boolean);
+      if(lojaId&&!lojas.includes(lojaId)){ lojas.push(lojaId); lista[idx]={...c,lojas}; lsCliSalvar(lista); mudou=true;
+        if(dbOk&&db&&c.id) dbUpdate('clientes',{lojas},'id',c.id).catch(()=>{});
+      }
+    } else {
+      const novo={id:'cli_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),nome,tel:o.tel_cliente||'',end:o.local_servico||'',cnpj:o.cnpj||'',email_responsavel:'',tipo:'',portal_token:crypto.randomUUID(),loja_id:lojaId,lojas:[lojaId]};
+      lista.unshift(novo); lsCliSalvar(lista); mudou=true;
+      if(dbOk&&db) dbInsert('clientes',{id:novo.id,nome,telefone:novo.tel||null,endereco:novo.end||null,cnpj:novo.cnpj||null,loja_id:lojaId,lojas:novo.lojas}).catch(()=>{});
+    }
+  });
+  if(mudou) console.log('[migração] base de clientes atualizada a partir dos orçamentos/OS');
+}
+
 async function _migrarDataAprovacao(){
   const semData=todosOrc.filter(o=>o.status==='aprovado'&&!o.data_aprovacao&&(o.data_criacao||o.data_orc||o.data));
   if(!semData.length) return;
@@ -7223,8 +7252,7 @@ function lsCliSalvar(l){ lsSet(LS_CLI_FULL,JSON.stringify(l)); }
 
 
 function renderClientes(){
-  let lista=lsCliLer();
-  lista=filtrarPorLoja(lista);
+  let lista=lsCliLer(); // base unificada — sem filtro de loja
   const el=document.getElementById('clientes-lista');
   const busca=(document.getElementById('cli-busca')?.value||'').toLowerCase().trim();
   if(busca){
@@ -7234,18 +7262,21 @@ function renderClientes(){
       || (q && (c.cnpj||'').replace(/\D/g,'').includes(q))
       || (c.end||'').toLowerCase().includes(busca));
   }
-  // Faturamento por cliente (orçamentos aprovados)
+  // Faturamento por cliente (todos os orçamentos aprovados, todas as lojas)
   const fatPorNome={};
-  filtrarPorLoja(todosOrc).filter(o=>o.status==='aprovado').forEach(o=>{ const n=(o.cliente||'').toLowerCase(); fatPorNome[n]=(fatPorNome[n]||0)+(o.total||0); });
+  todosOrc.filter(o=>o.status==='aprovado').forEach(o=>{ const n=(o.cliente||'').toLowerCase(); fatPorNome[n]=(fatPorNome[n]||0)+(o.total||0); });
   lista.sort((a,b)=>(fatPorNome[(b.nome||'').toLowerCase()]||0)-(fatPorNome[(a.nome||'').toLowerCase()]||0) || (a.nome||'').localeCompare(b.nome||''));
   if(!lista.length){ el.innerHTML=`<div class="empty-st"><div class="ei">👥</div><p>${busca?'Nenhum cliente encontrado.':'Nenhum cliente cadastrado.'}</p>${busca?'':'<button class="btn-primary" style="margin-top:12px" onclick="mostrarFormCliente()">＋ Cadastrar Cliente</button>'}</div>`; return; }
   el.innerHTML=lista.map(c=>{
     const fat=fatPorNome[(c.nome||'').toLowerCase()]||0;
+    const lojas=(c.lojas||[c.loja_id]).filter(Boolean);
+    const lojasBadges=lojas.map(lid=>getLojaBadge(lid)).filter(Boolean).join('');
     return `
     <div class="cli-card">
       <div class="cli-card-info">
         <div class="cli-card-nome">${esc(c.nome)}${fat>0?` <span style="font-size:10px;background:var(--green-bg);color:var(--green);padding:1px 7px;border-radius:50px;font-weight:700">${brl(fat)}</span>`:''}</div>
         <div class="cli-card-det">${[c.tel,c.cnpj,c.end].filter(Boolean).map(x=>esc(x)).join(' · ')||'—'}${c.email_responsavel?' · ✉️ '+esc(c.email_responsavel):''}</div>
+        ${lojasBadges?`<div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap">${lojasBadges}</div>`:''}
       </div>
       <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap">
         <button class="tb" onclick="verHistoricoCliente('${c.id}')">📋 Hist.</button>
@@ -7407,6 +7438,27 @@ function editarCliente(id){
   if(btn) btn.textContent='💾 Salvar alterações';
   const titulo=wrap.querySelector('.ct');
   if(titulo) titulo.textContent='Editar Cliente';
+}
+
+// Auto-cadastra cliente ao gerar orçamento/OS — base unificada entre lojas
+function _autoSalvarCliente(nome, tel, end, cnpj, lojaId){
+  if(!nome||nome==='—') return;
+  const nomeL=nome.toLowerCase();
+  const lista=lsCliLer();
+  const idx=lista.findIndex(c=>(c.nome||'').toLowerCase()===nomeL);
+  if(idx>=0){
+    // Já existe: acrescenta loja se ainda não estiver registrada
+    const c=lista[idx];
+    const lojas=c.lojas||[c.loja_id].filter(Boolean);
+    if(lojaId&&!lojas.includes(lojaId)){ lojas.push(lojaId); lista[idx]={...c,lojas}; lsCliSalvar(lista);
+      if(dbOk&&db&&c.id) dbUpdate('clientes',{lojas},'id',c.id).catch(()=>{});
+    }
+    return;
+  }
+  // Novo cliente
+  const novo={id:'cli_'+Date.now(),nome,tel:tel||'',end:end||'',cnpj:cnpj||'',email_responsavel:'',tipo:'',portal_token:crypto.randomUUID(),loja_id:lojaId||LOJA_PADRAO_ID,lojas:[lojaId||LOJA_PADRAO_ID].filter(Boolean)};
+  lista.unshift(novo); lsCliSalvar(lista);
+  if(dbOk&&db) dbInsert('clientes',{id:novo.id,nome,telefone:tel||null,endereco:end||null,cnpj:cnpj||null,loja_id:novo.loja_id,lojas:novo.lojas}).catch(()=>{});
 }
 
 async function salvarNovoCliente(){
