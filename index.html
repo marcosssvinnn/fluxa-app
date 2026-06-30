@@ -4692,18 +4692,28 @@ async function carregarClientesRemoto(){
   if(!dbOk||!db) return;
   try{
     let qCli=db.from('clientes').select('*').order('data_criacao',{ascending:false});
-    // Aquamotor: filtro direto no banco. Fortemp: traz ambas as lojas e filtra localmente
-    // (cliente pode ter loja_id de uma loja mas estar vinculado às duas via campo lojas[])
+    // Aquamotor isolada no banco. Fortemp sem filtro no banco — filtra localmente
+    // para não perder clientes com loja_id divergente ou recém-migrados só no localStorage
     if(lojaAtiva==='aquamotor') qCli=qCli.eq('loja_id','aquamotor');
-    else if(lojaAtiva) qCli=qCli.in('loja_id', GRUPO_FORTHEMP);
+    else qCli=qCli.neq('loja_id','aquamotor');
     const {data} = await qCli;
-    if(data&&data.length){
-      // merge: mantém locais e adiciona/atualiza remotos
+    if(data){
+      // merge: BD é fonte de verdade + preserva clientes só no localStorage
       const local = lsCliLer();
+      const dbIds = new Set(data.map(x=>x.id));
       const merged = [...data];
-      local.forEach(l=>{ if(!merged.find(r=>r.id===l.id)) merged.push(l); });
+      const soLocal = [];
+      local.forEach(l=>{ if(!dbIds.has(l.id)){ merged.push(l); soLocal.push(l); } });
       lsCliSalvar(merged);
       if(document.getElementById('page-clientes').classList.contains('on')) renderClientes();
+      // Reenvia ao Supabase clientes que ficaram só no localStorage (migração ou offline)
+      if(soLocal.length){
+        soLocal.forEach(c=>{
+          dbInsert('clientes',{id:c.id,nome:c.nome,telefone:c.tel||null,endereco:c.end||null,cnpj:c.cnpj||null,email_responsavel:c.email_responsavel||null,loja_id:c.loja_id||LOJA_PADRAO_ID,lojas:c.lojas||[]})
+            .catch(()=>{});
+        });
+        console.log(`[clientes] ${soLocal.length} cliente(s) local-only reenviado(s) ao Supabase`);
+      }
     }
   }catch(e){ console.warn('[carregarClientesRemoto]', e?.message||e); }
 }
