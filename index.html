@@ -7539,9 +7539,9 @@ function _baseClientesUnificada(){
 function mostrarSugestoesCli(val){
   const box=document.getElementById('cli-suggestions'); if(!box) return;
   if(!val||val.length<2){ box.style.display='none'; return; }
-  const q=val.toLowerCase();
+  const q=val.toLowerCase(); const qd=q.replace(/\D/g,'');
   const lista=_baseClientesUnificada().filter(c=>
-    (c.nome||'').toLowerCase().includes(q)||(c.cnpj||'').replace(/\D/g,'').includes(q.replace(/\D/g,''))
+    (c.nome||'').toLowerCase().includes(q)||(qd&&(c.cnpj||'').replace(/\D/g,'').includes(qd))
   ).sort((a,b)=>(b._cadastrado-a._cadastrado)).slice(0,6);
   if(!lista.length){ box.style.display='none'; return; }
   box.innerHTML=lista.map(c=>`<div class="cli-suggestion-item" onmousedown="selecionarSugestaoCli('${esc(c.nome)}','${esc(c.end||'')}','${esc(c.tel||'')}','${esc(c.cnpj||'')}')"><div class="cli-sug-name">${esc(c.nome)}${c._cadastrado?'':' <span style=\'font-size:10px;color:var(--gray);font-weight:400\'>(sem cadastro)</span>'}</div><div class="cli-sug-tel">${[c.tel,c.cnpj].filter(Boolean).map(x=>esc(x)).join(' · ')}</div></div>`).join('');
@@ -7558,9 +7558,9 @@ function hideSugCli(){ const b=document.getElementById('cli-suggestions'); if(b)
 function mostrarSugestoesCliOS(val){
   const box=document.getElementById('os-cli-suggestions'); if(!box) return;
   if(!val||val.length<2){ box.style.display='none'; return; }
-  const q=val.toLowerCase();
+  const q=val.toLowerCase(); const qd=q.replace(/\D/g,'');
   const lista=_baseClientesUnificada().filter(c=>
-    (c.nome||'').toLowerCase().includes(q)||(c.cnpj||'').replace(/\D/g,'').includes(q.replace(/\D/g,''))
+    (c.nome||'').toLowerCase().includes(q)||(qd&&(c.cnpj||'').replace(/\D/g,'').includes(qd))
   ).sort((a,b)=>(b._cadastrado-a._cadastrado)).slice(0,6);
   if(!lista.length){ box.style.display='none'; return; }
   box.innerHTML=lista.map(c=>`<div class="cli-suggestion-item" onmousedown="selecionarSugestaoCliOS('${esc(c.nome)}','${esc(c.end||'')}','${esc(c.cnpj||'')}')"><div class="cli-sug-name">${esc(c.nome)}${c._cadastrado?'':' <span style=\'font-size:10px;color:var(--gray);font-weight:400\'>(sem cadastro)</span>'}</div><div class="cli-sug-tel">${[c.tel,c.cnpj].filter(Boolean).map(x=>esc(x)).join(' · ')}</div></div>`).join('');
@@ -7588,11 +7588,12 @@ function filtrarListaCli(val){
   const q = (val||'').toLowerCase().trim();
   let lista = lsCliLer();
   if(q){
+    const qd=q.replace(/\D/g,'');
     lista = lista.filter(c=>
       (c.nome||'').toLowerCase().includes(q) ||
-      (c.tel||'').replace(/\D/g,'').includes(q.replace(/\D/g,'')) ||
-      (c.cnpj||'').replace(/\D/g,'').includes(q.replace(/\D/g,'')) ||
-      (c.end||'').toLowerCase().includes(q)
+      (qd && (c.tel||c.telefone||'').replace(/\D/g,'').includes(qd)) ||
+      (qd && (c.cnpj||'').replace(/\D/g,'').includes(qd)) ||
+      (c.end||c.endereco||'').toLowerCase().includes(q)
     );
   }
   const el = document.getElementById('modal-cli-lista');
