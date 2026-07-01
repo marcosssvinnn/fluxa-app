@@ -325,6 +325,14 @@
     @media(max-width:600px){
       .cal-grid{grid-template-columns:repeat(7,1fr)!important}
       .cal-day{min-width:0!important;font-size:11px!important;padding:6px 2px!important}
+      /* Tabela do calendário cabe na tela (sem scroll lateral) */
+      .cal-wrap{overflow-x:visible}
+      .cal{min-width:0!important}
+      .cal th{padding:6px 1px!important;font-size:10px!important}
+      .cal td{min-width:0!important;padding:2px 1px!important;height:auto!important;min-height:46px}
+      /* Eventos viram bolinhas coloridas por status; toque abre o detalhe */
+      .cal-ev{display:inline-block;width:11px;height:11px;padding:0!important;margin:1px 2px 1px 0!important;
+              border-radius:50%;font-size:0!important;line-height:0;vertical-align:middle;overflow:hidden}
     }
 
     /* ── PRINT ── */
