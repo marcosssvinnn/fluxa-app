@@ -2765,6 +2765,10 @@
       <div class="fl"><label title="Quantidade extra que fica reservada para emergências">Reserva de segurança</label><input type="text" inputmode="decimal" id="prod-seguranca" placeholder="0"></div>
       <div class="fl"><label title="Quantidade mínima por pedido de compra">Compra mínima (qtd)</label><input type="text" inputmode="decimal" id="prod-lote" placeholder="1"></div>
     </div>
+    <div class="row" style="align-items:end">
+      <div class="fl"><label title="Código do lote de produção do fabricante — só para produtos com validade, ex: cloro">Lote (opcional)</label><input type="text" id="prod-lote-cod" placeholder="Ex: L2026-045"></div>
+      <div class="fl"><label title="Data de validade do lote atual — avisa quando estiver perto de vencer">Validade (opcional)</label><input type="date" id="prod-validade"></div>
+    </div>
     <details style="margin:6px 0 12px">
       <summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--c1)">🧾 Dados para Nota Fiscal (preencher só quando precisar emitir NF)</summary>
       <div class="row f4" style="margin-top:8px">
@@ -12347,6 +12351,20 @@ function curvaABC(){
   return {valor, classe, ordenados, total};
 }
 
+// Status de validade de um produto (para químicos como cloro).
+// Retorna null se não tem validade; senão {txt, cor, bg, vencido, dias}.
+function _validadeInfo(dateStr){
+  if(!dateStr) return null;
+  const val=new Date(dateStr+'T00:00:00'); if(isNaN(val)) return null;
+  const hoje=new Date((typeof _hojeLocal==='function'?_hojeLocal():new Date().toISOString().slice(0,10))+'T00:00:00');
+  const dias=Math.round((val-hoje)/86400000);
+  if(dias<0)  return {txt:'⛔ Vencido', cor:'#b91c1c', bg:'#fee2e2', vencido:true, dias};
+  if(dias<=30) return {txt:`⏳ Vence em ${dias}d`, cor:'#92400e', bg:'#fef3c7', vencido:false, dias};
+  return {txt:`📅 Val ${val.toLocaleDateString('pt-BR')}`, cor:'#475569', bg:'#f1f5f9', vencido:false, dias};
+}
+// Produto com validade vencida ou vencendo em ≤30 dias
+function produtoVencendo(p){ const i=_validadeInfo(p&&p.validade); return !!i && i.dias<=30; }
+
 function renderEstoque(){
   const body=document.getElementById('estoque-body'); if(!body) return;
   const todos=produtosVisiveis(); // ativos da loja
@@ -12354,6 +12372,7 @@ function renderEstoque(){
   const enc=listaEncomendas();
   const repor=todos.filter(p=>{ const m=parseFloat(p.estoque_minimo)||0; const d=disponivelProduto(p.id); return m>0 && d>=0 && d<=m; });
   const parados=todos.filter(p=>produtoParado(p.id));
+  const vencendo=todos.filter(produtoVencendo);
   const abc=curvaABC();
 
   // ── KPIs ──
@@ -12366,7 +12385,8 @@ function renderEstoque(){
     <div class="dc o"><div class="dl">Valor em estoque</div><div class="dv">${brl(valorEstoque)}</div><div class="ds">${todos.length} produto${todos.length!==1?'s':''}</div></div>
     <div class="dc ${enc.length?'r':'g'}" style="cursor:pointer" onclick="filtEstoque('comprar')"><div class="dl">A comprar (encomenda)</div><div class="dv">${enc.length}</div><div class="ds">${brl(valorEncomenda)}</div></div>
     <div class="dc y" style="cursor:pointer" onclick="filtEstoque('repor')"><div class="dl">Repor (mínimo)</div><div class="dv">${repor.length}</div><div class="ds">abaixo do mínimo</div></div>
-    <div class="dc b" style="cursor:pointer" onclick="filtEstoque('parados')"><div class="dl">Capital parado</div><div class="dv">${brl(valorParado)}</div><div class="ds">${parados.length} sem giro (90d)</div></div>`;
+    <div class="dc b" style="cursor:pointer" onclick="filtEstoque('parados')"><div class="dl">Capital parado</div><div class="dv">${brl(valorParado)}</div><div class="ds">${parados.length} sem giro (90d)</div></div>
+    ${vencendo.length?`<div class="dc r" style="cursor:pointer" onclick="filtEstoque('validade')"><div class="dl">Validade</div><div class="dv">${vencendo.length}</div><div class="ds">vencendo/vencido</div></div>`:''}`;
 
   // ── Abas de filtro ──
   const tabs=[
@@ -12374,6 +12394,7 @@ function renderEstoque(){
     ['comprar','📥 A comprar',enc.length],
     ['repor','🔄 Repor',repor.length],
     ['parados','💤 Parados',parados.length],
+    ['validade','⏳ Validade',vencendo.length],
     ['inativos','🚫 Inativos',inativos.length],
   ];
   const tabsEl=document.getElementById('estoque-tabs');
@@ -12384,6 +12405,7 @@ function renderEstoque(){
     : estoqueFiltro==='comprar' ? enc.map(x=>x.p)
     : estoqueFiltro==='repor' ? repor.slice()
     : estoqueFiltro==='parados' ? parados.slice()
+    : estoqueFiltro==='validade' ? vencendo.slice()
     : todos.slice();
   if(estoqueBusca) lista=lista.filter(p=>(p.nome||'').toLowerCase().includes(estoqueBusca)||(p.codigo||'').toLowerCase().includes(estoqueBusca));
   if(estoqueCategoria) lista=lista.filter(p=>(p.categoria||'')===estoqueCategoria);
@@ -12422,11 +12444,14 @@ function renderEstoque(){
 
       // Meta: código, fornecedor, badge
       const categBadge=p.categoria?`<span style="background:#e0f2fe;color:#0369a1;padding:1px 7px;border-radius:50px;font-size:10px;font-weight:700;white-space:nowrap">${esc(p.categoria)}</span>`:'';
+      const valInfo=_validadeInfo(p.validade);
+      const validadeBadge=valInfo?`<span class="est-badge" style="background:${valInfo.bg};color:${valInfo.cor}"${p.lote?` title="Lote: ${esc(p.lote)}"`:''}>${valInfo.txt}${p.lote?' · '+esc(p.lote):''}</span>`:'';
       const metaParts=[
         p.codigo?`<span>Cód: ${esc(p.codigo)}</span>`:'',
         forn?`<span>🏭 ${esc(forn.nome)}</span>`:'',
         categBadge,
         badge,
+        validadeBadge,
       ].filter(Boolean).join('');
 
       // Insight de valores
@@ -12915,6 +12940,7 @@ function abrirProdutoModal(id){
   setV('prod-custo',p?.custo?String(p.custo):''); setV('prod-min',p?.estoque_minimo?String(p.estoque_minimo):'');
   setV('prod-leadtime',p?.lead_time_dias?String(p.lead_time_dias):''); setV('prod-seguranca',p?.estoque_seguranca?String(p.estoque_seguranca):'');
   setV('prod-lote',p?.lote_minimo?String(p.lote_minimo):'');
+  setV('prod-lote-cod',p?.lote||''); setV('prod-validade',p?.validade||'');
   setV('prod-ncm',p?.ncm||''); setV('prod-cest',p?.cest||''); setV('prod-cfop',p?.cfop_padrao||'');
   setV('prod-origem',p?.origem||''); setV('prod-gtin',p?.gtin_ean||'');
   // Preencher select de fornecedor
@@ -12964,6 +12990,7 @@ async function salvarProduto(){
     lead_time_dias:parseFloat((gV('prod-leadtime')||'').replace(',','.'))||null,
     estoque_seguranca:parseFloat((gV('prod-seguranca')||'').replace(',','.'))||0,
     lote_minimo:parseFloat((gV('prod-lote')||'').replace(',','.'))||1,
+    lote:(gV('prod-lote-cod')||'').trim()||null, validade:gV('prod-validade')||null,
     ncm:(gV('prod-ncm')||'').trim(), cest:(gV('prod-cest')||'').trim(),
     cfop_padrao:(gV('prod-cfop')||'').trim(), origem:(gV('prod-origem')||'').trim(),
     gtin_ean:(gV('prod-gtin')||'').trim(),
