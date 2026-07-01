@@ -1571,10 +1571,6 @@
             <button type="button" class="cli-search-btn" onclick="abrirBuscaCli('orc')" title="Buscar cliente na base">🔍</button>
             <div class="cli-suggestions" id="cli-suggestions" style="display:none"></div>
           </div>
-          <div id="chips-wrap" style="display:none">
-            <div class="chip-label">Recentes:</div>
-            <div class="chips" id="chips"></div>
-          </div>
         </div>
         <div class="fl"><label>Local / Endereço</label><input type="text" id="loc" placeholder="Rua das Flores, 123 — Camboriú" oninput="upd()"></div>
       </div>
@@ -5626,7 +5622,6 @@ async function _reenviarOrcamentosLocais(soLocal){
 
 async function salvarApenas(){
   const btn=document.getElementById('btn-salvar');
-  const eraEdicao=!!editId; // capturar antes do fluxo NOVO sobrescrever editId
   const dados=coletarForm();
   if(!dados.cli||dados.cli==='—'){ toast('⚠️ Informe o nome do cliente'); return; }
   if(!dados.origem){ toast('⚠️ Informe de onde veio o cliente'); document.getElementById('origem-cli')?.focus(); document.getElementById('origem-cli')?.scrollIntoView({behavior:'smooth',block:'center'}); return; }
@@ -5698,14 +5693,10 @@ async function salvarApenas(){
     if(document.getElementById('toggle-os')?.checked) await criarOSjunto(dados, savedNum);
     limparRascunho('form');
     toast(`✅ Orçamento #${String(savedNum).padStart(3,'0')} salvo!`);
-    // Ao salvar uma EDIÇÃO, sai do formulário e volta ao histórico.
-    // Sem isto o form ficava preso em modo edição (editId ativo, barra "Voltar"
-    // visível) e reabria o mesmo orçamento ao navegar.
-    if(eraEdicao){
-      editId=null;
-      const bb=document.getElementById('form-back-bar'); if(bb) bb.style.display='none';
-      go('history');
-    }
+    // Após salvar (edição OU novo), sai do formulário e volta ao histórico.
+    editId=null;
+    const bb=document.getElementById('form-back-bar'); if(bb) bb.style.display='none';
+    go('history');
   }catch(e){ console.error(e); toast('⚠️ Erro ao salvar: '+e.message); }
   btn.disabled=false; btn.textContent='Salvar Orçamento';
 }
@@ -5795,6 +5786,10 @@ async function gerarPDF(){
   } else {
     printMode='orc'; window.print();
   }
+  // Após gerar PDF, sai do formulário e volta ao histórico
+  editId=null;
+  const bb=document.getElementById('form-back-bar'); if(bb) bb.style.display='none';
+  go('history');
 }
 
 function updOrigemCli(){
@@ -7685,7 +7680,7 @@ async function autoSalvarClienteDoOrc(dados){
 //  CHIPS CLIENTES
 // ──────────────────────────────────────────────────
 function salvarChip(){ const nm=gV('cli').trim(),lo=gV('loc').trim(); if(!nm) return; let l=JSON.parse(ls('fluxa_clientes')||'[]'); l=l.filter(c=>c.n!==nm); l.unshift({n:nm,l:lo}); if(l.length>8) l=l.slice(0,8); lsSet('fluxa_clientes',JSON.stringify(l)); renderChips(); }
-function renderChips(){ const l=JSON.parse(ls('fluxa_clientes')||'[]'); const w=document.getElementById('chips-wrap'),c=document.getElementById('chips'); if(!l.length){w.style.display='none';return;} w.style.display='block'; c.innerHTML=''; l.forEach(x=>{ const ch=document.createElement('div'); ch.className='chip'; ch.innerHTML=`<span onclick="fillChip('${esc(x.n)}','${esc(x.l)}')">${esc(x.n)}</span><span class="chip-x" onclick="rmChip('${esc(x.n)}')">✕</span>`; c.appendChild(ch); }); }
+function renderChips(){ const w=document.getElementById('chips-wrap'),c=document.getElementById('chips'); if(!w||!c) return; /* seção "Recentes" removida — sugestão/pesquisa substitui */ const l=JSON.parse(ls('fluxa_clientes')||'[]'); if(!l.length){w.style.display='none';return;} w.style.display='block'; c.innerHTML=''; l.forEach(x=>{ const ch=document.createElement('div'); ch.className='chip'; ch.innerHTML=`<span onclick="fillChip('${esc(x.n)}','${esc(x.l)}')">${esc(x.n)}</span><span class="chip-x" onclick="rmChip('${esc(x.n)}')">✕</span>`; c.appendChild(ch); }); }
 function fillChip(n,l){ setV('cli',n); setV('loc',l); upd(); }
 function rmChip(n){ let l=JSON.parse(ls('fluxa_clientes')||'[]'); l=l.filter(c=>c.n!==n); lsSet('fluxa_clientes',JSON.stringify(l)); renderChips(); }
 
