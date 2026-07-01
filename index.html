@@ -7216,7 +7216,7 @@ async function loadMinhasOS(){
   renderMinhasOS();
 }
 function renderMinhasOS(){
-  const lista = (window._minhasOSAll || []).filter(o => {
+  let lista = (window._minhasOSAll || []).filter(o => {
     if(tecOSFiltro === 'pendente') return o.status !== 'concluido' && o.status !== 'cancelado';
     if(tecOSFiltro === 'concluido') return o.status === 'concluido';
     return true;
@@ -7253,6 +7253,10 @@ function renderMinhasOS(){
     const btnWA=o.status==='concluido'&&telCli
       ?`<button class="tb" style="background:var(--wa);color:white;border-color:var(--wa);font-size:11px;padding:5px 8px" title="Enviar relatório ao cliente via WhatsApp" onclick="event.stopPropagation();_enviarRelatorioOSWhats('${o.id}','${telCli}')">💬 WA</button>`:'';
     const btnPDF=`<button class="tb" style="font-size:11px;padding:5px 8px" title="Gerar PDF desta OS" onclick="event.stopPropagation();_gerarPDFdaOS('${o.id}')">📄 PDF</button>`;
+    const naoConcluida=o.status!=='concluido'&&o.status!=='cancelado';
+    // Botão grande de conclusão em 1 toque — para uso em campo, sem abrir o formulário longo
+    const btnConcluir=naoConcluida
+      ?`<button class="tb" style="background:#16a34a;color:white;border-color:#16a34a;font-weight:700;font-size:13px;padding:8px 14px" title="Concluir esta OS (baixa de estoque automática)" onclick="event.stopPropagation();concluirOSHistorico('${o.id}')">✅ Concluir</button>`:'';
     return `<div class="tec-os-card" onclick="editarOS('${o.id}')">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;gap:8px">
         <span class="on">#${num}</span>
@@ -7261,9 +7265,9 @@ function renderMinhasOS(){
       <div class="tec-os-cli">${esc(o.cliente||'—')}</div>
       <div class="tec-os-det">${esc(o.local_servico||'')}${o.local_servico&&dt!=='—'?' · ':''}${dt!=='—'?`<strong>${dt}</strong>`:''}</div>
       ${svcs?`<div class="tec-os-det" style="margin-top:2px;color:var(--gray)">${esc(svcs)}</div>`:''}
-      <div style="margin-top:8px;display:flex;align-items:center;justify-content:space-between;gap:8px">
+      <div style="margin-top:8px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
         <div>${getLojaBadge(o.loja_id)}</div>
-        <div style="display:flex;gap:6px">${btnWA}${btnPDF}</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">${btnWA}${btnPDF}${btnConcluir}</div>
       </div>
     </div>`;
   }).join('');
@@ -12243,6 +12247,8 @@ function concluirOSHistorico(osId){
     // Se era OS de agendamento recorrente, gera a próxima ocorrência
     if(os?.agendamento_id) _gerarProximaOSdoAg(os.agendamento_id, os.data_servico).catch(e=>console.warn('[nextOS]',e?.message||e));
     renderOSTabela();
+    // Atualiza também a lista do técnico (Minhas OS) quando concluído pelo campo
+    if(document.getElementById('page-minhas-os')?.classList.contains('on')) loadMinhasOS();
     toast('✅ OS concluída · estoque baixado automaticamente');
   }, 'Concluir OS');
 }
