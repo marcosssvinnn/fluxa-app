@@ -9252,13 +9252,13 @@ function imprimirQR(){
   const eq=qrEqAtual;
   const url=window.location.origin+window.location.pathname+'#eq/'+eq.id;
   const w=window.open('','_blank');
-  w.document.write(`<!DOCTYPE html><html><head><title>QR Code — ${eq.marca} ${eq.modelo}</title>
+  w.document.write(`<!DOCTYPE html><html><head><title>QR Code — ${esc(eq.marca||'')} ${esc(eq.modelo||'')}</title>
   <style>body{font-family:Inter,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:#f0f2f5}
   .box{background:white;border-radius:16px;padding:32px;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,.1);max-width:300px}
   h2{font-size:18px;margin:0 0 4px}p{font-size:13px;color:#6b7280;margin:0 0 16px}
   img{width:200px;height:200px;border:1px solid #e5e7eb;border-radius:8px}
   small{display:block;font-size:10px;color:#9ca3af;margin-top:12px;word-break:break-all}</style></head>
-  <body><div class="box"><h2>${eq.marca||''} ${eq.modelo||''}</h2><p>${eq.cliente_nome||''} — ${eq.tipo||''}</p>
+  <body><div class="box"><h2>${esc(eq.marca||'')} ${esc(eq.modelo||'')}</h2><p>${esc(eq.cliente_nome||'')} — ${esc(eq.tipo||'')}</p>
   <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}">
   <small>${url}</small></div><script>window.onload=()=>{window.print();setTimeout(()=>window.close(),1000)}<\/script></body></html>`);
   w.document.close();
@@ -9934,7 +9934,7 @@ function renderConcluirVisEquips(equips){
       <div class="cv-eq-hdr">
         <div>
           <div class="cv-eq-name">⚙️ ${esc(eq.nome||'Equipamento')}</div>
-          ${(eq.modelo||eq.potencia)?`<div class="cv-eq-sub">${[eq.modelo,eq.potencia].filter(Boolean).join(' · ')}</div>`:''}
+          ${(eq.modelo||eq.potencia)?`<div class="cv-eq-sub">${[eq.modelo,eq.potencia].filter(Boolean).map(esc).join(' · ')}</div>`:''}
         </div>
         <div class="cv-eq-badges">
           <button class="cv-eq-badge bom" id="cv-eq-b-bom-${i}" onclick="setCvEquipStatus(${i},'bom')">✓ Bom</button>
