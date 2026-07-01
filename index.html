@@ -5626,6 +5626,7 @@ async function _reenviarOrcamentosLocais(soLocal){
 
 async function salvarApenas(){
   const btn=document.getElementById('btn-salvar');
+  const eraEdicao=!!editId; // capturar antes do fluxo NOVO sobrescrever editId
   const dados=coletarForm();
   if(!dados.cli||dados.cli==='—'){ toast('⚠️ Informe o nome do cliente'); return; }
   if(!dados.origem){ toast('⚠️ Informe de onde veio o cliente'); document.getElementById('origem-cli')?.focus(); document.getElementById('origem-cli')?.scrollIntoView({behavior:'smooth',block:'center'}); return; }
@@ -5697,6 +5698,14 @@ async function salvarApenas(){
     if(document.getElementById('toggle-os')?.checked) await criarOSjunto(dados, savedNum);
     limparRascunho('form');
     toast(`✅ Orçamento #${String(savedNum).padStart(3,'0')} salvo!`);
+    // Ao salvar uma EDIÇÃO, sai do formulário e volta ao histórico.
+    // Sem isto o form ficava preso em modo edição (editId ativo, barra "Voltar"
+    // visível) e reabria o mesmo orçamento ao navegar.
+    if(eraEdicao){
+      editId=null;
+      const bb=document.getElementById('form-back-bar'); if(bb) bb.style.display='none';
+      go('history');
+    }
   }catch(e){ console.error(e); toast('⚠️ Erro ao salvar: '+e.message); }
   btn.disabled=false; btn.textContent='Salvar Orçamento';
 }
