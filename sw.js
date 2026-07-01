@@ -1,6 +1,6 @@
 // Altere este número a cada novo deploy para forçar atualização em todos os dispositivos
 // (não é mais obrigatório: o index.html detecta novas versões sozinho via ETag/Last-Modified)
-const CACHE = 'fluxa-v8';
+const CACHE = 'fluxa-v9';
 
 const URLS = [
   'libs/supabase.min.js',
@@ -38,9 +38,11 @@ self.addEventListener('fetch', e => {
 
   const url = new URL(e.request.url);
 
-  // index.html: sempre busca da rede (network-first) para garantir versão mais recente
-  // Se offline, usa cache como fallback
-  if (url.pathname === '/' || url.pathname.endsWith('/index.html') || url.pathname.endsWith('/')) {
+  // index.html, app.js e styles.css: network-first para garantir a versão mais
+  // recente a cada deploy (o app é único e precisa estar sempre em sincronia).
+  // Se offline, usa o cache como fallback.
+  if (url.pathname === '/' || url.pathname.endsWith('/index.html') || url.pathname.endsWith('/')
+      || url.pathname.endsWith('/app.js') || url.pathname.endsWith('/styles.css')) {
     e.respondWith(
       fetch(e.request, { cache: 'no-cache' })
         .then(res => {
