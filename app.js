@@ -6475,7 +6475,7 @@ async function saveLocais(){
         if(r&&r.error){
           if(_tabelaAusente(r.error.message)){ _locaisTabelaOk=false; okTabela=false; break; }
           console.warn('[saveLocais:tabela]', r.error.message);
-        }
+        } else { delete l._pendingSync; } // sincronizou com sucesso
       }
       if(okTabela){ _locaisTabelaOk=true; return; }
     }catch(e){ console.warn('[saveLocais:tabela]', e?.message||e); }
@@ -6518,14 +6518,16 @@ async function loadLocaisRemoto(){
     }
     let local=[]; try{ local=JSON.parse(localStorage.getItem(LS_LOCAIS_VIS)||'[]'); }catch(e){ console.warn('[loadLocaisRemoto:ls]', e?.message||e); }
     const remotoIds=new Set(remoto.map(r=>r.id));
-    // Não re-envia ao banco planos apagados (tombstone) nem os já presentes
-    const soLocal=local.filter(l=>!remotoIds.has(l.id) && !_tomb.has(l.id));
-    // Migra/reenvia ao banco o que ainda não está na tabela (ex.: vindos do legado)
-    for(const l of soLocal){
-      try{ const r=await dbUpsert('locais_vistoria', {...l, updated_at:new Date().toISOString()}); if(r&&r.error&&_tabelaAusente(r.error.message)){ _locaisTabelaOk=false; return; } }
+    // A TABELA é a fonte da verdade. Um plano que está só no aparelho e NÃO está
+    // no banco só é mantido/reenviado se foi criado offline e ainda não sincronizou
+    // (_pendingSync). Planos locais que sumiram do banco (apagados em qualquer
+    // dispositivo) são DESCARTADOS — é isso que impede planos apagados de "voltarem".
+    const soLocalPend=local.filter(l=>!remotoIds.has(l.id) && !_tomb.has(l.id) && l._pendingSync===true);
+    for(const l of soLocalPend){
+      try{ const r=await dbUpsert('locais_vistoria', {...l, updated_at:new Date().toISOString()}); if(r&&r.error){ if(_tabelaAusente(r.error.message)){ _locaisTabelaOk=false; return; } } else { delete l._pendingSync; } }
       catch(e){ console.warn('[loadLocaisRemoto:migra]', e?.message||e); }
     }
-    locaisVistoria=[...remoto, ...soLocal];
+    locaisVistoria=[...remoto, ...soLocalPend];
     localStorage.setItem(LS_LOCAIS_VIS, JSON.stringify(locaisVistoria));
     CFG.locais_vistoria=locaisVistoria;
     if(document.getElementById('vis-view-locais')?.style.display!=='none') renderLocaisTab();
@@ -6772,7 +6774,8 @@ async function salvarLocal(){
     equipamentos: equipsValidos,
     ativo: true,
     agendamento_id: existingLocal?.agendamento_id||'',
-    created_at: editId ? (existingLocal||{}).created_at||new Date().toISOString() : new Date().toISOString()
+    created_at: editId ? (existingLocal||{}).created_at||new Date().toISOString() : new Date().toISOString(),
+    _pendingSync: true // limpo pelo saveLocais/loadLocaisRemoto quando sincronizar
   };
   if(editId){
     const idx=locaisVistoria.findIndex(x=>x.id===editId);
