@@ -5559,12 +5559,20 @@ function _colunaFaltante(err){
        || msg.match(/column ["']?([a-z_][a-z0-9_]*)["']? does not exist/i);
   return m?m[1]:null;
 }
+// Envolve uma query do Supabase num timeout — evita que o app fique preso
+// em "Salvando…" para sempre quando a rede falha sem responder.
+function _dbRace(promise, ms=12000){
+  return Promise.race([
+    Promise.resolve(promise),
+    new Promise(res=>setTimeout(()=>res({ data:null, error:{ message:'timeout: banco não respondeu em '+(ms/1000)+'s', _timeout:true } }), ms))
+  ]);
+}
 async function dbInsert(table, payload, select){
   let p={...payload};
   for(let i=0;i<8;i++){
     let q=db.from(table).insert([p]);
     if(select) q=q.select(select).single(); else q=q.select('*').single();
-    const r=await q;
+    const r=await _dbRace(q);
     if(!r.error) return r;
     const col=_colunaFaltante(r.error);
     if(col && (col in p)){ delete p[col]; console.warn(`[dbInsert ${table}] coluna "${col}" não existe no banco — reenviando sem ela. Crie a coluna no Supabase.`); continue; }
@@ -5575,7 +5583,7 @@ async function dbInsert(table, payload, select){
 async function dbUpdate(table, payload, idCol, idVal){
   let p={...payload};
   for(let i=0;i<8;i++){
-    const r=await db.from(table).update(p).eq(idCol,idVal);
+    const r=await _dbRace(db.from(table).update(p).eq(idCol,idVal));
     if(!r.error) return r;
     const col=_colunaFaltante(r.error);
     if(col && (col in p)){ delete p[col]; console.warn(`[dbUpdate ${table}] coluna "${col}" não existe no banco — reenviando sem ela.`); continue; }
@@ -5588,7 +5596,7 @@ async function dbUpdate(table, payload, idCol, idVal){
 async function dbUpsert(table, payload){
   let p={...payload};
   for(let i=0;i<8;i++){
-    const r=await db.from(table).upsert([p]).select('*').single();
+    const r=await _dbRace(db.from(table).upsert([p]).select('*').single());
     if(!r.error) return r;
     const col=_colunaFaltante(r.error);
     if(col && (col in p)){ delete p[col]; console.warn(`[dbUpsert ${table}] coluna "${col}" não existe no banco — reenviando sem ela.`); continue; }
