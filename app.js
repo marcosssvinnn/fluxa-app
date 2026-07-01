@@ -5561,6 +5561,8 @@ function renderCal(){
   // Filtro de empresa: o calendário da Aquamotor não pode mostrar OS da Fortemp
   // (e vice-versa). Era a causa de aparecerem clientes de outra empresa.
   let osLocal=filtrarPorLoja(Object.values(_osById));
+  // Não polui o calendário com visitas canceladas (viravam lixo cinza).
+  osLocal=osLocal.filter(o=>o.status!=='cancelado');
   // Dedup defensivo: OS do mesmo plano na mesma data (gerações repetidas).
   // Mantém a mais relevante: concluído > em andamento > agendado > cancelado.
   const _rank=s=>({concluido:3,em_andamento:2,agendado:1,cancelado:0}[s]??1);
