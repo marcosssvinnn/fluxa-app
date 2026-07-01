@@ -10344,7 +10344,20 @@ async function salvarConcluirVis(){
   if(dbOk&&db){
     // Sincroniza em background (não trava o fechamento do modal)
     (async()=>{
-      try{ const r=await _comTimeout(dbUpsert('vistorias', rec), 20000, 'vis rápida'); if(r&&r.error) console.warn('vis rápida Supabase:', r.error.message); }
+      try{
+        // Sobe as fotos para o Storage e troca base64 por URL (igual ao salvarVistoria).
+        const recComUrls = await _uploadFotosVistoria(rec);
+        // Atualiza o local com as URLs que subiram (mantém base64 onde falhou)
+        const l=lsVisLer(); const ix=l.findIndex(x=>x.id===rec.id);
+        if(ix>=0){ l[ix]=recComUrls; lsVisSalvar(l); }
+        // Envia ao banco com fotos como URL (null onde não subiu) — linha leve, sem base64
+        const recParaSupabase = {
+          ...recComUrls,
+          equipamentos:(recComUrls.equipamentos||[]).map(eq=>({...eq, fotos:(eq.fotos||[]).map(f=>f&&f.startsWith('http')?f:null)}))
+        };
+        const r=await _comTimeout(dbUpsert('vistorias', recParaSupabase), 20000, 'vis rápida');
+        if(r&&r.error) console.warn('vis rápida Supabase:', r.error.message);
+      }
       catch(e){ console.warn('vis rápida Supabase (bg):',e?.message||e); }
     })();
   }
