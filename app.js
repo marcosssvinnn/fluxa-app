@@ -7923,16 +7923,31 @@ function renderVisHistorico(){
   }).join('');
 }
 
+// ── Tombstones: ids de vistorias apagadas, para NUNCA ressuscitarem via sync ──
+// Antes, o delete no banco era "fire-and-forget": se a rede do celular falhasse,
+// o registro sobrevivia no Supabase e voltava na próxima sincronização. Agora,
+// o id apagado fica numa lista local que o sync respeita, e o delete no banco é
+// tentado de novo até confirmar que sumiu.
+function _visTombLer(){ try{ return JSON.parse(ls('fluxa_vis_tombstones')||'[]'); }catch(e){ return []; } }
+function _visTombAdd(id){ const t=_visTombLer(); if(!t.includes(id)){ t.push(id); lsSet('fluxa_vis_tombstones', JSON.stringify(t.slice(-500))); } }
+async function _excluirVistoriaBanco(id){
+  if(!dbOk||!db) return;
+  try{
+    const r=await _comTimeout(db.from('vistorias').delete().eq('id',id), 15000, 'delete vistoria');
+    if(r&&r.error) console.warn('[excluirVistoria banco]', r.error.message);
+  }catch(e){ console.warn('[excluirVistoria banco]', e?.message||e); }
+}
 function excluirVistoria(id){
-  confirmar('Excluir esta vistoria?', ()=>{ lsVisSalvar(lsVisLer().filter(x=>x.id!==id)); if(dbOk&&db) db.from('vistorias').delete().eq('id',id).then(()=>{}).catch(()=>{}); renderVisHistorico(); toast('Vistoria excluída'); }, 'Excluir Vistoria');
+  confirmar('Excluir esta vistoria?', ()=>{ _visTombAdd(id); lsVisSalvar(lsVisLer().filter(x=>x.id!==id)); _excluirVistoriaBanco(id); renderVisHistorico(); toast('Vistoria excluída'); }, 'Excluir Vistoria');
 }
 
 // Desfaz a visita do mês de um plano: apaga a vistoria (aparelho + banco) e o
 // card volta a "Pendente". Útil p/ remover relatório de teste sem apagar o plano.
 function desfazerVistoriaLocal(vistoriaId){
   confirmar('Desfazer esta visita do mês?\n\nO relatório será apagado e o plano volta a ficar pendente. O cadastro do plano é mantido.', ()=>{
+    _visTombAdd(vistoriaId);
     lsVisSalvar(lsVisLer().filter(x=>x.id!==vistoriaId));
-    if(dbOk&&db) db.from('vistorias').delete().eq('id',vistoriaId).then(()=>{}).catch(e=>console.warn('[desfazerVistoriaLocal]',e?.message||e));
+    _excluirVistoriaBanco(vistoriaId);
     renderLocaisTab();
     renderVisHistorico();
     toast('🗑️ Visita desfeita — plano voltou a pendente');
@@ -8497,7 +8512,14 @@ async function loadVistoriasRemoto(){
     const {data} = await q;
     // Filtra em memória pelo escopo da empresa ativa para não contaminar
     // o localStorage com vistorias de outros grupos (ex: gestor "Todas" receberia Aquamotor)
-    const remoto = (data||[]).filter(r=>escopoEmpresaMatch(r.loja_id));
+    let remoto = (data||[]).filter(r=>escopoEmpresaMatch(r.loja_id));
+    // Respeita os tombstones: vistorias apagadas não voltam. Se ainda estiverem
+    // no banco (delete anterior falhou), tenta apagar de novo.
+    const _tomb = new Set(_visTombLer());
+    if(_tomb.size){
+      remoto.filter(r=>_tomb.has(r.id)).forEach(r=>_excluirVistoriaBanco(r.id));
+      remoto = remoto.filter(r=>!_tomb.has(r.id));
+    }
     const local = lsVisLer();
     // Reenvia ao banco vistorias presas no aparelho (nunca sincronizadas).
     // Só reenvia se _pendingSync=true — evita ressuscitar vistorias deletadas remotamente.
