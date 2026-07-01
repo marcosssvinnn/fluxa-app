@@ -1259,6 +1259,23 @@ function uploadLojaLogo(input, lojaId){
   r.readAsDataURL(file);
 }
 
+// Atualização manual: re-sincroniza os dados da tela atual com o banco.
+async function atualizarDados(btn){
+  if(btn){ btn.disabled=true; btn.classList.add('girando'); }
+  toast('🔄 Atualizando…');
+  try{
+    if(typeof _reenviarPendentes==='function') await _reenviarPendentes(true);
+    const pid=document.querySelector('.page.on')?.id.replace('page-','')||'';
+    if(pid==='visitas'){ if(typeof loadLocaisRemoto==='function') await loadLocaisRemoto(); if(typeof loadVistoriasRemoto==='function') await loadVistoriasRemoto(); if(typeof renderLocaisTab==='function') renderLocaisTab(); if(typeof renderVisHistorico==='function') renderVisHistorico(); }
+    else if(pid==='agendamentos'){ if(typeof loadAgendamentos==='function') await loadAgendamentos(); }
+    else if(pid==='estoque'){ if(typeof loadEstoque==='function') await loadEstoque(); }
+    else if(pid==='history'){ if(typeof loadHist==='function') await loadHist(); }
+    else if(pid==='minhas-os'){ if(typeof loadMinhasOS==='function') await loadMinhasOS(); }
+    else if(typeof carregarClientesRemoto==='function'){ await carregarClientesRemoto(); }
+    toast('✅ Dados atualizados');
+  }catch(e){ console.warn('[atualizarDados]', e?.message||e); toast('⚠️ Não foi possível atualizar agora'); }
+  if(btn){ btn.disabled=false; btn.classList.remove('girando'); }
+}
 async function carregarClientesRemoto(){
   if(!dbOk||!db) return;
   try{
@@ -5260,7 +5277,7 @@ function renderDespesas(){
     }
   }
   const el=document.getElementById('desp-lista');
-  if(!lista.length){ el.innerHTML='<div class="empty-st"><div class="ei">💸</div><p>Nenhuma despesa registrada.</p></div>'; return; }
+  if(!lista.length){ el.innerHTML='<div class="empty-st"><div class="ei">💸</div><p>Nenhuma despesa registrada.</p><button class="btn-primary" style="margin-top:12px" onclick="abrirFormDesp()">＋ Registrar despesa</button></div>'; return; }
   const icons={Combustível:'⛽',Pedágio:'🛣️',Material:'🔩',Alimentação:'🍽️',Outro:'📎'};
   el.innerHTML=lista.map(d=>`
     <div class="desp-card ${d.status||'pendente'}">
@@ -6749,11 +6766,23 @@ async function criarOuAtualizarAgendamentoPlano(rec, isEdit){
   }
 }
 
+let _salvandoLocal=false;
 async function salvarLocal(){
   const cli=(document.getElementById('loc-cli').value||'').trim();
   const end=(document.getElementById('loc-end').value||'').trim();
   if(!cli||!end){ toast('⚠️ Preencha cliente e endereço'); return; }
+  if(_salvandoLocal) return; // trava contra clique duplo (causava planos duplicados)
   const editId=document.getElementById('loc-edit-id').value;
+  // Anti-duplicata: bloqueia cadastrar o mesmo cliente+local já existente na empresa
+  if(!editId){
+    const _n=s=>(s||'').trim().toLowerCase();
+    const jaExiste=locaisVistoria.some(l=>l.ativo!==false && escopoEmpresaMatch(l.loja_id) && _n(l.cliente)===_n(cli) && _n(l.local)===_n(end));
+    if(jaExiste){ toast('⚠️ Já existe um plano para esse cliente neste local'); return; }
+  }
+  _salvandoLocal=true;
+  const _btnSalvarLoc=document.querySelector('#loc-add-form button.btn-primary[onclick="salvarLocal()"]');
+  if(_btnSalvarLoc){ _btnSalvarLoc.disabled=true; _btnSalvarLoc.textContent='Salvando…'; }
+  try{
   const s=getSessao();
   const existingLocal=editId?locaisVistoria.find(x=>x.id===editId):null;
   // Na edição preserva a empresa original do local; só define pela view ao criar.
@@ -6793,6 +6822,10 @@ async function salvarLocal(){
   fecharLocForm();
   renderLocaisTab();
   toast('✅ Local salvo! Visita mensal adicionada ao calendário 📅');
+  }finally{
+    _salvandoLocal=false;
+    if(_btnSalvarLoc){ _btnSalvarLoc.disabled=false; _btnSalvarLoc.textContent='💾 Salvar plano'; }
+  }
 }
 
 // Tombstones de planos apagados — impede que o loadLocaisRemoto os re-envie
@@ -6961,6 +6994,13 @@ function iniciarVistoriaPlena(locId){
   const card=document.getElementById('vis-equip-card');
   if(card) card.style.display=equips.length?'':'none';
 
+  // Vindo do plano, os dados já estão preenchidos → recolhe o bloco "Dados da
+  // Visita" para o técnico ir direto aos equipamentos (menos scroll no campo).
+  const _dadosBody=document.getElementById('vis-dados-body');
+  const _dadosToggle=document.getElementById('vis-dados-toggle');
+  if(_dadosBody) _dadosBody.style.display='none';
+  if(_dadosToggle) _dadosToggle.textContent='▼ expandir';
+
   // Inicia check-in automaticamente
   visCheckin();
 
@@ -7087,6 +7127,8 @@ function concluirVisDetalhada(){
   }, 80);
 }
 
+let _tecVerTodos=false;
+function toggleTecVerTodos(){ _tecVerTodos=!_tecVerTodos; renderLocaisTab(); }
 function renderLocaisTab(){
   loadLocais();
   const s=getSessao();
@@ -7122,9 +7164,13 @@ function renderLocaisTab(){
 
   // Filtro de empresa unificado (ver escopoEmpresaMatch) — técnico/gestor/loja
   const _lojaMatch=l=>escopoEmpresaMatch(l.loja_id);
+  // Técnico vê só os planos atribuídos a ele (+ os "sem técnico"), a menos que
+  // ative "ver todos". Deixa a tela dele focada nas visitas que são dele.
+  const _nomeTec=nomeLogado.trim().toLowerCase();
+  const _tecMatch=l=>!isTecnico || _tecVerTodos || !((l.tecnico||'').trim()) || (l.tecnico||'').trim().toLowerCase()===_nomeTec;
   // Filtra locais ativos da empresa atual
   const locaisFiltrados=locaisVistoria.filter(l=>
-    _lojaMatch(l) && l.ativo!==false && _matchBusca(l)
+    _lojaMatch(l) && l.ativo!==false && _matchBusca(l) && _tecMatch(l)
   );
   // Gestor vê também os inativos
   const todosLoja=isTecnico ? locaisFiltrados : locaisVistoria.filter(l=>_lojaMatch(l) && _matchBusca(l));
@@ -7224,6 +7270,16 @@ function renderLocaisTab(){
       ${rodape}
     </div>`;
   }).join('');
+  // Toggle "só os meus / todos" — só para técnico
+  if(isTecnico){
+    const _lbl=_tecVerTodos?'👁 Vendo todos os locais':'👤 Vendo só os meus';
+    const _alt=_tecVerTodos?'ver só os meus':'ver todos';
+    listaEl.insertAdjacentHTML('afterbegin',
+      `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;padding:8px 12px;background:var(--gray-light);border-radius:10px;font-size:12px">
+         <span style="font-weight:700;color:var(--c2)">${_lbl}</span>
+         <button class="tb" style="font-size:11px" onclick="toggleTecVerTodos()">${_alt}</button>
+       </div>`);
+  }
 }
 /* ══ /LOCAIS RECORRENTES ══ */
 
