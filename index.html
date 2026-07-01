@@ -1869,7 +1869,7 @@
         <div style="font-size:18px;font-weight:800;color:var(--c2)">🔍 Vistorias de Manutenção</div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="fb on" id="vis-tab-nova" onclick="visTab('nova');window._visLocalId=null;visEditId=null;_visDraftId=null;document.getElementById('vis-plano-banner').style.display='none'">📋 Nova Vistoria</button>
+        <button class="fb on" id="vis-tab-nova" onclick="visTab('nova');window._visLocalId=null;visEditId=null;_visDraftId=null;_resetCheckinVis();document.getElementById('vis-plano-banner').style.display='none'">📋 Nova Vistoria</button>
         <button class="fb" id="vis-tab-hist" onclick="visTab('hist')">📜 Histórico</button>
         <button class="fb" id="vis-tab-locais" onclick="visTab('locais')">📍 Meus Locais</button>
       </div>
@@ -1905,7 +1905,7 @@
       <div class="card" id="vis-dados-card">
         <div class="ct" style="cursor:pointer;user-select:none;display:flex;align-items:center;justify-content:space-between" onclick="toggleVisDados()">
           <span>Dados da Visita</span>
-          <span id="vis-dados-toggle" style="font-size:12px;font-weight:400;color:var(--gray)">▼ expandir</span>
+          <span id="vis-dados-toggle" style="font-size:12px;font-weight:400;color:var(--gray)">▲ recolher</span>
         </div>
         <div id="vis-dados-body">
         <div class="row">
