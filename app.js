@@ -6508,10 +6508,18 @@ async function loadLocaisRemoto(){
       console.warn('[loadLocaisRemoto]', error.message); return;
     }
     _locaisTabelaOk=true;
-    const remoto=(data||[]).map(r=>({...r, equipamentos: typeof r.equipamentos==='string'?JSON.parse(r.equipamentos||'[]'):(r.equipamentos||[])}));
+    let remoto=(data||[]).map(r=>({...r, equipamentos: typeof r.equipamentos==='string'?JSON.parse(r.equipamentos||'[]'):(r.equipamentos||[])}));
+    // Respeita tombstones: planos apagados não voltam. Se ainda estiverem na
+    // tabela (delete anterior falhou), tenta apagar de novo.
+    const _tomb=new Set(_locTombLer());
+    if(_tomb.size){
+      remoto.filter(r=>_tomb.has(r.id)).forEach(r=>{ try{ db.from('locais_vistoria').delete().eq('id',r.id).then(()=>{}).catch(()=>{}); }catch(e){ console.warn('[locTomb]',e?.message||e); } });
+      remoto=remoto.filter(r=>!_tomb.has(r.id));
+    }
     let local=[]; try{ local=JSON.parse(localStorage.getItem(LS_LOCAIS_VIS)||'[]'); }catch(e){ console.warn('[loadLocaisRemoto:ls]', e?.message||e); }
     const remotoIds=new Set(remoto.map(r=>r.id));
-    const soLocal=local.filter(l=>!remotoIds.has(l.id));
+    // Não re-envia ao banco planos apagados (tombstone) nem os já presentes
+    const soLocal=local.filter(l=>!remotoIds.has(l.id) && !_tomb.has(l.id));
     // Migra/reenvia ao banco o que ainda não está na tabela (ex.: vindos do legado)
     for(const l of soLocal){
       try{ const r=await dbUpsert('locais_vistoria', {...l, updated_at:new Date().toISOString()}); if(r&&r.error&&_tabelaAusente(r.error.message)){ _locaisTabelaOk=false; return; } }
@@ -6784,8 +6792,13 @@ async function salvarLocal(){
   toast('✅ Local salvo! Visita mensal adicionada ao calendário 📅');
 }
 
+// Tombstones de planos apagados — impede que o loadLocaisRemoto os re-envie
+// para a tabela (o que fazia planos excluídos "voltarem" na sincronização).
+function _locTombLer(){ try{ return JSON.parse(ls('fluxa_loc_tombstones')||'[]'); }catch(e){ return []; } }
+function _locTombAdd(id){ const t=_locTombLer(); if(!t.includes(id)){ t.push(id); lsSet('fluxa_loc_tombstones', JSON.stringify(t.slice(-500))); } }
 function excluirLocal(id){
   confirmar('Remover este local da lista de recorrentes?',async ()=>{
+    _locTombAdd(id);
     const loc=locaisVistoria.find(x=>x.id===id);
     // Desativa o agendamento vinculado
     if(loc?.agendamento_id){
