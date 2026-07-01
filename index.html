@@ -2057,7 +2057,7 @@
         <div class="row"><div class="fl"><label class="req">Cliente / Nome do local</label><input type="text" id="loc-cli" placeholder="Ex: Condomínio Sol Nascente" autocomplete="off"></div><div class="fl"><label class="req">Endereço</label><input type="text" id="loc-end" placeholder="Rua, número, bairro"></div></div>
         <div class="row"><div class="fl"><label>E-mail responsável</label><input type="email" id="loc-email" placeholder="sindico@condominio.com.br"></div><div class="fl"><label>Técnico responsável</label><select id="loc-tec"><option value="">Qualquer técnico</option></select></div></div>
         <div class="fl" id="loc-loja-row" style="display:none;margin-bottom:12px"><label>Unidade</label><select id="loc-loja" style="width:100%;padding:9px 12px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:13px;font-family:'Inter',sans-serif"></select></div>
-        <div class="row"><div class="fl"><label>Dia de preferência (do mês)</label><select id="loc-dia-pref" style="width:100%;padding:9px 12px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;outline:none"><option value="">Qualquer dia</option></select></div><div class="fl"><label>Horário preferencial</label><input type="time" id="loc-hora-pref" value="08:00"></div></div>
+        <div class="row"><div class="fl"><label title="Escolha um dia para a visita aparecer no calendário nesse dia. Sem dia, ela fica só em Meus Locais como pendente.">Dia da visita (aparece no calendário)</label><select id="loc-dia-pref" style="width:100%;padding:9px 12px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;outline:none"><option value="">Sem dia fixo (só em Meus Locais)</option></select></div><div class="fl"><label>Horário preferencial</label><input type="time" id="loc-hora-pref" value="08:00"></div></div>
         <div class="fl" style="margin-bottom:4px">
           <label style="display:flex;align-items:center;justify-content:space-between">
             <span>🔧 Equipamentos do local <span style="font-weight:400;color:var(--gray)">(modelo, potência…)</span></span>
@@ -2142,6 +2142,7 @@
         <select id="cal-filtro-tec" onchange="renderCal()" style="margin-left:auto;padding:6px 10px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:12px;font-family:'Inter',sans-serif;outline:none">
           <option value="">Todos os técnicos</option>
         </select>
+        <button class="tb" id="btn-reorganizar-cal" onclick="reorganizarCalendarioPlanos(this)" title="Reorganiza as visitas dos planos conforme o dia escolhido em cada um (limpa visitas antigas empilhadas)" style="font-size:11px">🔧 Reorganizar</button>
       </div>
       <div class="cal-wrap"><table class="cal" id="cal-tabela"></table></div>
       <div style="display:flex;gap:12px;flex-wrap:wrap;padding:10px 4px 0;font-size:11px;color:var(--gray)">
