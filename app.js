@@ -5403,6 +5403,11 @@ function proximasOcorrencias(ag, qtd=6){
       const maxD2=new Date(cur.getFullYear(),cur.getMonth()+1,0).getDate();
       cur.setDate(Math.min(diaMes,maxD2));
     }
+  } else if(ag.periodicidade==='mensal'){
+    // Plano mensal SEM dia escolhido → não agenda nada no calendário.
+    // A visita fica pendente em "Meus Locais" e só aparece no calendário
+    // quando a vistoria for feita (ou quando um dia for definido no plano).
+    return [];
   } else {
     cur=new Date(inicio);
   }
@@ -5454,6 +5459,47 @@ async function gerarOSdoAgendamento(ag, agId){
   }
 }
 
+// Reagenda as OS de um plano após editar o dia: cancela as futuras agendadas
+// e regera conforme o dia atual (se o plano ficou sem dia, não regera nada).
+async function _reagendarOSdoPlano(ag, agId){
+  const hoje=_hojeLocal();
+  try{
+    const l=JSON.parse(ls('fluxa_os_hist')||'[]'); let mud=false;
+    l.forEach(o=>{ if(o.agendamento_id===agId && o.status==='agendado' && (o.data_servico||'')>=hoje){ o.status='cancelado'; mud=true; } });
+    if(mud) lsSet('fluxa_os_hist', JSON.stringify(l.slice(0,200)));
+  }catch(e){ console.warn('[reagendarOS local]', e?.message||e); }
+  try{ (todosOS||[]).forEach(o=>{ if(o.agendamento_id===agId && o.status==='agendado' && (o.data_servico||'')>=hoje) o.status='cancelado'; }); }catch(e){ console.warn('[reagendarOS mem]', e?.message||e); }
+  if(dbOk&&db){ try{ await db.from('ordens_servico').update({status:'cancelado'}).eq('agendamento_id',agId).eq('status','agendado').gte('data_servico',hoje); }catch(e){ console.warn('[reagendarOS db]', e?.message||e); } }
+  await gerarOSdoAgendamento(ag, agId);
+}
+// Reorganiza o calendário: passa por todos os planos da empresa e recria as
+// visitas conforme o dia escolhido em cada um. Limpa visitas antigas empilhadas
+// (ex.: as que caíam todas no dia 1 pelo bug do dia padrão).
+function reorganizarCalendarioPlanos(btn){
+  confirmar('Reorganizar o calendário conforme o dia de cada plano?\n\nVisitas antigas empilhadas serão removidas e recriadas no dia certo. Planos sem dia definido saem do calendário (continuam em Meus Locais).', ()=>_reorganizarCalConfirmado(btn), 'Reorganizar calendário');
+}
+async function _reorganizarCalConfirmado(btn){
+  if(btn){ btn.disabled=true; btn.textContent='Reorganizando…'; }
+  toast('🔧 Reorganizando calendário…');
+  try{
+    if(typeof loadLocaisRemoto==='function') await loadLocaisRemoto();
+    const planos=(locaisVistoria||[]).filter(l=>l.ativo!==false && l.agendamento_id && escopoEmpresaMatch(l.loja_id));
+    for(const l of planos){
+      const base=todosAg.find(a=>a.id===l.agendamento_id)||{};
+      const ag={
+        cliente:l.cliente, local_servico:l.local, tecnico:l.tecnico||'',
+        tipo_servico:'Vistoria de Manutenção', periodicidade:'mensal',
+        dia_semana:parseInt(l.dia_pref)||null, horario:l.hora_pref||'08:00',
+        data_inicio: base.data_inicio||_hojeLocal(), data_fim: base.data_fim||null,
+        obs:'Plano de acompanhamento mensal', loja_id:l.loja_id, id:l.agendamento_id
+      };
+      await _reagendarOSdoPlano(ag, l.agendamento_id);
+    }
+    renderCal();
+    toast('✅ Calendário reorganizado');
+  }catch(e){ console.warn('[reorganizar]', e?.message||e); toast('⚠️ Falha ao reorganizar'); }
+  if(btn){ btn.disabled=false; btn.textContent='🔧 Reorganizar'; }
+}
 // Ao concluir uma OS de agendamento recorrente, gera a ocorrência seguinte.
 // dataConcluidaStr = data_servico da OS recém concluída (YYYY-MM-DD).
 async function _gerarProximaOSdoAg(agId, dataConcluidaStr){
@@ -6724,7 +6770,7 @@ async function criarOuAtualizarAgendamentoPlano(rec, isEdit){
     tecnico: rec.tecnico||'',
     tipo_servico: 'Vistoria de Manutenção',
     periodicidade: 'mensal',
-    dia_semana: parseInt(rec.dia_pref)||1,
+    dia_semana: parseInt(rec.dia_pref)||null, // sem dia escolhido → não agenda no calendário
     horario: rec.hora_pref||'08:00',
     data_inicio: hoje,
     data_fim: null,
@@ -6741,6 +6787,8 @@ async function criarOuAtualizarAgendamentoPlano(rec, isEdit){
       try{ const r=await dbUpdate('agendamentos', agDados, 'id', rec.agendamento_id); if(r.error) console.warn('[atualizarAgPlano]', r.error.message); }
       catch(e){ console.warn('[atualizarAgPlano]',e?.message||e); }
     }
+    // Reagenda o calendário conforme o dia escolhido (ou remove se ficou sem dia)
+    await _reagendarOSdoPlano({...agDados,id:rec.agendamento_id}, rec.agendamento_id);
     return rec.agendamento_id;
   } else {
     // Cria novo agendamento
