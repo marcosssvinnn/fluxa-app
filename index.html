@@ -5042,6 +5042,8 @@ function go(p){
     window._skipDraftForm=false;
     // Garante que o select de empresa reflete a loja ativa ao entrar na tela
     if(!editId && lojaAtiva) setV('orc-loja', lojaAtiva);
+    // Garante base de clientes atualizada para o autocomplete
+    carregarClientesRemoto();
   }
   if(p==='os-history') loadOSHist();
   if(p==='clientes'){ renderClientes(); carregarClientesRemoto(); }
@@ -7288,7 +7290,7 @@ function renderClientes(){
     <div class="cli-card">
       <div class="cli-card-info">
         <div class="cli-card-nome">${esc(c.nome)}${fat>0?` <span style="font-size:10px;background:var(--green-bg);color:var(--green);padding:1px 7px;border-radius:50px;font-weight:700">${brl(fat)}</span>`:''}</div>
-        <div class="cli-card-det">${[c.tel,c.cnpj,c.end].filter(Boolean).map(x=>esc(x)).join(' · ')||'—'}${c.email_responsavel?' · ✉️ '+esc(c.email_responsavel):''}</div>
+        <div class="cli-card-det">${[c.tel||c.telefone,c.cnpj,c.end||c.endereco].filter(Boolean).map(x=>esc(x)).join(' · ')||'—'}${c.email_responsavel?' · ✉️ '+esc(c.email_responsavel):''}</div>
         ${lojasBadges?`<div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap">${lojasBadges}</div>`:''}
       </div>
       <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap">
@@ -7515,7 +7517,8 @@ function mostrarFormCliente(){
 function _baseClientesUnificada(){
   const cadastrados=lsCliLer();
   const vistos=new Map(); // nome lowercase → {nome, end, tel, cnpj, _cadastrado}
-  cadastrados.forEach(c=>{ if(c.nome) vistos.set(c.nome.toLowerCase(),{nome:c.nome,end:c.end||'',tel:c.tel||'',cnpj:c.cnpj||'',_cadastrado:true}); });
+  // Supabase retorna telefone/endereco; registros locais usam tel/end — aceita ambos
+  cadastrados.forEach(c=>{ if(c.nome) vistos.set(c.nome.toLowerCase(),{nome:c.nome,end:c.end||c.endereco||'',tel:c.tel||c.telefone||'',cnpj:c.cnpj||'',_cadastrado:true}); });
   (todosOrc||[]).forEach(o=>{
     const n=(o.cliente||'').trim(); if(!n) return;
     const k=n.toLowerCase();
