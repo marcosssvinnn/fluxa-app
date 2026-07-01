@@ -8841,7 +8841,24 @@ async function loadAgendamentos(){
       let qAg=db.from('agendamentos').select('*').eq('ativo',true).order('data_criacao',{ascending:false});
       if(lojaAtiva) qAg=qAg.eq('loja_id',lojaAtiva);
       const {data}=await qAg;
-      if(data){ todosAg=data; lsAgSalvar(todosAg); renderAgLista(); renderCal(); }
+      if(data){
+        // MERGE (não sobrescreve): preserva agendamentos salvos offline que ainda
+        // não subiram ao banco (id 'ag_...' ausente no retorno). Antes, esta linha
+        // trocava a lista inteira e podia apagar um agendamento feito sem conexão.
+        const idAg=new Set(data.map(x=>x.id));
+        const soLocalAg=todosAg.filter(x=>String(x.id).startsWith('ag_')&&!idAg.has(x.id));
+        todosAg=[...data,...soLocalAg];
+        lsAgSalvar(todosAg);
+        // Reenvia ao banco os que ficaram presos só no aparelho
+        for(const a of soLocalAg){
+          try{
+            const {id,data_criacao,..._dados}=a;
+            const {data:ins}=await _dbRace(db.from('agendamentos').insert([_dados]).select('*').single());
+            if(ins){ todosAg=todosAg.filter(x=>x.id!==a.id); todosAg.unshift(ins); lsAgSalvar(todosAg); }
+          }catch(e){ console.warn('[reenvioAg]', e?.message||e); }
+        }
+        renderAgLista(); renderCal();
+      }
     }catch(e){ console.warn('[loadAgendamentos]', e?.message||e); }
   }
   // Verifica visitas de amanhã para lembrete
@@ -13399,6 +13416,39 @@ function _forcarAtualizacao(){
   toast('🔄 Nova versão disponível. Atualizando...');
   setTimeout(()=>location.reload(),1500);
 }
+
+// ── FILA OFFLINE: reenvio automático ao reconectar ──────────────
+// Os saves são local-first: gravam no localStorage na hora e tentam subir ao
+// banco em background. Se estava sem internet, os loaders de cada tela já
+// reenviam os pendentes ao abrir a tela. Aqui garantimos o reenvio também
+// assim que a conexão volta (sem precisar navegar) e num intervalo suave.
+let _reenvioEmAndamento=false;
+// Há algo salvo localmente que ainda não subiu ao banco?
+function _temPendentes(){
+  try{
+    if((typeof lsOrcLer==='function'?lsOrcLer():[]).some(o=>String(o.id).startsWith('local_'))) return true;
+    if((typeof lsVisLer==='function'?lsVisLer():[]).some(v=>v&&v._pendingSync===true)) return true;
+    if((typeof lsAgLer==='function'?lsAgLer():[]).some(a=>String(a.id).startsWith('ag_'))) return true;
+  }catch(e){ console.warn('[temPendentes]', e?.message||e); }
+  return false;
+}
+async function _reenviarPendentes(silencioso=true){
+  if(!dbOk||!db||_reenvioEmAndamento||!navigator.onLine) return;
+  if(silencioso && !_temPendentes()) return; // nada preso → não gasta rede à toa
+  _reenvioEmAndamento=true;
+  try{
+    // Orçamentos presos só no aparelho (id local_*)
+    try{ const soLocal=(typeof lsOrcLer==='function'?lsOrcLer():[]).filter(o=>String(o.id).startsWith('local_')); if(soLocal.length) await _reenviarOrcamentosLocais(soLocal); }catch(e){ console.warn('[reenvio orc]',e?.message||e); }
+    // Vistorias pendentes (loadVistoriasRemoto reenvia as _pendingSync + sobe fotos)
+    try{ await loadVistoriasRemoto?.(); }catch(e){ console.warn('[reenvio vis]',e?.message||e); }
+    // Agendamentos presos (loadAgendamentos agora faz merge + reenvio)
+    try{ await loadAgendamentos?.(); }catch(e){ console.warn('[reenvio ag]',e?.message||e); }
+    if(!silencioso) toast('✅ Dados pendentes sincronizados');
+  }finally{ _reenvioEmAndamento=false; }
+}
+window.addEventListener('online', ()=>{ toast('🌐 Conexão restaurada — sincronizando…'); _reenviarPendentes(false); });
+// Rede de segurança: a cada 3 min, se online, empurra pendentes silenciosamente
+setInterval(()=>{ if(navigator.onLine) _reenviarPendentes(true); }, 180000);
 
 if('serviceWorker' in navigator){
   // Reload automático quando um novo SW assume o controle (nova versão deployada)
