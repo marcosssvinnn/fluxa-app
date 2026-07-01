@@ -7746,6 +7746,19 @@ async function salvarVistoria(){
 }
 
 // ── Limpa o estado e os campos do formulário de vistoria (sem mudar de aba) ──
+// Restaura a seção de check-in ao estado inicial (botão visível, barra oculta).
+// Sem isto, depois de um check-out a próxima vistoria ficava sem o botão de
+// check-in (form e barra ambos ocultos) até recarregar a página.
+function _resetCheckinVis(){
+  const form=document.getElementById('vis-checkin-form');
+  const bar =document.getElementById('vis-checkin-bar');
+  const info=document.getElementById('vis-checkin-info');
+  const timer=document.getElementById('vis-checkin-timer');
+  if(form) form.style.display='flex';
+  if(bar)  bar.style.display='none';
+  if(info) info.textContent='';
+  if(timer) timer.textContent='00:00';
+}
 function _limparFormVistoria(){
   visEquipDados = {};
   _visEquipsCustom = [];
@@ -7754,6 +7767,7 @@ function _limparFormVistoria(){
   visEditId = null;
   _visDraftId = null;
   if(visCheckinInterval){ clearInterval(visCheckinInterval); visCheckinInterval = null; }
+  _resetCheckinVis();
   window._visLocalId = null;
   // Limpa campos do form
   ['vis-cli','vis-loc','vis-hora','vis-obs','vis-email-resp'].forEach(id=>{
