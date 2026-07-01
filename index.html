@@ -5128,13 +5128,12 @@ async function criarOSjunto(dados, orcNum){
   let numStr='???';
   try{
     if(dbOk&&db){
-      const {data:rows}=await db.from('ordens_servico').select('numero').order('numero',{ascending:false}).limit(1);
-      const num=rows&&rows.length?(rows[0].numero||0)+1:1;
-      await db.from('ordens_servico').insert([{
-        numero:num, orcamento_id:editId||null, cliente:dados.cli,
+      const {data:insOS}=await dbInsertNumerado('ordens_servico',{
+        orcamento_id:editId||null, cliente:dados.cli,
         local_servico:dados.loc, data_servico:data, hora, tecnico:tec,
         servicos:osSvcsData, materiais:'', obs_tecnica:'', total:dados.tot, status:'agendado'
-      }]);
+      });
+      const num=insOS?.numero||1;
       numStr=String(num).padStart(3,'0');
     }else{
       const n=(parseInt(ls('fluxa_os_num')||'0'))+1; lsSet('fluxa_os_num',n); numStr=String(n).padStart(3,'0');
@@ -5176,16 +5175,15 @@ async function criarOSdeAprovacao(){
     const osSvcs=(orc.servicos||[]).map(s=>({desc:s.desc||s.d||'',produto_id:s.produto_id||null,qty:s.qty||1,precoUnit:parseFloat(s.p||s.preco||0)||0}));
     let numStr='???';
     if(dbOk&&db){
-      const {data:rows}=await db.from('ordens_servico').select('numero').order('numero',{ascending:false}).limit(1);
-      const num=rows&&rows.length?(rows[0].numero||0)+1:1;
-      const {error}=await db.from('ordens_servico').insert([{
-        numero:num, orcamento_id:String(orcId).startsWith('local_')?null:orcId,
+      const {data:insOS,error}=await dbInsertNumerado('ordens_servico',{
+        orcamento_id:String(orcId).startsWith('local_')?null:orcId,
         cliente:orc.cliente, local_servico:orc.local_servico,
         data_servico:data, hora, tecnico:tec,
         servicos:osSvcs, materiais:'', obs_tecnica:'',
         total:orc.total, status:'agendado', loja_id:orc.loja_id||LOJA_PADRAO_ID
-      }]);
+      });
       if(error) throw error;
+      const num=insOS?.numero||1;
       numStr=String(num).padStart(3,'0');
     }else{
       const n=(parseInt(ls('fluxa_os_num')||'0'))+1; lsSet('fluxa_os_num',String(n)); numStr=String(n).padStart(3,'0');
@@ -5604,6 +5602,24 @@ async function dbUpsert(table, payload){
   }
   return { data:null, error:{ message:'dbUpsert: colunas faltantes demais em '+table } };
 }
+// Insere um registro atribuindo o próximo `numero` de forma segura contra
+// concorrência. Sem isto, dois usuários simultâneos liam o mesmo "max+1" e
+// geravam OS/orçamentos com número duplicado. Aqui, se o banco rejeitar o
+// número por já existir (UNIQUE, código 23505), tentamos o próximo automaticamente.
+// Requer índice único em `numero` (ver migração migracao-numero-unico.sql).
+async function dbInsertNumerado(table, payload, tentativas=6){
+  for(let t=0;t<tentativas;t++){
+    const {data:rows}=await _dbRace(db.from(table).select('numero').order('numero',{ascending:false}).limit(1));
+    const num=(rows&&rows.length?(rows[0].numero||0):0)+1+t; // +t evita reusar o mesmo nº em colisões seguidas
+    const r=await dbInsert(table, {...payload, numero:num});
+    if(!r.error) return r;
+    const msg=(r.error.message||'').toLowerCase();
+    const conflito = r.error.code==='23505' || /duplicate key|unique|already exists|violates unique/.test(msg);
+    if(conflito) continue; // outro usuário pegou esse número — tenta o próximo
+    return r; // erro diferente: devolve ao chamador
+  }
+  return { data:null, error:{ message:'dbInsertNumerado: não conseguiu número único em '+table } };
+}
 // Compat: helpers de orçamento agora delegam ao wrapper genérico
 async function orcSyncInsert(payload){ return dbInsert('orcamentos', payload); }
 async function orcSyncUpdate(id, payload){ return dbUpdate('orcamentos', payload, 'id', id); }
@@ -5677,9 +5693,7 @@ async function salvarApenas(){
       if(dbOk&&db){
         (async()=>{
           try{
-            const {data:rows}=await db.from('orcamentos').select('numero').order('numero',{ascending:false}).limit(1);
-            const dbNum=rows&&rows.length?(rows[0].numero||0)+1:num;
-            const {data:ins,error:insErr}=await orcSyncInsert({...camposBase,numero:dbNum,status:'pendente',data_criacao:now});
+            const {data:ins,error:insErr}=await dbInsertNumerado('orcamentos',{...camposBase,status:'pendente',data_criacao:now});
             if(insErr){ console.warn('Sync BD falhou — orçamento permanece local:', insErr.message); return; }
             if(ins){
               lsOrcRemover(tempId);
@@ -5766,9 +5780,7 @@ async function gerarPDF(){
     if(dbOk&&db){
       (async()=>{
         try{
-          const {data:rows}=await db.from('orcamentos').select('numero').order('numero',{ascending:false}).limit(1);
-          const dbNum=rows&&rows.length?(rows[0].numero||0)+1:num;
-          const {data:ins,error:insErr}=await orcSyncInsert({...camposBase,numero:dbNum,status:'pendente',data_criacao:now});
+          const {data:ins,error:insErr}=await dbInsertNumerado('orcamentos',{...camposBase,status:'pendente',data_criacao:now});
           if(insErr){ console.warn('gerarPDF: sync BD falhou — orçamento permanece local:', insErr.message); return; }
           if(ins){
             lsOrcRemover(tempId);
@@ -6004,10 +6016,8 @@ async function gerarOSPDF(modo='os'){
         numStr=String(existente?.numero||'').padStart(3,'0')||'???';
         toast('✅ OS atualizada');
       } else {
-        const {data:rows}=await db.from('ordens_servico').select('numero').order('numero',{ascending:false}).limit(1);
-        const num=rows&&rows.length?(rows[0].numero||0)+1:1;
-        await db.from('ordens_servico').insert([{...payload,numero:num,status:'agendado'}]);
-        numStr=String(num).padStart(3,'0');
+        const {data:insOS}=await dbInsertNumerado('ordens_servico',{...payload,status:'agendado'});
+        numStr=String(insOS?.numero||'').padStart(3,'0')||'???';
       }
     }catch(e){ numStr='???'; console.warn('[gerarOSPDF] falha ao salvar OS no banco:', e?.message||e); toast('⚠️ OS não foi salva no banco — verifique a conexão'); }
   } else { const n=(parseInt(ls('fluxa_os_num')||'0'))+1; lsSet('fluxa_os_num',n); numStr=String(n).padStart(3,'0'); }
@@ -8746,9 +8756,7 @@ async function gerarOSdoAgendamento(ag, agId){
     const localOS=JSON.parse(ls('fluxa_os_hist')||'[]'); localOS.unshift(rec); lsSet('fluxa_os_hist',JSON.stringify(localOS.slice(0,200)));
     if(dbOk&&db){
       try{
-        const {data:rows}=await db.from('ordens_servico').select('numero').order('numero',{ascending:false}).limit(1);
-        const dbNum=rows&&rows.length?(rows[0].numero||0)+1:num;
-        await db.from('ordens_servico').insert([{...osDados,numero:dbNum}]);
+        await dbInsertNumerado('ordens_servico',{...osDados});
       }catch(e){ console.warn('OS ag sync:',e.message); }
     }
   }
