@@ -1793,11 +1793,13 @@ async function criarOSdeAprovacao(){
 }
 
 // Limpar formulário para novo orçamento
-function novoOrc(){
+// Limpa TODOS os campos do formulário de orçamento (sem navegar). Usado ao
+// iniciar um novo orçamento e ao terminar de salvar/gerar um — assim o form
+// nunca fica com dados do orçamento anterior (que causava duplicatas).
+function _limparCamposOrc(){
   editId=null; fotosB64=[];
-  limparRascunho('form'); window._skipDraftForm=true; // novo orçamento = começar do zero, sem rascunho antigo
   svcs=[{id:Date.now(),d:'',p:''}];
-  ['cli','loc','tel-cli','obs','escopo','data-svc','data-orc','nota-interna','origem-cli','origem-cli-outro'].forEach(id=>setV(id,''));
+  ['cli','loc','tel-cli','cnpj-cli','obs','escopo','data-svc','data-orc','nota-interna','origem-cli','origem-cli-outro','pag-parcelas','pag-entrada'].forEach(id=>setV(id,''));
   updOrigemCli();
   setV('pag','A combinar'); setV('val','5'); setV('disc-v',''); setV('disc-t','R$');
   setV('orc-loja', lojaAtiva||LOJA_PADRAO_ID);
@@ -1808,6 +1810,10 @@ function novoOrc(){
   const osf=document.getElementById('os-inline-fields'); if(osf) osf.style.display='none';
   ['os-inline-data','os-inline-hora','os-inline-tec'].forEach(id=>{const el=document.getElementById(id);if(el){el.value=id==='os-inline-hora'?'08:00':'';}});
   const bb=document.getElementById('form-back-bar'); if(bb) bb.style.display='none';
+}
+function novoOrc(){
+  limparRascunho('form'); window._skipDraftForm=true; // novo orçamento = começar do zero, sem rascunho antigo
+  _limparCamposOrc();
   go('form');
 }
 
@@ -2292,7 +2298,8 @@ async function salvarApenas(){
               lsOrcUpsert(ins);
               todosOrc=todosOrc.filter(x=>x.id!==tempId);
               todosOrc.unshift(ins);
-              editId=ins.id; savedNum=ins.numero;
+              if(editId===tempId) editId=ins.id; // só atualiza se AINDA estiver neste orçamento
+              savedNum=ins.numero;
               atualizarDash(); renderTabela();
             }
           }catch(e){ console.warn('Sync BD falhou — salvo local:', e?.message||e); }
@@ -2307,9 +2314,9 @@ async function salvarApenas(){
     if(document.getElementById('toggle-os')?.checked) await criarOSjunto(dados, savedNum);
     limparRascunho('form');
     toast(`✅ Orçamento #${String(savedNum).padStart(3,'0')} salvo!`);
-    // Após salvar (edição OU novo), sai do formulário e volta ao histórico.
-    editId=null;
-    const bb=document.getElementById('form-back-bar'); if(bb) bb.style.display='none';
+    // Após salvar (edição OU novo): limpa o form (evita dados/duplicata do
+    // orçamento anterior) e volta ao histórico.
+    _limparCamposOrc();
     go('history');
   }catch(e){ console.error(e); toast('⚠️ Erro ao salvar: '+e.message); }
   btn.disabled=false; btn.textContent='Salvar Orçamento';
@@ -2379,7 +2386,8 @@ async function gerarPDF(){
             lsOrcUpsert(ins);
             todosOrc=todosOrc.filter(x=>x.id!==tempId);
             todosOrc.unshift(ins);
-            editId=ins.id; num=ins.numero;
+            if(editId===tempId) editId=ins.id; // só atualiza se AINDA estiver neste orçamento
+            num=ins.numero;
             atualizarDash(); renderTabela();
           }
         }catch(e){ console.warn('gerarPDF: sync BD falhou:', e?.message||e); }
@@ -2398,9 +2406,8 @@ async function gerarPDF(){
   } else {
     printMode='orc'; window.print();
   }
-  // Após gerar PDF, sai do formulário e volta ao histórico
-  editId=null;
-  const bb=document.getElementById('form-back-bar'); if(bb) bb.style.display='none';
+  // Após gerar PDF: limpa o form (evita dados/duplicata do anterior) e volta ao histórico
+  _limparCamposOrc();
   go('history');
 }
 
