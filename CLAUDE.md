@@ -32,14 +32,14 @@ Se a resposta de qualquer uma for "não sei", **verifique antes de entregar** �
 
 ## 🏢 MULTI-EMPRESA — código compartilhado, config por empresa
 
-Cada empresa usa o **mesmo `index.html`**; só o **`config.js`** muda. NÃO chumbe nada específico de empresa no `index.html`.
+Cada empresa usa os **mesmos `index.html` + `app.js` + `styles.css`**; só o **`config.js`** muda. NÃO chumbe nada específico de empresa nos arquivos compartilhados.
 
 - `config.js` define `window.FLUXA_CONFIG = { appName, supabaseUrl, supabaseKey, lojaPadrao, todasLabel, grupoPrincipal, lojas[] }`.
 - No `index.html`, `FLUXA_CONFIG = Object.assign({defaults Fortemp}, window.FLUXA_CONFIG||{})`. Os defaults reproduzem a Fortemp, então o deploy atual roda igual mesmo sem config.js.
 - Daqui saem: `LOJAS`, `GRUPO_FORTHEMP` (= grupoPrincipal), `LOJA_PADRAO_ID`, as credenciais Supabase do boot, o `document.title`, o seletor do cabeçalho (`populaLojaSelect`) e os selects de empresa dos forms (`popularSelectsLojaForm` preenche `#orc-loja`, `#os-loja`, `#usr-loja-id`).
 - **Nunca** adicione `<option value="fortemp-...">` chumbada no HTML nem `const LOJAS = [...]` fixo — use a config.
 - **Empresa nova:** Supabase próprio → roda `setup.sql` (tabelas+RLS+realtime+storage) → edita `config.js` → deploy próprio. Passo a passo em `NOVA-EMPRESA.md`.
-- **Manutenção:** corrige no `index.html` e copia o MESMO arquivo para o repo de cada empresa (o `config.js` de cada uma não muda).
+- **Manutenção:** corrige em `app.js`/`styles.css`/`index.html` e copia os MESMOS arquivos para o repo de cada empresa (o `config.js` de cada uma não muda).
 
 ---
 
@@ -66,10 +66,16 @@ Campos fiscais no produto (`ncm,cest,cfop_padrao,origem,gtin_ean`) prontos para 
 
 ## ⚠️ PROTOCOLO OBRIGATÓRIO — LEIA ANTES DE QUALQUER COISA
 
-Este arquivo é o **canal de comunicação entre todos os devs e instâncias do Claude** que trabalham neste projeto. Pode haver mais de um dev trabalhando simultaneamente. Para que todos falem a mesma língua, siga estas regras:
+Este arquivo é o **canal de comunicação entre todos os devs e instâncias do Claude** que trabalham neste projeto. **O Marcos usa DUAS IAs diferentes que commitam direto na `main`** — então o repositório muda "por baixo" da sua sessão. Para que todos falem a mesma língua, siga estas regras:
+
+### 🔄 SINCRONIZE COM O `origin/main` ANTES DE TUDO (crítico)
+Outra IA pode ter commitado desde a última vez. **Nunca trabalhe sobre um estado velho.**
+1. **No início da sessão:** `git fetch origin && git log --oneline -5 origin/main`. Se seu working tree divergiu, sincronize: `git reset --hard origin/main` (o trabalho antigo já está no remoto). Confirme os arquivos reais: `index.html` (casca), `app.js` (todo o JS), `styles.css` (todo o CSS).
+2. **Antes de cada `push`:** `git push` ou, se rejeitado, `git pull --rebase origin main` e empurre de novo. Nunca force-push.
+3. **Se algo parecer "desatualizado" (função/tela que você não reconhece):** provavelmente a outra IA mudou — confie no `origin/main`, não no seu cache. Este mês (jul/2026) o app foi refatorado de single-file para **multi-arquivo**; código single-file antigo NÃO deve voltar.
 
 ### Toda sessão de trabalho deve:
-1. **Começar lendo este arquivo** para entender o estado atual do projeto
+1. **Começar sincronizando com o `origin/main`** (acima) e **lendo este arquivo**
 2. **Terminar atualizando este arquivo** com tudo que foi feito ou decidido na sessão
 
 ### O que sempre atualizar ao final de cada sessão:
@@ -126,16 +132,24 @@ Um hook pré-commit bloqueia estes padrões automaticamente (ver `docs/seguranç
 
 ### Como deployar
 ```bash
-git add index.html sw.js CLAUDE.md
+git fetch origin && git reset --hard origin/main   # sincroniza ANTES (outra IA pode ter commitado)
+# ...faça as mudanças em app.js / styles.css / index.html...
+git add app.js styles.css index.html sw.js CLAUDE.md
 git commit -m "descrição da mudança"
-git push
+git push                                            # se rejeitado: git pull --rebase origin main && git push
 ```
 > GitHub Pages serve a branch `main` diretamente. Não há build step. Deploy em ~1 min.
+> Ao mudar `app.js`/`styles.css` que o usuário precisa ver na hora, **suba `CACHE` em `sw.js`** (`fluxa-vN`).
 
 ---
 
 ## O que é
-Sistema de gestão para empresas de manutenção de piscinas. Single-file HTML app (`index.html`) com todo CSS, HTML e JS em um único arquivo (~7500+ linhas). Deployed no GitHub Pages.
+Sistema de gestão para empresas de manutenção de piscinas. **Multi-arquivo** (refatorado de single-file em jul/2026), sem framework nem build step:
+- **`index.html`** — só a casca HTML (~2.4k linhas): estrutura das páginas + templates de PDF (`pdoc-*`). Carrega `styles.css` e `app.js`.
+- **`app.js`** — TODO o JavaScript (~10k linhas). É aqui que se edita comportamento/lógica.
+- **`styles.css`** — TODO o CSS (~1.1k linhas), incluindo `@media print` e os estilos `.pd-*` do relatório.
+- **`config.js`** — config por empresa (`window.FLUXA_CONFIG`).
+Deployed no GitHub Pages (serve a `main` direto, ~1 min).
 
 ## URLs
 - **Produção:** https://marcosssvinnn.github.io/fluxa-app/
@@ -145,34 +159,34 @@ Sistema de gestão para empresas de manutenção de piscinas. Single-file HTML a
 > ⚠️ O repositório é **público**. Não commitar dados sensíveis além da anon key do Supabase (que é necessária para o app funcionar).
 
 ## Stack
-- HTML/CSS/JS puro — sem framework, sem build step, tudo em um arquivo
+- HTML/CSS/JS puro — sem framework, sem build step. **Multi-arquivo:** `index.html` (casca) + `app.js` (JS) + `styles.css` (CSS)
 - Supabase como banco de dados + Realtime sync entre dispositivos
 - localStorage como cache offline / fallback (app funciona sem internet)
 - EmailJS (`@emailjs/browser@4`) — envio de e-mails automáticos de relatório de vistoria
 - Chart.js (`chart.js@4.4.0`) — gráfico de faturamento no dashboard
-- PWA com Service Worker (`sw.js`, cache `fluxa-v2`) — instalável no celular
+- PWA com Service Worker (`sw.js`) — instalável no celular. `index.html`/`app.js`/`styles.css` são **network-first**; **suba o número de `CACHE` (`fluxa-vN`) a cada deploy** para forçar todos os aparelhos a atualizarem
 - Deploy: `git push` → GitHub Pages auto-deploya em ~1 min
 
 ---
 
-## Arquitetura do index.html
+## Arquitetura (multi-arquivo)
 
 ```
-Linhas 1–800:    CSS completo
-  - Linha ~275:  início do bloco @media print (PDF)
-  - Linha ~440:  fim do @media print → CSS de tela continua aqui
-Linhas 800–2050: HTML de todas as páginas (na ordem do DOM)
-  - page-form (orçamentos)
-  - page-os (nova OS)
-  - pdoc-orc, pdoc-os, pdoc-visita (templates PDF — display:none)
-  - page-os-history, page-minhas-os, page-clientes, etc.
-  - page-visitas (NOVO — vistorias de manutenção)
-  - page-agendamentos
-Linhas 2050+:    JavaScript
-  - Boot async IIFE
-  - Supabase connect + sync
-  - Todas as funções do app
+index.html  (~2.4k linhas) — só HTML: <link styles.css> + páginas + templates PDF
+  - pdoc-orc, pdoc-os, pdoc-visita (templates de PDF — .pdoc{display:none})
+  - page-form (orçamentos), page-os, page-os-history, page-minhas-os,
+    page-clientes, page-visitas, page-agendamentos, page-estoque, …
+  - <script src="app.js"> no fim
+styles.css  (~1.1k linhas) — TODO o CSS
+  - @media print: mostra .pdoc.print-active e esconde a UI do app
+  - ⚠️ os estilos do relatório (.pd-*) ficam FORA do @media print (globais),
+    senão o PDF/nova-aba sai sem formatação. Escondidos por .pdoc{display:none}.
+app.js      (~10k linhas) — TODO o JS: boot IIFE, connect Supabase + sync,
+             e todas as funções. **É AQUI que se edita comportamento.**
 ```
+
+> ⚠️ A numeração de linhas muda a cada commit da outra IA — sempre localize por
+> `grep -n "function X" app.js`, nunca por número de linha fixo.
 
 **Regra crítica de CSS:** O bloco `@media print` começa em ~linha 275. CSS colocado **dentro** dele só funciona na impressão/PDF. CSS de tela DEVE ficar **antes** dessa linha. Erros de "estilo sumiu" quase sempre são CSS no lugar errado.
 
