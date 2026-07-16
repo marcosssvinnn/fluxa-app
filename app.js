@@ -1735,7 +1735,7 @@ async function criarOSjunto(dados, orcNum){
     preencherDocOrc(dados, numOrcStr);
     const osDados={ cli:dados.cli, loc:dados.loc, data, hora, tec, tot:dados.tot, mat:'', obs:'', svcs:osSvcsData, loja_id:dados.loja_id||LOJA_PADRAO_ID };
     preencherDocOS(osDados, numStr);
-    printMode='both'; window.print();
+    imprimirDoc('both');
   }catch(e){ console.error('criarOSjunto:',e); toast('⚠️ Erro ao gerar OS: '+e.message); }
 }
 
@@ -2404,7 +2404,7 @@ async function gerarPDF(){
   if(document.getElementById('toggle-os')?.checked){
     await criarOSjunto(dados, num);
   } else {
-    printMode='orc'; window.print();
+    imprimirDoc('orc');
   }
   // Após gerar PDF: limpa o form (evita dados/duplicata do anterior) e volta ao histórico
   _limparCamposOrc();
@@ -2645,7 +2645,7 @@ async function gerarOSPDF(modo='os'){
   const _orcRef=osOrcId?todosOrc.find(x=>x.id===osOrcId):null;
   const _orcNumStr=_orcRef?String(_orcRef.numero||'').padStart(3,'0'):null;
   preencherDocOS({...dados, fotos:dados.fotos, videoLink:dados.videoLink, orcNum:_orcNumStr}, numStr);
-  printMode=modo; window.print();
+  imprimirDoc(modo);
   // OS salva → limpa o rascunho para não vazar dados na próxima OS
   if(numStr!=='???') limparRascunho('os');
 }
@@ -3390,7 +3390,7 @@ function verOrcPDF(id){
   try{ const raw=o.foto_base64||''; fotosB64=raw.startsWith('[')?JSON.parse(raw):(raw?[raw]:[]); }catch(e){ fotosB64=[]; }
   preencherDocOrc(dadosOrc, numStr);
   fotosB64=savedFotos;
-  printMode='orc'; window.print();
+  imprimirDoc('orc');
 }
 
 function duplicarOrc(id){
@@ -4349,6 +4349,21 @@ window.addEventListener('afterprint',()=>{
   document.title = _printTitleBackup || 'Sistema de Orçamentos';
   printMode = '';
 });
+
+// Impressão mobile-safe: o Android Chrome NÃO dispara o evento `beforeprint`,
+// então o `.pdoc` ficava display:none e o PDF saía EM BRANCO no celular.
+// imprimirDoc() aplica a classe print-active MANUALMENTE antes de window.print(),
+// sem depender do evento. Use SEMPRE isto no lugar de `printMode=x; window.print()`.
+function imprimirDoc(modo){
+  printMode = modo;
+  const showOrc = modo==='orc' || modo==='both';
+  const showOs  = modo==='os'  || modo==='both';
+  const showVis = modo==='vis';
+  document.getElementById('pdoc-orc')?.classList.toggle('print-active', showOrc);
+  document.getElementById('pdoc-os')?.classList.toggle('print-active',  showOs);
+  document.getElementById('pdoc-visita')?.classList.toggle('print-active', showVis);
+  window.print();
+}
 
 // ──────────────────────────────────────────────────
 //  REALTIME SYNC (Supabase)
@@ -8107,9 +8122,8 @@ async function _gerarPDFVistoria(vis, opts={}){
     return URL.createObjectURL(blob);
   }
 
-  // Download: usa window.print() (igual orçamentos/OS)
-  printMode = 'vis';
-  window.print();
+  // Download: usa window.print() (igual orçamentos/OS) — mobile-safe via imprimirDoc
+  imprimirDoc('vis');
 }
 
 async function baixarPDFVistoria(id, btn){
@@ -8223,8 +8237,7 @@ async function gerarRelatorioVistoria(){
   } else {
     // Fallback: diálogo de impressão do sistema
     preencherRelatorioVistoria(rec);
-    printMode='vis';
-    window.print();
+    imprimirDoc('vis');
     toast('✅ Vistoria salva!');
   }
 
