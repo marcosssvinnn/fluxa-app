@@ -7429,6 +7429,7 @@ function renderLocaisTab(){
     if(ativo && feita){
       acoesHtml=`
         <button class="tb" onclick="abrirVisRelatorio('${vistoria.id}')" title="Ver relatório PDF" style="font-size:12px;padding:5px 10px">📄 Relatório</button>
+        <button class="tb" onclick="editarVistoria('${vistoria.id}')" title="Reabre a vistoria preenchida para corrigir/completar — salva no mesmo relatório" style="font-size:12px;padding:5px 10px;background:var(--blue-bg);color:var(--blue);border-color:var(--blue-bg)">✏️ Refazer</button>
         <button class="tb" onclick="reenviarEmailVistoria('${vistoria.id}')" title="Reenviar e-mail">✉️</button>
         ${!isTecnico?`<button class="tb" onclick="desfazerVistoriaLocal('${vistoria.id}')" title="Apagar esta visita do mês (volta a pendente)" style="font-size:12px;padding:5px 10px;color:var(--red)">🗑️ Desfazer</button>`:''}`;
     } else if(ativo){
