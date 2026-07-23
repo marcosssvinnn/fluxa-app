@@ -630,8 +630,13 @@ async function fazerLogin(){
       atualizarHeaderLoja();
       logAcao('login', loginUserSelecionado.nome+' (gestor '+(getLojaNome(loginUserSelecionado.loja_id))+')');
       go('history');
-    } else if(loginUserSelecionado.perfil==='tecnico' && !loginUserSelecionado.loja_id){
-      // Técnico que atende mais de uma empresa → escolhe a empresa da sessão
+    } else if(loginUserSelecionado.perfil==='tecnico' &&
+              (!loginUserSelecionado.loja_id ||
+               Object.keys(FLUXA_CONFIG.acessoGrupo||{}).some(g=>podeAcessarGrupo(g, loginUserSelecionado.nome)))){
+      // Técnico que atende mais de uma empresa → escolhe a empresa da sessão.
+      // Inclui técnico com loja FIXA mas com acesso a empresa separada (ex.:
+      // Bruno, fortemp-camboriu, que também faz as vistorias da Aquamotor —
+      // sem isto ele caía direto na Fortemp e nunca via os locais da Aquamotor).
       document.getElementById('login-step-pin').classList.remove('show');
       mostrarSelecaoEmpresaTecnico();
     } else {
@@ -745,11 +750,15 @@ function mostrarSelecaoEmpresaTecnico(){
 
 function confirmarEmpresaTecnico(grupo){
   visEmpresaTecnico = grupo;
-  // lojaAtiva guia cor/header; vistorias herdam a empresa do LOCAL, não daqui
-  lojaAtiva = (grupo==='aquamotor') ? 'aquamotor' : '';
+  // lojaAtiva guia cor/header; vistorias herdam a empresa do LOCAL, não daqui.
+  // Fortemp: técnico com loja fixa mantém a sua loja (header/cor certos).
+  lojaAtiva = (grupo==='aquamotor') ? 'aquamotor' : (loginUserSelecionado.loja_id||'');
   sessionStorage.setItem('fluxa_loja_ativa', lojaAtiva);
   sessionStorage.setItem('fluxa_vis_empresa_tec', grupo);
-  const sessao={perfil:'tecnico', loja_id:loginUserSelecionado.loja_id||null, nome:loginUserSelecionado.nome, empresa_tec:grupo};
+  // Na Aquamotor a sessão NÃO pode carregar a loja Fortemp do técnico:
+  // getLojaFiltro() pré-filtraria a sincronização de vistorias na loja errada.
+  const _lojaSessao = (grupo==='aquamotor') ? null : (loginUserSelecionado.loja_id||null);
+  const sessao={perfil:'tecnico', loja_id:_lojaSessao, nome:loginUserSelecionado.nome, empresa_tec:grupo};
   setSessao(sessao);
   document.getElementById('login-overlay').style.display='none';
   document.getElementById('login-step-loja').classList.remove('show');
