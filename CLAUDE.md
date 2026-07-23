@@ -325,6 +325,7 @@ function filtrarPorLoja(lista, campo='loja_id'){
 | `notas_fiscais` | NF-e/NFS-e emitidas via Focus NFe |
 | `vistorias` | Relatórios de vistoria de manutenção preventiva de piscinas |
 | `locais_vistoria` | Planos recorrentes de vistoria (1 linha por local) — **dedicada** desde 2026-06-23; antes ficava em `empresa_config.dados` |
+| `vistoria_rascunhos` | Backup na nuvem da vistoria EM ANDAMENTO (1 por usuário, id `draft_<nome>`); sobe com debounce enquanto o técnico preenche; restaura até em outro aparelho; limpo ao finalizar. Migração `migracao-vistoria-rascunhos.sql` |
 | `auditoria` | Log de ações: login, status ORC, movimentos estoque, OS concluídas, usuários |
 | `produtos` | Cadastro de produtos com código, unidade, preço, custo, estoque mínimo, CMP |
 | `estoque_movimentos` | Ledger de movimentos: entrada/saida/ajuste/transf/reserva/liberacao_reserva |

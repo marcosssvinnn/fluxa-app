@@ -1698,6 +1698,8 @@ function go(p){
     (async()=>{ try{
       if(typeof loadLocaisRemoto==='function') await loadLocaisRemoto();
       if(typeof loadVistoriasRemoto==='function') await loadVistoriasRemoto();
+      // Rascunho na NUVEM mais novo que o local (celular trocado/quebrado)? Restaura.
+      if(typeof _restaurarRascunhoNuvem==='function') await _restaurarRascunhoNuvem();
       renderLocaisTab(); renderVisHistorico();
     }catch(e){ console.warn('[go visitas sync]', e?.message||e); } })();
   }
@@ -7722,10 +7724,50 @@ function _salvarRascunhoVis(){
       Object.values(semFotos.dados||{}).forEach(x=>{ if(x&&x.fotos) x.fotos=x.fotos.map(f=>f&&String(f).startsWith('http')?f:null); });
       localStorage.setItem(LS_VIS_DRAFT, JSON.stringify(semFotos));
     }
+    _syncRascunhoNuvemDeb(); // backup na nuvem em background (debounce 4s)
   }catch(e){ console.warn('[rascunhoVis]', e?.message||e); }
 }
 function _salvarRascunhoVisDeb(){ clearTimeout(_visDraftTimer); _visDraftTimer=setTimeout(_salvarRascunhoVis, 700); }
-function _limparRascunhoVis(){ try{ lsSet(LS_VIS_DRAFT,''); }catch(e){ console.warn('[limparRascunhoVis]',e?.message||e); } }
+function _limparRascunhoVis(){ try{ lsSet(LS_VIS_DRAFT,''); }catch(e){ console.warn('[limparRascunhoVis]',e?.message||e); } _apagarRascunhoNuvem(); }
+
+// ── BACKUP DO RASCUNHO NA NUVEM (tabela vistoria_rascunhos) ──
+// O rascunho local não sobrevive se o celular morrer/perder/limpar dados —
+// e a equipe já saiu do local. A cada mudança, o progresso sobe para o
+// servidor (debounce 4s); dá até para trocar de aparelho no meio da visita.
+// 1 rascunho ativo por usuário (id = draft_<nome>). Tabela ausente → só loga.
+let _visDraftCloudTimer=null;
+function _draftCloudId(){ const n=_normNome(_nomeUsuarioAtual()); return n?('draft_'+n.replace(/[^a-z0-9]/g,'_')):null; }
+function _syncRascunhoNuvemDeb(){ clearTimeout(_visDraftCloudTimer); _visDraftCloudTimer=setTimeout(()=>_syncRascunhoNuvem(), 4000); }
+async function _syncRascunhoNuvem(){
+  try{
+    if(!dbOk||!db) return;
+    const id=_draftCloudId(); if(!id) return;
+    const raw=ls(LS_VIS_DRAFT); if(!raw) return;
+    const r=await dbUpsert('vistoria_rascunhos', {id, usuario:_nomeUsuarioAtual(), dados:JSON.parse(raw), updated_at:new Date().toISOString()});
+    if(r&&r.error) console.warn('[rascunhoNuvem]', r.error.message);
+  }catch(e){ console.warn('[rascunhoNuvem]', e?.message||e); }
+}
+function _apagarRascunhoNuvem(){
+  try{ const id=_draftCloudId(); if(dbOk&&db&&id) db.from('vistoria_rascunhos').delete().eq('id',id).then(()=>{}).catch(e=>console.warn('[rascunhoNuvem:del]',e?.message||e)); }
+  catch(e){ console.warn('[rascunhoNuvem:del]', e?.message||e); }
+}
+// Restaura da nuvem quando ela é mais nova que o local (ou o local nem existe) —
+// ex.: celular quebrou e o técnico logou em outro aparelho.
+async function _restaurarRascunhoNuvem(){
+  try{
+    if(!dbOk||!db) return false;
+    const id=_draftCloudId(); if(!id) return false;
+    const {data,error}=await db.from('vistoria_rascunhos').select('dados').eq('id',id).limit(1);
+    if(error||!data||!data.length||!data[0].dados) return false;
+    const nuvem=data[0].dados;
+    if(Date.now()-(nuvem.t||0) > 12*60*60*1000) return false; // velho demais
+    let local=null; try{ local=JSON.parse(ls(LS_VIS_DRAFT)||'null'); }catch(e){ console.warn('[rascunhoNuvem:parse]',e?.message||e); }
+    if(local && (local.t||0) >= (nuvem.t||0)) return false;   // local já é igual/mais novo
+    localStorage.setItem(LS_VIS_DRAFT, JSON.stringify(nuvem));
+    _visDraftRestaurado=false; // permite o restore rodar com o conteúdo da nuvem
+    return _restaurarRascunhoVis();
+  }catch(e){ console.warn('[rascunhoNuvem:rest]', e?.message||e); return false; }
+}
 let _visDraftRestaurado=false;
 function _restaurarRascunhoVis(){
   if(_visDraftRestaurado) return false;
@@ -7764,8 +7806,24 @@ function _restaurarRascunhoVis(){
   return true;
 }
 // A tela apagando / app indo p/ segundo plano é EXATAMENTE o momento de salvar
-document.addEventListener('visibilitychange',()=>{ if(document.hidden) _salvarRascunhoVis(); });
-window.addEventListener('pagehide',()=>_salvarRascunhoVis());
+document.addEventListener('visibilitychange',()=>{ if(document.hidden){ _salvarRascunhoVis(); _syncRascunhoNuvem(); } });
+window.addEventListener('pagehide',()=>{
+  _salvarRascunhoVis();
+  // Última chance antes da página morrer: envia à nuvem com keepalive (o fetch
+  // sobrevive ao unload). Limite do keepalive é ~64KB — se o rascunho está
+  // maior (fotos), os envios com debounce durante o uso já o carregaram.
+  try{
+    const id=_draftCloudId(); const raw=ls(LS_VIS_DRAFT);
+    if(id && raw && raw.length<60000 && typeof FLUXA_CONFIG!=='undefined'){
+      fetch(FLUXA_CONFIG.supabaseUrl+'/rest/v1/vistoria_rascunhos',{
+        method:'POST', keepalive:true,
+        headers:{apikey:FLUXA_CONFIG.supabaseKey, Authorization:'Bearer '+FLUXA_CONFIG.supabaseKey,
+                 'Content-Type':'application/json', Prefer:'resolution=merge-duplicates'},
+        body:JSON.stringify({id, usuario:_nomeUsuarioAtual(), dados:JSON.parse(raw), updated_at:new Date().toISOString()})
+      }).catch(e=>console.warn('[rascunhoNuvem:pagehide]', e?.message||e));
+    }
+  }catch(e){ console.warn('[rascunhoNuvem:pagehide]', e?.message||e); }
+});
 
 // Tocar no slot = CÂMERA direto (capture="environment"). Os botões "📷 Tirar
 // foto" e "🖼️ Galeria" abaixo dos slots preenchem a primeira vaga livre.
