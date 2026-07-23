@@ -236,7 +236,10 @@ const FLUXA_CONFIG = Object.assign({
   grupoPrincipal: ['fortemp-camboriu','fortemp-itapema'],
   // Acesso a grupos "separados": grupos NÃO listados (ex.: forthemp) são abertos
   // a todos os gestores. A Aquamotor é restrita — só estes usuários (por nome).
-  acessoGrupo: { aquamotor: ['Marcos','Tamara'] },
+  // Marcos/Tamara = gestão; Bruno = técnico que faz as vistorias da Aquamotor.
+  // (Sem ele aqui, o login de técnico do Bruno caía direto na Fortemp e a
+  // vistoria acabava sendo feita na sessão da Tamara — técnico errado no PDF.)
+  acessoGrupo: { aquamotor: ['Marcos','Tamara','Bruno'] },
   lojas: [
     { id:'fortemp-camboriu', nome:'Fortemp Camboriú',  cor:'loja-0', grupo:'forthemp', tecs:['Marcos','Josimar','Eldecir','Bruno'] },
     { id:'fortemp-itapema',  nome:'Fortemp Itapema',   cor:'loja-1', grupo:'forthemp', tecs:['Marcos','Josimar','Eldecir','Bruno'] },
