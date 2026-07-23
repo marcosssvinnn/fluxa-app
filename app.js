@@ -362,7 +362,16 @@ function trocarLojaAtiva(id){
   else if(pid==='agendamentos'){ renderAgLista(); renderCal(); }
   else if(pid==='estoque') renderEstoque();
   else if(pid==='auditoria') renderAuditoria();
-  else if(pid==='visitas'){ renderLocaisTab(); renderVisHistorico(); } // faltava — trocar empresa não atualizava as Vistorias
+  else if(pid==='visitas'){
+    renderLocaisTab(); renderVisHistorico(); // desenha já com o cache local
+    // e re-sincroniza no novo escopo em background (vistorias são filtradas por
+    // empresa na BUSCA — o cache pode não ter as da empresa recém-selecionada)
+    (async()=>{ try{
+      if(typeof loadLocaisRemoto==='function') await loadLocaisRemoto();
+      if(typeof loadVistoriasRemoto==='function') await loadVistoriasRemoto();
+      renderLocaisTab(); renderVisHistorico();
+    }catch(e){ console.warn('[trocaLoja visitas sync]', e?.message||e); } })();
+  }
 }
 
 function atualizarHeaderLoja(){
@@ -1681,6 +1690,14 @@ function go(p){
     // Todos os perfis caem direto na aba Locais (acompanhamento mensal)
     // "Nova Vistoria" fica acessível pela aba, mas não é a tela inicial
     visTab('locais');
+    // Sincroniza com o banco AO ENTRAR na tela (não só no 🔄 manual): o sync do
+    // boot roda ANTES do login e filtra no escopo errado — vistorias feitas em
+    // outro aparelho não apareciam (caso Bruno/Aquamotor: contador em 0).
+    (async()=>{ try{
+      if(typeof loadLocaisRemoto==='function') await loadLocaisRemoto();
+      if(typeof loadVistoriasRemoto==='function') await loadVistoriasRemoto();
+      renderLocaisTab(); renderVisHistorico();
+    }catch(e){ console.warn('[go visitas sync]', e?.message||e); } })();
   }
   // Atualiza técnicos disponíveis quando abre form de OS
   if(p==='os'){
