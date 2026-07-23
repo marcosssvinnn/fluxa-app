@@ -1690,6 +1690,8 @@ function go(p){
     // Todos os perfis caem direto na aba Locais (acompanhamento mensal)
     // "Nova Vistoria" fica acessível pela aba, mas não é a tela inicial
     visTab('locais');
+    // Vistoria interrompida (tela apagou / app fechou)? Restaura e volta p/ o form
+    if(typeof _restaurarRascunhoVis==='function') _restaurarRascunhoVis();
     // Sincroniza com o banco AO ENTRAR na tela (não só no 🔄 manual): o sync do
     // boot roda ANTES do login e filtra no escopo errado — vistorias feitas em
     // outro aparelho não apareciam (caso Bruno/Aquamotor: contador em 0).
@@ -7542,6 +7544,7 @@ function toggleVisEquip(id){
   renderVisEquipGrid();
   const card = document.getElementById('vis-equip-card');
   if(card) card.style.display = visEquipSelecionados.length?'':'none';
+  _salvarRascunhoVis();
 }
 
 let _visEquipsCustom=[]; // equipamentos vindos de um plano de acompanhamento
@@ -7621,7 +7624,6 @@ function buildEquipBlock(id,emoji,nome,d,modelo,potencia){
       <input type="file" id="vis-f-${id}-${i}-gal" accept="image/*" style="display:none" onchange="visCarregarFoto(this,'${id}',${i})">
       ${f?`<img src="${f}" alt="">`:''}
       <div class="vis-foto-slot-icon">📷</div>
-      ${f?'':`<button class="vis-foto-rm" style="display:flex;background:var(--white);color:var(--c2);border:1px solid var(--gray-mid)" onclick="event.stopPropagation();visClickFotoGaleria('${id}',${i})" title="Escolher da galeria">🖼️</button>`}
       <button class="vis-foto-rm" onclick="event.stopPropagation();visRemoverFoto('${id}',${i})" title="Remover">✕</button>
     </div>`;
   }).join('');
@@ -7651,6 +7653,10 @@ function buildEquipBlock(id,emoji,nome,d,modelo,potencia){
       </div>
       <div style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Fotos</div>
       <div class="vis-fotos-row">${fotosHtml}</div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button type="button" class="tb" style="flex:1;justify-content:center;font-weight:700;background:var(--c1-light);color:var(--c1);border-color:var(--c1-light)" onclick="visFotoBtn('${id}','cam')">📷 Tirar foto</button>
+        <button type="button" class="tb" style="flex:1;justify-content:center" onclick="visFotoBtn('${id}','gal')">🖼️ Galeria</button>
+      </div>
     </div>`;
   return block;
 }
@@ -7668,11 +7674,13 @@ function setVisEquipStatus(id, status){
   if(!visEquipDados[id]) visEquipDados[id]={ status:'na', obs:'', fotos:[] };
   visEquipDados[id].status = status;
   renderVisEquipGrid();
+  _salvarRascunhoVis();
 }
 
 function visUpdObs(id, val){
   if(!visEquipDados[id]) visEquipDados[id]={ status:'na', obs:'', fotos:[] };
   visEquipDados[id].obs = val;
+  _salvarRascunhoVisDeb(); // digitação: salva com debounce
 }
 
 function visAddObs(id, txt, chipEl){
@@ -7685,16 +7693,88 @@ function visAddObs(id, txt, chipEl){
   if(ta) ta.value = novo;
   // Visual feedback: highlight chip briefly
   if(chipEl){ chipEl.style.background='var(--c1-light)'; chipEl.style.borderColor='var(--c1)'; setTimeout(()=>{ chipEl.style.background=''; chipEl.style.borderColor=''; },600); }
+  _salvarRascunhoVis();
 }
 
-// Tocar no slot = CÂMERA direto (capture="environment") — em campo, a foto é
-// tirada na hora na maioria das vezes. Galeria fica no botãozinho 🖼️ do canto
-// (input sem capture), p/ os casos raros de foto já tirada.
+// ══ RASCUNHO AUTOMÁTICO DA VISTORIA ══
+// O navegador do celular DESCARTA a página quando a tela apaga/app vai p/
+// segundo plano — o técnico perdia a vistoria inteira no meio da visita.
+// Todo toque relevante salva o estado no localStorage; ao reabrir, restaura.
+const LS_VIS_DRAFT='fluxa_vis_draft';
+let _visDraftTimer=null;
+function _salvarRascunhoVis(){
+  try{
+    const cli=document.getElementById('vis-cli')?.value||'';
+    // só salva se há algo em andamento (cliente, equipamento ou check-in)
+    if(!cli && !visEquipSelecionados.length && !(_visEquipsCustom||[]).length && !visCheckinTime) return;
+    const d={ t:Date.now(), campos:{},
+      sel:visEquipSelecionados, custom:_visEquipsCustom, dados:visEquipDados,
+      checkin:visCheckinTime?visCheckinTime.getTime():null,
+      checkout:visCheckoutTime?visCheckoutTime.getTime():null,
+      localId:window._visLocalId||null, editId:visEditId||null, draftId:_visDraftId||null };
+    ['vis-cli','vis-loc','vis-data','vis-mes-ref','vis-hora','vis-obs','vis-email-resp','vis-tec']
+      .forEach(fid=>{ const el=document.getElementById(fid); if(el) d.campos[fid]=el.value; });
+    try{ lsSet(LS_VIS_DRAFT, JSON.stringify(d)); }
+    catch(eq){ // cota do localStorage (fotos) — salva sem as fotos locais, melhor que perder tudo
+      const semFotos=JSON.parse(JSON.stringify(d));
+      Object.values(semFotos.dados||{}).forEach(x=>{ if(x&&x.fotos) x.fotos=x.fotos.map(f=>f&&String(f).startsWith('http')?f:null); });
+      lsSet(LS_VIS_DRAFT, JSON.stringify(semFotos));
+    }
+  }catch(e){ console.warn('[rascunhoVis]', e?.message||e); }
+}
+function _salvarRascunhoVisDeb(){ clearTimeout(_visDraftTimer); _visDraftTimer=setTimeout(_salvarRascunhoVis, 700); }
+function _limparRascunhoVis(){ try{ lsSet(LS_VIS_DRAFT,''); }catch(e){ console.warn('[limparRascunhoVis]',e?.message||e); } }
+let _visDraftRestaurado=false;
+function _restaurarRascunhoVis(){
+  if(_visDraftRestaurado) return false;
+  let d=null; try{ d=JSON.parse(ls(LS_VIS_DRAFT)||'null'); }catch(e){ return false; }
+  if(!d||!d.t) return false;
+  if(Date.now()-d.t > 12*60*60*1000){ _limparRascunhoVis(); return false; } // >12h: descarta
+  _visDraftRestaurado=true;
+  visEquipSelecionados=d.sel||[];
+  _visEquipsCustom=d.custom||[];
+  visEquipDados=d.dados||{};
+  window._visLocalId=d.localId||null; visEditId=d.editId||null; _visDraftId=d.draftId||null;
+  visCheckinTime=d.checkin?new Date(d.checkin):null;
+  visCheckoutTime=d.checkout?new Date(d.checkout):null;
+  Object.entries(d.campos||{}).forEach(([fid,v])=>{ const el=document.getElementById(fid); if(el&&v!==undefined&&v!==null) el.value=v; });
+  renderVisChips(); renderVisEquipGrid();
+  const card=document.getElementById('vis-equip-card');
+  if(card) card.style.display=(visEquipSelecionados.length||(_visEquipsCustom||[]).length)?'':'none';
+  // Retoma o cronômetro do check-in do ponto certo (não zera o tempo no local)
+  if(visCheckinTime && !visCheckoutTime){
+    const bar=document.getElementById('vis-checkin-bar');
+    const form=document.getElementById('vis-checkin-form');
+    const info=document.getElementById('vis-checkin-info');
+    if(bar) bar.style.display='flex';
+    if(form) form.style.display='none';
+    if(info) info.textContent='📍 Check-in: '+visCheckinTime.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+    const timerEl=document.getElementById('vis-checkin-timer');
+    if(visCheckinInterval) clearInterval(visCheckinInterval);
+    visCheckinInterval=setInterval(()=>{
+      const diff=Math.floor((Date.now()-visCheckinTime)/1000);
+      const h=Math.floor(diff/3600), m=Math.floor((diff%3600)/60), s=diff%60;
+      if(timerEl) timerEl.textContent=(h?h+':':'')+(m<10&&h?'0':'')+m+':'+(s<10?'0':'')+s;
+    },1000);
+  }
+  visTab('nova');
+  toast('🔄 Vistoria em andamento restaurada — pode continuar de onde parou');
+  return true;
+}
+// A tela apagando / app indo p/ segundo plano é EXATAMENTE o momento de salvar
+document.addEventListener('visibilitychange',()=>{ if(document.hidden) _salvarRascunhoVis(); });
+window.addEventListener('pagehide',()=>_salvarRascunhoVis());
+
+// Tocar no slot = CÂMERA direto (capture="environment"). Os botões "📷 Tirar
+// foto" e "🖼️ Galeria" abaixo dos slots preenchem a primeira vaga livre.
 function visClickFotoSlot(id, idx){
   document.getElementById(`vis-f-${id}-${idx}`)?.click();
 }
-function visClickFotoGaleria(id, idx){
-  document.getElementById(`vis-f-${id}-${idx}-gal`)?.click();
+function visFotoBtn(id, modo){
+  const fotos=(visEquipDados[id]?.fotos)||[];
+  let idx=-1; for(let i=0;i<3;i++){ if(!fotos[i]){ idx=i; break; } }
+  if(idx<0){ toast('⚠️ Máximo de 3 fotos — remova uma para adicionar outra'); return; }
+  document.getElementById(`vis-f-${id}-${idx}${modo==='gal'?'-gal':''}`)?.click();
 }
 function visCarregarFoto(inp, id, idx){
   const f = inp.files[0]; if(!f) return;
@@ -7706,12 +7786,14 @@ function visCarregarFoto(inp, id, idx){
     if(!visEquipDados[id].fotos) visEquipDados[id].fotos=[];
     visEquipDados[id].fotos[idx] = compressed;
     renderVisEquipGrid();
+    _salvarRascunhoVis();
   };
   r.readAsDataURL(f);
 }
 function visRemoverFoto(id, idx){
   if(visEquipDados[id]?.fotos) visEquipDados[id].fotos[idx]=null;
   renderVisEquipGrid();
+  _salvarRascunhoVis();
 }
 
 // Faz upload de uma foto (base64) para o Supabase Storage e retorna a URL pública.
@@ -7789,10 +7871,12 @@ function visCheckin(){
     const h=Math.floor(diff/3600), m=Math.floor((diff%3600)/60), s=diff%60;
     if(timerEl) timerEl.textContent=(h?h+':':'')+(m<10&&h?'0':'')+m+':'+(s<10?'0':'')+s;
   },1000);
+  _salvarRascunhoVis(); // check-in marca o início — protege o horário mesmo se a tela apagar
 }
 function visCheckout(){
   if(visCheckoutTime) return; // já registrado
   visCheckoutTime = new Date();
+  setTimeout(_salvarRascunhoVis, 50);
   if(visCheckinInterval){ clearInterval(visCheckinInterval); visCheckinInterval=null; }
   const bar  = document.getElementById('vis-checkin-bar');
   const info = document.getElementById('vis-checkin-info');
@@ -8055,6 +8139,8 @@ function _resetCheckinVis(){
   if(timer) timer.textContent='00:00';
 }
 function _limparFormVistoria(){
+  _limparRascunhoVis(); // vistoria finalizada → rascunho não deve ressuscitar
+  _visDraftRestaurado=false;
   visEquipDados = {};
   _visEquipsCustom = [];
   visCheckinTime = null;
