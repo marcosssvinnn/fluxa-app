@@ -434,6 +434,13 @@
           <input type="password" id="usr-pin" maxlength="4" inputmode="numeric" placeholder="••••">
         </div>
       </div>
+      <!-- Acessos a empresas separadas (ex.: Aquamotor) — checkboxes gerados pelo JS -->
+      <div class="row f1" id="usr-acessos-row" style="display:none">
+        <div class="fl">
+          <label>Acessos extras <span style="font-weight:400;color:var(--gray);text-transform:none">(empresas separadas que este usuário pode acessar)</span></label>
+          <div id="usr-acessos-wrap" style="display:flex;gap:16px;flex-wrap:wrap;padding:8px 0"></div>
+        </div>
+      </div>
       <button class="btn-primary" onclick="salvarUsuario()">💾 Salvar Usuário</button>
     </div>
 

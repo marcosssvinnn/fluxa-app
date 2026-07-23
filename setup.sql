@@ -123,6 +123,9 @@ ALTER TABLE orcamentos     ADD COLUMN IF NOT EXISTS cnpj text;
 ALTER TABLE orcamentos     ADD COLUMN IF NOT EXISTS loja_id text;
 ALTER TABLE orcamentos     ADD COLUMN IF NOT EXISTS origem_cliente text;
 ALTER TABLE orcamentos     ADD COLUMN IF NOT EXISTS assinatura_base64 text;
+ALTER TABLE orcamentos     ADD COLUMN IF NOT EXISTS assinatura_data timestamptz;  -- quando foi assinado
+ALTER TABLE orcamentos     ADD COLUMN IF NOT EXISTS assinatura_hash text;         -- anti-adulteração
+ALTER TABLE orcamentos     ADD COLUMN IF NOT EXISTS assinatura_meta text;         -- dispositivo que assinou
 ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS fotos jsonb DEFAULT '[]';
 ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS video_link text;
 ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS agendamento_id uuid;
@@ -142,6 +145,13 @@ ALTER TABLE agendamentos   ADD COLUMN IF NOT EXISTS loja_id text;
 ALTER TABLE vistorias      ADD COLUMN IF NOT EXISTS local_id text;
 ALTER TABLE equipamentos   ADD COLUMN IF NOT EXISTS loja_id text;
 ALTER TABLE despesas       ADD COLUMN IF NOT EXISTS loja_id text;
+
+-- ─────────────  NÚMERO ÚNICO (anti-duplicata em uso simultâneo)  ─────────────
+--  O app tenta o próximo número quando o banco recusa por duplicidade — mas só
+--  funciona se existir o índice UNIQUE para o banco recusar de fato. Num banco
+--  novo e vazio não há duplicatas, então a criação é segura.
+CREATE UNIQUE INDEX IF NOT EXISTS orcamentos_numero_unico     ON orcamentos (numero);
+CREATE UNIQUE INDEX IF NOT EXISTS ordens_servico_numero_unico ON ordens_servico (numero);
 
 -- ─────────────  LOCAIS DE VISTORIA (planos recorrentes — 1 linha por local)  ─────────────
 --  Antes ficavam num array dentro de empresa_config.dados → salvar reescrevia o
@@ -174,6 +184,9 @@ CREATE TABLE IF NOT EXISTS produtos (
   ativo boolean DEFAULT true,
   data_criacao timestamptz DEFAULT now()
 );
+ALTER TABLE produtos ADD COLUMN IF NOT EXISTS lote text;      -- lote/código de lote do estoque
+ALTER TABLE produtos ADD COLUMN IF NOT EXISTS validade date;  -- validade do produto
+ALTER TABLE usuarios       ADD COLUMN IF NOT EXISTS acessos jsonb DEFAULT '[]';  -- empresas separadas que o usuário acessa (ex.: ["aquamotor"]) — gerenciado na tela Usuários
 CREATE TABLE IF NOT EXISTS estoque_movimentos (
   id text PRIMARY KEY,
   loja_id text,

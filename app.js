@@ -265,11 +265,31 @@ function isMainGestor(){ const s=getSessao(); return (s?.perfil==='gestor'||s?.p
 // é restrita aos nomes da lista (ex.: Marcos e Tamara).
 function _normNome(s){ return (s||'').toString().trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
 function _nomeUsuarioAtual(){ return getSessao()?.nome || (typeof loginUserSelecionado!=='undefined' && loginUserSelecionado?.nome) || ''; }
+// Normaliza o campo acessos (jsonb array, string JSON ou nulo) para array
+function _acessosDoUsuario(u){
+  const a=u&&u.acessos;
+  if(Array.isArray(a)) return a;
+  if(typeof a==='string'){ try{ const p=JSON.parse(a); return Array.isArray(p)?p:[]; }catch(e){ return []; } }
+  return [];
+}
+// Fonte primária: campo `acessos` do CADASTRO do usuário (checkboxes em
+// Usuários → "Acessos extras"). Reserva: lista fixa FLUXA_CONFIG.acessoGrupo
+// (vale enquanto a coluna não existir no banco ou estiver vazia).
 function podeAcessarGrupo(grupo, nome){
+  const n=_normNome(nome!==undefined?nome:_nomeUsuarioAtual());
+  // 1º: acessos do cadastro (gerenciável na tela Usuários)
+  const u=(typeof todosUsuarios!=='undefined'?todosUsuarios:[]).find(x=>x&&x.ativo!==false&&_normNome(x.nome)===n);
+  if(u && _acessosDoUsuario(u).includes(grupo)) return true;
+  // 2º: reserva da config
   const lista=(FLUXA_CONFIG.acessoGrupo||{})[grupo];
   if(!lista||!lista.length) return true; // grupo aberto a todos
-  const n=_normNome(nome!==undefined?nome:_nomeUsuarioAtual());
   return lista.map(_normNome).includes(n);
+}
+// Grupos "separados" (fora do grupo principal) — base dos checkboxes de acesso
+function gruposSeparados(){
+  const m=new Map();
+  LOJAS.filter(l=>!GRUPO_FORTHEMP.includes(l.id)).forEach(l=>{ if(!m.has(l.grupo)) m.set(l.grupo, l.nome); });
+  return [...m.entries()].map(([grupo,nome])=>({grupo,nome}));
 }
 
 // Filtra lista pelo contexto de loja/grupo ativo
@@ -6116,19 +6136,25 @@ function renderUsuarios(){
   const perfilLabel={master:'Master',gestor:'Gestor',vendas:'Vendas',tecnico:'Técnico'};
   const perfilCor={master:'gestor',gestor:'gestor',vendas:'vendas',tecnico:'tecnico'};
   const perfilEmoji={master:'👑',gestor:'🛡️',vendas:'💼',tecnico:'🔧'};
-  const tecsHtml=todosUsuarios.filter(u=>u.ativo!==false).map(u=>`
+  // Nome da empresa separada por grupo (p/ chips de acesso)
+  const _nomeGrupoSep={}; gruposSeparados().forEach(g=>{ _nomeGrupoSep[g.grupo]=g.nome; });
+  const tecsHtml=todosUsuarios.filter(u=>u.ativo!==false).map(u=>{
+    const acessos=_acessosDoUsuario(u).filter(g=>_nomeGrupoSep[g]);
+    const acessosHtml=acessos.map(g=>`<span class="usr-badge" style="background:#dcfce7;color:#16a34a;margin-left:4px" title="Acesso extra">🔓 ${esc(_nomeGrupoSep[g])}</span>`).join('');
+    const lojaTxt=u.loja_nome?esc(u.loja_nome):(u.perfil==='master'||u.perfil==='gestor'?'Todas (grupo)':'—');
+    return `
     <div class="usr-card">
       <div class="usr-avatar" style="${u.perfil==='vendas'?'background:#f59e0b':u.perfil==='master'?'background:#7c3aed':''}">${u.perfil==='master'?'👑':u.perfil==='vendas'?'💼':u.nome.charAt(0).toUpperCase()}</div>
       <div class="usr-info">
         <div class="usr-nome">${esc(u.nome)}</div>
-        <div class="usr-det">${u.loja_nome?'Loja: '+esc(u.loja_nome)+' · ':''}PIN: ${u.pin?'✅ definido':'⚠️ não definido'}</div>
+        <div class="usr-det">🏢 ${lojaTxt} · PIN: ${u.pin?'✅ definido':'⚠️ não definido'}</div>
       </div>
-      <span class="usr-badge ${perfilCor[u.perfil]||'tecnico'}">${perfilEmoji[u.perfil]||'🔧'} ${perfilLabel[u.perfil]||'Técnico'}</span>
+      <span class="usr-badge ${perfilCor[u.perfil]||'tecnico'}">${perfilEmoji[u.perfil]||'🔧'} ${perfilLabel[u.perfil]||'Técnico'}</span>${acessosHtml}
       <div style="display:flex;gap:4px;margin-left:8px;flex-shrink:0">
         <button class="tb" onclick="editarUsuario('${u.id}')">✏️</button>
         <button class="tb d" onclick="excluirUsuario('${u.id}')">🗑</button>
       </div>
-    </div>`).join('');
+    </div>`; }).join('');
 
   const vazio=todosUsuarios.filter(u=>u.ativo!==false).length===0
     ?'<div class="empty-st" style="padding:20px 0"><div class="ei">👤</div><p>Nenhum técnico cadastrado.<br>Clique em "+ Novo Usuário" para adicionar.</p></div>':'';
@@ -6137,12 +6163,31 @@ function renderUsuarios(){
 }
 
 let _usrEditId=null;
+// Desenha os checkboxes de acessos extras (um por empresa separada, ex.: Aquamotor)
+function _renderUsrAcessos(marcados){
+  const row=document.getElementById('usr-acessos-row');
+  const wrap=document.getElementById('usr-acessos-wrap');
+  if(!row||!wrap) return;
+  const grupos=gruposSeparados();
+  if(!grupos.length){ row.style.display='none'; return; }
+  row.style.display='';
+  const sel=new Set(marcados||[]);
+  wrap.innerHTML=grupos.map(g=>`
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--c2);cursor:pointer;text-transform:none;letter-spacing:0">
+      <input type="checkbox" class="usr-acesso-chk" value="${esc(g.grupo)}" ${sel.has(g.grupo)?'checked':''} style="width:17px;height:17px;accent-color:var(--c1)">
+      🔓 ${esc(g.nome)}
+    </label>`).join('');
+}
+function _lerUsrAcessos(){
+  return [...document.querySelectorAll('.usr-acesso-chk:checked')].map(c=>c.value);
+}
 function abrirFormUsuario(){
   _usrEditId=null;
   document.getElementById('usr-form-card').style.display='block';
   ['usr-nome','usr-pin'].forEach(id=>setV(id,''));
   setV('usr-perfil','tecnico');
   setV('usr-loja-id','');
+  _renderUsrAcessos([]);
   document.getElementById('usr-form-titulo').textContent='Novo Usuário';
   document.getElementById('usr-pin-label').textContent='PIN (4 dígitos)';
   document.getElementById('usr-form-card').scrollIntoView({behavior:'smooth'});
@@ -6155,6 +6200,7 @@ function editarUsuario(id){
   setV('usr-perfil',u.perfil||'tecnico');
   setV('usr-loja-id',u.loja_id||'');
   setV('usr-pin','');
+  _renderUsrAcessos(_acessosDoUsuario(u));
   document.getElementById('usr-form-titulo').textContent='Editar — '+(u.nome||'');
   document.getElementById('usr-pin-label').textContent='PIN (vazio = manter atual)';
   document.getElementById('usr-form-card').scrollIntoView({behavior:'smooth'});
@@ -6177,7 +6223,7 @@ async function salvarUsuario(){
     // ── EDITAR (promover/rebaixar, renomear, trocar PIN) ──
     const i=todosUsuarios.findIndex(x=>x.id===_usrEditId); if(i<0){ toast('Usuário não encontrado'); return; }
     const antigo=todosUsuarios[i];
-    const upd={ nome, perfil, loja_id:lojaId, loja_nome:loja?.nome||null };
+    const upd={ nome, perfil, loja_id:lojaId, loja_nome:loja?.nome||null, acessos:_lerUsrAcessos() };
     if(pinHash) upd.pin=pinHash; // só troca o PIN se foi informado
     todosUsuarios[i]={...antigo,...upd};
     lsSet('fluxa_usuarios',JSON.stringify(todosUsuarios));
@@ -6192,7 +6238,7 @@ async function salvarUsuario(){
   }
 
   // ── NOVO ──
-  const dados={ nome, perfil, loja_id:lojaId, loja_nome:loja?.nome||null, pin:pinHash, ativo:true };
+  const dados={ nome, perfil, loja_id:lojaId, loja_nome:loja?.nome||null, pin:pinHash, ativo:true, acessos:_lerUsrAcessos() };
   const tempId='usr_'+Date.now();
   const rec={...dados,id:tempId,data_criacao:new Date().toISOString()};
   todosUsuarios.push(rec);

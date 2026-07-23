@@ -321,7 +321,7 @@ function filtrarPorLoja(lista, campo='loja_id'){
 | `equipamentos` | Equipamentos com QR Code, garantia, foto, loja_id |
 | `despesas` | Despesas de campo dos técnicos com comprovante, loja_id |
 | `lojas` | Config por empresa: focusnfe_token, focusnfe_ambiente, iss_aliquota, etc. |
-| `usuarios` | Técnicos, vendas, gestores e masters com PIN (SHA-256), perfil, loja_id |
+| `usuarios` | Técnicos, vendas, gestores e masters com PIN (SHA-256), perfil, loja_id, **acessos** (jsonb — empresas separadas, ex.: `["aquamotor"]`; gerenciado na tela Usuários; migração `migracao-acessos-usuarios.sql`) |
 | `notas_fiscais` | NF-e/NFS-e emitidas via Focus NFe |
 | `vistorias` | Relatórios de vistoria de manutenção preventiva de piscinas |
 | `locais_vistoria` | Planos recorrentes de vistoria (1 linha por local) — **dedicada** desde 2026-06-23; antes ficava em `empresa_config.dados` |
