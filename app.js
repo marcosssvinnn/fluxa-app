@@ -2856,6 +2856,8 @@ function verificarVencidos(){
         lsOrcAtualizar(o.id,{status:'vencido'});
         if(dbOk&&db&&!String(o.id).startsWith('local_'))
           db.from('orcamentos').update({status:'vencido'}).eq('id',o.id).then(()=>{}).catch(()=>{});
+        // Vencido não pode segurar estoque: libera reservas deste orçamento
+        if(typeof sincronizarReservaOrcamento==='function') sincronizarReservaOrcamento(o);
       }
     }
   });
@@ -3596,6 +3598,8 @@ function autoVencerOrc(lista){
       lsOrcAtualizar(o.id,{status:'vencido'});
       if(dbOk&&db&&!String(o.id).startsWith('local_'))
         db.from('orcamentos').update({status:'vencido'}).eq('id',o.id).then(()=>{}).catch(()=>{});
+      // Vencido não pode segurar estoque: libera reservas deste orçamento
+      if(typeof sincronizarReservaOrcamento==='function') sincronizarReservaOrcamento(o);
     }
   });
   if(mudou) atualizarDash();
@@ -9120,6 +9124,10 @@ async function loadEstoque(){
       renderEstoque();
     }catch(e){ console.warn('[loadEstoque]', e?.message||e); }
   }
+  // Cura reservas órfãs (precisa de movimentos + orçamentos carregados; a flag
+  // interna garante 1x por sessão e o retry cobre a ordem de carregamento)
+  setTimeout(_reconciliarReservasOrfas, 1500);
+  setTimeout(_reconciliarReservasOrfas, 8000);
 }
 
 // 3 números por produto (na loja ativa):
@@ -9266,6 +9274,43 @@ function entregarOrcamento(orc, origem, qtyMap){
 }
 // Compat: chamadas antigas de baixa agora gerenciam a RESERVA
 function sincronizarBaixaOrcamento(orc){ sincronizarReservaOrcamento(orc); }
+
+// ── Reconciliação de reservas órfãs (1x por sessão de gestor) ──
+// Reserva só é legítima com orçamento APROVADO aguardando entrega. Se o orc
+// venceu/foi recusado/apagado (ou era teste antigo), a reserva ficava presa
+// para sempre, roubando o "disponível" e distorcendo a lista de compras.
+// (Auditoria 23/07: 7 reservas presas — 4 de orcs vencidos, 3 de testes.)
+let _reservasReconciliadas=false;
+function _reconciliarReservasOrfas(){
+  if(_reservasReconciliadas) return;
+  if(!Array.isArray(todosMovEstoque)||!todosMovEstoque.length) return; // estoque ainda não carregou
+  if(!Array.isArray(todosOrc)||!todosOrc.length) return;               // orçamentos ainda não carregaram
+  _reservasReconciliadas=true;
+  try{
+    const porOrc={};
+    todosMovEstoque.forEach(m=>{
+      if(!_TIPOS_RESERVA.includes(m.tipo)||!m.ref) return;
+      const i=m.ref.indexOf('orc:'); if(i<0) return;
+      const resto=m.ref.slice(i+4);
+      const j=m.produto_id?resto.indexOf(':'+m.produto_id):-1;
+      const orcId=j>0?resto.slice(0,j):resto.split(':')[0];
+      porOrc[orcId]=(porOrc[orcId]||0)+(parseFloat(m.quantidade)||0);
+    });
+    let liberadas=0;
+    Object.entries(porOrc).forEach(([orcId,net])=>{
+      if(net<=0.001) return;                       // sem reserva em aberto
+      const o=todosOrc.find(x=>x.id===orcId);
+      if(o && o.status==='aprovado') return;       // legítima: aguardando entrega
+      // Não-aprovado ou orçamento inexistente (teste apagado) → libera tudo dele
+      sincronizarReservaOrcamento(o||{id:orcId, numero:'?', status:'vencido', servicos:[], loja_id:null});
+      liberadas++;
+    });
+    if(liberadas){
+      console.warn(`[reconciliarReservas] ${liberadas} reserva(s) órfã(s) liberada(s)`);
+      logAcao('estoque_reconciliacao', `${liberadas} reserva(s) órfã(s) liberada(s) automaticamente`);
+    }
+  }catch(e){ console.warn('[reconciliarReservas]', e?.message||e); }
+}
 // Quando uma OS é concluída, dá baixa do orçamento vinculado (se houver)
 function _entregarPelaOS(osId){
   if(!osId) return;
