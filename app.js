@@ -4365,7 +4365,28 @@ function imprimirDoc(modo){
   document.getElementById('pdoc-orc')?.classList.toggle('print-active', showOrc);
   document.getElementById('pdoc-os')?.classList.toggle('print-active',  showOs);
   document.getElementById('pdoc-visita')?.classList.toggle('print-active', showVis);
+  // Nome do arquivo PDF: no desktop o beforeprint nomeia; no Android ele não
+  // dispara — sem isto o cliente recebia "Acquamotor — Orçamentos.pdf".
+  // (Mesma lógica do beforeprint — manter as duas em sincronia.)
+  const _tituloOriginal = document.title;
+  try{
+    if(showVis){
+      const cli=(document.getElementById('pd-cli-nm-vis')?.textContent||'').replace(/[^a-zA-Z0-9À-ɏ\s]/g,'').trim().replace(/\s+/g,'_');
+      const dt =(document.getElementById('pd-num-vis')?.textContent||'').replace(/\//g,'-');
+      document.title = cli ? `Vistoria_${cli}_${dt}` : `Vistoria_${dt||'relatorio'}`;
+    } else {
+      const refMode = modo==='os' ? 'os' : 'orc';
+      const num=(document.getElementById('pd-num-'+refMode)?.textContent||'').replace(/[^0-9]/g,'').padStart(3,'0');
+      const cli=(document.getElementById('pd-cli-nm-'+refMode)?.textContent||'').replace(/[^a-zA-Z0-9À-ɏ\s]/g,'').trim().replace(/\s+/g,'_');
+      const prefix = modo==='os'?'OS':modo==='both'?'ORC+OS':'ORC';
+      if(cli && num) document.title = `${cli}_${prefix}${num}`;
+      else if(num) document.title = `${prefix}${num}`;
+    }
+  }catch(e){ console.warn('[imprimirDoc:titulo]', e?.message||e); }
   window.print();
+  // Android não dispara afterprint — restaura o título da aba depois que o
+  // sistema de impressão já capturou o nome do arquivo.
+  setTimeout(()=>{ document.title = _tituloOriginal; }, 4000);
 }
 
 // ──────────────────────────────────────────────────
