@@ -8098,6 +8098,20 @@ function desfazerVistoriaLocal(vistoriaId){
   }, 'Desfazer visita', null, 'Cancelar', 'Desfazer');
 }
 
+// Serializa TODO o CSS da página (styles.css + <style> inline). Desde a
+// refatoração multi-arquivo o CSS vive em styles.css (um <link>), então coletar
+// só as tags <style> deixava a nova aba SEM NENHUM estilo → relatório "zuado"
+// (logo gigante, texto cru, 12 páginas). document.styleSheets cobre os dois.
+function _cssCompletoDaPagina(){
+  let css='';
+  for(const sheet of document.styleSheets){
+    try{ for(const rule of sheet.cssRules) css+=rule.cssText+'\n'; }
+    catch(e){ /* folha cross-origin (ex.: Google Fonts) — o <link> da fonte já vai no head */ }
+  }
+  if(!css.trim()) css=[...document.querySelectorAll('style')].map(s=>s.innerHTML).join('\n');
+  return css;
+}
+
 // Núcleo único de geração de PDF de vistoria (download via html2pdf).
 // Usado por baixarPDFVistoria (📥), abrirVisRelatorio (📄 / tap na linha) e
 // gerarRelatorioVistoria — todos com o MESMO comportamento (sem branco no mobile).
@@ -8110,7 +8124,7 @@ async function _gerarPDFVistoria(vis, opts={}){
 
   if(opts.output === 'bloburl'){
     // Abre em nova aba: monta HTML completo com todos os estilos da página e o template preenchido
-    const stylesTxt = [...document.querySelectorAll('style')].map(s=>s.innerHTML).join('\n');
+    const stylesTxt = _cssCompletoDaPagina();
     const el = document.getElementById('pdoc-visita');
     const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
       <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -8177,8 +8191,8 @@ function abrirVisRelatorio(id){
   const el = document.getElementById('pdoc-visita');
   if(!el){ toast('⚠️ Template não encontrado'); return; }
 
-  // Coleta todos os estilos do documento — inclui as regras .pdoc, .pd-*, etc.
-  const stylesTxt = [...document.querySelectorAll('style')].map(s=>s.innerHTML).join('\n');
+  // Coleta TODO o CSS (styles.css linkado + <style> inline) — ver _cssCompletoDaPagina
+  const stylesTxt = _cssCompletoDaPagina();
   const nomeArq = `Vistoria-${(vis.cliente||'relatorio').replace(/\s+/g,'-')}-${vis.data||''}.pdf`;
   const html = `<!DOCTYPE html><html lang="pt-BR"><head>
     <meta charset="UTF-8">
