@@ -6159,7 +6159,13 @@ function renderUsuarios(){
   const vazio=todosUsuarios.filter(u=>u.ativo!==false).length===0
     ?'<div class="empty-st" style="padding:20px 0"><div class="ei">👤</div><p>Nenhum técnico cadastrado.<br>Clique em "+ Novo Usuário" para adicionar.</p></div>':'';
 
-  el.innerHTML=gestorHtml+tecsHtml+vazio;
+  // Legenda: o que cada perfil enxerga (autoexplicativo p/ quem administra)
+  const legenda=`<div style="margin-top:14px;padding:12px 14px;background:var(--gray-light,#f3f4f6);border-radius:10px;font-size:12px;line-height:1.7;color:var(--gray)">
+    <div style="font-weight:700;text-transform:uppercase;letter-spacing:.5px;font-size:10px;margin-bottom:6px;color:var(--c2)">Níveis de acesso</div>
+    ${['tecnico','vendas','gestor','master'].map(k=>{const p=PERFIL_INFO[k];return `<div>${p.emoji} <strong>${p.nome}:</strong> ${p.desc}</div>`;}).join('')}
+    <div style="margin-top:6px">🔓 <strong>Acessos extras:</strong> empresas separadas (ex.: Aquamotor) que o usuário pode acessar além da empresa base — marque no ✏️ Editar.</div>
+  </div>`;
+  el.innerHTML=gestorHtml+tecsHtml+vazio+legenda;
 }
 
 let _usrEditId=null;
@@ -6188,6 +6194,7 @@ function abrirFormUsuario(){
   setV('usr-perfil','tecnico');
   setV('usr-loja-id','');
   _renderUsrAcessos([]);
+  updUsrForm();
   document.getElementById('usr-form-titulo').textContent='Novo Usuário';
   document.getElementById('usr-pin-label').textContent='PIN (4 dígitos)';
   document.getElementById('usr-form-card').scrollIntoView({behavior:'smooth'});
@@ -6201,12 +6208,27 @@ function editarUsuario(id){
   setV('usr-loja-id',u.loja_id||'');
   setV('usr-pin','');
   _renderUsrAcessos(_acessosDoUsuario(u));
+  updUsrForm();
   document.getElementById('usr-form-titulo').textContent='Editar — '+(u.nome||'');
   document.getElementById('usr-pin-label').textContent='PIN (vazio = manter atual)';
   document.getElementById('usr-form-card').scrollIntoView({behavior:'smooth'});
 }
 function fecharFormUsuario(){ document.getElementById('usr-form-card').style.display='none'; _usrEditId=null; }
-function updUsrForm(){}
+
+// O que cada perfil enxerga — mostrado sob o select de perfil (autoexplicativo
+// p/ quem administra) e na legenda da lista. Manter em sincronia com
+// aplicarPermissoesPerfil()/go() se as permissões mudarem.
+const PERFIL_INFO={
+  tecnico:{emoji:'🔧',nome:'Técnico',desc:'<strong>Vê:</strong> Minhas OS e Vistorias (executa no campo, com check-in/out e fotos). <strong>Não vê:</strong> valores financeiros, orçamentos, estoque, clientes, configurações.'},
+  vendas:{emoji:'💼',nome:'Vendas',desc:'<strong>Vê:</strong> Orçamentos, Histórico, Clientes, Agenda e criação de OS. <strong>Não vê:</strong> painel financeiro, estoque, despesas, produtividade, usuários.'},
+  gestor:{emoji:'🛡️',nome:'Gestor',desc:'<strong>Vê tudo da(s) sua(s) empresa(s):</strong> financeiro, estoque, despesas, produtividade, usuários e configurações. Com empresa definida, gerencia só ela; sem empresa, o grupo Fortemp todo.'},
+  master:{emoji:'👑',nome:'Master',desc:'<strong>Acesso total:</strong> tudo do gestor + Auditoria (quem fez o quê) + promover/rebaixar usuários. Acima de todos os perfis.'}
+};
+function updUsrForm(){
+  const hint=document.getElementById('usr-perfil-hint'); if(!hint) return;
+  const p=PERFIL_INFO[gV('usr-perfil')||'tecnico'];
+  hint.innerHTML=p?`${p.emoji} ${p.desc}`:'';
+}
 
 async function salvarUsuario(){
   const nome=gV('usr-nome').trim();
