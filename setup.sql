@@ -171,6 +171,17 @@ CREATE TABLE IF NOT EXISTS locais_vistoria (
 );
 CREATE INDEX IF NOT EXISTS idx_locais_loja ON locais_vistoria(loja_id);
 
+-- ─────────────  RASCUNHOS DE VISTORIA (backup na nuvem do progresso em campo)  ─────────────
+--  Enquanto o técnico preenche a vistoria, o progresso sobe para cá (debounce).
+--  Se o celular morrer/perder/limpar dados, restaura — até em outro aparelho.
+--  1 rascunho ativo por usuário (id = draft_<nome>). Limpo ao finalizar.
+CREATE TABLE IF NOT EXISTS vistoria_rascunhos (
+  id text PRIMARY KEY,
+  usuario text,
+  dados jsonb,
+  updated_at timestamptz DEFAULT now()
+);
+
 -- ─────────────  ESTOQUE  ─────────────
 CREATE TABLE IF NOT EXISTS produtos (
   id text PRIMARY KEY,
@@ -222,7 +233,7 @@ BEGIN
   FOREACH t IN ARRAY ARRAY[
     'orcamentos','ordens_servico','empresa_config','clientes','agendamentos',
     'vistorias','equipamentos','despesas','lojas','usuarios','notas_fiscais',
-    'produtos','estoque_movimentos','auditoria','locais_vistoria'
+    'produtos','estoque_movimentos','auditoria','locais_vistoria','vistoria_rascunhos'
   ] LOOP
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY;', t);
     EXECUTE format('DROP POLICY IF EXISTS "anon full access" ON %I;', t);
