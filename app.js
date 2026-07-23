@@ -8238,6 +8238,9 @@ function renderVisHistorico(){
   const busca = (document.getElementById('vis-hist-busca')?.value||'').toLowerCase();
   const mes   = document.getElementById('vis-hist-mes')?.value||'';
   const tecFilt = document.getElementById('vis-hist-tec')?.value||'';
+  // Botão de backup do arquivo: só gestor
+  const _btnBkp=document.getElementById('vis-btn-backup');
+  if(_btnBkp) _btnBkp.style.display=eGestor()?'':'none';
   // Escopo de empresa: histórico, stats, ranking e alertas só da empresa em foco
   let listaTotal = lsVisLer().filter(v=>escopoEmpresaMatch(v.loja_id));
   let lista = listaTotal;
@@ -8357,7 +8360,7 @@ function renderVisHistorico(){
           <button class="tb" title="Editar / refazer vistoria" onclick="event.stopPropagation();editarVistoria('${v.id}')" style="font-size:11px;background:var(--blue-bg);color:var(--blue);border-color:var(--blue-bg)">✏️</button>
           <button class="tb" title="Ver relatório" onclick="event.stopPropagation();abrirVisRelatorio('${v.id}')" style="font-size:11px;background:var(--blue-bg);color:var(--blue);border-color:var(--blue-bg)">👁 Ver</button>
           <button class="tb" title="Baixar PDF" onclick="event.stopPropagation();baixarPDFVistoria('${v.id}',this)" style="font-size:11px;background:var(--c1-light);color:var(--c1);border-color:var(--c1-light)">📥 PDF</button>
-          <button class="tb" title="Excluir" onclick="event.stopPropagation();excluirVistoria('${v.id}')" style="background:var(--red-bg);color:var(--red);border-color:var(--red-bg);font-size:11px">✕</button>
+          ${!eTecnico()?`<button class="tb" title="Excluir (permanente — remove do arquivo!)" onclick="event.stopPropagation();excluirVistoria('${v.id}')" style="background:var(--red-bg);color:var(--red);border-color:var(--red-bg);font-size:11px">✕</button>`:''}
         </div>
       </div>
     </div>`;
@@ -8378,6 +8381,32 @@ async function _excluirVistoriaBanco(id){
     if(r&&r.error) console.warn('[excluirVistoria banco]', r.error.message);
   }catch(e){ console.warn('[excluirVistoria banco]', e?.message||e); }
 }
+// Backup/arquivo das vistorias (gestor): baixa um JSON com TODAS as vistorias
+// da empresa em foco — comprovação de longo prazo fora do sistema. As fotos
+// vão como URLs do Storage (o PDF pode ser regerado a qualquer momento).
+async function exportarVistoriasBackup(){
+  if(!eGestor()){ toast('⚠️ Apenas gestor pode exportar o arquivo'); return; }
+  toast('📦 Preparando backup…');
+  let lista=[];
+  try{
+    if(dbOk&&db){ const {data,error}=await db.from('vistorias').select('*').order('data',{ascending:true}); if(error) console.warn('[backupVis]',error.message); lista=data||[]; }
+  }catch(e){ console.warn('[backupVis]', e?.message||e); }
+  if(!lista.length) lista=lsVisLer(); // offline: exporta o que há no aparelho
+  lista=lista.filter(v=>escopoEmpresaMatch(v.loja_id)); // não mistura empresas no arquivo
+  if(!lista.length){ toast('Nenhuma vistoria desta empresa para exportar'); return; }
+  const f=_empresaEmFoco();
+  const emp=f.tipo==='loja'?(getLoja(f.valor)?.nome||f.valor):(f.valor==='aquamotor'?'Aquamotor':'Fortemp');
+  const payload={exportado_em:new Date().toISOString(), empresa:emp, total:lista.length, vistorias:lista};
+  const blob=new Blob([JSON.stringify(payload,null,1)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`vistorias-backup-${emp.replace(/\s+/g,'_')}-${_hojeLocal()}.json`;
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+  logAcao('vistorias_backup', `${lista.length} vistoria(s) — ${emp}`);
+  toast(`📦 Backup baixado: ${lista.length} vistoria(s) de ${emp}`);
+}
+
 function excluirVistoria(id){
   confirmar('Excluir esta vistoria?', ()=>{ _visTombAdd(id); lsVisSalvar(lsVisLer().filter(x=>x.id!==id)); _excluirVistoriaBanco(id); renderVisHistorico(); toast('Vistoria excluída'); }, 'Excluir Vistoria');
 }
