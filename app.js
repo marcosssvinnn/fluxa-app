@@ -7714,11 +7714,13 @@ function _salvarRascunhoVis(){
       localId:window._visLocalId||null, editId:visEditId||null, draftId:_visDraftId||null };
     ['vis-cli','vis-loc','vis-data','vis-mes-ref','vis-hora','vis-obs','vis-email-resp','vis-tec']
       .forEach(fid=>{ const el=document.getElementById(fid); if(el) d.campos[fid]=el.value; });
-    try{ lsSet(LS_VIS_DRAFT, JSON.stringify(d)); }
+    // setItem DIRETO (não lsSet): o lsSet engole o QuotaExceededError e o
+    // fallback sem-fotos nunca rodaria — perda silenciosa (pego em teste).
+    try{ localStorage.setItem(LS_VIS_DRAFT, JSON.stringify(d)); }
     catch(eq){ // cota do localStorage (fotos) — salva sem as fotos locais, melhor que perder tudo
       const semFotos=JSON.parse(JSON.stringify(d));
       Object.values(semFotos.dados||{}).forEach(x=>{ if(x&&x.fotos) x.fotos=x.fotos.map(f=>f&&String(f).startsWith('http')?f:null); });
-      lsSet(LS_VIS_DRAFT, JSON.stringify(semFotos));
+      localStorage.setItem(LS_VIS_DRAFT, JSON.stringify(semFotos));
     }
   }catch(e){ console.warn('[rascunhoVis]', e?.message||e); }
 }
