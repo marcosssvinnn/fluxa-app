@@ -6860,8 +6860,10 @@ function renderConcluirVisEquips(equips){
       </div>
       <textarea class="cv-eq-obs" rows="2" placeholder="Descrição da condição do equipamento…" oninput="_cvEquipData[${i}].obs=this.value" id="cv-eq-obs-${i}"></textarea>
       <div class="cv-eq-fotos" id="cv-eq-fotos-${i}">
-        <input type="file" accept="image/*" id="cv-eq-file-${i}" style="display:none" onchange="cvCapturarFoto(${i},this)">
-        <button type="button" class="cv-eq-foto-btn" onclick="document.getElementById('cv-eq-file-${i}').click()">📷 Foto</button>
+        <input type="file" accept="image/*" capture="environment" id="cv-eq-file-${i}" style="display:none" onchange="cvCapturarFoto(${i},this)">
+        <input type="file" accept="image/*" id="cv-eq-file-${i}-gal" style="display:none" onchange="cvCapturarFoto(${i},this)">
+        <button type="button" class="cv-eq-foto-btn" onclick="document.getElementById('cv-eq-file-${i}').click()">📷 Tirar foto</button>
+        <button type="button" class="cv-eq-foto-btn" style="opacity:.75" onclick="document.getElementById('cv-eq-file-${i}-gal').click()">🖼️ Galeria</button>
       </div>
     </div>
   `).join('');
@@ -7545,6 +7547,24 @@ function toggleVisEquip(id){
 let _visEquipsCustom=[]; // equipamentos vindos de um plano de acompanhamento
 
 // ── Grid de vistoria por equipamento ──
+// Sugestões de observação POR TIPO de equipamento (pedido do Bruno): cada
+// equipamento tem seus defeitos típicos. Match por palavra-chave no NOME
+// (cobre os padrão e os custom dos planos, ex.: "Bomba de Calor 55").
+// A ordem importa: "bomba de calor/trocador" antes de "bomba" (motobomba).
+function visObsSugestoes(nome){
+  const n=(nome||'').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+  const tem=(...ks)=>ks.some(k=>n.includes(k));
+  if(tem('calor','trocador','aquec')) return ['OK – aquecendo normalmente','Barulhento','Erro no painel','Não aquece','Baixa vazão de água','Sensor com defeito','Possível falta de gás','Condensador sujo — limpeza feita'];
+  if(tem('bomba','motor')) return ['OK – funcionando','Barulho anormal (rolamento)','Vazamento no selo mecânico','Não liga','Travada','Capacitor com defeito','Baixa vazão / perde escorva','Superaquecendo','Pré-filtro limpo'];
+  if(tem('filtro')) return ['OK – pressão normal','Vazamento','Pressão alta — retrolavagem feita','Areia saturada — recomendar troca','Areia voltando p/ piscina','Tampa/o-ring ressecado','Válvula seletora com defeito'];
+  if(tem('sauna','vapor')) return ['OK – gerando vapor','Não aquece','Resistência queimada','Vazamento de vapor','Contactora com defeito','Termostato com defeito','Quadro elétrico com problema'];
+  if(tem('skimmer')) return ['OK','Limpeza realizada','Tampa quebrada','Cesto danificado','Vazamento'];
+  if(tem('ilumina','refletor','led')) return ['OK – acendendo','Lâmpada queimada','Infiltração no nicho','Comando com defeito','Recomendada troca por LED'];
+  if(tem('automa','dosador','clorador','ozonio','gerador de cloro','ph')) return ['OK – dosando normalmente','Dosagem irregular','Sonda descalibrada','Sem produto no reservatório','Erro no painel','Célula gasta — recomendar troca'];
+  if(tem('spa','hidro')) return ['OK – funcionando','Hidromassagem fraca','Botão pneumático com defeito','Aquecimento com problema','Vazamento'];
+  return ['OK – funcionando','Limpeza realizada','Vazamento','Barulho anormal','Necessita troca de peça','Recomendada manutenção'];
+}
+
 function renderVisEquipGrid(){
   const el = document.getElementById('vis-equip-grid'); if(!el) return;
   el.innerHTML = '';
@@ -7594,9 +7614,11 @@ function buildEquipBlock(id,emoji,nome,d,modelo,potencia){
   const fotosHtml=[0,1,2].map(i=>{
     const f=(d.fotos||[])[i];
     return `<div class="vis-foto-slot${f?' filled':''}" onclick="visClickFotoSlot('${id}',${i})">
-      <input type="file" id="vis-f-${id}-${i}" accept="image/*" style="display:none" onchange="visCarregarFoto(this,'${id}',${i})">
+      <input type="file" id="vis-f-${id}-${i}" accept="image/*" capture="environment" style="display:none" onchange="visCarregarFoto(this,'${id}',${i})">
+      <input type="file" id="vis-f-${id}-${i}-gal" accept="image/*" style="display:none" onchange="visCarregarFoto(this,'${id}',${i})">
       ${f?`<img src="${f}" alt="">`:''}
       <div class="vis-foto-slot-icon">📷</div>
+      ${f?'':`<button class="vis-foto-rm" style="display:flex;background:var(--white);color:var(--c2);border:1px solid var(--gray-mid)" onclick="event.stopPropagation();visClickFotoGaleria('${id}',${i})" title="Escolher da galeria">🖼️</button>`}
       <button class="vis-foto-rm" onclick="event.stopPropagation();visRemoverFoto('${id}',${i})" title="Remover">✕</button>
     </div>`;
   }).join('');
@@ -7619,7 +7641,7 @@ function buildEquipBlock(id,emoji,nome,d,modelo,potencia){
       <div class="fl" style="margin-bottom:8px">
         <label>Observações</label>
         <div class="vis-obs-chips">
-          ${['OK – funcionando','Limpeza realizada','Vazando','Barulho anormal','Pressão baixa','Necessita troca de peça','Filtro sujo'].map(t=>`<span class="vis-obs-chip" onclick="visAddObs('${id}','${t.replace(/'/g,'\\x27')}',this)">${t}</span>`).join('')}
+          ${visObsSugestoes(nome).map(t=>`<span class="vis-obs-chip" onclick="visAddObs('${id}','${t.replace(/'/g,'\\x27')}',this)">${t}</span>`).join('')}
         </div>
         <textarea id="vis-obs-${id}" rows="2" placeholder="Condições encontradas, medições, pendências…" oninput="visUpdObs('${id}',this.value)"
           style="width:100%;padding:8px 10px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;resize:vertical;outline:none">${esc(d.obs||'')}</textarea>
@@ -7654,6 +7676,7 @@ function visAddObs(id, txt, chipEl){
   if(!visEquipDados[id]) visEquipDados[id]={ status:'na', obs:'', fotos:[] };
   const ta = document.getElementById('vis-obs-'+id);
   const cur = (ta ? ta.value : visEquipDados[id].obs||'').trim();
+  if(cur.includes(txt)) return; // já está na observação — não duplica (toque duplo no chip)
   const novo = cur ? cur+'. '+txt : txt;
   visEquipDados[id].obs = novo;
   if(ta) ta.value = novo;
@@ -7661,8 +7684,14 @@ function visAddObs(id, txt, chipEl){
   if(chipEl){ chipEl.style.background='var(--c1-light)'; chipEl.style.borderColor='var(--c1)'; setTimeout(()=>{ chipEl.style.background=''; chipEl.style.borderColor=''; },600); }
 }
 
+// Tocar no slot = CÂMERA direto (capture="environment") — em campo, a foto é
+// tirada na hora na maioria das vezes. Galeria fica no botãozinho 🖼️ do canto
+// (input sem capture), p/ os casos raros de foto já tirada.
 function visClickFotoSlot(id, idx){
   document.getElementById(`vis-f-${id}-${idx}`)?.click();
+}
+function visClickFotoGaleria(id, idx){
+  document.getElementById(`vis-f-${id}-${idx}-gal`)?.click();
 }
 function visCarregarFoto(inp, id, idx){
   const f = inp.files[0]; if(!f) return;
