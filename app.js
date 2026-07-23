@@ -7554,15 +7554,18 @@ let _visEquipsCustom=[]; // equipamentos vindos de um plano de acompanhamento
 function visObsSugestoes(nome){
   const n=(nome||'').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
   const tem=(...ks)=>ks.some(k=>n.includes(k));
-  if(tem('calor','trocador','aquec')) return ['OK – aquecendo normalmente','Barulhento','Erro no painel','Não aquece','Baixa vazão de água','Sensor com defeito','Possível falta de gás','Condensador sujo — limpeza feita'];
-  if(tem('bomba','motor')) return ['OK – funcionando','Barulho anormal (rolamento)','Vazamento no selo mecânico','Não liga','Travada','Capacitor com defeito','Baixa vazão / perde escorva','Superaquecendo','Pré-filtro limpo'];
-  if(tem('filtro')) return ['OK – pressão normal','Vazamento','Pressão alta — retrolavagem feita','Areia saturada — recomendar troca','Areia voltando p/ piscina','Tampa/o-ring ressecado','Válvula seletora com defeito'];
-  if(tem('sauna','vapor')) return ['OK – gerando vapor','Não aquece','Resistência queimada','Vazamento de vapor','Contactora com defeito','Termostato com defeito','Quadro elétrico com problema'];
-  if(tem('skimmer')) return ['OK','Limpeza realizada','Tampa quebrada','Cesto danificado','Vazamento'];
-  if(tem('ilumina','refletor','led')) return ['OK – acendendo','Lâmpada queimada','Infiltração no nicho','Comando com defeito','Recomendada troca por LED'];
-  if(tem('automa','dosador','clorador','ozonio','gerador de cloro','ph')) return ['OK – dosando normalmente','Dosagem irregular','Sonda descalibrada','Sem produto no reservatório','Erro no painel','Célula gasta — recomendar troca'];
-  if(tem('spa','hidro')) return ['OK – funcionando','Hidromassagem fraca','Botão pneumático com defeito','Aquecimento com problema','Vazamento'];
-  return ['OK – funcionando','Limpeza realizada','Vazamento','Barulho anormal','Necessita troca de peça','Recomendada manutenção'];
+  // Só SINTOMAS observáveis e ações feitas — sem deduzir a causa (o diagnóstico
+  // é feito na manutenção; a motobomba, p.ex., é revisada como um todo).
+  const OK='OK – equipamento funcionando perfeitamente';
+  if(tem('calor','trocador','aquec')) return [OK,'Barulho anormal','Erro no painel','Não aquece','Aquecendo pouco','Vazamento','Desligando sozinho'];
+  if(tem('bomba','motor')) return [OK,'Barulho anormal','Vazamento','Não liga','Travada','Perdendo escorva / baixa vazão','Esquentando muito','Recolhida para manutenção'];
+  if(tem('filtro')) return [OK,'Vazamento','Pressão alta','Retrolavagem realizada','Água voltando suja p/ piscina','Tampa/visor com desgaste'];
+  if(tem('sauna','vapor')) return [OK,'Não aquece','Aquecendo pouco','Vazamento de vapor','Não liga','Desarmando o disjuntor'];
+  if(tem('skimmer')) return [OK,'Limpeza realizada','Tampa danificada','Cesto danificado','Vazamento'];
+  if(tem('ilumina','refletor','led')) return [OK,'Não acende','Acendendo parcialmente','Infiltração aparente','Não responde ao comando'];
+  if(tem('automa','dosador','clorador','ozonio','gerador de cloro','ph')) return [OK,'Dosagem irregular','Erro no painel','Sem produto no reservatório','Não liga'];
+  if(tem('spa','hidro')) return [OK,'Hidromassagem fraca','Não liga','Vazamento','Barulho anormal'];
+  return [OK,'Limpeza realizada','Vazamento','Barulho anormal','Não liga','Recolhido para manutenção'];
 }
 
 function renderVisEquipGrid(){
