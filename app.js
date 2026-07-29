@@ -837,7 +837,7 @@ let lojasExtraConfig = {}; // { lojaId: { nome, sub, logoB64, tel, cidades, cor,
 let db = null, dbOk = false;
 let svcs = [], editId = null;
 let osSvcs = [], modalOrcId = null, osOrcId = null; // osOrcId = ID do orçamento vinculado à OS
-let todosOrc = [], filtroSt = localStorage.getItem('fluxa_filtroSt')||'todos', busca = '';
+let todosOrc = [], filtroSt = localStorage.getItem('fluxa_filtroSt')||'todos', busca = '', filtroOrigem = '';
 let todosOS = [], filtroOSSt = localStorage.getItem('fluxa_filtroOSSt')||'todos', buscaOS = '', filtroOSTec = '';
 let osEditId = null; // id da OS sendo editada (null = nova) — evita duplicar ao salvar
 let filtroPeriodo = ''; // legado — não mais usado na tabela principal
@@ -3028,6 +3028,7 @@ function filt(btn){
   renderTabela();
 }
 function buscar(v){ busca=v.toLowerCase(); renderTabela(); }
+function filtOrigem(v){ filtroOrigem=v; renderTabela(); }
 
 // ──────────────────────────────────────────────────
 //  GRÁFICO DE FATURAMENTO
@@ -3221,8 +3222,21 @@ function renderTabela(){
   let listaMes=_orcListaMes();
   // Renderiza mini KPIs para o período selecionado (antes dos filtros de status/busca)
   renderOrcMiniKpis(listaMes);
+  // Popula o select de origem (uma vez) com as origens padrão + as usadas
+  const selOrig=document.getElementById('hist-filtro-origem');
+  if(selOrig && selOrig.options.length<=1){
+    const usadas=[...new Set((todosOrc||[]).map(o=>o.origem_cliente).filter(Boolean))];
+    const todas=[...new Set([...Object.keys(ORIGEM_EMOJI), ...usadas])];
+    const atual=selOrig.value;
+    selOrig.innerHTML='<option value="">🔎 Origem: todas</option>'
+      +todas.map(o=>`<option value="${esc(o)}">${ORIGEM_EMOJI[o]||'✏️'} ${esc(o)}</option>`).join('')
+      +'<option value="__sem__">✏️ Sem origem</option>';
+    selOrig.value=atual;
+  }
   let lista=listaMes;
   if(filtroSt!=='todos') lista=lista.filter(o=>o.status===filtroSt);
+  if(filtroOrigem==='__sem__') lista=lista.filter(o=>!o.origem_cliente);
+  else if(filtroOrigem) lista=lista.filter(o=>o.origem_cliente===filtroOrigem);
   if(busca) lista=lista.filter(o=>
     (o.cliente||'').toLowerCase().includes(busca)||
     (o.local_servico||'').toLowerCase().includes(busca)||
@@ -3975,23 +3989,6 @@ function renderClientes(){
     else if(origemPorNome[n]==='Já é cliente' && org!=='Já é cliente') origemPorNome[n]=org;
   });
   const _origemDoCli=c=>origemPorNome[(c.nome||'').toLowerCase().trim()]||'';
-  // Popula o select de origem (uma vez) com as origens padrão + as que existem
-  const selOrig=document.getElementById('cli-filtro-origem');
-  if(selOrig && selOrig.options.length<=1){
-    const usadas=[...new Set(Object.values(origemPorNome))].filter(Boolean);
-    const todas=[...new Set([...Object.keys(ORIGEM_EMOJI), ...usadas])];
-    const atual=selOrig.value;
-    selOrig.innerHTML='<option value="">Todas as origens</option>'
-      +todas.map(o=>`<option value="${esc(o)}">${ORIGEM_EMOJI[o]||'✏️'} ${esc(o)}</option>`).join('')
-      +'<option value="__sem__">✏️ Sem origem registrada</option>';
-    selOrig.value=atual;
-  }
-  // Aplica o filtro de origem
-  const filtroOrigem=document.getElementById('cli-filtro-origem')?.value||'';
-  if(filtroOrigem==='__sem__') lista=lista.filter(c=>!_origemDoCli(c));
-  else if(filtroOrigem) lista=lista.filter(c=>_origemDoCli(c)===filtroOrigem);
-  const cntEl=document.getElementById('cli-origem-count');
-  if(cntEl) cntEl.textContent=filtroOrigem?`${lista.length} cliente${lista.length!==1?'s':''}`:'';
   // Faturamento por cliente (todos os orçamentos aprovados, todas as lojas)
   const fatPorNome={};
   filtrarPorLoja(todosOrc).filter(o=>o.status==='aprovado').forEach(o=>{ const n=(o.cliente||'').toLowerCase(); fatPorNome[n]=(fatPorNome[n]||0)+(o.total||0); });
