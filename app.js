@@ -3963,7 +3963,9 @@ function renderClientes(){
   // Origem de aquisição por cliente — derivada dos orçamentos (o cliente não
   // guarda origem; ela fica no orçamento). Usa a do orçamento MAIS ANTIGO
   // (a aquisição real), ignorando "Já é cliente" quando há outra origem.
-  const _orcsOrigem=filtrarPorLoja(todosOrc).filter(o=>o.origem_cliente)
+  // Deriva de TODOS os orçamentos (a origem é do cliente; a lista já está
+  // escopada por empresa acima) — evita marcar "sem origem" à toa.
+  const _orcsOrigem=(todosOrc||[]).filter(o=>o.origem_cliente)
     .slice().sort((a,b)=>String(a.data_criacao||'').localeCompare(String(b.data_criacao||'')));
   const origemPorNome={};
   _orcsOrigem.forEach(o=>{
