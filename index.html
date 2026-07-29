@@ -1394,7 +1394,14 @@
           <button class="btn-add" style="font-size:12px;padding:5px 11px;border-width:1.5px;border-color:var(--blue);color:var(--blue)" onclick="importarClientesDeOrcamentos()" title="Importa clientes de todos os orçamentos existentes">📥 Importar dos orçamentos</button>
         </div>
       </div>
-      <input class="hsrch" type="text" id="cli-busca" placeholder="🔍 Buscar por nome, telefone ou CNPJ…" oninput="renderClientes()" style="width:100%;margin-bottom:10px">
+      <input class="hsrch" type="text" id="cli-busca" placeholder="🔍 Buscar por nome, telefone ou CNPJ…" oninput="renderClientes()" style="width:100%;margin-bottom:8px">
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
+        <label style="font-size:12px;font-weight:600;color:var(--gray)">De onde veio:</label>
+        <select id="cli-filtro-origem" onchange="renderClientes()" style="flex:1;min-width:150px;padding:7px 10px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;outline:none;color:var(--c2)">
+          <option value="">Todas as origens</option>
+        </select>
+        <span id="cli-origem-count" style="font-size:12px;color:var(--gray);font-weight:600"></span>
+      </div>
       <div id="clientes-lista"></div>
     </div>
   </div>
