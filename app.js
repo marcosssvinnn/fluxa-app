@@ -3960,6 +3960,36 @@ function renderClientes(){
       || (q && (c.cnpj||'').replace(/\D/g,'').includes(q))
       || (c.end||'').toLowerCase().includes(busca));
   }
+  // Origem de aquisição por cliente — derivada dos orçamentos (o cliente não
+  // guarda origem; ela fica no orçamento). Usa a do orçamento MAIS ANTIGO
+  // (a aquisição real), ignorando "Já é cliente" quando há outra origem.
+  const _orcsOrigem=filtrarPorLoja(todosOrc).filter(o=>o.origem_cliente)
+    .slice().sort((a,b)=>String(a.data_criacao||'').localeCompare(String(b.data_criacao||'')));
+  const origemPorNome={};
+  _orcsOrigem.forEach(o=>{
+    const n=(o.cliente||'').toLowerCase().trim(); if(!n) return;
+    const org=o.origem_cliente;
+    if(!origemPorNome[n]) origemPorNome[n]=org;
+    else if(origemPorNome[n]==='Já é cliente' && org!=='Já é cliente') origemPorNome[n]=org;
+  });
+  const _origemDoCli=c=>origemPorNome[(c.nome||'').toLowerCase().trim()]||'';
+  // Popula o select de origem (uma vez) com as origens padrão + as que existem
+  const selOrig=document.getElementById('cli-filtro-origem');
+  if(selOrig && selOrig.options.length<=1){
+    const usadas=[...new Set(Object.values(origemPorNome))].filter(Boolean);
+    const todas=[...new Set([...Object.keys(ORIGEM_EMOJI), ...usadas])];
+    const atual=selOrig.value;
+    selOrig.innerHTML='<option value="">Todas as origens</option>'
+      +todas.map(o=>`<option value="${esc(o)}">${ORIGEM_EMOJI[o]||'✏️'} ${esc(o)}</option>`).join('')
+      +'<option value="__sem__">✏️ Sem origem registrada</option>';
+    selOrig.value=atual;
+  }
+  // Aplica o filtro de origem
+  const filtroOrigem=document.getElementById('cli-filtro-origem')?.value||'';
+  if(filtroOrigem==='__sem__') lista=lista.filter(c=>!_origemDoCli(c));
+  else if(filtroOrigem) lista=lista.filter(c=>_origemDoCli(c)===filtroOrigem);
+  const cntEl=document.getElementById('cli-origem-count');
+  if(cntEl) cntEl.textContent=filtroOrigem?`${lista.length} cliente${lista.length!==1?'s':''}`:'';
   // Faturamento por cliente (todos os orçamentos aprovados, todas as lojas)
   const fatPorNome={};
   filtrarPorLoja(todosOrc).filter(o=>o.status==='aprovado').forEach(o=>{ const n=(o.cliente||'').toLowerCase(); fatPorNome[n]=(fatPorNome[n]||0)+(o.total||0); });
@@ -3969,12 +3999,13 @@ function renderClientes(){
     const fat=fatPorNome[(c.nome||'').toLowerCase()]||0;
     const lojas=(c.lojas||[c.loja_id]).filter(Boolean);
     const lojasBadges=lojas.map(lid=>getLojaBadge(lid)).filter(Boolean).join('');
+    const origemBadge=getOrigemBadge(_origemDoCli(c));
     return `
     <div class="cli-card">
       <div class="cli-card-info">
         <div class="cli-card-nome">${esc(c.nome)}${fat>0?` <span style="font-size:10px;background:var(--green-bg);color:var(--green);padding:1px 7px;border-radius:50px;font-weight:700">${brl(fat)}</span>`:''}</div>
         <div class="cli-card-det">${[c.tel||c.telefone,c.cnpj,c.end||c.endereco].filter(Boolean).map(x=>esc(x)).join(' · ')||'—'}${c.email_responsavel?' · ✉️ '+esc(c.email_responsavel):''}</div>
-        ${lojasBadges?`<div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap">${lojasBadges}</div>`:''}
+        ${(lojasBadges||origemBadge)?`<div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap;align-items:center">${lojasBadges}${origemBadge}</div>`:''}
       </div>
       <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap">
         <button class="tb" onclick="verHistoricoCliente('${c.id}')">📋 Hist.</button>
