@@ -2558,10 +2558,14 @@ function preencherDocOrc(d, num){
   const fotosGrid=document.getElementById('pd-fotos-orc-grid');
   const fotosArr=(Array.isArray(fotosB64)?fotosB64:[]).filter(Boolean);
   if(fotosSec && fotosGrid && fotosArr.length){
-    const cols=fotosArr.length===1?1:fotosArr.length<=4?2:3;
-    fotosGrid.style.gridTemplateColumns=`repeat(${cols},1fr)`;
-    const maxH=fotosArr.length===1?'280px':fotosArr.length<=2?'220px':'160px';
-    fotosGrid.innerHTML=fotosArr.map(b=>`<img src="${b}" style="max-height:${maxH}">`).join('');
+    const n=fotosArr.length;
+    // Colunas por quantidade; largura de coluna FIXA (não estica p/ largura da
+    // página) + altura casada → fotos proporcionais e uniformes, sem faixa gigante.
+    const cols = n===1?1 : n<=4?2 : 3;
+    const cellW = n===1?200 : cols===2?230 : 150; // px
+    const cellH = Math.round(cellW*0.75);           // 4:3
+    fotosGrid.style.gridTemplateColumns=`repeat(${cols}, ${cellW}px)`;
+    fotosGrid.innerHTML=fotosArr.map(b=>`<img src="${b}" style="width:${cellW}px;height:${cellH}px">`).join('');
     fotosSec.style.display='block';
   } else if(fotosSec){
     fotosSec.style.display='none';
@@ -2760,8 +2764,11 @@ function preencherDocOS(d, num){
   if(fotosEl){
     if(fotosArr.length){
       fotosEl.style.display='block';
-      fotosEl.innerHTML='<div style="font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#9ca3af;margin-bottom:8px">Fotos do Serviço</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'+
-        fotosArr.map(f=>`<img src="${f}" style="width:100%;max-height:140px;object-fit:cover;border-radius:8px;border:1px solid #e9ecef">`).join('')+'</div>';
+      const nOS=fotosArr.length;
+      const colsOS=nOS===1?1:nOS<=4?2:3;
+      const wOS=nOS===1?200:colsOS===2?230:150, hOS=Math.round(wOS*0.75);
+      fotosEl.innerHTML='<div style="font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#9ca3af;margin-bottom:8px">Fotos do Serviço</div><div style="display:grid;grid-template-columns:repeat('+colsOS+','+wOS+'px);gap:8px;justify-content:center">'+
+        fotosArr.map(f=>`<img src="${f}" style="width:${wOS}px;height:${hOS}px;object-fit:cover;border-radius:8px;border:1px solid #e9ecef">`).join('')+'</div>';
       if(d.videoLink) fotosEl.innerHTML+=`<div style="margin-top:8px;font-size:11px;color:#6b7280">📹 Vídeo: <a href="${esc(d.videoLink)}">${esc(d.videoLink)}</a></div>`;
     } else { fotosEl.style.display='none'; fotosEl.innerHTML=''; }
   }
