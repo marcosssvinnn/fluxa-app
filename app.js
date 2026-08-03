@@ -6833,15 +6833,15 @@ function fecharLocForm(){
 function normalizeLocEquips(equips){
   if(!equips||!equips.length) return [];
   if(typeof equips[0]==='string'){
-    return equips.map(id=>{ const def=VIS_EQUIPAMENTOS_DEFAULT.find(e=>e.id===id)||{nome:id,emoji:'⚙️'}; return {id:'eq_'+Date.now()+Math.random(),nome:def.nome,modelo:'',potencia:'',serie:''}; });
+    return equips.map(id=>{ const def=VIS_EQUIPAMENTOS_DEFAULT.find(e=>e.id===id)||{nome:id,emoji:'⚙️'}; return {id:'eq_'+Date.now()+Math.random(),nome:def.nome,marca:'',modelo:'',potencia:'',serie:'',ficha:''}; });
   }
-  return equips.map(e=>({id:e.id||'eq_'+Date.now()+Math.random(),nome:e.nome||'',modelo:e.modelo||'',potencia:e.potencia||'',serie:e.serie||''}));
+  return equips.map(e=>({id:e.id||'eq_'+Date.now()+Math.random(),nome:e.nome||'',marca:e.marca||'',modelo:e.modelo||'',potencia:e.potencia||'',serie:e.serie||'',ficha:e.ficha||''}));
 }
 
-let _locEquipCustom=[]; // [{id, nome, modelo, potencia, serie}]
+let _locEquipCustom=[]; // [{id, nome, marca, modelo, potencia, serie, ficha}]
 
 function adicionarLocEquip(){
-  _locEquipCustom.push({id:'eq_'+Date.now(),nome:'',modelo:'',potencia:'',serie:''});
+  _locEquipCustom.push({id:'eq_'+Date.now(),nome:'',marca:'',modelo:'',potencia:'',serie:'',ficha:''});
   renderLocEquipList();
   // foco no primeiro campo do novo item
   setTimeout(()=>{
@@ -6862,13 +6862,30 @@ function renderLocEquipList(){
     return;
   }
   c.innerHTML=_locEquipCustom.map((eq,i)=>`
-    <div class="loc-eq-row">
-      <div><label>Tipo / Nome *</label><input type="text" value="${esc(eq.nome)}" oninput="_locEquipCustom[${i}].nome=this.value" placeholder="Ex: Motobomba, Filtro, Aquecedor…"></div>
-      <div><label>Modelo</label><input type="text" value="${esc(eq.modelo)}" oninput="_locEquipCustom[${i}].modelo=this.value" placeholder="Ex: Komeco KOM 15"></div>
-      <div><label>Potência / Cap.</label><input type="text" value="${esc(eq.potencia)}" oninput="_locEquipCustom[${i}].potencia=this.value" placeholder="Ex: 1.5 CV"></div>
-      <button class="loc-eq-del" onclick="removerLocEquip(${i})" title="Remover">🗑</button>
+    <div class="loc-eq-card" style="border:1.5px solid var(--gray-mid);border-radius:10px;padding:10px 12px;margin-bottom:10px;background:var(--white)">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span style="font-size:11px;font-weight:800;color:var(--c1);background:var(--c1-light);border-radius:50px;min-width:22px;height:22px;display:flex;align-items:center;justify-content:center;flex-shrink:0">${i+1}</span>
+        <strong style="flex:1;font-size:13px;color:var(--c2)">${esc(eq.nome)||'Novo equipamento'}</strong>
+        <button class="loc-eq-del" onclick="removerLocEquip(${i})" title="Remover" style="flex-shrink:0">🗑</button>
+      </div>
+      <div class="loc-eq-row">
+        <div><label>Tipo / Nome *</label><input type="text" value="${esc(eq.nome)}" oninput="_locEquipCustom[${i}].nome=this.value;_locEquipCardTitulo(${i},this.value)" placeholder="Ex: Motobomba, Filtro, Aquecedor…"></div>
+        <div><label>Marca</label><input type="text" value="${esc(eq.marca||'')}" oninput="_locEquipCustom[${i}].marca=this.value" placeholder="Ex: Dancor, Jacuzzi"></div>
+        <div><label>Modelo</label><input type="text" value="${esc(eq.modelo)}" oninput="_locEquipCustom[${i}].modelo=this.value" placeholder="Ex: KOM 15"></div>
+        <div><label>Potência / Cap.</label><input type="text" value="${esc(eq.potencia)}" oninput="_locEquipCustom[${i}].potencia=this.value" placeholder="Ex: 1.5 CV"></div>
+      </div>
+      <div style="margin-top:8px">
+        <label style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.5px">📋 Ficha / histórico do equipamento <span style="font-weight:400;text-transform:none;letter-spacing:0">(fica salvo e aparece na vistoria)</span></label>
+        <textarea rows="2" oninput="_locEquipCustom[${i}].ficha=this.value" placeholder="Ex: Última manutenção 03/2026 · Última troca de areia 01/2026 · Nº série 12345 · particularidades…" style="width:100%;margin-top:4px;padding:8px 10px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;resize:vertical;outline:none">${esc(eq.ficha||'')}</textarea>
+      </div>
     </div>
   `).join('');
+}
+// Atualiza só o título do card ao digitar o nome (sem re-renderizar tudo/perder foco)
+function _locEquipCardTitulo(i, val){
+  const cards=document.querySelectorAll('#loc-equip-list .loc-eq-card');
+  const strong=cards[i]?.querySelector('strong');
+  if(strong) strong.textContent=(val||'').trim()||'Novo equipamento';
 }
 
 // ── CONCLUIR VISITA — equipamentos no modal ──────────────────────────────────
@@ -7215,7 +7232,7 @@ function iniciarVistoriaPlena(locId){
   // Carrega equipamentos do plano como _visEquipsCustom (com modelo/potência)
   const equips=normalizeLocEquips(loc.equipamentos||[]);
   if(equips.length){
-    _visEquipsCustom=equips.map(e=>({id:e.id,nome:e.nome,emoji:e.emoji||'⚙️',modelo:e.modelo||'',potencia:e.potencia||''}));
+    _visEquipsCustom=equips.map(e=>({id:e.id,nome:e.nome,emoji:e.emoji||'⚙️',marca:e.marca||'',modelo:e.modelo||'',potencia:e.potencia||'',ficha:e.ficha||''}));
     equips.forEach(e=>{ visEquipDados[e.id]={status:'na',obs:'',fotos:[]}; });
   }
 
@@ -7626,7 +7643,7 @@ function renderVisEquipGrid(){
       const id=ceq.id;
       if(!visEquipDados[id]) visEquipDados[id]={status:'na',obs:'',fotos:[]};
       const d=visEquipDados[id];
-      el.appendChild(buildEquipBlock(id,ceq.emoji||'⚙️',ceq.nome,d,ceq.modelo,ceq.potencia));
+      el.appendChild(buildEquipBlock(id,ceq.emoji||'⚙️',ceq.nome,d,ceq.modelo,ceq.potencia,ceq.marca,ceq.ficha));
     });
   }
 
@@ -7641,12 +7658,12 @@ function renderVisEquipGrid(){
       const def=VIS_EQUIPAMENTOS_DEFAULT.find(x=>x.id===id);
       if(!def) return;
       const d=visEquipDados[id]||{status:'na',obs:'',fotos:[]};
-      el.appendChild(buildEquipBlock(id,def.emoji,def.nome,d,'',''));
+      el.appendChild(buildEquipBlock(id,def.emoji,def.nome,d,'','','',''));
     });
   }
 }
 
-function buildEquipBlock(id,emoji,nome,d,modelo,potencia){
+function buildEquipBlock(id,emoji,nome,d,modelo,potencia,marca,ficha){
   const badgeMap={bom:'badge-bom',atencao:'badge-atencao',critico:'badge-critico',na:'badge-na'};
   const badgeTxt={bom:'✅ Bom',atencao:'⚠️ Atenção',critico:'🔴 Crítico',na:'— N/A'};
   const stClass='status-'+(d.status||'na');
@@ -7663,7 +7680,9 @@ function buildEquipBlock(id,emoji,nome,d,modelo,potencia){
       <button class="vis-foto-rm" onclick="event.stopPropagation();visRemoverFoto('${id}',${i})" title="Remover">✕</button>
     </div>`;
   }).join('');
-  const subInfo=modelo||potencia?`<div style="font-size:11px;color:var(--gray);margin-top:1px">${[modelo,potencia].filter(Boolean).join(' · ')}</div>`:'';
+  const subInfo=(marca||modelo||potencia)?`<div style="font-size:11px;color:var(--gray);margin-top:1px">${[marca,modelo,potencia].filter(Boolean).join(' · ')}</div>`:'';
+  // Ficha/histórico do equipamento (cadastrado no plano) — referência para o técnico
+  const fichaHtml=ficha?`<div style="background:var(--c1-light);border-left:3px solid var(--c1);border-radius:0 8px 8px 0;padding:8px 10px;margin-bottom:10px;font-size:12px;color:var(--c2);line-height:1.5;white-space:pre-wrap"><strong style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--c1)">📋 Ficha do equipamento</strong><br>${esc(ficha)}</div>`:'';
   block.innerHTML=`
     <div class="vis-equip-hdr" onclick="toggleVisEquipBody('${id}')">
       <div class="vis-equip-emoji">${emoji}</div>
@@ -7672,6 +7691,7 @@ function buildEquipBlock(id,emoji,nome,d,modelo,potencia){
       <div class="vis-equip-toggle" id="vis-arr-${id}">▼</div>
     </div>
     <div class="vis-equip-body open" id="vis-body-${id}">
+      ${fichaHtml}
       <div style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Status</div>
       <div class="vis-status-row">
         <button class="vis-status-btn${d.status==='bom'?' sel-bom':''}" onclick="setVisEquipStatus('${id}','bom')">✅ Bom</button>
@@ -8061,7 +8081,7 @@ function _montarEquipamentosVistoria(){
   return [
     ...(_visEquipsCustom||[]).map(ceq=>{
       const d=visEquipDados[ceq.id]||{status:'na',obs:'',fotos:[]};
-      return {id:ceq.id,nome:ceq.nome,emoji:ceq.emoji||'⚙️',modelo:ceq.modelo||'',potencia:ceq.potencia||'',status:d.status,obs:d.obs||'',fotos:(d.fotos||[]).filter(Boolean)};
+      return {id:ceq.id,nome:ceq.nome,emoji:ceq.emoji||'⚙️',marca:ceq.marca||'',modelo:ceq.modelo||'',potencia:ceq.potencia||'',ficha:ceq.ficha||'',status:d.status,obs:d.obs||'',fotos:(d.fotos||[]).filter(Boolean)};
     }),
     ...visEquipSelecionados.filter(id=>!customIds.includes(id)).map(id=>{
       const def=VIS_EQUIPAMENTOS_DEFAULT.find(x=>x.id===id)||{id,nome:id,emoji:''};
@@ -8721,7 +8741,7 @@ function preencherRelatorioVistoria(vis){
     sumTable.innerHTML=`<thead><tr><th>Equipamento</th><th>Modelo / Pot.</th><th>Status</th><th>Observação</th></tr></thead>
       <tbody>${equipsVistoriados.map(e=>`<tr>
         <td><strong>${esc(e.nome||e.id)}</strong></td>
-        <td style="font-size:11px;color:#6b7280">${[e.modelo,e.potencia].filter(Boolean).map(esc).join(' · ')||'—'}</td>
+        <td style="font-size:11px;color:#6b7280">${[e.marca,e.modelo,e.potencia].filter(Boolean).map(esc).join(' · ')||'—'}</td>
         <td><span class="st-dot ${dotCls[e.status]||'na'}"></span>${statusTxt[e.status]||'—'}</td>
         <td style="color:#6b7280;font-size:11px">${esc((e.obs||'').slice(0,90))}</td>
       </tr>`).join('')}</tbody>`;
@@ -8741,7 +8761,8 @@ function preencherRelatorioVistoria(vis){
         :'';
       const obsCls=e.status==='critico'?'obs-critico':e.status==='atencao'?'obs-atencao':e.status==='bom'?'obs-bom':'';
       const obsHtml=e.obs?`<div class="pd-vis-equip-obs ${obsCls}">${esc(e.obs)}</div>`:'';
-      const subInfo=[e.modelo,e.potencia].filter(Boolean).map(esc).join(' · ');
+      const fichaHtml=e.ficha?`<div class="pd-vis-equip-obs" style="border-left-color:#6b7280;background:#f8f9fb"><strong style="font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:#6b7280">📋 Ficha</strong><br>${esc(e.ficha)}</div>`:'';
+      const subInfo=[e.marca,e.modelo,e.potencia].filter(Boolean).map(esc).join(' · ');
       return `<div class="pd-vis-equip-item ${statusCls[e.status]||''}">
         <div class="pd-vis-equip-hdr ${statusCls[e.status]||'st-na'}">
           <div style="flex:1;min-width:0">
@@ -8751,7 +8772,7 @@ function preencherRelatorioVistoria(vis){
           </div>
           <div class="pd-vis-equip-bd ${bdCls[e.status]||'bd-na'}">${statusTxt[e.status]||'N/A'}</div>
         </div>
-        ${(obsHtml||fotosHtml)?`<div class="pd-vis-equip-body">${obsHtml}${fotosHtml}</div>`:''}
+        ${(obsHtml||fichaHtml||fotosHtml)?`<div class="pd-vis-equip-body">${obsHtml}${fichaHtml}${fotosHtml}</div>`:''}
       </div>`;
     }).join('');
   }
