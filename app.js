@@ -7601,6 +7601,37 @@ function renderVisChips(){
          onclick="toggleVisEquip('${eq.id}')" data-visid="${eq.id}">
       ${eq.emoji} ${eq.nome}
     </div>`).join('');
+  // Popula o select de "adicionar mais de um" (tipos padrão + Outro)
+  const sel=document.getElementById('vis-add-tipo');
+  if(sel && !sel.options.length){
+    sel.innerHTML=VIS_EQUIPAMENTOS_DEFAULT.map(eq=>`<option value="${eq.id}">${eq.emoji} ${esc(eq.nome)}</option>`).join('')
+      +'<option value="__outro__">⚙️ Outro (digite o rótulo)</option>';
+  }
+}
+
+// Adiciona um equipamento AVULSO na vistoria (quantos quiser). Resolve o caso
+// de locais com 10-15 motobombas: escolhe o tipo, opcionalmente um rótulo, e
+// clica quantas vezes precisar — cada instância é numerada e independente.
+function visAddEquipManual(){
+  const tipo=document.getElementById('vis-add-tipo')?.value||'';
+  const rotulo=(document.getElementById('vis-add-nome')?.value||'').trim();
+  const def=VIS_EQUIPAMENTOS_DEFAULT.find(x=>x.id===tipo);
+  const base = def?def.nome:(rotulo||'Equipamento');
+  const emoji = def?def.emoji:'⚙️';
+  const tipoKey = def?def.id:('outro:'+(rotulo.toLowerCase()||'equip'));
+  // numera por tipo (Motobomba Principal 1, 2, 3…); rótulo entra como sufixo
+  const jaDoTipo=(_visEquipsCustom||[]).filter(e=>e._tipoKey===tipoKey).length;
+  const nome = rotulo ? `${base} — ${rotulo}` : `${base} ${jaDoTipo+1}`;
+  const id=_novoEquipId();
+  _visEquipsCustom.push({id, nome, emoji, marca:'', modelo:'', potencia:'', ficha:'', _tipoKey:tipoKey, _adhoc:true});
+  if(!visEquipDados[id]) visEquipDados[id]={status:'na',obs:'',fotos:[]};
+  _visEquipAbertos.add(id);
+  renderVisEquipGrid();
+  const card=document.getElementById('vis-equip-card'); if(card) card.style.display='';
+  const nomeInp=document.getElementById('vis-add-nome'); if(nomeInp) nomeInp.value=''; // mantém o tipo p/ adicionar vários
+  document.getElementById('vis-block-'+id)?.scrollIntoView({behavior:'smooth',block:'center'});
+  _salvarRascunhoVis();
+  toast(`➕ ${nome} adicionado`);
 }
 
 function toggleVisEquip(id){
@@ -7700,6 +7731,8 @@ function renderVisEquipGrid(){
 }
 
 function buildEquipBlock(id,emoji,nome,d,modelo,potencia,marca,ficha,aberto){
+  const _ceq=(_visEquipsCustom||[]).find(e=>e.id===id);
+  const _adhoc=!!(_ceq&&_ceq._adhoc); // equipamento avulso adicionado na vistoria
   const badgeMap={bom:'badge-bom',atencao:'badge-atencao',critico:'badge-critico',na:'badge-na'};
   const badgeTxt={bom:'✅ Bom',atencao:'⚠️ Atenção',critico:'🔴 Crítico',na:'— N/A'};
   const stClass='status-'+(d.status||'na');
@@ -7724,6 +7757,10 @@ function buildEquipBlock(id,emoji,nome,d,modelo,potencia,marca,ficha,aberto){
       <div class="vis-equip-toggle" id="vis-arr-${id}">${aberto?'▼':'▶'}</div>
     </div>
     <div class="vis-equip-body${aberto?' open':''}" id="vis-body-${id}">
+      ${_adhoc?`<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+        <input type="text" value="${esc(nome)}" oninput="visRenomearEquip('${id}',this.value)" placeholder="Nome do equipamento" style="flex:1;padding:8px 10px;border:1.5px solid var(--c1);border-radius:8px;font-size:13px;font-weight:600;font-family:'Inter',sans-serif;outline:none;color:var(--c2)">
+        <button type="button" class="tb d" onclick="visRemoverEquipAdhoc('${id}')" title="Remover este equipamento">🗑</button>
+      </div>`:''}
       ${fichaHtml}
       <div style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Status</div>
       <div class="vis-status-row">
@@ -7750,6 +7787,23 @@ function buildEquipBlock(id,emoji,nome,d,modelo,potencia,marca,ficha,aberto){
       </div>`:`<div style="font-size:11px;color:var(--gray);margin-top:8px">Máximo de ${MAX_FOTOS_EQUIP} fotos neste equipamento.</div>`}
     </div>`;
   return block;
+}
+
+// Renomeia um equipamento avulso (só atualiza o cabeçalho, sem re-render p/
+// não perder o foco do input). O nome é salvo no rascunho via debounce.
+function visRenomearEquip(id, val){
+  const ceq=(_visEquipsCustom||[]).find(e=>e.id===id); if(!ceq) return;
+  ceq.nome=val;
+  const nm=document.querySelector(`#vis-block-${id} .vis-equip-nome`);
+  if(nm) nm.textContent=val||'Equipamento';
+  _salvarRascunhoVisDeb();
+}
+function visRemoverEquipAdhoc(id){
+  _visEquipsCustom=(_visEquipsCustom||[]).filter(e=>e.id!==id);
+  delete visEquipDados[id];
+  _visEquipAbertos.delete(id);
+  renderVisEquipGrid();
+  _salvarRascunhoVis();
 }
 
 function toggleVisEquipBody(id){

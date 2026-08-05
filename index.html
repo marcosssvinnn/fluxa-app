@@ -1971,9 +1971,19 @@
       <!-- Equipamentos presentes neste local -->
       <div class="card">
         <div class="ct">⚙️ Equipamentos do Local
-          <span style="font-size:11px;font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0">Selecione os que existem neste local</span>
+          <span style="font-size:11px;font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0">Toque nos que existem — ou adicione vários do mesmo tipo abaixo</span>
         </div>
         <div class="vis-chips" id="vis-equip-chips"></div>
+        <!-- Adicionar VÁRIOS do mesmo tipo (ex.: 15 motobombas), nomeados/numerados -->
+        <div style="margin-top:12px;padding-top:12px;border-top:1px dashed var(--gray-mid)">
+          <div style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">➕ Adicionar mais de um</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+            <select id="vis-add-tipo" style="flex:1;min-width:140px;padding:8px 10px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;outline:none;color:var(--c2)"></select>
+            <input type="text" id="vis-add-nome" placeholder="Rótulo (opcional): ex. Casa de bombas" style="flex:1;min-width:140px;padding:8px 10px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;outline:none">
+            <button type="button" class="btn-primary" style="padding:8px 16px;font-size:13px;white-space:nowrap" onclick="visAddEquipManual()">＋ Adicionar</button>
+          </div>
+          <div style="font-size:11px;color:var(--gray);margin-top:5px">Clique várias vezes para adicionar vários (Motobomba 1, Motobomba 2…). Cada um tem status, observação e fotos próprios.</div>
+        </div>
       </div>
 
       <!-- Vistoria por equipamento -->
