@@ -8219,11 +8219,15 @@ function _montarRecVistoria(){
   const _loc=window._visLocalId ? (locaisVistoria||[]).find(x=>x.id===window._visLocalId) : null;
   const _editExist=visEditId ? lsVisLer().find(v=>v.id===visEditId) : null;
   const _lojaRec=(_editExist&&_editExist.loja_id&&_editExist.loja_id!=='default') ? _editExist.loja_id : _lojaDaVistoria(_loc);
+  // Cliente: usa o campo; se vazio mas veio de um plano, herda o cliente do plano
+  // (rede de segurança contra salvar com nome errado/em branco).
+  let _cli=(document.getElementById('vis-cli')?.value||'').trim();
+  if(!_cli && _loc && _loc.cliente){ _cli=_loc.cliente; const _ci=document.getElementById('vis-cli'); if(_ci) _ci.value=_cli; }
   return {
     id,
     loja_id: _lojaRec,
     local_id: window._visLocalId||'',
-    cliente:(document.getElementById('vis-cli')?.value||'').trim(),
+    cliente:_cli,
     local:(document.getElementById('vis-loc')?.value||'').trim(),
     data: document.getElementById('vis-data')?.value||_hojeLocal(),
     hora,
@@ -8283,11 +8287,24 @@ function _persistVistoria(rec){
 
 // ── Salvar vistoria (não-bloqueante: local imediato, rede em background) ──
 // Retorna true se salvou com sucesso (para finalizarVistoria poder navegar).
+// Cliente vazio ao finalizar: em vez de falhar calado (o campo pode estar
+// recolhido), abre "Dados da Visita" e foca o campo para o usuário ver onde é.
+function _pedirClienteVis(){
+  const body=document.getElementById('vis-dados-body');
+  const lbl=document.getElementById('vis-dados-toggle');
+  if(body) body.style.display='';
+  if(lbl) lbl.textContent='▲ recolher';
+  const cli=document.getElementById('vis-cli');
+  if(cli){ cli.scrollIntoView({behavior:'smooth',block:'center'}); setTimeout(()=>cli.focus(),300); }
+  toast('⚠️ Informe o cliente (campo destacado acima)');
+}
 async function salvarVistoria(){
   autoCheckoutSeNecessario();
+  // herda cliente do plano se o campo estiver vazio (rede de segurança)
+  { const _loc=window._visLocalId?(locaisVistoria||[]).find(x=>x.id===window._visLocalId):null; const _ci=document.getElementById('vis-cli'); if(_ci && !_ci.value.trim() && _loc?.cliente) _ci.value=_loc.cliente; }
   const cli  = (document.getElementById('vis-cli')?.value||'').trim();
   const emailResp = (document.getElementById('vis-email-resp')?.value||'').trim();
-  if(!cli){ toast('⚠️ Informe o cliente'); return false; }
+  if(!cli){ _pedirClienteVis(); return false; }
   if(emailResp && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailResp)){ toast('⚠️ E-mail inválido — corrija ou deixe em branco'); return false; }
   const _btnVis=document.querySelector('button[onclick="finalizarVistoria()"]');
   if(_btnVis){ _btnVis.disabled=true; _btnVis.textContent='Salvando…'; }
@@ -8375,12 +8392,17 @@ function _limparFormVistoria(){
 }
 
 // ── Finalizar vistoria: salva, limpa o form e navega para o histórico ──
+let _finalizandoVis=false;
 async function finalizarVistoria(){
-  const ok = await salvarVistoria();
-  if(ok){
-    _limparFormVistoria(); // previne re-submit acidental ao voltar para "Nova Vistoria"
-    setTimeout(()=>visTab('hist'), 300);
-  }
+  if(_finalizandoVis) return; // trava contra múltiplos cliques enquanto processa
+  _finalizandoVis=true;
+  try{
+    const ok = await salvarVistoria();
+    if(ok){
+      _limparFormVistoria(); // previne re-submit acidental ao voltar para "Nova Vistoria"
+      setTimeout(()=>visTab('hist'), 300);
+    }
+  }finally{ _finalizandoVis=false; }
 }
 
 // ── Histórico ──
@@ -8710,8 +8732,9 @@ function abrirVisRelatorio(id){
 
 async function gerarRelatorioVistoria(){
   autoCheckoutSeNecessario();
+  { const _loc=window._visLocalId?(locaisVistoria||[]).find(x=>x.id===window._visLocalId):null; const _ci=document.getElementById('vis-cli'); if(_ci && !_ci.value.trim() && _loc?.cliente) _ci.value=_loc.cliente; }
   const cli=(document.getElementById('vis-cli')?.value||'').trim();
-  if(!cli){ toast('⚠️ Informe o cliente antes de gerar o relatório'); return; }
+  if(!cli){ _pedirClienteVis(); return; }
 
   const veioDoPlano=!!(window._visLocalId);
   const rec=_montarRecVistoria();
