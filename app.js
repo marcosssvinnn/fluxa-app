@@ -6624,6 +6624,26 @@ function visUpdAmbObs(amb, val){
   if(val && val.trim()) visAmbienteObs[k]=val; else delete visAmbienteObs[k];
   _salvarRascunhoVisDeb();
 }
+// Monta um rascunho das prioridades a partir dos itens críticos/atenção e das
+// observações de ambiente — o técnico só refina. Não substitui o que já digitou.
+function visPuxarPrioridades(){
+  const nomeDe=(id)=>{ const c=(_visEquipsCustom||[]).find(e=>e.id===id); if(c) return c.nome; const d=(typeof VIS_EQUIPAMENTOS_DEFAULT!=='undefined'?VIS_EQUIPAMENTOS_DEFAULT:[]).find(x=>x.id===id); return d?d.nome:id; };
+  const naVistoria=(id)=>(_visEquipsCustom||[]).some(e=>e.id===id)||visEquipSelecionados.includes(id);
+  const linhas=[];
+  ['critico','atencao'].forEach(st=>{
+    Object.keys(visEquipDados||{}).forEach(id=>{
+      const d=visEquipDados[id]; if(!d||d.status!==st||!naVistoria(id)) return;
+      linhas.push(`${st==='critico'?'🔴':'⚠️'} ${nomeDe(id)}${d.obs?': '+d.obs.trim():''}`);
+    });
+  });
+  Object.keys(visAmbienteObs||{}).forEach(amb=>{ if((visAmbienteObs[amb]||'').trim()) linhas.push(`📍 ${amb}: ${visAmbienteObs[amb].trim()}`); });
+  if(!linhas.length){ toast('Nenhum item crítico/atenção nem observação de ambiente para puxar'); return; }
+  const ta=document.getElementById('vis-recom'); if(!ta) return;
+  const atual=(ta.value||'').trim();
+  ta.value=(atual?atual+'\n':'')+linhas.join('\n');
+  _salvarRascunhoVisDeb();
+  toast(`↧ ${linhas.length} item(ns) puxado(s) — ajuste as prioridades`);
+}
 let visCheckinTime = null;
 let visCheckoutTime = null;
 let visCheckinInterval = null;
@@ -7930,7 +7950,7 @@ function _salvarRascunhoVis(){
       checkin:visCheckinTime?visCheckinTime.getTime():null,
       checkout:visCheckoutTime?visCheckoutTime.getTime():null,
       localId:window._visLocalId||null, editId:visEditId||null, draftId:_visDraftId||null };
-    ['vis-cli','vis-loc','vis-data','vis-mes-ref','vis-hora','vis-obs','vis-email-resp','vis-tec']
+    ['vis-cli','vis-loc','vis-data','vis-mes-ref','vis-hora','vis-obs','vis-recom','vis-email-resp','vis-tec']
       .forEach(fid=>{ const el=document.getElementById(fid); if(el) d.campos[fid]=el.value; });
     // setItem DIRETO (não lsSet): o lsSet engole o QuotaExceededError e o
     // fallback sem-fotos nunca rodaria — perda silenciosa (pego em teste).
@@ -8335,6 +8355,7 @@ function _montarRecVistoria(){
     hora_checkin: visCheckinTime?visCheckinTime.toTimeString().slice(0,5):hora,
     hora_checkout: visCheckoutTime?visCheckoutTime.toTimeString().slice(0,5):null,
     obs_geral: document.getElementById('vis-obs')?.value||'',
+    recomendacoes: (document.getElementById('vis-recom')?.value||'').trim(),
     obs_ambientes: _montarObsAmbientes(),
     email_responsavel: (document.getElementById('vis-email-resp')?.value||'').trim()||null,
     equipamentos: _montarEquipamentosVistoria(),
@@ -8482,7 +8503,7 @@ function _limparFormVistoria(){
   _resetCheckinVis();
   window._visLocalId = null;
   // Limpa campos do form
-  ['vis-cli','vis-loc','vis-hora','vis-obs','vis-email-resp'].forEach(id=>{
+  ['vis-cli','vis-loc','vis-hora','vis-obs','vis-recom','vis-email-resp'].forEach(id=>{
     const el=document.getElementById(id); if(el) el.value='';
   });
   const hoje = new Date();
@@ -8800,7 +8821,7 @@ function enviarWAResumoVistoria(id){
   const temAtencao = equips.some(e=>e.status==='atencao');
   const statusGeral = temCritico ? '🔴 Ação necessária' : temAtencao ? '⚠️ Requer atenção' : '✅ Tudo em ordem';
   const LC = getLojaConfig(vis.loja_id||lojaAtiva);
-  const msg = `*Relatório de Vistoria – ${LC.nome||''}*\n📅 ${dataFmt}\n👤 Técnico: ${vis.tecnico||''}\n📍 ${vis.cliente||''}${vis.local?' – '+vis.local:''}\n\n*Status geral: ${statusGeral}*\n\n${linhas.join('\n')||'Nenhum equipamento avaliado'}${vis.obs_geral?'\n\n📝 Obs: '+vis.obs_geral:''}\n\n_${LC.nome||''} · ${LC.tel||''}_`;
+  const msg = `*Relatório de Vistoria – ${LC.nome||''}*\n📅 ${dataFmt}\n👤 Técnico: ${vis.tecnico||''}\n📍 ${vis.cliente||''}${vis.local?' – '+vis.local:''}\n\n*Status geral: ${statusGeral}*\n\n${linhas.join('\n')||'Nenhum equipamento avaliado'}${vis.recomendacoes?'\n\n*🔧 O que precisa ser feito:*\n'+vis.recomendacoes:''}${vis.obs_geral?'\n\n📝 Obs: '+vis.obs_geral:''}\n\n_${LC.nome||''} · ${LC.tel||''}_`;
   // Tenta abrir WhatsApp com telefone do cliente, senão abre sem destino
   const clientes=JSON.parse(ls('fluxa_clientes_full')||'[]');
   const cli=clientes.find(c=>(c.nome||'').toLowerCase()===(vis.cliente||'').toLowerCase());
@@ -9011,6 +9032,12 @@ function preencherRelatorioVistoria(vis){
   }
 
   // General obs
+  // Recomendações / prioridades (destaque no topo)
+  const recomWrap=document.getElementById('pd-vis-recom-wrap');
+  const recomTxt=document.getElementById('pd-vis-recom-txt');
+  if(recomWrap) recomWrap.style.display=(vis.recomendacoes&&vis.recomendacoes.trim())?'block':'none';
+  if(recomTxt)  recomTxt.textContent=vis.recomendacoes||'';
+
   const obsWrap=document.getElementById('pd-vis-obs-wrap');
   const obsBar=document.getElementById('pd-vis-obs-bar');
   const obsTxt=document.getElementById('pd-vis-obs-txt');
@@ -9106,6 +9133,7 @@ function editarVistoria(id){
   set('vis-mes-ref',vis.mes_ref||_ed.slice(0,7));
   set('vis-hora',vis.hora||vis.hora_checkin||'');
   set('vis-obs',vis.obs_geral);
+  set('vis-recom',vis.recomendacoes);
   set('vis-email-resp',vis.email_responsavel);
   const tecSel=document.getElementById('vis-tec');
   if(tecSel&&vis.tecnico){ for(const o of tecSel.options){ if(o.text===vis.tecnico||o.value===vis.tecnico){ o.selected=true; break; } } }
