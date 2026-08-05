@@ -1298,6 +1298,11 @@
     <div class="pd-vis-stats-row" id="pd-vis-stats-row"></div>
     <!-- VISIT INFO -->
     <div class="pd-vis-info-grid" id="pd-vis-info-grid"></div>
+    <!-- RECOMENDAÇÕES / PRIORIDADES (destaque, o que precisa ser feito) -->
+    <div id="pd-vis-recom-wrap" style="display:none;margin-bottom:18px;border:1.5px solid #fecaca;border-radius:10px;overflow:hidden">
+      <div style="background:#fef2f2;padding:8px 14px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#b91c1c;border-bottom:1.5px solid #fecaca">🔧 Recomendações — o que precisa ser feito</div>
+      <div id="pd-vis-recom-txt" style="padding:12px 14px;font-size:13px;line-height:1.6;color:#374151;white-space:pre-wrap"></div>
+    </div>
     <!-- SUMMARY TABLE -->
     <div class="pd-sl">Resumo dos Equipamentos</div>
     <div style="border:1.5px solid #e9ecef;border-radius:10px;overflow:hidden;margin-bottom:16px">
@@ -1992,11 +1997,22 @@
         <div class="vis-equip-grid" id="vis-equip-grid"></div>
       </div>
 
+      <!-- Recomendações / prioridades — o que precisa ser feito -->
+      <div class="card">
+        <div class="ct">🔧 Recomendações — o que precisa ser feito
+          <span style="font-size:11px;font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0">síntese das prioridades para o cliente</span>
+        </div>
+        <div class="row f1">
+          <div class="fl"><textarea id="vis-recom" rows="4" placeholder="Ex: 1) Trocar motobomba 2 (não liga) — urgente. 2) Corrigir vazamento na tubulação da piscina interna. 3) Programar troca de areia do filtro 1…"></textarea></div>
+        </div>
+        <button type="button" class="tb" onclick="visPuxarPrioridades()" style="font-size:12px;margin-top:2px">↧ Puxar itens críticos / atenção</button>
+      </div>
+
       <!-- Observações gerais -->
       <div class="card">
-        <div class="ct">📝 Observações Gerais</div>
+        <div class="ct">📝 Observações Gerais <span style="font-size:11px;font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0">condições gerais do local</span></div>
         <div class="row f1">
-          <div class="fl"><textarea id="vis-obs" rows="4" placeholder="Condições gerais do local, recomendações, pendências observadas nos equipamentos…"></textarea></div>
+          <div class="fl"><textarea id="vis-obs" rows="3" placeholder="Condições gerais do local, contexto da visita, pendências observadas…"></textarea></div>
         </div>
       </div>
 
