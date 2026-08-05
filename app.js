@@ -8209,7 +8209,7 @@ function confirmarPreCarga(){
   const customEquips = equips.filter(e=>!stdDefs.includes(e.id));
   // Reset estado
   visEquipSelecionados = stdEquips.map(e=>e.id);
-  _visEquipsCustom = customEquips.map(e=>({id:e.id, nome:e.nome, emoji:e.emoji||'⚙️', modelo:e.modelo||'', potencia:e.potencia||''}));
+  _visEquipsCustom = customEquips.map(e=>({id:e.id, nome:e.nome, emoji:e.emoji||'⚙️', marca:e.marca||'', modelo:e.modelo||'', potencia:e.potencia||'', ficha:e.ficha||'', ambiente:e.ambiente||''}));
   // Status todos reset para 'na' — técnico preenche de novo
   visEquipDados = {};
   equips.forEach(e=>{ visEquipDados[e.id]={status:'na',obs:'',fotos:[]}; });
@@ -9058,7 +9058,7 @@ function editarVistoria(id){
   // Equipamentos: separa padrão de custom e PRESERVA status/obs/fotos
   const stdDefs=VIS_EQUIPAMENTOS_DEFAULT.map(x=>x.id);
   visEquipSelecionados=equips.filter(e=>stdDefs.includes(e.id)).map(e=>e.id);
-  _visEquipsCustom=equips.filter(e=>!stdDefs.includes(e.id)).map(e=>({id:e.id,nome:e.nome,emoji:e.emoji||'⚙️',modelo:e.modelo||'',potencia:e.potencia||''}));
+  _visEquipsCustom=equips.filter(e=>!stdDefs.includes(e.id)).map(e=>({id:e.id,nome:e.nome,emoji:e.emoji||'⚙️',marca:e.marca||'',modelo:e.modelo||'',potencia:e.potencia||'',ficha:e.ficha||'',ambiente:e.ambiente||''}));
   equips.forEach(e=>{ visEquipDados[e.id]={status:e.status||'na',obs:e.obs||'',fotos:(e.fotos||[]).filter(Boolean)}; });
   renderVisChips();
   renderVisEquipGrid();
