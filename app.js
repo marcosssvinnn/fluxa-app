@@ -6617,6 +6617,13 @@ const VIS_EQUIPAMENTOS_DEFAULT = [
 let visEquipSelecionados = []; // ids dos equipamentos ativos
 let visEquipDados = {};        // { id: { status, obs, fotos:[] } }
 let _visEquipAbertos = new Set(); // ids dos painéis expandidos — preservado entre re-renders
+let visAmbienteObs = {};       // { "Nome do ambiente": "observação geral do ambiente" }
+                               // p/ problemas que não são de um equipamento (ex.: vazamento na tubulação)
+function visUpdAmbObs(amb, val){
+  const k=(amb||'').trim(); if(!k) return;
+  if(val && val.trim()) visAmbienteObs[k]=val; else delete visAmbienteObs[k];
+  _salvarRascunhoVisDeb();
+}
 let visCheckinTime = null;
 let visCheckoutTime = null;
 let visCheckinInterval = null;
@@ -7231,6 +7238,7 @@ function iniciarVistoriaPlena(locId){
   // Reset estado
   visEquipSelecionados=[];
   visEquipDados={};
+  visAmbienteObs={};
   _visEquipsCustom=[];
   visCheckinTime=null;
   visCheckoutTime=null;
@@ -7411,6 +7419,7 @@ function concluirVisDetalhada(){
   visEquipSelecionados=equipsPlano.map(e=>e.id);
   // Pré-carrega dados nos equipamentos do formulário (para mostrar modelo/potência)
   visEquipDados={};
+  visAmbienteObs={};
   equipsPlano.forEach(e=>{ visEquipDados[e.id]={status:'na',obs:'',fotos:[],modelo:e.modelo,potencia:e.potencia}; });
   // Abre formulário completo com dados do local
   novaVistoria(loc.cliente, loc.local, loc.tecnico||'');
@@ -7761,6 +7770,13 @@ function renderVisEquipGrid(){
         ambTit.style.cssText='font-size:12px;font-weight:800;color:var(--c1);margin:12px 0 6px;display:flex;align-items:center;gap:6px';
         ambTit.textContent='📍 '+g.nome;
         el.appendChild(ambTit);
+        // Observação GERAL do ambiente (problemas que não são de um equipamento,
+        // ex.: vazamento na tubulação). Fica salva por ambiente e vai no relatório.
+        const ambObs=document.createElement('div');
+        ambObs.style.cssText='margin:0 0 10px';
+        const _nAmb=esc(g.nome).replace(/'/g,"\\'");
+        ambObs.innerHTML=`<textarea rows="2" placeholder="Observação geral deste ambiente (ex.: vazamento na tubulação, algo fora dos equipamentos…)" oninput="visUpdAmbObs('${_nAmb}',this.value)" style="width:100%;padding:8px 10px;border:1.5px dashed var(--c1);border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;resize:vertical;outline:none;background:var(--c1-light)">${esc(visAmbienteObs[g.nome]||'')}</textarea>`;
+        el.appendChild(ambObs);
       }
       g.itens.forEach(ceq=>{
         const id=ceq.id;
@@ -7910,7 +7926,7 @@ function _salvarRascunhoVis(){
     // só salva se há algo em andamento (cliente, equipamento ou check-in)
     if(!cli && !visEquipSelecionados.length && !(_visEquipsCustom||[]).length && !visCheckinTime) return;
     const d={ t:Date.now(), campos:{},
-      sel:visEquipSelecionados, custom:_visEquipsCustom, dados:visEquipDados,
+      sel:visEquipSelecionados, custom:_visEquipsCustom, dados:visEquipDados, ambObs:visAmbienteObs,
       checkin:visCheckinTime?visCheckinTime.getTime():null,
       checkout:visCheckoutTime?visCheckoutTime.getTime():null,
       localId:window._visLocalId||null, editId:visEditId||null, draftId:_visDraftId||null };
@@ -7978,6 +7994,7 @@ function _restaurarRascunhoVis(){
   visEquipSelecionados=d.sel||[];
   _visEquipsCustom=d.custom||[];
   visEquipDados=d.dados||{};
+  visAmbienteObs=d.ambObs||{};
   window._visLocalId=d.localId||null; visEditId=d.editId||null; _visDraftId=d.draftId||null;
   visCheckinTime=d.checkin?new Date(d.checkin):null;
   visCheckoutTime=d.checkout?new Date(d.checkout):null;
@@ -8238,6 +8255,7 @@ function confirmarPreCarga(){
   _visEquipsCustom = customEquips.map(e=>({id:e.id, nome:e.nome, emoji:e.emoji||'⚙️', marca:e.marca||'', modelo:e.modelo||'', potencia:e.potencia||'', ficha:e.ficha||'', ambiente:e.ambiente||''}));
   // Status todos reset para 'na' — técnico preenche de novo
   visEquipDados = {};
+  visAmbienteObs={};
   equips.forEach(e=>{ visEquipDados[e.id]={status:'na',obs:'',fotos:[]}; });
   renderVisChips();
   renderVisEquipGrid();
@@ -8317,10 +8335,18 @@ function _montarRecVistoria(){
     hora_checkin: visCheckinTime?visCheckinTime.toTimeString().slice(0,5):hora,
     hora_checkout: visCheckoutTime?visCheckoutTime.toTimeString().slice(0,5):null,
     obs_geral: document.getElementById('vis-obs')?.value||'',
+    obs_ambientes: _montarObsAmbientes(),
     email_responsavel: (document.getElementById('vis-email-resp')?.value||'').trim()||null,
     equipamentos: _montarEquipamentosVistoria(),
     created_at: new Date().toISOString()
   };
+}
+// Só as observações de ambientes que existem nesta vistoria e têm texto.
+function _montarObsAmbientes(){
+  const ambsPresentes=new Set((_visEquipsCustom||[]).map(e=>(e.ambiente||'').trim()).filter(Boolean));
+  const out={};
+  Object.keys(visAmbienteObs||{}).forEach(k=>{ if(ambsPresentes.has(k) && (visAmbienteObs[k]||'').trim()) out[k]=visAmbienteObs[k].trim(); });
+  return out;
 }
 // Salva a vistoria: LOCAL na hora (rápido), nuvem em BACKGROUND com timeout.
 // A UI nunca trava esperando rede. Usado por Salvar e por Gerar PDF.
@@ -8446,6 +8472,7 @@ function _limparFormVistoria(){
   _limparRascunhoVis(); // vistoria finalizada → rascunho não deve ressuscitar
   _visDraftRestaurado=false;
   visEquipDados = {};
+  visAmbienteObs={};
   _visEquipsCustom = [];
   visCheckinTime = null;
   visCheckoutTime = null;
@@ -8938,6 +8965,7 @@ function preencherRelatorioVistoria(vis){
   // Detailed list — equipamentos com status definido OU com fotos
   const detList=document.getElementById('pd-vis-equip-list');
   if(detList){
+    const _ambObs=vis.obs_ambientes||{};
     const equipsDet=equips.filter(e=>e.status!=='na'||(e.fotos||[]).some(Boolean));
     const gruposDet=[];
     equipsDet.forEach(e=>{
@@ -8946,6 +8974,8 @@ function preencherRelatorioVistoria(vis){
       if(!g){ g={nome:nomeAmb, itens:[]}; gruposDet.push(g); }
       g.itens.push(e);
     });
+    // Ambiente com SÓ observação (sem equipamento avaliado) também aparece
+    Object.keys(_ambObs).forEach(nomeAmb=>{ if(nomeAmb && !gruposDet.find(g=>g.nome===nomeAmb)) gruposDet.push({nome:nomeAmb, itens:[]}); });
     gruposDet.sort((a,b)=>(a.nome===''?1:0)-(b.nome===''?1:0));
     const temAmbienteDet=gruposDet.some(g=>g.nome);
     const itemHtml=e=>{
@@ -8975,6 +9005,7 @@ function preencherRelatorioVistoria(vis){
     };
     detList.innerHTML=gruposDet.map(g=>`
       ${temAmbienteDet&&g.nome?`<div style="font-size:12px;font-weight:800;color:#374151;text-transform:uppercase;letter-spacing:.5px;margin:14px 0 6px">📍 ${esc(g.nome)}</div>`:''}
+      ${g.nome&&_ambObs[g.nome]?`<div class="pd-vis-equip-obs obs-atencao" style="margin-bottom:8px"><strong style="font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:#d97706">📝 Observação do ambiente</strong><br>${esc(_ambObs[g.nome])}</div>`:''}
       ${g.itens.map(itemHtml).join('')}
     `).join('');
   }
@@ -9006,6 +9037,7 @@ function preencherRelatorioVistoria(vis){
 function novaVistoria(cliNome, cliLocal, tecNome){
   visEquipSelecionados=[];
   visEquipDados={};
+  visAmbienteObs={};
   _visEquipsCustom=[];
   visCheckinTime=null;
   visCheckoutTime=null;
@@ -9058,6 +9090,7 @@ function editarVistoria(id){
   const equips=(typeof vis.equipamentos==='string'?JSON.parse(vis.equipamentos||'[]'):vis.equipamentos)||[];
   // Reset de estado
   visEquipSelecionados=[]; visEquipDados={}; _visEquipsCustom=[];
+  visAmbienteObs=(vis.obs_ambientes&&typeof vis.obs_ambientes==='object')?{...vis.obs_ambientes}:{}; // reabre com as obs de ambiente salvas
   visCheckinTime=null; visCheckoutTime=null;
   if(visCheckinInterval){ clearInterval(visCheckinInterval); visCheckinInterval=null; }
   visEditId=id; _visDraftId=id;            // edita o mesmo registro
