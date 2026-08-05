@@ -8045,10 +8045,27 @@ function visAddFotoEquip(inp, id){
       if(!Array.isArray(visEquipDados[id].fotos)) visEquipDados[id].fotos=[];
       const arr=visEquipDados[id].fotos.filter(Boolean);
       if(arr.length>=MAX_FOTOS_EQUIP){ toast(`⚠️ Máximo de ${MAX_FOTOS_EQUIP} fotos`); return; }
+      const slotIdx=arr.length;
       arr.push(compressed);
       visEquipDados[id].fotos=arr;
       renderVisEquipGrid();
       _salvarRascunhoVis();
+      // Sobe para o Storage JÁ NA HORA (não só ao salvar a vistoria). Em vistorias
+      // grandes o rascunho em base64 estoura a cota do localStorage e o fallback
+      // (linha ~7922) descarta as fotos ainda não enviadas — perdendo tudo se o
+      // celular recarregar a página no meio da visita. Virando URL cedo, o
+      // rascunho fica leve e a foto sobrevive a esse recarregamento.
+      if(!_visDraftId && !visEditId) _visDraftId='vis_'+Date.now();
+      const _visId=visEditId||_visDraftId;
+      if(dbOk && _visId){
+        const path=`${_visId}/${id}/${Date.now()}_${slotIdx}.jpg`;
+        _uploadFotoStorage(compressed, path).then(url=>{
+          if(!url) return; // falhou (offline etc) — mantém base64, sem perder a foto
+          const cur=(visEquipDados[id]||{}).fotos||[];
+          const pos=cur.indexOf(compressed);
+          if(pos>=0){ cur[pos]=url; renderVisEquipGrid(); _salvarRascunhoVis(); }
+        }).catch(err=>console.warn('[visAddFotoEquip:upload]', err?.message||err));
+      }
     }catch(err){ console.warn('[visAddFotoEquip]', err?.message||err); toast('⚠️ Falha ao processar a foto'); }
   };
   r.readAsDataURL(f);
