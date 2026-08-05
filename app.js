@@ -6856,9 +6856,9 @@ function normalizeLocEquips(equips){
   if(!equips||!equips.length) return [];
   let list;
   if(typeof equips[0]==='string'){
-    list=equips.map(id=>{ const def=VIS_EQUIPAMENTOS_DEFAULT.find(e=>e.id===id)||{nome:id,emoji:'⚙️'}; return {id:_novoEquipId(),nome:def.nome,marca:'',modelo:'',potencia:'',serie:'',ficha:''}; });
+    list=equips.map(id=>{ const def=VIS_EQUIPAMENTOS_DEFAULT.find(e=>e.id===id)||{nome:id,emoji:'⚙️'}; return {id:_novoEquipId(),nome:def.nome,marca:'',modelo:'',potencia:'',serie:'',ficha:'',ambiente:''}; });
   } else {
-    list=equips.map(e=>({id:e.id||_novoEquipId(),nome:e.nome||'',marca:e.marca||'',modelo:e.modelo||'',potencia:e.potencia||'',serie:e.serie||'',ficha:e.ficha||''}));
+    list=equips.map(e=>({id:e.id||_novoEquipId(),nome:e.nome||'',marca:e.marca||'',modelo:e.modelo||'',potencia:e.potencia||'',serie:e.serie||'',ficha:e.ficha||'',ambiente:e.ambiente||''}));
   }
   // Cura ids duplicados (planos salvos antes do fix): reatribui id único
   const vistos=new Set();
@@ -6866,10 +6866,12 @@ function normalizeLocEquips(equips){
   return list;
 }
 
-let _locEquipCustom=[]; // [{id, nome, marca, modelo, potencia, serie, ficha}]
+let _locEquipCustom=[]; // [{id, nome, marca, modelo, potencia, serie, ficha, ambiente}]
 
-function adicionarLocEquip(){
-  _locEquipCustom.push({id:_novoEquipId(),nome:'',marca:'',modelo:'',potencia:'',serie:'',ficha:''});
+function adicionarLocEquip(ambiente){
+  // Convêniência: se não veio ambiente explícito, herda do último item cadastrado
+  const amb=ambiente!==undefined?ambiente:(_locEquipCustom[_locEquipCustom.length-1]?.ambiente||'');
+  _locEquipCustom.push({id:_novoEquipId(),nome:'',marca:'',modelo:'',potencia:'',serie:'',ficha:'',ambiente:amb});
   renderLocEquipList();
   // foco no primeiro campo do novo item
   setTimeout(()=>{
@@ -6889,7 +6891,18 @@ function renderLocEquipList(){
     c.innerHTML=`<div style="font-size:12px;color:var(--gray);padding:8px 0">Nenhum equipamento cadastrado. Clique em "＋ Adicionar" para cadastrar.</div>`;
     return;
   }
-  c.innerHTML=_locEquipCustom.map((eq,i)=>`
+  // Agrupa por ambiente (mantém a ordem de primeira aparição); itens sem
+  // ambiente caem num grupo "Sem ambiente definido" ao final.
+  const grupos=[]; // [{nome, idxs:[i,...]}]
+  _locEquipCustom.forEach((eq,i)=>{
+    const nomeAmb=(eq.ambiente||'').trim();
+    let g=grupos.find(gr=>gr.nome===nomeAmb);
+    if(!g){ g={nome:nomeAmb, idxs:[]}; grupos.push(g); }
+    g.idxs.push(i);
+  });
+  grupos.sort((a,b)=> (a.nome===''?1:0)-(b.nome===''?1:0));
+
+  const cardHtml=(eq,i)=>`
     <div class="loc-eq-card" style="border:1.5px solid var(--gray-mid);border-radius:10px;padding:10px 12px;margin-bottom:10px;background:var(--white)">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
         <span style="font-size:11px;font-weight:800;color:var(--c1);background:var(--c1-light);border-radius:50px;min-width:22px;height:22px;display:flex;align-items:center;justify-content:center;flex-shrink:0">${i+1}</span>
@@ -6897,6 +6910,7 @@ function renderLocEquipList(){
         <button class="loc-eq-del" onclick="removerLocEquip(${i})" title="Remover" style="flex-shrink:0">🗑</button>
       </div>
       <div class="loc-eq-row">
+        <div><label>Ambiente / Local *</label><input type="text" value="${esc(eq.ambiente||'')}" oninput="_locEquipCustom[${i}].ambiente=this.value" onchange="renderLocEquipList()" placeholder="Ex: Casa de máquinas, Cobertura…" list="loc-amb-list"></div>
         <div><label>Tipo / Nome *</label><input type="text" value="${esc(eq.nome)}" oninput="_locEquipCustom[${i}].nome=this.value;_locEquipCardTitulo(${i},this.value)" placeholder="Ex: Motobomba, Filtro, Aquecedor…"></div>
         <div><label>Marca</label><input type="text" value="${esc(eq.marca||'')}" oninput="_locEquipCustom[${i}].marca=this.value" placeholder="Ex: Dancor, Jacuzzi"></div>
         <div><label>Modelo</label><input type="text" value="${esc(eq.modelo)}" oninput="_locEquipCustom[${i}].modelo=this.value" placeholder="Ex: KOM 15"></div>
@@ -6907,7 +6921,21 @@ function renderLocEquipList(){
         <textarea rows="2" oninput="_locEquipCustom[${i}].ficha=this.value" placeholder="Ex: Última manutenção 03/2026 · Última troca de areia 01/2026 · Nº série 12345 · particularidades…" style="width:100%;margin-top:4px;padding:8px 10px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;resize:vertical;outline:none">${esc(eq.ficha||'')}</textarea>
       </div>
     </div>
-  `).join('');
+  `;
+
+  const ambList=[...new Set(_locEquipCustom.map(e=>(e.ambiente||'').trim()).filter(Boolean))];
+
+  c.innerHTML=`<datalist id="loc-amb-list">${ambList.map(a=>`<option value="${esc(a)}">`).join('')}</datalist>`
+    + grupos.map(g=>`
+      <div style="margin-bottom:14px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <span style="font-size:12px;font-weight:800;color:var(--c1);text-transform:uppercase;letter-spacing:.5px">📍 ${esc(g.nome)||'Sem ambiente definido'}</span>
+          <span style="font-size:11px;color:var(--gray)">(${g.idxs.length})</span>
+        </div>
+        ${g.idxs.map(i=>cardHtml(_locEquipCustom[i],i)).join('')}
+        <button type="button" class="tb" onclick="adicionarLocEquip('${esc(g.nome).replace(/'/g,"\\'")}')" style="font-size:12px">＋ Adicionar equipamento em "${esc(g.nome)||'Sem ambiente definido'}"</button>
+      </div>
+    `).join('');
 }
 // Atualiza só o título do card ao digitar o nome (sem re-renderizar tudo/perder foco)
 function _locEquipCardTitulo(i, val){
@@ -7260,7 +7288,7 @@ function iniciarVistoriaPlena(locId){
   // Carrega equipamentos do plano como _visEquipsCustom (com modelo/potência)
   const equips=normalizeLocEquips(loc.equipamentos||[]);
   if(equips.length){
-    _visEquipsCustom=equips.map(e=>({id:e.id,nome:e.nome,emoji:e.emoji||'⚙️',marca:e.marca||'',modelo:e.modelo||'',potencia:e.potencia||'',ficha:e.ficha||''}));
+    _visEquipsCustom=equips.map(e=>({id:e.id,nome:e.nome,emoji:e.emoji||'⚙️',marca:e.marca||'',modelo:e.modelo||'',potencia:e.potencia||'',ficha:e.ficha||'',ambiente:e.ambiente||''}));
     equips.forEach(e=>{ visEquipDados[e.id]={status:'na',obs:'',fotos:[]}; });
   }
 
@@ -7712,17 +7740,34 @@ function renderVisEquipGrid(){
   const _idsAtuais=new Set(ordem);
   _visEquipAbertos.forEach(id=>{ if(!_idsAtuais.has(id)) _visEquipAbertos.delete(id); });
   if(!_visEquipAbertos.size && ordem.length) _visEquipAbertos.add(ordem[0]);
-  // Renderiza equipamentos customizados do plano (se existirem)
+  // Renderiza equipamentos customizados do plano, agrupados por ambiente
+  // (facilita achar tudo de um mesmo local durante a vistoria)
   if(_visEquipsCustom.length){
     const secTit=document.createElement('div');
     secTit.style.cssText='font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--gray);margin-bottom:8px';
     secTit.textContent='Equipamentos do plano';
     el.appendChild(secTit);
+    const gruposVis=[];
     _visEquipsCustom.forEach(ceq=>{
-      const id=ceq.id;
-      if(!visEquipDados[id]) visEquipDados[id]={status:'na',obs:'',fotos:[]};
-      const d=visEquipDados[id];
-      el.appendChild(buildEquipBlock(id,ceq.emoji||'⚙️',ceq.nome,d,ceq.modelo,ceq.potencia,ceq.marca,ceq.ficha,_visEquipAbertos.has(id)));
+      const nomeAmb=(ceq.ambiente||'').trim();
+      let g=gruposVis.find(gr=>gr.nome===nomeAmb);
+      if(!g){ g={nome:nomeAmb, itens:[]}; gruposVis.push(g); }
+      g.itens.push(ceq);
+    });
+    gruposVis.sort((a,b)=>(a.nome===''?1:0)-(b.nome===''?1:0));
+    gruposVis.forEach(g=>{
+      if(g.nome){
+        const ambTit=document.createElement('div');
+        ambTit.style.cssText='font-size:12px;font-weight:800;color:var(--c1);margin:12px 0 6px;display:flex;align-items:center;gap:6px';
+        ambTit.textContent='📍 '+g.nome;
+        el.appendChild(ambTit);
+      }
+      g.itens.forEach(ceq=>{
+        const id=ceq.id;
+        if(!visEquipDados[id]) visEquipDados[id]={status:'na',obs:'',fotos:[]};
+        const d=visEquipDados[id];
+        el.appendChild(buildEquipBlock(id,ceq.emoji||'⚙️',ceq.nome,d,ceq.modelo,ceq.potencia,ceq.marca,ceq.ficha,_visEquipAbertos.has(id)));
+      });
     });
   }
 
@@ -8188,7 +8233,7 @@ function _montarEquipamentosVistoria(){
   return [
     ...(_visEquipsCustom||[]).map(ceq=>{
       const d=visEquipDados[ceq.id]||{status:'na',obs:'',fotos:[]};
-      return {id:ceq.id,nome:ceq.nome,emoji:ceq.emoji||'⚙️',marca:ceq.marca||'',modelo:ceq.modelo||'',potencia:ceq.potencia||'',ficha:ceq.ficha||'',status:d.status,obs:d.obs||'',fotos:(d.fotos||[]).filter(Boolean)};
+      return {id:ceq.id,nome:ceq.nome,emoji:ceq.emoji||'⚙️',marca:ceq.marca||'',modelo:ceq.modelo||'',potencia:ceq.potencia||'',ficha:ceq.ficha||'',ambiente:ceq.ambiente||'',status:d.status,obs:d.obs||'',fotos:(d.fotos||[]).filter(Boolean)};
     }),
     ...visEquipSelecionados.filter(id=>!customIds.includes(id)).map(id=>{
       const def=VIS_EQUIPAMENTOS_DEFAULT.find(x=>x.id===id)||{id,nome:id,emoji:''};
@@ -8848,19 +8893,41 @@ function preencherRelatorioVistoria(vis){
   const sumTable=document.getElementById('pd-vis-sumtable');
   if(sumTable){
     const equipsVistoriados = equips.filter(e=>e.status && e.status!=='na');
+    // Agrupa por ambiente (se houver) para manter o relatório organizado como o plano
+    const gruposSum=[];
+    equipsVistoriados.forEach(e=>{
+      const nomeAmb=(e.ambiente||'').trim();
+      let g=gruposSum.find(gr=>gr.nome===nomeAmb);
+      if(!g){ g={nome:nomeAmb, itens:[]}; gruposSum.push(g); }
+      g.itens.push(e);
+    });
+    gruposSum.sort((a,b)=>(a.nome===''?1:0)-(b.nome===''?1:0));
+    const temAmbiente=gruposSum.some(g=>g.nome);
     sumTable.innerHTML=`<thead><tr><th>Equipamento</th><th>Modelo / Pot.</th><th>Status</th><th>Observação</th></tr></thead>
-      <tbody>${equipsVistoriados.map(e=>`<tr>
+      <tbody>${gruposSum.map(g=>`
+        ${temAmbiente&&g.nome?`<tr><td colspan="4" style="background:#f3f4f6;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:#374151">📍 ${esc(g.nome)}</td></tr>`:''}
+        ${g.itens.map(e=>`<tr>
         <td><strong>${esc(e.nome||e.id)}</strong></td>
         <td style="font-size:11px;color:#6b7280">${[e.marca,e.modelo,e.potencia].filter(Boolean).map(esc).join(' · ')||'—'}</td>
         <td><span class="st-dot ${dotCls[e.status]||'na'}"></span>${statusTxt[e.status]||'—'}</td>
         <td style="color:#6b7280;font-size:11px">${esc((e.obs||'').slice(0,90))}</td>
-      </tr>`).join('')}</tbody>`;
+      </tr>`).join('')}`).join('')}</tbody>`;
   }
 
   // Detailed list — equipamentos com status definido OU com fotos
   const detList=document.getElementById('pd-vis-equip-list');
   if(detList){
-    detList.innerHTML=equips.filter(e=>e.status!=='na'||(e.fotos||[]).some(Boolean)).map(e=>{
+    const equipsDet=equips.filter(e=>e.status!=='na'||(e.fotos||[]).some(Boolean));
+    const gruposDet=[];
+    equipsDet.forEach(e=>{
+      const nomeAmb=(e.ambiente||'').trim();
+      let g=gruposDet.find(gr=>gr.nome===nomeAmb);
+      if(!g){ g={nome:nomeAmb, itens:[]}; gruposDet.push(g); }
+      g.itens.push(e);
+    });
+    gruposDet.sort((a,b)=>(a.nome===''?1:0)-(b.nome===''?1:0));
+    const temAmbienteDet=gruposDet.some(g=>g.nome);
+    const itemHtml=e=>{
       const fotosArr=(e.fotos||[]).filter(Boolean);
       const fotosHtml=fotosArr.length
         ?`<div class="pd-vis-equip-fotos">${fotosArr.map((f,i)=>`
@@ -8884,7 +8951,11 @@ function preencherRelatorioVistoria(vis){
         </div>
         ${(obsHtml||fichaHtml||fotosHtml)?`<div class="pd-vis-equip-body">${obsHtml}${fichaHtml}${fotosHtml}</div>`:''}
       </div>`;
-    }).join('');
+    };
+    detList.innerHTML=gruposDet.map(g=>`
+      ${temAmbienteDet&&g.nome?`<div style="font-size:12px;font-weight:800;color:#374151;text-transform:uppercase;letter-spacing:.5px;margin:14px 0 6px">📍 ${esc(g.nome)}</div>`:''}
+      ${g.itens.map(itemHtml).join('')}
+    `).join('');
   }
 
   // General obs
