@@ -7,6 +7,12 @@ function clearSessao(){ sessionStorage.removeItem('fluxa_user'); }
 function eMaster(){ const s=getSessao(); return s?.perfil==='master'; }
 function eGestor(){ const s=getSessao(); return s?.perfil==='gestor'||s?.perfil==='master'; } // master herda acesso de gestor
 
+// Estado de estoque declarado no TOPO (antes do boot) para evitar TDZ.
+// O boot (aplicarCFG → aplicarPermissoesPerfil) chama loadEstoque() para gestor,
+// que usa estas variáveis — antes elas eram declaradas lá embaixo (erro
+// "Cannot access 'todosProdutos/todosFornecedores' before initialization").
+let todosFornecedores = [], todasOC = [], todosProdutos = [], todosMovEstoque = [], estoqueBusca = '';
+
 // ── Log de auditoria (quem fez o quê) ──
 let _auditoria = [];
 function lsAuditLer(){ try{ return JSON.parse(ls('fluxa_auditoria')||'[]'); }catch(e){ return []; } }
@@ -129,7 +135,11 @@ function aplicarPermissoesPerfil(){
   // Preenche os selects de empresa dos formulários a partir da config das lojas
   popularSelectsLojaForm();
   // Carrega estoque em background (gestor) — necessário p/ baixa automática e reservado
-  if(eGestor()){ try{ loadEstoque(); }catch(e){ console.warn('[boot loadEstoque]', e?.message||e); } }
+  // Adiado p/ depois do parse completo do script: loadEstoque() usa variáveis de
+  // estoque declaradas mais abaixo; chamá-lo durante o boot causava TDZ
+  // ("Cannot access 'todosProdutos' before initialization"). setTimeout(0) roda
+  // após todos os `let` inicializarem. .catch cobre a rejeição do async.
+  if(eGestor()){ setTimeout(()=>{ Promise.resolve(loadEstoque()).catch(e=>console.warn('[boot loadEstoque]', e?.message||e)); }, 0); }
 
   // ── Gear menu ──
   // Regras por id
@@ -9224,9 +9234,7 @@ initOS();
 //  ESTOQUE — produtos + razão de movimentos (entrada/saída/ajuste)
 //  Saldo = soma dos movimentos. Baixa idempotente por 'ref'. Multi-loja.
 // ══════════════════════════════════════════════════════════════════
-let todosProdutos = [];
-let todosMovEstoque = [];
-let estoqueBusca = '';
+// todosProdutos, todosMovEstoque, estoqueBusca declarados no topo (evita TDZ no boot)
 
 function lsProdLer(){ try{ return JSON.parse(ls('fluxa_produtos')||'[]'); }catch(e){ return []; } }
 function lsProdSalvar(l){ lsSet('fluxa_produtos', JSON.stringify(l)); }
@@ -10392,7 +10400,7 @@ function fecharHistProduto(){ document.getElementById('hist-prod-modal').style.d
 // ══════════════════════════════════════════════════
 //  FORNECEDORES
 // ══════════════════════════════════════════════════
-let todosFornecedores = [];
+// todosFornecedores declarado no topo do arquivo (evita TDZ no boot)
 function lsFornecLer(){ try{ return JSON.parse(ls('fluxa_fornecedores')||'[]'); }catch(e){ return []; } }
 function lsFornecSalvar(l){ lsSet('fluxa_fornecedores', JSON.stringify(l)); }
 
@@ -10489,7 +10497,7 @@ function pontoDePedido(pid){
 // ══════════════════════════════════════════════════
 //  ORDENS DE COMPRA (OC)
 // ══════════════════════════════════════════════════
-let todasOC = [];
+// todasOC declarado no topo do arquivo (evita TDZ no boot)
 let _ocEditItens = []; // [{produto_id, nome, unidade, qtd, custo_unit}]
 
 function lsOCLer(){ try{ return JSON.parse(ls('fluxa_oc')||'[]'); }catch(e){ return []; } }
