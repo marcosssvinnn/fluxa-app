@@ -8081,7 +8081,8 @@ function visRemoverFoto(id, idx){
 
 // Faz upload de uma foto (base64) para o Supabase Storage e retorna a URL pública.
 // Retorna null se falhar (a foto base64 original fica preservada localmente).
-async function _uploadFotoStorage(base64, path){
+// Tenta 2x — rede instável dentro de casa de máquinas/subsolo é comum durante a vistoria.
+async function _uploadFotoStorage(base64, path, _tentativa=1){
   if(!base64 || base64.startsWith('http')) return base64; // já é URL ou vazio
   try{
     const [meta, data] = base64.split(',');
@@ -8097,9 +8098,17 @@ async function _uploadFotoStorage(base64, path){
       headers:{ 'apikey':sbKey, 'Authorization':'Bearer '+sbKey, 'Content-Type':mime, 'x-upsert':'true' },
       body: blob
     });
-    if(!res.ok){ console.warn('[uploadFoto] HTTP', res.status, await res.text()); return null; }
+    if(!res.ok){
+      console.warn('[uploadFoto] HTTP', res.status, await res.text());
+      if(_tentativa<2){ await new Promise(r=>setTimeout(r,1500)); return _uploadFotoStorage(base64, path, _tentativa+1); }
+      return null;
+    }
     return `${sbUrl}/storage/v1/object/public/vistorias-fotos/${path}`;
-  }catch(e){ console.warn('[uploadFoto]', e?.message||e); return null; }
+  }catch(e){
+    console.warn('[uploadFoto]', e?.message||e);
+    if(_tentativa<2){ await new Promise(r=>setTimeout(r,1500)); return _uploadFotoStorage(base64, path, _tentativa+1); }
+    return null;
+  }
 }
 
 // Faz upload de todas as fotos base64 de uma vistoria para o Storage.
@@ -8328,8 +8337,10 @@ function _persistVistoria(rec){
       try{
         // Faz upload das fotos base64 para o Storage e substitui por URLs públicas.
         // Fotos com upload bem-sucedido ficam acessíveis de qualquer dispositivo.
-        // Fotos que falharem ficam como base64 localmente (sem perder a foto);
-        // o campo no Supabase fica vazio para esse slot (null).
+        // Fotos que falharem (2 tentativas) ficam como base64 MESMO NO SUPABASE —
+        // antes esse slot virava null no banco (foto sobrevivia só no aparelho
+        // local e sumia do relatório/de outros dispositivos). Base64 no jsonb é
+        // mais pesado, mas nunca perde a foto.
         const recComUrls = await _uploadFotosVistoria(rec);
         // Atualiza localStorage com as URLs (substitui base64 pelas URLs que subiram)
         const listaAtual = lsVisLer();
@@ -8337,14 +8348,7 @@ function _persistVistoria(rec){
         if(idxAtual>=0) listaAtual[idxAtual]=recComUrls;
         else listaAtual.unshift(recComUrls);
         lsVisSalvar(listaAtual);
-        // Envia ao Supabase com as fotos como URLs (ou null onde falhou)
-        const recParaSupabase = {
-          ...recComUrls,
-          equipamentos: (recComUrls.equipamentos||[]).map(eq=>({
-            ...eq,
-            fotos: (eq.fotos||[]).map(f=>f&&f.startsWith('http')?f:null)
-          }))
-        };
+        const recParaSupabase = recComUrls;
         const r=await _comTimeout(dbUpsert('vistorias', recParaSupabase), 20000, 'sync vistoria');
         if(r&&r.error){ console.warn('Visita Supabase err:', r.error.message); toast('⚠️ Vistoria salva localmente mas não sincronizou: '+r.error.message); }
         else{
