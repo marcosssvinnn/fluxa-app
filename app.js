@@ -7677,16 +7677,13 @@ function buildEquipBlock(id,emoji,nome,d,modelo,potencia,marca,ficha){
   const block=document.createElement('div');
   block.className=`vis-equip-block ${stClass}`;
   block.id=`vis-block-${id}`;
-  const fotosHtml=[0,1,2].map(i=>{
-    const f=(d.fotos||[])[i];
-    return `<div class="vis-foto-slot${f?' filled':''}" onclick="visClickFotoSlot('${id}',${i})">
-      <input type="file" id="vis-f-${id}-${i}" accept="image/*" capture="environment" style="display:none" onchange="visCarregarFoto(this,'${id}',${i})">
-      <input type="file" id="vis-f-${id}-${i}-gal" accept="image/*" style="display:none" onchange="visCarregarFoto(this,'${id}',${i})">
-      ${f?`<img src="${f}" alt="">`:''}
-      <div class="vis-foto-slot-icon">📷</div>
+  // Fotos: quantas o técnico quiser (até MAX_FOTOS_EQUIP), câmera OU galeria.
+  const _fotos=(d.fotos||[]).filter(Boolean);
+  const fotosHtml=_fotos.map((f,i)=>`
+    <div class="vis-foto-slot filled">
+      <img src="${f}" alt="">
       <button class="vis-foto-rm" onclick="event.stopPropagation();visRemoverFoto('${id}',${i})" title="Remover">✕</button>
-    </div>`;
-  }).join('');
+    </div>`).join('');
   const subInfo=(marca||modelo||potencia)?`<div style="font-size:11px;color:var(--gray);margin-top:1px">${[marca,modelo,potencia].filter(Boolean).join(' · ')}</div>`:'';
   // Ficha/histórico do equipamento (cadastrado no plano) — referência para o técnico
   const fichaHtml=ficha?`<div style="background:var(--c1-light);border-left:3px solid var(--c1);border-radius:0 8px 8px 0;padding:8px 10px;margin-bottom:10px;font-size:12px;color:var(--c2);line-height:1.5;white-space:pre-wrap"><strong style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--c1)">📋 Ficha do equipamento</strong><br>${esc(ficha)}</div>`:'';
@@ -7714,12 +7711,14 @@ function buildEquipBlock(id,emoji,nome,d,modelo,potencia,marca,ficha){
         <textarea id="vis-obs-${id}" rows="2" placeholder="Condições encontradas, medições, pendências…" oninput="visUpdObs('${id}',this.value)"
           style="width:100%;padding:8px 10px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;resize:vertical;outline:none">${esc(d.obs||'')}</textarea>
       </div>
-      <div style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Fotos</div>
+      <div style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Fotos ${_fotos.length?`<span style="color:var(--c1)">${_fotos.length}/${MAX_FOTOS_EQUIP}</span>`:''}</div>
       <div class="vis-fotos-row">${fotosHtml}</div>
-      <div style="display:flex;gap:8px;margin-top:8px">
-        <button type="button" class="tb" style="flex:1;justify-content:center;font-weight:700;background:var(--c1-light);color:var(--c1);border-color:var(--c1-light)" onclick="visFotoBtn('${id}','cam')">📷 Tirar foto</button>
-        <button type="button" class="tb" style="flex:1;justify-content:center" onclick="visFotoBtn('${id}','gal')">🖼️ Galeria</button>
-      </div>
+      <input type="file" id="vis-f-${id}-add" accept="image/*" capture="environment" style="display:none" onchange="visAddFotoEquip(this,'${id}')">
+      <input type="file" id="vis-f-${id}-add-gal" accept="image/*" style="display:none" onchange="visAddFotoEquip(this,'${id}')">
+      ${_fotos.length<MAX_FOTOS_EQUIP?`<div style="display:flex;gap:8px;margin-top:8px">
+        <button type="button" class="tb" style="flex:1;justify-content:center;font-weight:700;background:var(--c1-light);color:var(--c1);border-color:var(--c1-light)" onclick="visFotoEquip('${id}','cam')">📷 Tirar foto</button>
+        <button type="button" class="tb" style="flex:1;justify-content:center" onclick="visFotoEquip('${id}','gal')">🖼️ Galeria</button>
+      </div>`:`<div style="font-size:11px;color:var(--gray);margin-top:8px">Máximo de ${MAX_FOTOS_EQUIP} fotos neste equipamento.</div>`}
     </div>`;
   return block;
 }
@@ -7886,33 +7885,39 @@ window.addEventListener('pagehide',()=>{
   }catch(e){ console.warn('[rascunhoNuvem:pagehide]', e?.message||e); }
 });
 
-// Tocar no slot = CÂMERA direto (capture="environment"). Os botões "📷 Tirar
-// foto" e "🖼️ Galeria" abaixo dos slots preenchem a primeira vaga livre.
-function visClickFotoSlot(id, idx){
-  document.getElementById(`vis-f-${id}-${idx}`)?.click();
+// Cada equipamento aceita várias fotos (até MAX_FOTOS_EQUIP), câmera OU galeria.
+const MAX_FOTOS_EQUIP=8;
+// "📷 Tirar foto" abre a câmera; "🖼️ Galeria" abre a galeria — ambos ADICIONAM
+// (não substituem). O <input> de câmera tem capture; o de galeria não.
+function visFotoEquip(id, modo){
+  const n=((visEquipDados[id]?.fotos)||[]).filter(Boolean).length;
+  if(n>=MAX_FOTOS_EQUIP){ toast(`⚠️ Máximo de ${MAX_FOTOS_EQUIP} fotos — remova uma para adicionar outra`); return; }
+  document.getElementById(`vis-f-${id}-add${modo==='gal'?'-gal':''}`)?.click();
 }
-function visFotoBtn(id, modo){
-  const fotos=(visEquipDados[id]?.fotos)||[];
-  let idx=-1; for(let i=0;i<3;i++){ if(!fotos[i]){ idx=i; break; } }
-  if(idx<0){ toast('⚠️ Máximo de 3 fotos — remova uma para adicionar outra'); return; }
-  document.getElementById(`vis-f-${id}-${idx}${modo==='gal'?'-gal':''}`)?.click();
-}
-function visCarregarFoto(inp, id, idx){
-  const f = inp.files[0]; if(!f) return;
+function visAddFotoEquip(inp, id){
+  const f = inp.files[0]; if(!f){ return; }
   if(f.size > FOTO_MAX_BYTES){ toast('⚠️ Foto muito grande (máx 20 MB).'); inp.value=''; return; }
   const r = new FileReader();
   r.onload = async e => {
-    const compressed=await compressImage(e.target.result, 800, 0.55);
-    if(!visEquipDados[id]) visEquipDados[id]={ status:'na', obs:'', fotos:[] };
-    if(!visEquipDados[id].fotos) visEquipDados[id].fotos=[];
-    visEquipDados[id].fotos[idx] = compressed;
-    renderVisEquipGrid();
-    _salvarRascunhoVis();
+    try{
+      const compressed=await compressImage(e.target.result, 800, 0.55);
+      if(!visEquipDados[id]) visEquipDados[id]={ status:'na', obs:'', fotos:[] };
+      if(!Array.isArray(visEquipDados[id].fotos)) visEquipDados[id].fotos=[];
+      const arr=visEquipDados[id].fotos.filter(Boolean);
+      if(arr.length>=MAX_FOTOS_EQUIP){ toast(`⚠️ Máximo de ${MAX_FOTOS_EQUIP} fotos`); return; }
+      arr.push(compressed);
+      visEquipDados[id].fotos=arr;
+      renderVisEquipGrid();
+      _salvarRascunhoVis();
+    }catch(err){ console.warn('[visAddFotoEquip]', err?.message||err); toast('⚠️ Falha ao processar a foto'); }
   };
   r.readAsDataURL(f);
+  inp.value=''; // permite escolher a MESMA foto de novo, ou disparar o onchange sempre
 }
 function visRemoverFoto(id, idx){
-  if(visEquipDados[id]?.fotos) visEquipDados[id].fotos[idx]=null;
+  const arr=(visEquipDados[id]?.fotos||[]).filter(Boolean);
+  arr.splice(idx,1);
+  if(visEquipDados[id]) visEquipDados[id].fotos=arr;
   renderVisEquipGrid();
   _salvarRascunhoVis();
 }
