@@ -7618,10 +7618,11 @@ function visAddEquipManual(){
   const def=VIS_EQUIPAMENTOS_DEFAULT.find(x=>x.id===tipo);
   const base = def?def.nome:(rotulo||'Equipamento');
   const emoji = def?def.emoji:'⚙️';
-  const tipoKey = def?def.id:('outro:'+(rotulo.toLowerCase()||'equip'));
-  // numera por tipo (Motobomba Principal 1, 2, 3…); rótulo entra como sufixo
+  const tipoKey = def?def.id:('outro:'+(base.toLowerCase()));
+  // numera por tipo (Motobomba Principal 1, 2, 3…)
   const jaDoTipo=(_visEquipsCustom||[]).filter(e=>e._tipoKey===tipoKey).length;
-  const nome = rotulo ? `${base} — ${rotulo}` : `${base} ${jaDoTipo+1}`;
+  // Tipo padrão + rótulo → "Base — rótulo"; "Outro" → o rótulo JÁ é o nome (numera se repetir)
+  const nome = (def && rotulo) ? `${base} — ${rotulo}` : (jaDoTipo>0 ? `${base} ${jaDoTipo+1}` : (def?`${base} 1`:base));
   const id=_novoEquipId();
   _visEquipsCustom.push({id, nome, emoji, marca:'', modelo:'', potencia:'', ficha:'', _tipoKey:tipoKey, _adhoc:true});
   if(!visEquipDados[id]) visEquipDados[id]={status:'na',obs:'',fotos:[]};
