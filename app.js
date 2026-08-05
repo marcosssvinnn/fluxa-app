@@ -6606,6 +6606,7 @@ const VIS_EQUIPAMENTOS_DEFAULT = [
 // Estado atual da vistoria em edição
 let visEquipSelecionados = []; // ids dos equipamentos ativos
 let visEquipDados = {};        // { id: { status, obs, fotos:[] } }
+let _visEquipAbertos = new Set(); // ids dos painéis expandidos — preservado entre re-renders
 let visCheckinTime = null;
 let visCheckoutTime = null;
 let visCheckinInterval = null;
@@ -7606,9 +7607,11 @@ function toggleVisEquip(id){
   if(visEquipSelecionados.includes(id)){
     visEquipSelecionados = visEquipSelecionados.filter(x=>x!==id);
     delete visEquipDados[id];
+    _visEquipAbertos.delete(id);
   } else {
     visEquipSelecionados.push(id);
     if(!visEquipDados[id]) visEquipDados[id] = { status:'na', obs:'', fotos:[] };
+    _visEquipAbertos.add(id); // recém-selecionado abre para preenchimento imediato
   }
   renderVisChips();
   renderVisEquipGrid();
@@ -7649,8 +7652,25 @@ function renderVisEquipGrid(){
   const hasEquips=visEquipSelecionados.length>0||_visEquipsCustom.length>0;
   if(card) card.style.display=hasEquips?'':'none';
 
-  // Renderiza equipamentos customizados do plano (se existirem)
   const customIds=_visEquipsCustom.map(e=>e.id);
+  const stdIds=visEquipSelecionados.filter(id=>!customIds.includes(id) && VIS_EQUIPAMENTOS_DEFAULT.some(x=>x.id===id));
+  const total=_visEquipsCustom.length+stdIds.length;
+  // Contador + dica: deixa CLARO quantos equipamentos há. Cada bloco fica
+  // recolhido (só o 1º abre) — antes todos abriam e, na tela do celular, o
+  // primeiro gigante fazia parecer que só existia um equipamento.
+  if(total){
+    const hint=document.createElement('div');
+    hint.style.cssText='font-size:12px;color:var(--gray);margin-bottom:10px;background:var(--c1-light);border-radius:8px;padding:8px 12px;font-weight:600';
+    hint.innerHTML=`📋 <strong style="color:var(--c1)">${total}</strong> equipamento${total>1?'s':''} para vistoriar — toque em cada um para preencher status, observação e fotos.`;
+    el.appendChild(hint);
+  }
+  // Ordem dos equipamentos; poda ids obsoletos (de outra vistoria) e, se nada
+  // está expandido, abre o 1º por padrão.
+  const ordem=[..._visEquipsCustom.map(e=>e.id), ...stdIds];
+  const _idsAtuais=new Set(ordem);
+  _visEquipAbertos.forEach(id=>{ if(!_idsAtuais.has(id)) _visEquipAbertos.delete(id); });
+  if(!_visEquipAbertos.size && ordem.length) _visEquipAbertos.add(ordem[0]);
+  // Renderiza equipamentos customizados do plano (se existirem)
   if(_visEquipsCustom.length){
     const secTit=document.createElement('div');
     secTit.style.cssText='font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--gray);margin-bottom:8px';
@@ -7660,12 +7680,11 @@ function renderVisEquipGrid(){
       const id=ceq.id;
       if(!visEquipDados[id]) visEquipDados[id]={status:'na',obs:'',fotos:[]};
       const d=visEquipDados[id];
-      el.appendChild(buildEquipBlock(id,ceq.emoji||'⚙️',ceq.nome,d,ceq.modelo,ceq.potencia,ceq.marca,ceq.ficha));
+      el.appendChild(buildEquipBlock(id,ceq.emoji||'⚙️',ceq.nome,d,ceq.modelo,ceq.potencia,ceq.marca,ceq.ficha,_visEquipAbertos.has(id)));
     });
   }
 
   // Renderiza equipamentos padrão selecionados pelos chips
-  const stdIds=visEquipSelecionados.filter(id=>!customIds.includes(id));
   if(stdIds.length){
     const secTit2=document.createElement('div');
     secTit2.style.cssText='font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--gray);margin:12px 0 8px';
@@ -7675,12 +7694,12 @@ function renderVisEquipGrid(){
       const def=VIS_EQUIPAMENTOS_DEFAULT.find(x=>x.id===id);
       if(!def) return;
       const d=visEquipDados[id]||{status:'na',obs:'',fotos:[]};
-      el.appendChild(buildEquipBlock(id,def.emoji,def.nome,d,'','','',''));
+      el.appendChild(buildEquipBlock(id,def.emoji,def.nome,d,'','','','',_visEquipAbertos.has(id)));
     });
   }
 }
 
-function buildEquipBlock(id,emoji,nome,d,modelo,potencia,marca,ficha){
+function buildEquipBlock(id,emoji,nome,d,modelo,potencia,marca,ficha,aberto){
   const badgeMap={bom:'badge-bom',atencao:'badge-atencao',critico:'badge-critico',na:'badge-na'};
   const badgeTxt={bom:'✅ Bom',atencao:'⚠️ Atenção',critico:'🔴 Crítico',na:'— N/A'};
   const stClass='status-'+(d.status||'na');
@@ -7702,9 +7721,9 @@ function buildEquipBlock(id,emoji,nome,d,modelo,potencia,marca,ficha){
       <div class="vis-equip-emoji">${emoji}</div>
       <div style="flex:1;min-width:0"><div class="vis-equip-nome">${esc(nome)}</div>${subInfo}</div>
       <div class="vis-equip-badge ${badgeMap[d.status||'na']}">${badgeTxt[d.status||'na']}</div>
-      <div class="vis-equip-toggle" id="vis-arr-${id}">▼</div>
+      <div class="vis-equip-toggle" id="vis-arr-${id}">${aberto?'▼':'▶'}</div>
     </div>
-    <div class="vis-equip-body open" id="vis-body-${id}">
+    <div class="vis-equip-body${aberto?' open':''}" id="vis-body-${id}">
       ${fichaHtml}
       <div style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Status</div>
       <div class="vis-status-row">
@@ -7740,6 +7759,7 @@ function toggleVisEquipBody(id){
   const open = b.classList.contains('open');
   b.classList.toggle('open',!open);
   if(a) a.textContent = open?'▶':'▼';
+  if(open) _visEquipAbertos.delete(id); else _visEquipAbertos.add(id); // preserva no re-render
 }
 
 function setVisEquipStatus(id, status){
