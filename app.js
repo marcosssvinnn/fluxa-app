@@ -8611,32 +8611,58 @@ function _cssCompletoDaPagina(){
   return css;
 }
 
-// Núcleo único de geração de PDF de vistoria (download via html2pdf).
-// Usado por baixarPDFVistoria (📥), abrirVisRelatorio (📄 / tap na linha) e
-// gerarRelatorioVistoria — todos com o MESMO comportamento (sem branco no mobile).
-// Abre o relatório de vistoria em nova aba (modo ver) ou imprime (modo pdf).
-// html2pdf foi descartado — gerava PDF em branco de forma consistente.
-// Mesma abordagem confiável dos orçamentos e OS: window.print().
+// Reduz uma foto base64 para miniatura — relatório com MUITAS fotos (condomínios
+// grandes: 15-20 equipamentos × 2-3 fotos) não trava mais. URLs do Storage são
+// mantidas (o lazy-load cuida). Só o base64 (pesado) é reduzido.
+function _miniaturaFoto(src, maxW=560, q=0.55){
+  return new Promise(res=>{
+    if(!src || typeof src!=='string' || !src.startsWith('data:')) return res(src);
+    const img=new Image();
+    img.onload=()=>{ try{
+      const w=img.width||maxW; const sc=Math.min(1, maxW/w);
+      if(sc>=1) return res(src);
+      const cv=document.createElement('canvas'); cv.width=Math.round(img.width*sc); cv.height=Math.round(img.height*sc);
+      cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
+      res(cv.toDataURL('image/jpeg',q));
+    }catch(e){ res(src); } };
+    img.onerror=()=>res(src);
+    img.src=src;
+  });
+}
+// Devolve cópia da vistoria com as fotos base64 já miniaturizadas.
+async function _prepRelatorioFotos(vis){
+  const eqs=(typeof vis.equipamentos==='string'?JSON.parse(vis.equipamentos||'[]'):vis.equipamentos)||[];
+  const equipamentos=await Promise.all(eqs.map(async e=>({
+    ...e, fotos: await Promise.all((e.fotos||[]).filter(Boolean).map(f=>_miniaturaFoto(f)))
+  })));
+  return {...vis, equipamentos};
+}
+// Núcleo único do relatório de vistoria: SEMPRE abre numa aba nova (HTML leve,
+// renderização incremental + lazy-load + fotos miniaturizadas). Não usa mais
+// window.print() num doc oculto (que travava com muitas fotos). O usuário usa o
+// botão "Baixar / Imprimir PDF" na aba (impressão nativa, aguenta muitas fotos).
 async function _gerarPDFVistoria(vis, opts={}){
   if(!vis.loja_id || vis.loja_id==='default') vis.loja_id = lojaAtiva || LOJA_PADRAO_ID;
-  preencherRelatorioVistoria(vis);
-
-  if(opts.output === 'bloburl'){
-    // Abre em nova aba: monta HTML completo com todos os estilos da página e o template preenchido
-    const stylesTxt = _cssCompletoDaPagina();
-    const el = document.getElementById('pdoc-visita');
-    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
-      <link rel="preconnect" href="https://fonts.googleapis.com">
-      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-      <style>${stylesTxt}</style>
-      <style>body{margin:0;padding:0;background:white}.pdoc{display:block!important}</style>
-      </head><body>${el?el.outerHTML:''}</body></html>`;
-    const blob = new Blob([html], {type:'text/html'});
-    return URL.createObjectURL(blob);
-  }
-
-  // Download: usa window.print() (igual orçamentos/OS) — mobile-safe via imprimirDoc
-  imprimirDoc('vis');
+  const visMini = await _prepRelatorioFotos(vis); // miniaturiza fotos base64
+  preencherRelatorioVistoria(visMini);
+  const el = document.getElementById('pdoc-visita');
+  const stylesTxt = _cssCompletoDaPagina();
+  const nomeArq = `Vistoria-${(vis.cliente||'relatorio').replace(/\s+/g,'-')}-${vis.data||''}.pdf`;
+  const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1"><title>${nomeArq}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>${stylesTxt}</style>
+    <style>body{margin:0;padding:80px 24px 24px;background:#f3f4f6}
+      .pdoc{display:block!important;max-width:794px;margin:0 auto;box-shadow:0 4px 24px rgba(0,0,0,.15);border-radius:8px;overflow:hidden}
+      #btn-baixar-pdf{position:fixed;top:16px;left:50%;transform:translateX(-50%);background:#F07820;color:#fff;border:none;border-radius:10px;padding:12px 28px;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.2);z-index:9999;font-family:Inter,sans-serif}
+      #btn-baixar-pdf:hover{background:#d96010}
+      @media print{#btn-baixar-pdf{display:none!important}body{padding:0;background:white}}</style>
+    </head><body><button id="btn-baixar-pdf" onclick="window.print()">📥 Baixar / Imprimir PDF</button>${el?el.outerHTML:''}</body></html>`;
+  const blobUrl = URL.createObjectURL(new Blob([html], {type:'text/html;charset=utf-8'}));
+  if(opts.output === 'bloburl') return blobUrl;
+  const w = window.open(blobUrl, '_blank');
+  if(w){ toast('✅ Relatório aberto — toque em "Baixar / Imprimir PDF"'); setTimeout(()=>URL.revokeObjectURL(blobUrl), 120000); }
+  else { URL.revokeObjectURL(blobUrl); toast('⚠️ Permita pop-ups para abrir o relatório'); }
 }
 
 async function baixarPDFVistoria(id, btn){
@@ -8680,54 +8706,14 @@ function enviarWAResumoVistoria(id){
   window.open(url,'_blank');
 }
 
-// ── Ver relatório em nova aba (sem download) ──
-function abrirVisRelatorio(id){
+// ── Ver relatório em nova aba (mesmo núcleo leve, com miniaturas) ──
+async function abrirVisRelatorio(id, btn){
   const vis = lsVisLer().find(x=>x.id===id);
   if(!vis){ toast('⚠️ Vistoria não encontrada'); return; }
-  if(!vis.loja_id || vis.loja_id==='default') vis.loja_id = lojaAtiva || LOJA_PADRAO_ID;
-  preencherRelatorioVistoria(vis);
-
-  const el = document.getElementById('pdoc-visita');
-  if(!el){ toast('⚠️ Template não encontrado'); return; }
-
-  // Coleta TODO o CSS (styles.css linkado + <style> inline) — ver _cssCompletoDaPagina
-  const stylesTxt = _cssCompletoDaPagina();
-  const nomeArq = `Vistoria-${(vis.cliente||'relatorio').replace(/\s+/g,'-')}-${vis.data||''}.pdf`;
-  const html = `<!DOCTYPE html><html lang="pt-BR"><head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>${nomeArq}</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <style>${stylesTxt}</style>
-    <style>
-      body{margin:0;padding:80px 24px 24px;background:#f3f4f6}
-      .pdoc{display:block!important;max-width:794px;margin:0 auto;
-            box-shadow:0 4px 24px rgba(0,0,0,.15);border-radius:8px;overflow:hidden}
-      #btn-baixar-pdf{position:fixed;top:16px;left:50%;transform:translateX(-50%);
-        background:#F07820;color:#fff;border:none;border-radius:10px;
-        padding:12px 28px;font-size:15px;font-weight:700;cursor:pointer;
-        box-shadow:0 4px 16px rgba(0,0,0,.2);z-index:9999;font-family:Inter,sans-serif;
-        display:flex;align-items:center;gap:8px;white-space:nowrap}
-      #btn-baixar-pdf:hover{background:#d96010}
-      @media print{#btn-baixar-pdf{display:none!important}body{padding:0;background:white}}
-    </style>
-    </head><body>
-    <button id="btn-baixar-pdf" onclick="window.print()">📥 Baixar / Imprimir PDF</button>
-    ${el.outerHTML}
-    </body></html>`;
-
-  // Usa Blob URL para evitar limites do document.write com HTML grande (base64/imagens)
-  const blob = new Blob([html], {type:'text/html;charset=utf-8'});
-  const blobUrl = URL.createObjectURL(blob);
-  const newWin = window.open(blobUrl, '_blank');
-  if(newWin){
-    toast('✅ Relatório aberto em nova aba!');
-    // Revoga o blob URL após 60s (tempo suficiente para o browser carregá-lo)
-    setTimeout(()=>URL.revokeObjectURL(blobUrl), 60000);
-  } else {
-    URL.revokeObjectURL(blobUrl);
-    toast('⚠️ Pop-up bloqueado — permita pop-ups para este site e tente novamente');
-  }
+  const _t=btn?btn.textContent:''; if(btn){ btn.disabled=true; btn.textContent='⏳'; }
+  try{ await _gerarPDFVistoria(vis); }
+  catch(e){ console.warn('[abrirVisRelatorio]', e?.message||e); toast('⚠️ Falha ao abrir o relatório'); }
+  finally{ if(btn){ btn.disabled=false; btn.textContent=_t; } }
 }
 
 async function gerarRelatorioVistoria(){
@@ -8743,17 +8729,11 @@ async function gerarRelatorioVistoria(){
   const planoBanner=document.getElementById('vis-plano-banner');
   if(planoBanner) planoBanner.style.display='none';
 
-  // Prefere html2pdf (download direto, sem diálogo de impressão que fica na tela)
-  if(typeof html2pdf!=='undefined'){
-    toast('⏳ Gerando PDF…');
-    try{ await _gerarPDFVistoria(rec); toast('✅ Vistoria salva — PDF baixado!'); }
-    catch(e){ console.warn('[gerarRelatorioVistoria]',e?.message||e); toast('⚠️ Falha no PDF — vistoria salva. Tente pelo histórico.'); }
-  } else {
-    // Fallback: diálogo de impressão do sistema
-    preencherRelatorioVistoria(rec);
-    imprimirDoc('vis');
-    toast('✅ Vistoria salva!');
-  }
+  // Relatório sempre em nova aba (leve, aguenta muitas fotos). Sem window.print
+  // em doc oculto (travava) nem html2pdf (PDF em branco).
+  toast('⏳ Preparando relatório…');
+  try{ await _gerarPDFVistoria(rec); }
+  catch(e){ console.warn('[gerarRelatorioVistoria]',e?.message||e); toast('⚠️ Vistoria salva — abra o relatório pelo histórico.'); }
 
   renderVisHistorico();
   if(veioDoPlano) setTimeout(()=>visTab('locais'), 900);
@@ -8875,7 +8855,7 @@ function preencherRelatorioVistoria(vis){
       const fotosHtml=fotosArr.length
         ?`<div class="pd-vis-equip-fotos">${fotosArr.map((f,i)=>`
             <div class="pd-vis-foto-item">
-              <img src="${f}" alt="Foto ${i+1}">
+              <img src="${f}" alt="Foto ${i+1}" loading="lazy" decoding="async">
               <div class="pd-vis-foto-lbl">Foto ${i+1}${e.nome?' — '+e.nome:''}</div>
             </div>`).join('')}</div>`
         :'';
