@@ -6837,18 +6837,28 @@ function fecharLocForm(){
 }
 
 // Converte formato antigo (array de IDs string) para novo formato (array de objetos)
+// ID de equipamento SEMPRE único — Date.now() sozinho colide em cliques rápidos
+// (dois equipamentos com o mesmo id viravam um só na vistoria). Contador + random.
+let _eqIdSeq=0;
+function _novoEquipId(){ return 'eq_'+Date.now().toString(36)+'_'+(_eqIdSeq++).toString(36)+Math.random().toString(36).slice(2,6); }
 function normalizeLocEquips(equips){
   if(!equips||!equips.length) return [];
+  let list;
   if(typeof equips[0]==='string'){
-    return equips.map(id=>{ const def=VIS_EQUIPAMENTOS_DEFAULT.find(e=>e.id===id)||{nome:id,emoji:'⚙️'}; return {id:'eq_'+Date.now()+Math.random(),nome:def.nome,marca:'',modelo:'',potencia:'',serie:'',ficha:''}; });
+    list=equips.map(id=>{ const def=VIS_EQUIPAMENTOS_DEFAULT.find(e=>e.id===id)||{nome:id,emoji:'⚙️'}; return {id:_novoEquipId(),nome:def.nome,marca:'',modelo:'',potencia:'',serie:'',ficha:''}; });
+  } else {
+    list=equips.map(e=>({id:e.id||_novoEquipId(),nome:e.nome||'',marca:e.marca||'',modelo:e.modelo||'',potencia:e.potencia||'',serie:e.serie||'',ficha:e.ficha||''}));
   }
-  return equips.map(e=>({id:e.id||'eq_'+Date.now()+Math.random(),nome:e.nome||'',marca:e.marca||'',modelo:e.modelo||'',potencia:e.potencia||'',serie:e.serie||'',ficha:e.ficha||''}));
+  // Cura ids duplicados (planos salvos antes do fix): reatribui id único
+  const vistos=new Set();
+  list.forEach(e=>{ if(vistos.has(e.id)) e.id=_novoEquipId(); vistos.add(e.id); });
+  return list;
 }
 
 let _locEquipCustom=[]; // [{id, nome, marca, modelo, potencia, serie, ficha}]
 
 function adicionarLocEquip(){
-  _locEquipCustom.push({id:'eq_'+Date.now(),nome:'',marca:'',modelo:'',potencia:'',serie:'',ficha:''});
+  _locEquipCustom.push({id:_novoEquipId(),nome:'',marca:'',modelo:'',potencia:'',serie:'',ficha:''});
   renderLocEquipList();
   // foco no primeiro campo do novo item
   setTimeout(()=>{
