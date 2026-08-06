@@ -953,13 +953,18 @@ curl "https://lbxwclwzeqqtnwvlxsxs.supabase.co/rest/v1/TABELA?select=COLUNA&limi
 - `agendamentos.local_id`: **ainda NÃO existe** no banco de produção (código grava via wrapper resiliente; rodar ALTER para persistir).
 - `vistorias.recomendacoes` (text) e `vistorias.obs_ambientes` (jsonb): ✅ criadas 2026-08-06 — antes eram descartadas silenciosamente pelo `dbUpsert` (achado ao auditar a vistoria real do Infinity Coast Tower, 51 equip./12 ambientes).
 - `orcamentos.proximo_contato` (date), `orcamentos.decisao_prevista` (date), `orcamentos.motivo_perda` (text), `orcamentos.crm_notas` (jsonb): ✅ criadas 2026-08-06 para a Fase 3 do CRM. Todas nullable; gravadas via `dbUpdate`.
+- `clientes.tipo` (text) e `agendamentos.local_id` (text): ✅ criadas 2026-08-06. A primeira o app gravava desde sempre (select `cli-new-tipo`) e era descartada em silêncio — útil agora para o CRM distinguir condomínio de residência.
+- `fornecedores` e `ordens_compra`: ❌ **ainda não existem** — ver `migracao-compras.sql`.
 - `orcamentos.origem_cliente`: criada em 2026-06-13. ✅
 
 ### SQL pendente de rodar no Supabase (produção)
-```sql
-ALTER TABLE agendamentos ADD COLUMN IF NOT EXISTS local_id text;
-```
-Sem isso, planos recorrentes sincronizam SEM o vínculo local_id (degradado, mas não perdem o registro).
+
+✅ `agendamentos.local_id` e `clientes.tipo` foram criadas em 2026-08-06.
+
+🔴 **Pendente:** `migracao-compras.sql` — cria `fornecedores` e `ordens_compra`.
+A feature de compras existe inteira no app (tela, cadastro, OC, recebimento) mas
+as tabelas nunca foram criadas: hoje tudo vive só no localStorage e o app dispara
+~48 erros HTTP 400 por carregamento tentando lê-las. Rodar no SQL Editor.
 
 ---
 
