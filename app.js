@@ -7940,6 +7940,7 @@ function visAddObs(id, txt, chipEl){
 // Todo toque relevante salva o estado no localStorage; ao reabrir, restaura.
 const LS_VIS_DRAFT='fluxa_vis_draft';
 let _visDraftTimer=null;
+let _ultimoAvisoRascunhoCheio=0;
 function _salvarRascunhoVis(){
   try{
     const cli=document.getElementById('vis-cli')?.value||'';
@@ -7957,8 +7958,15 @@ function _salvarRascunhoVis(){
     try{ localStorage.setItem(LS_VIS_DRAFT, JSON.stringify(d)); }
     catch(eq){ // cota do localStorage (fotos) — salva sem as fotos locais, melhor que perder tudo
       const semFotos=JSON.parse(JSON.stringify(d));
-      Object.values(semFotos.dados||{}).forEach(x=>{ if(x&&x.fotos) x.fotos=x.fotos.map(f=>f&&String(f).startsWith('http')?f:null); });
+      let tinhaFotoPendente=false;
+      Object.values(semFotos.dados||{}).forEach(x=>{ if(x&&x.fotos) x.fotos=x.fotos.map(f=>{ if(f&&String(f).startsWith('http')) return f; if(f) tinhaFotoPendente=true; return null; }); });
       localStorage.setItem(LS_VIS_DRAFT, JSON.stringify(semFotos));
+      // Avisa o técnico — sem isso ele não sabe que uma foto ainda não enviada
+      // pode se perder se o app fechar agora. Limitado a 1x/min p/ não floodar.
+      if(tinhaFotoPendente && Date.now()-(_ultimoAvisoRascunhoCheio||0) > 60000){
+        _ultimoAvisoRascunhoCheio=Date.now();
+        toast('⚠️ Muitas fotos no rascunho local — as que ainda não subiram pro servidor podem se perder se o app fechar. Mantenha a internet ligada até finalizar.');
+      }
     }
     _syncRascunhoNuvemDeb(); // backup na nuvem em background (debounce 4s)
   }catch(e){ console.warn('[rascunhoVis]', e?.message||e); }
@@ -8107,6 +8115,27 @@ function visAddFotoEquip(inp, id){
   };
   r.readAsDataURL(f);
   inp.value=''; // permite escolher a MESMA foto de novo, ou disparar o onchange sempre
+}
+// Tenta de novo o upload de fotos que ficaram em base64 na vistoria AINDA EM
+// ANDAMENTO (não finalizada). Sem isto, uma foto que falhou por rede instável
+// só tentava de novo quando o técnico clicasse Finalizar — podendo ser horas
+// depois, numa vistoria longa. Chamada pelo mesmo laço de reenvio global
+// (a cada 3min / ao reconectar), então cobre visitas de manhã inteira.
+async function _retryFotosVisEmAndamento(){
+  if(!dbOk || !db) return;
+  const _visId=visEditId||_visDraftId; if(!_visId) return;
+  let algumaSubiu=false;
+  for(const id of Object.keys(visEquipDados||{})){
+    const d=visEquipDados[id]; if(!d||!Array.isArray(d.fotos)) continue;
+    for(let i=0;i<d.fotos.length;i++){
+      const f=d.fotos[i]; if(!f || String(f).startsWith('http')) continue;
+      try{
+        const url=await _uploadFotoStorage(f, `${_visId}/${id}/${Date.now()}_${i}.jpg`);
+        if(url){ d.fotos[i]=url; algumaSubiu=true; }
+      }catch(e){ console.warn('[retryFotosVisEmAndamento]', e?.message||e); }
+    }
+  }
+  if(algumaSubiu){ renderVisEquipGrid(); _salvarRascunhoVis(); }
 }
 function visRemoverFoto(id, idx){
   const arr=(visEquipDados[id]?.fotos||[]).filter(Boolean);
@@ -8399,9 +8428,13 @@ function _persistVistoria(rec){
         const r=await _comTimeout(dbUpsert('vistorias', recParaSupabase), 20000, 'sync vistoria');
         if(r&&r.error){ console.warn('Visita Supabase err:', r.error.message); toast('⚠️ Vistoria salva localmente mas não sincronizou: '+r.error.message); }
         else{
-          // Sync bem-sucedido — remove flag _pendingSync do localStorage
+          // Sync do registro OK — mas só limpa _pendingSync se TODAS as fotos
+          // também subiram pro Storage. Foto que falhou 2x fica em base64 dentro
+          // do jsonb (não perde a foto), porém sem essa flag o reenvio automático
+          // (loadVistoriasRemoto/_reenviarPendentes) nunca mais tentaria de novo.
+          const temFotoPendente = (recComUrls.equipamentos||[]).some(eq=>(eq.fotos||[]).some(f=>f && !String(f).startsWith('http')));
           const _ls=lsVisLer(); const _i=_ls.findIndex(x=>x.id===rec.id);
-          if(_i>=0){ delete _ls[_i]._pendingSync; lsVisSalvar(_ls); }
+          if(_i>=0){ if(temFotoPendente) _ls[_i]._pendingSync=true; else delete _ls[_i]._pendingSync; lsVisSalvar(_ls); }
         }
       }catch(e){ console.warn('Visita Supabase sync (bg):', e?.message||e); toast('⚠️ Vistoria salva localmente mas não sincronizou com a nuvem. Será reenviada na próxima conexão.'); }
     })();
@@ -9321,10 +9354,12 @@ async function loadVistoriasRemoto(){
       remoto = remoto.filter(r=>!_tomb.has(r.id));
     }
     const local = lsVisLer();
-    // Reenvia ao banco vistorias presas no aparelho (nunca sincronizadas).
-    // Só reenvia se _pendingSync=true — evita ressuscitar vistorias deletadas remotamente.
+    // Reenvia ao banco vistorias com _pendingSync=true — tanto as nunca
+    // sincronizadas (id ainda não existe remoto) quanto as que JÁ existem remoto
+    // mas ficaram com foto(s) presa(s) em base64 (upload falhou 2x na hora).
+    // Tombstone protege contra ressuscitar vistoria deletada remotamente.
     const remotoIds = new Set(remoto.map(r=>r.id));
-    const soLocal = local.filter(l=>!remotoIds.has(l.id) && l._pendingSync===true);
+    const soLocal = local.filter(l=>l._pendingSync===true && !_tomb.has(l.id));
     if(soLocal.length){
       for(const v of soLocal){
         try{
@@ -10966,13 +11001,18 @@ function _temPendentes(){
 }
 async function _reenviarPendentes(silencioso=true){
   if(!dbOk||!db||_reenvioEmAndamento||!navigator.onLine) return;
-  if(silencioso && !_temPendentes()) return; // nada preso → não gasta rede à toa
+  // Foto presa em base64 na vistoria EM ANDAMENTO (ainda não salva/finalizada)
+  // não aparece em _temPendentes() — checa à parte p/ não pular essa varredura.
+  const temFotoVisAtual = Object.values(visEquipDados||{}).some(d=>(d?.fotos||[]).some(f=>f&&!String(f).startsWith('http')));
+  if(silencioso && !_temPendentes() && !temFotoVisAtual) return; // nada preso → não gasta rede à toa
   _reenvioEmAndamento=true;
   try{
     // Orçamentos presos só no aparelho (id local_*)
     try{ const soLocal=(typeof lsOrcLer==='function'?lsOrcLer():[]).filter(o=>String(o.id).startsWith('local_')); if(soLocal.length) await _reenviarOrcamentosLocais(soLocal); }catch(e){ console.warn('[reenvio orc]',e?.message||e); }
     // Vistorias pendentes (loadVistoriasRemoto reenvia as _pendingSync + sobe fotos)
     try{ await loadVistoriasRemoto?.(); }catch(e){ console.warn('[reenvio vis]',e?.message||e); }
+    // Fotos da vistoria em andamento (ainda não finalizada) que ficaram presas em base64
+    try{ await _retryFotosVisEmAndamento?.(); }catch(e){ console.warn('[reenvio foto vis atual]',e?.message||e); }
     // Agendamentos presos (loadAgendamentos agora faz merge + reenvio)
     try{ await loadAgendamentos?.(); }catch(e){ console.warn('[reenvio ag]',e?.message||e); }
     if(!silencioso) toast('✅ Dados pendentes sincronizados');
