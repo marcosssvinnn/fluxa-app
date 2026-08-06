@@ -1285,6 +1285,27 @@ Marcos reclamou: a restauração automática do rascunho é ótima quando está 
 
 ---
 
+## ⚠️ ESTE REPO É O v1 — não aplicar migração do v2 aqui (2026-08-06)
+
+Existem **dois sistemas e dois bancos**. Confundir quebra produção:
+
+| | **v1 — este repo** (`fluxa-app`) | **v2** (`~/Documents/fluxa`, branch `dev`) |
+|---|---|---|
+| Supabase | `lbxwclwzeqqtnwvlxsxs` (produção) | `auoklaiffalbdgazrbdu` "Fluxa Saas" — **INACTIVE/pausado** |
+| Escopo | `loja_id` (text) | `empresa_id` (uuid) + `minhas_empresas()` |
+| RLS | `anon full access` | multi-tenant real |
+| CRM | ❌ não existe | `page-crm`, `crm_*`, `insights`, `flagAtiva`, `supabase/functions/` |
+
+🚫 **`setup-v2-delta27.sql` (e qualquer delta do v2) NÃO pode rodar neste banco** —
+referencia `empresa_id`, `cliente_id`, `etapa_desde` e a tabela `insights`, que
+aqui não existem.
+
+Plano de CRM com insights **adaptado a este repo**: `docs/crm-insights-plano.md`.
+Contém os achados medidos na base real (trocador é venda única; validade padrão
+de 5 dias deixa só 8 pendentes de 272; serviço converte 43% × equipamento 7,1%).
+
+---
+
 ## Perguntas em aberto (aguardando Marcos responder)
 
 1. **CNPJs reais** das 3 empresas — para preencher tabela `lojas` e emissão de NF
