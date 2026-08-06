@@ -394,7 +394,10 @@ CREATE TABLE IF NOT EXISTS vistorias (
   obs_geral text,
   email_responsavel text,
   equipamentos jsonb DEFAULT '[]',
-  created_at timestamptz DEFAULT now()
+  created_at timestamptz DEFAULT now(),
+  local_id text,                        -- ✅ rodada (ver auditoria 2026-06-13)
+  recomendacoes text,                   -- ✅ rodada 2026-08-06 (seção "Recomendações")
+  obs_ambientes jsonb DEFAULT '{}'      -- ✅ rodada 2026-08-06 (observação por ambiente)
 );
 
 -- ─── NOVA: tabela dedicada de locais de vistoria (✅ executada 2026-06-23) ────
@@ -944,17 +947,18 @@ curl "https://lbxwclwzeqqtnwvlxsxs.supabase.co/rest/v1/TABELA?select=COLUNA&limi
 # "...does not exist" = coluna falta → rodar ALTER TABLE e atualizar o SQL de setup
 ```
 
-### Colunas REAIS confirmadas (auditoria 2026-06-13)
+### Colunas REAIS confirmadas (auditoria 2026-06-13, revisada 2026-08-06)
 - `ordens_servico`: check-in/out são **`checkin_time` / `checkout_time`** (timestamptz), NÃO checkin_at/checkout_at.
-- `vistorias.local_id` e `agendamentos.local_id`: **ainda NÃO existem** no banco de produção (código grava via wrapper resiliente; rodar ALTER para persistir).
+- `vistorias.local_id`: ✅ existe (confirmado 2026-08-06).
+- `agendamentos.local_id`: **ainda NÃO existe** no banco de produção (código grava via wrapper resiliente; rodar ALTER para persistir).
+- `vistorias.recomendacoes` (text) e `vistorias.obs_ambientes` (jsonb): ✅ criadas 2026-08-06 — antes eram descartadas silenciosamente pelo `dbUpsert` (achado ao auditar a vistoria real do Infinity Coast Tower, 51 equip./12 ambientes).
 - `orcamentos.origem_cliente`: criada em 2026-06-13. ✅
 
 ### SQL pendente de rodar no Supabase (produção)
 ```sql
-ALTER TABLE vistorias    ADD COLUMN IF NOT EXISTS local_id text;
 ALTER TABLE agendamentos ADD COLUMN IF NOT EXISTS local_id text;
 ```
-Sem isso, vistorias/planos sincronizam SEM o vínculo local_id (degradado, mas não perdem o registro).
+Sem isso, planos recorrentes sincronizam SEM o vínculo local_id (degradado, mas não perdem o registro).
 
 ---
 
@@ -1247,6 +1251,23 @@ Gera a próxima ocorrência do agendamento quando a última OS do lote é conclu
 - `a7ba7e6` — fix(minhas-os): separar vistorias e remover OS duplicadas
 - `5308f7f` — fix(vistorias): corrigir filtro de loja em renderLocaisTab
 - `3871a01` — fix(vistorias): técnico vê todos os locais ativos + dedup no load
+
+---
+
+## Sessão 2026-08-06 — auditoria da vistoria real do Infinity Coast Tower
+
+Marcos refez em campo a vistoria do Infinity Coast Tower (`vis_1785959861209`, 2026-08-05) para validar o fix de fotos sumindo (commits `f44cdfe`/`da21e70`). Auditei o registro direto no Supabase via Management API.
+
+**Resultado: fix de fotos confirmado funcionando.** 51 equipamentos em 12 ambientes, todas as fotos subiram como URL do Storage (`.../storage/v1/object/...`), nenhuma ficou presa em base64 local.
+
+**Bug real encontrado e corrigido:** as colunas `recomendacoes` (text) e `obs_ambientes` (jsonb) — usadas pelas features dos commits `c3aced7` e `028d6f1` — não existiam no banco. `dbUpsert` é resiliente (não quebra o insert), mas descartava esses dois campos silenciosamente antes de sincronizar; ficavam só no localStorage do aparelho que salvou. Rodado (Marcos executou o ALTER manualmente no SQL Editor):
+```sql
+ALTER TABLE vistorias ADD COLUMN IF NOT EXISTS recomendacoes text;
+ALTER TABLE vistorias ADD COLUMN IF NOT EXISTS obs_ambientes jsonb DEFAULT '{}';
+```
+Nesse registro específico ficaram `null`/`{}` (Marcos escreveu tudo em "Observações Gerais" em vez do campo novo "Recomendações") — nenhum dado foi perdido, mas o buraco existia para qualquer vistoria futura que usasse os campos novos.
+
+**Melhoria sugerida (não implementada, aguardando decisão do Marcos):** o item crítico "Aquecedor" (Spa junto com Piscina Interna — painel não funciona) ficou sem nenhuma foto anexada, diferente dos outros itens críticos da mesma vistoria. Possível ideia: alertar visualmente quando um equipamento marcado 🔴 crítico é salvo sem foto.
 
 ---
 
