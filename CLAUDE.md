@@ -1286,6 +1286,30 @@ Marcos reclamou: a restauração automática do rascunho é ótima quando está 
 
 ---
 
+## 🔁 Vistoria → Orçamento → Dossiê (2026-08-06, commit `c9d7044`)
+
+Fecha o ciclo do negócio (vistoria → orçamento → OS → vistoria). Dois botões no
+histórico de vistorias, só para gestor:
+
+- **💰 Orçar N** (`orcarDaVistoria`) — cria orçamento com os itens
+  crítico/atenção, críticos primeiro (`[URGENTE]` antes de `[Preventivo]`),
+  levando ambiente, marca/modelo e o **laudo do técnico** na descrição (o laudo
+  é o argumento de venda). Preço fica em branco para revisão. Conserto de
+  vistoria é **serviço** — trilho que converte 43,5%, não 8%.
+- **🗳️ Dossiê** (`gerarDossieAssembleia`) — laudo de 1 página para o síndico
+  **apresentar** na assembleia. Só aparece quando há item crítico. A peça-chave
+  é o bloco **"Se não for feito"** (`_DOSSIE_CONSEQ`, regra por tipo de
+  equipamento × status): o relatório técnico descreve o problema, mas a
+  assembleia decide pela consequência. **Determinístico, sem IA** — offline,
+  custo zero. Ver `docs/crm-camada-ia.md`.
+
+`_normCliente` agora ignora acento, caixa e prefixo de tipo (reusa `_normNome`):
+"Edifício Green Valey" = "Residencial Green Valey". ⚠️ **Sem fuzzy de
+propósito** — "Infinity Coast", "Infinity Paradise" e "Infinity Flat" são
+condomínios DIFERENTES; um CRM que mistura cliente é pior que um que duplica.
+
+---
+
 ## ⚠️ AO TESTAR CONTRA O BANCO REAL: `dbOk` NÃO é `window.dbOk`
 
 Incidente em 2026-08-06 (revertido, sem perda): tentei neutralizar a gravação
