@@ -1285,6 +1285,33 @@ Marcos reclamou: a restauração automática do rascunho é ótima quando está 
 
 ---
 
+## 💰 Validade de preço ≠ vida no funil (2026-08-06, commit `b2df8c0`)
+
+Dois conceitos que dividiam o mesmo campo e agora são distintos:
+
+- **`validade_data`** = compromisso de **preço**. Continua curta e **inalterada**
+  — o PDF do cliente não mudou, e não se trava custo por 90 dias.
+- **Vida no funil** = até quando vale perseguir o negócio. Interna e longa.
+
+`orcCicloLongo(o)` = **equipamento OU ≥ R$ 15k** → não é mais marcado `vencido`
+automaticamente; ganha o selo "⏳ preço a revalidar" e **segue no funil**.
+O corte usa trilho E valor porque equipamento converte ~8% em todas as faixas,
+inclusive abaixo de R$ 15k (serviço abaixo de 15k converte 43,5%).
+
+Helpers em `app.js`: `orcEhEquipamento`, `orcCicloLongo`, `orcPrecoARevalidar`,
+`orcVivoNoFunil` (esta ainda **não usada** — é a base da fila de follow-up),
+`_orcValidadeData` (parsing unificado, antes duplicado em `verificarVencidos` e
+`autoVencerOrc` com regras diferentes).
+
+⚠️ **Recusa do cliente é respeitada:** só volta ao funil o que o relógio matou
+(`status='vencido'`), nunca o que foi `recusado`.
+
+Antes: 8 orçamentos vivos de 272 (3%). Linha de base em
+`docs/crm-baseline-2026-08-06.md` — **reexecutar as consultas de lá para medir
+o efeito**, não confiar em impressão.
+
+---
+
 ## ⚠️ ESTE REPO É O v1 — não aplicar migração do v2 aqui (2026-08-06)
 
 Existem **dois sistemas e dois bancos**. Confundir quebra produção:
