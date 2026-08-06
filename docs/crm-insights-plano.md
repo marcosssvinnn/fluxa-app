@@ -182,7 +182,12 @@ Especificação original abaixo, mantida como referência:
 > Grava via `dbUpdate` (wrapper resiliente) e local-first: o registro entra em
 > memória e no localStorage antes de tentar a rede.
 
-### Fase 4 — Camada de IA  ⬜ opcional, depois
+### Fase 4 — Camada de IA  🟡 PARCIAL — dossiê entregue sem IA (commit `c9d7044`)
+
+> O **dossiê de assembleia já funciona**, com texto determinístico
+> (`_DOSSIE_CONSEQ`): roda offline, custo zero, sem chave de API. A camada de
+> IA (redação adaptada) segue pendente, travada por chave de API + Edge
+> Function + deploy — nada disso é código. Detalhe em `docs/crm-camada-ia.md`.
 
 §7.
 
