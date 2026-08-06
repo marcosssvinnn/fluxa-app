@@ -102,6 +102,7 @@
     </div>
   </div>
   <nav class="hdr-nav">
+    <button class="nb" onclick="go('insights')" id="nb-insights">📊 Insights</button>
     <button class="nb" onclick="go('form')"    id="nb-form">＋ Orçamento</button>
     <button class="nb" onclick="novaOS();go('os')" id="nb-os">📋 OS</button>
     <button class="nb" onclick="go('history')" id="nb-history">📊 Histórico</button>
@@ -143,6 +144,7 @@
 <!-- ══ SIDEBAR ══ -->
 <aside class="sidebar s-hidden" id="sidebar" role="navigation" aria-label="Menu principal">
   <nav class="snav">
+    <button class="snb" id="snb-insights" onclick="go('insights')"><span class="sicon">📊</span><span class="slabel">Insights</span></button>
     <button class="snb on" id="snb-form" onclick="go('form')"><span class="sicon">＋</span><span class="slabel">Orçamento</span></button>
     <button class="snb" id="snb-os" onclick="novaOS();go('os')"><span class="sicon">📋</span><span class="slabel">OS</span></button>
     <button class="snb" id="snb-history" onclick="go('history')"><span class="sicon">📊</span><span class="slabel">Histórico</span></button>
@@ -826,6 +828,43 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
         OS sem orçamento vinculado
       </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PAGE: INSIGHTS (landing do gestor) ══ -->
+<div class="page" id="page-insights">
+  <div class="wrap">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+      <div style="font-size:18px;font-weight:800;color:var(--c2)">📊 Insights <span style="font-size:12px;font-weight:400;color:var(--gray)" id="ins-mes-label"></span></div>
+      <button class="tb" onclick="renderPainelInsights()">🔄 Atualizar</button>
+    </div>
+
+    <div class="dash">
+      <div class="dc o"><div class="dl">Total Emitido</div><div class="dv" id="ins-d-emit">—</div><div class="ds" id="ins-d-emit-q">— orç.</div></div>
+      <div class="dc g"><div class="dl">Aprovados</div><div class="dv" id="ins-d-aprov">—</div><div class="ds" id="ins-d-aprov-q">— aprovados</div></div>
+      <div class="dc y"><div class="dl">A Receber</div><div class="dv" id="ins-d-rec">—</div><div class="ds">aprovado s/ pagto</div></div>
+      <div class="dc b"><div class="dl">Ticket Médio</div><div class="dv" id="ins-d-tick">—</div><div class="ds">por orçamento</div></div>
+    </div>
+
+    <div class="card">
+      <div class="ct">📞 Fila de follow-up <span style="font-size:11px;font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0" id="ins-fila-sub">quem ligar hoje</span></div>
+      <div class="crm-trilhos">
+        <div>
+          <div class="crm-trilho-hdr">
+            <span class="crm-trilho-titulo">🔧 Equipamento</span>
+            <span class="crm-trilho-sub" id="ins-sub-equip">decisão lenta — poucos por vez</span>
+          </div>
+          <div id="ins-fila-equip"><div class="load"><div class="spin"></div> Carregando…</div></div>
+        </div>
+        <div>
+          <div class="crm-trilho-hdr">
+            <span class="crm-trilho-titulo">⚡ Serviço</span>
+            <span class="crm-trilho-sub" id="ins-sub-servico">decide rápido — 43% fecham</span>
+          </div>
+          <div id="ins-fila-servico"><div class="load"><div class="spin"></div> Carregando…</div></div>
+        </div>
+      </div>
     </div>
   </div>
 </div>

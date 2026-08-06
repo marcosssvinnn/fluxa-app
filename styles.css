@@ -239,6 +239,23 @@
 
     .empty-st{text-align:center;padding:44px 20px;color:var(--gray)}
     .empty-st .ei{font-size:38px;margin-bottom:10px}
+
+    /* ── INSIGHTS / FILA DE FOLLOW-UP (CRM) ── */
+    .crm-trilhos{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    .crm-trilho-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+    .crm-trilho-titulo{font-size:13px;font-weight:800;color:var(--c2)}
+    .crm-trilho-sub{font-size:11px;color:var(--gray);font-weight:600}
+    .crm-card{background:var(--white);border-radius:var(--r);padding:14px 16px;margin-bottom:10px;box-shadow:var(--sh);border-left:3px solid var(--c1)}
+    .crm-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:6px}
+    .crm-cliente{font-size:14px;font-weight:700;color:var(--c2)}
+    .crm-valor{font-size:15px;font-weight:800;color:var(--c1);white-space:nowrap}
+    .crm-motivos{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}
+    .crm-motivo{font-size:10.5px;font-weight:600;background:var(--gray-light);color:var(--gray);border-radius:6px;padding:3px 7px}
+    .crm-fala{font-size:12px;color:var(--c2);background:var(--c1-light);border-radius:8px;padding:8px 10px;margin-bottom:10px;line-height:1.4;font-style:italic}
+    .crm-acts{display:flex;gap:6px;flex-wrap:wrap}
+    /* Ação principal da fila — tocada o tempo todo em campo, min. 44px (regra de acessibilidade) */
+    .crm-acts .tb{min-height:44px;padding:10px 14px}
+    @media(max-width:768px){ .crm-trilhos{grid-template-columns:1fr} }
     .load{display:flex;align-items:center;justify-content:center;gap:9px;padding:30px;color:var(--gray);font-size:13px}
     .spin{width:18px;height:18px;border:2.5px solid var(--gray-mid);border-top-color:var(--c1);border-radius:50%;animation:spin .7s linear infinite}
     @keyframes spin{to{transform:rotate(360deg)}}

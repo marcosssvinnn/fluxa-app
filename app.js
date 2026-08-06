@@ -84,6 +84,7 @@ function aplicarPermissoesPerfil(){
   // ── Desktop nav ──
   // Mapa: id do botão → quem pode ver
   const navRules = {
+    'nb-insights'     : gestor,
     'nb-form'         : gestor||vendas,
     'nb-history'      : gestor||vendas,
     'nb-clientes'     : gestor||vendas,
@@ -101,6 +102,7 @@ function aplicarPermissoesPerfil(){
 
   // ── Sidebar nav ──
   const snbRules = {
+    'snb-insights'     : gestor,
     'snb-form'         : gestor||vendas,
     'snb-history'      : gestor||vendas,
     'snb-clientes'     : gestor||vendas,
@@ -365,6 +367,7 @@ function trocarLojaAtiva(id){
   if(!paginaAtiva) return;
   const pid=paginaAtiva.id.replace('page-','');
   if(pid==='history') { initOrcMes(); atualizarDash(); renderTabela(); renderGraficoDash(); }
+  else if(pid==='insights') renderPainelInsights();
   else if(pid==='os-history') renderOSTabela();
   else if(pid==='clientes') renderClientes();
   else if(pid==='despesas') renderDespesas();
@@ -668,7 +671,7 @@ async function fazerLogin(){
       aplicarPermissoesPerfil();
       atualizarHeaderLoja();
       logAcao('login', loginUserSelecionado.nome+' (gestor '+(getLojaNome(loginUserSelecionado.loja_id))+')');
-      go('history');
+      go('insights');
     } else if(loginUserSelecionado.perfil==='tecnico' &&
               (!loginUserSelecionado.loja_id ||
                Object.keys(FLUXA_CONFIG.acessoGrupo||{}).some(g=>podeAcessarGrupo(g, loginUserSelecionado.nome)))){
@@ -761,7 +764,7 @@ function confirmarLojaGestor(lojaId){
   atualizarBadgeUsuario();
   aplicarPermissoesPerfil();
   atualizarHeaderLoja();
-  go('history');
+  go('insights');
 }
 
 // Técnico escolhe a empresa da sessão (Fortemp ou Aquamotor) — reusa a tela de seleção
@@ -1655,7 +1658,7 @@ function go(p){
   if(_vendas  && !pagesVendas.includes(p))  { toast('Você não tem acesso a essa área.'); return; }
   if(_tecnico && !pagesTecnico.includes(p)) { toast('Você não tem acesso a essa área.'); return; }
   if(!_gestor && !_vendas && !_tecnico &&
-     ['form','history','empresa','usuarios','produtividade'].includes(p)){
+     ['form','history','insights','empresa','usuarios','produtividade'].includes(p)){
     toast('⚠️ Acesso restrito ao Gestor'); return;
   }
   // Histórico de navegação (para o botão "← Voltar")
@@ -1672,6 +1675,7 @@ function go(p){
   const snb=document.getElementById('snb-'+p); if(snb){ snb.classList.add('on'); snb.setAttribute('aria-current','page'); }
   closeSidebar();
   if(p==='portal') { /* página gerenciada por checkPortalHash */ }
+  if(p==='insights') renderPainelInsights();
   if(p==='history'){ initOrcMes(); loadHist(); setTimeout(renderGraficoDash,200); }
   if(p==='form'){
     // Restaura rascunho APENAS quando se navega direto para a tela (nav/menu).
@@ -2917,6 +2921,179 @@ function orcVivoNoFunil(o){
   if(!o) return false;
   if(o.status==='pendente') return true;
   return o.status==='vencido' && orcCicloLongo(o);
+}
+
+// ══ FILA DE FOLLOW-UP ═══════════════════════════════════════════════════════
+// DUAS filas, uma por trilho. Medido (docs/crm-baseline-2026-08-06.md): serviço
+// converte 43,5% e decide em 24h; equipamento converte ~8% e leva semanas. Uma
+// fila única ordenada por valor ficaria 11/12 em equipamento e o vendedor
+// passaria o dia no trilho que não fecha.
+//
+// Cliente é casado por NOME normalizado — este banco não tem cliente_id
+// (214 nomes distintos em orçamentos × 141 clientes cadastrados). Funciona
+// dentro de `orcamentos`, onde o autocomplete mantém a grafia consistente;
+// NÃO serve para cruzar com vistorias/planos, onde os nomes divergem.
+function _normCliente(n){
+  return (n||'').trim().toLowerCase().replace(/\s+/g,' ');
+}
+// Uma varredura só para os dois conjuntos — evita reprocessar todosOrc por item.
+function _crmConjuntosCliente(){
+  const comEquip=new Set(), jaComprou=new Set();
+  (todosOrc||[]).forEach(o=>{
+    if(o.status!=='aprovado') return;
+    const c=_normCliente(o.cliente); if(!c) return;
+    jaComprou.add(c);
+    if(orcEhEquipamento(o)) comEquip.add(c);
+  });
+  return {comEquip, jaComprou};
+}
+// score = (valor em milhares) × peso da relação ÷ dias parado.
+// Valor alto e recente sobe; negócio velho desce. Quem já comprou vale 3× mais
+// tempo de telefone: 14 clientes que já fecharam têm R$ 239k em aberto contra
+// 114 que nunca fecharam com R$ 2,04 mi — os primeiros convertem muito melhor.
+function crmCandidatos(){
+  const {comEquip, jaComprou}=_crmConjuntosCliente();
+  const hoje=_hojeZero();
+  const out=[];
+  filtrarPorLoja(todosOrc||[]).filter(orcVivoNoFunil).forEach(o=>{
+    const equip=orcEhEquipamento(o);
+    const cli=_normCliente(o.cliente);
+    // FILTRO NEGATIVO: trocador é venda única por condomínio. Reofertar a quem
+    // já comprou queima tempo e credibilidade — a inteligência aqui é calar a
+    // boca. (Caso real: Ibiza comprou em 02/05 e recebeu 5 ofertas depois.)
+    if(equip && comEquip.has(cli)) return;
+    if(_crmFbOculto(o.id)) return; // dispensado 3x, ou "liguei" há menos de 3 dias
+    const dt=_orcData(o);
+    const dias=dt?Math.max(0,Math.round((hoje-dt)/86400000)):0;
+    const jaCliente=jaComprou.has(cli);
+    const valor=parseFloat(o.total)||0;
+    out.push({
+      orc:o, equip, dias, jaCliente, valor,
+      revalidar:orcPrecoARevalidar(o),
+      score:(valor/1000)*(jaCliente?3:1)/Math.max(dias,1)
+    });
+  });
+  out.sort((a,b)=>b.score-a.score);
+  return { equipamento:out.filter(c=>c.equip), servico:out.filter(c=>!c.equip) };
+}
+// Por que este está na fila. Quem usa o Fluxa não é vendedor profissional
+// (são técnicos que também orçam): mostrar o motivo constrói repertório — a
+// pessoa aprende o padrão usando — em vez de virar ordem sem contexto.
+function crmMotivos(c){
+  const p=[];
+  if(c.jaCliente) p.push('✅ já é cliente — fechou antes com vocês');
+  if(c.revalidar) p.push('⏳ preço expirado: revalide o valor antes de ligar');
+  if(c.equip && c.valor>=50000) p.push('🔴 faixa que nunca fechou (0% acima de R$ 50 mil) — considere propor em etapas');
+  else if(c.equip) p.push('🔧 equipamento: decisão leva semanas e pode passar por assembleia');
+  else p.push('⚡ serviço: decide rápido, 43% fecham');
+  if(c.dias===0) p.push('🆕 emitido hoje');
+  else if(c.dias<=2) p.push(`🔥 ${c.dias} dia(s) — ainda quente`);
+  else if(c.dias>=30) p.push(`🕐 parado há ${c.dias} dias`);
+  return p;
+}
+// Frase pronta: quem não é vendedor trava no telefone. Um script destrava.
+function crmSugestaoFala(c){
+  if(c.equip && c.valor>=50000)
+    return 'Esse valor precisa passar por assembleia? Se sim, posso preparar um resumo de uma página para o síndico apresentar na reunião.';
+  if(c.equip)
+    return 'Ficou alguma dúvida sobre o equipamento ou sobre o prazo de instalação? Posso explicar o que está incluso.';
+  if(c.dias>=15)
+    return 'Passando para saber se ainda faz sentido esse serviço — consigo encaixar na agenda desta semana.';
+  return 'Vi que o orçamento ainda está em aberto. Quer que eu já reserve uma data na agenda?';
+}
+
+// ── Feedback da fila: aprender do silêncio ──────────────────────────────────
+// Local (sem schema ainda — Fase 3 persiste isso no banco). Regra: dispensou
+// o MESMO orçamento 3x → some da fila de vez. "Ligar" some por 3 dias (não
+// precisa reaparecer amanhã) sem exigir dizer o desfecho da ligação — 1 toque.
+const LS_CRM_FB='fluxa_crm_feedback';
+function _crmFbLer(){ try{ return JSON.parse(localStorage.getItem(LS_CRM_FB)||'{}'); }catch(e){ return {}; } }
+function _crmFbSalvar(m){ try{ localStorage.setItem(LS_CRM_FB, JSON.stringify(m)); }catch(e){ console.warn('[crmFb]', e?.message||e); } }
+function _crmFbOculto(orcId){
+  const f=_crmFbLer()[orcId]; if(!f) return false;
+  if((f.dispensas||0)>=3) return true;
+  if(f.liguei_em && (Date.now()-f.liguei_em) < 3*86400000) return true;
+  return false;
+}
+function crmDispensar(orcId){
+  const m=_crmFbLer();
+  m[orcId]=m[orcId]||{}; m[orcId].dispensas=(m[orcId].dispensas||0)+1;
+  _crmFbSalvar(m);
+  toast(m[orcId].dispensas>=3 ? '🔕 Não vou mais sugerir este' : 'Ok, tiro da lista de hoje');
+  if(typeof renderPainelInsights==='function') renderPainelInsights();
+}
+function crmLiguei(orcId){
+  const m=_crmFbLer();
+  m[orcId]=m[orcId]||{}; m[orcId].liguei_em=Date.now(); delete m[orcId].dispensas;
+  _crmFbSalvar(m);
+  toast('📞 Marcado — volta a aparecer em 3 dias se ainda estiver em aberto');
+  logAcao?.('crm_contato', 'Orçamento '+orcId);
+  if(typeof renderPainelInsights==='function') renderPainelInsights();
+}
+
+// ── Painel de Insights (page-insights) ──────────────────────────────────────
+// "Dinheiro do mês" independe do filtro de mês do Histórico (orcMesRef): mostra
+// sempre o mês corrente, sem acoplar ao estado de outra tela.
+function _crmMesAtualStats(){
+  const hoje=new Date();
+  const mesRef=hoje.getFullYear()+'-'+String(hoje.getMonth()+1).padStart(2,'0');
+  const lista=filtrarPorLoja(todosOrc||[]).filter(o=>{
+    const ref=(o.status==='aprovado'&&o.data_aprovacao)?new Date(o.data_aprovacao):_orcData(o);
+    return ref&&!isNaN(ref)&&ref.getFullYear()+'-'+String(ref.getMonth()+1).padStart(2,'0')===mesRef;
+  });
+  const tot=lista.length, soma=lista.reduce((a,o)=>a+(parseFloat(o.total)||0),0);
+  const aprov=lista.filter(o=>o.status==='aprovado');
+  const somaA=aprov.reduce((a,o)=>a+(parseFloat(o.total)||0),0);
+  const aRec=Math.max(0, aprov.reduce((a,o)=>a+(parseFloat(o.total)||0)-(parseFloat(o.valor_recebido)||0),0));
+  const tick=tot>0?soma/tot:0;
+  const taxaConv=tot>0?Math.round(aprov.length/tot*100):0;
+  return {tot,soma,aprov,somaA,aRec,tick,taxaConv, mesLabel:hoje.toLocaleDateString('pt-BR',{month:'long',year:'numeric'})};
+}
+// Teto na tela — princípio anti-chatice: 150 sugestões = nenhuma sugestão.
+const CRM_TETO_FILA=8;
+function _crmCardHTML(c){
+  const motivos=crmMotivos(c).map(m=>`<span class="crm-motivo">${esc(m)}</span>`).join('');
+  return `<div class="crm-card">
+    <div class="crm-card-top">
+      <div class="crm-cliente">${esc(c.orc.cliente||'—')}</div>
+      <div class="crm-valor">${brl(c.valor)}</div>
+    </div>
+    <div class="crm-motivos">${motivos}</div>
+    <div class="crm-fala">💬 "${esc(crmSugestaoFala(c))}"</div>
+    <div class="crm-acts">
+      <button class="tb g" onclick="crmLiguei('${c.orc.id}')">📞 Liguei</button>
+      <button class="tb" onclick="verOrcPDF('${c.orc.id}')">👁 Ver orçamento</button>
+      <button class="tb d" onclick="crmDispensar('${c.orc.id}')">✕ Dispensar</button>
+    </div>
+  </div>`;
+}
+function _crmRenderTrilho(elId, subId, lista, vazioTxt){
+  const el=document.getElementById(elId); if(!el) return;
+  if(!lista.length){ el.innerHTML=`<div class="empty-st" style="padding:20px"><div class="ei">✅</div><p>${vazioTxt}</p></div>`; }
+  else{
+    const visiveis=lista.slice(0,CRM_TETO_FILA);
+    el.innerHTML=visiveis.map(_crmCardHTML).join('')
+      + (lista.length>visiveis.length?`<div style="text-align:center;font-size:11px;color:var(--gray);padding:6px 0">+${lista.length-visiveis.length} outro(s) — resolva estes primeiro</div>`:'');
+  }
+  const sub=document.getElementById(subId);
+  if(sub) sub.textContent = lista.length ? `${lista.length} em aberto` : 'tudo em dia';
+}
+function renderPainelInsights(){
+  if(!document.getElementById('page-insights')) return;
+  const s=_crmMesAtualStats();
+  document.getElementById('ins-mes-label').textContent='· '+s.mesLabel;
+  document.getElementById('ins-d-emit').textContent=brl(s.soma);
+  document.getElementById('ins-d-emit-q').textContent=s.tot+' orç. este mês';
+  document.getElementById('ins-d-aprov').textContent=brl(s.somaA);
+  document.getElementById('ins-d-aprov-q').textContent=s.aprov.length+' aprov. · '+(s.tot>0?s.taxaConv+'% conversão':'—');
+  document.getElementById('ins-d-rec').textContent=brl(s.aRec);
+  document.getElementById('ins-d-tick').textContent=s.tick>0?brl(s.tick):'—';
+
+  const {equipamento, servico}=crmCandidatos();
+  _crmRenderTrilho('ins-fila-equip','ins-sub-equip', equipamento, 'Nenhum equipamento parado no momento.');
+  _crmRenderTrilho('ins-fila-servico','ins-sub-servico', servico, 'Nenhum serviço parado no momento.');
+  const totalFila=equipamento.length+servico.length;
+  document.getElementById('ins-fila-sub').textContent = totalFila ? `${totalFila} orçamento(s) merecem uma ligação` : 'tudo em dia — nada parado';
 }
 
 function verificarVencidos(){
