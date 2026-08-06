@@ -851,6 +851,10 @@ let db = null, dbOk = false;
 let svcs = [], editId = null;
 let osSvcs = [], modalOrcId = null, osOrcId = null; // osOrcId = ID do orçamento vinculado à OS
 let todosOrc = [], filtroSt = localStorage.getItem('fluxa_filtroSt')||'todos', busca = '', filtroOrigem = '';
+// Confirmação de que a lista veio do BANCO nesta sessão (não do cache local).
+// Declaradas aqui no topo de propósito: são lidas por loadHist/loadEstoque, que
+// podem rodar durante o boot — declarar junto da função daria TDZ (já aconteceu).
+let _orcRemotoOk = false, _estoqueRemotoOk = false;
 let todosOS = [], filtroOSSt = localStorage.getItem('fluxa_filtroOSSt')||'todos', buscaOS = '', filtroOSTec = '';
 let osEditId = null; // id da OS sendo editada (null = nova) — evita duplicar ao salvar
 let filtroPeriodo = ''; // legado — não mais usado na tabela principal
@@ -2808,6 +2812,7 @@ async function loadHist(){
       const dbIds=new Set(data.map(x=>x.id));
       const soLocal=todosOrc.filter(x=>String(x.id).startsWith('local_')&&!dbIds.has(x.id));
       todosOrc=[...data,...soLocal];
+      _orcRemotoOk=true; // orçamentos confirmados pelo banco — libera a reconciliação de órfãs
       lsOrcSalvar(todosOrc);
       verificarVencidos();
       atualizarDash(); renderTabela();
@@ -10036,6 +10041,7 @@ async function loadEstoque(){
       const idM=new Set((movs||[]).map(x=>x.id));
       const soLocalM=todosMovEstoque.filter(x=>String(x.id).startsWith('mov_')&&!idM.has(x.id));
       todosMovEstoque=[...(movs||[]),...soLocalM];
+      _estoqueRemotoOk=true; // ledger confirmado pelo banco — libera a reconciliação de órfãs
       _invalidarSaldoCache();
       lsMovSalvar(todosMovEstoque);
       // reenvia ao banco o que ficou preso só no aparelho
@@ -10142,22 +10148,43 @@ function sincronizarReservaOrcamento(orc){
     });
   }
   // já reservado por este orçamento (net dos movimentos de reserva/liberação deste orc)
-  const jaReservado={};
+  // lojaDaReserva: a liberação TEM que cair na mesma loja em que a reserva entrou.
+  // Antes usava orc.loja_id, que é null no caminho de órfã — aí registrarMovimento
+  // caía no fallback `lojaAtiva`, ou seja, a loja que o usuário estava vendo na hora.
+  // Resultado real em produção: reserva lançada em Camboriú e liberada em Aquamotor,
+  // deixando as duas lojas com saldo errado de um produto que uma nunca reservou.
+  const jaReservado={}, lojaDaReserva={};
   todosMovEstoque.filter(m=>_TIPOS_RESERVA.includes(m.tipo) && m.ref && m.ref.indexOf('orc:'+orc.id)>=0).forEach(m=>{
     jaReservado[m.produto_id]=(jaReservado[m.produto_id]||0)+(parseFloat(m.quantidade)||0);
+    if(!lojaDaReserva[m.produto_id] && m.tipo==='reserva') lojaDaReserva[m.produto_id]=m.loja_id||null;
   });
   const ids=new Set([...Object.keys(desejado),...Object.keys(jaReservado)]);
   let mudou=false;
   ids.forEach(pid=>{
-    const delta=(desejado[pid]||0)-(jaReservado[pid]||0);
+    let delta=(desejado[pid]||0)-(jaReservado[pid]||0);
     if(Math.abs(delta)<0.0001) return;
+    const lojaMov=lojaDaReserva[pid]||orc.loja_id;
+    // Trava de segurança: liberar nunca pode empurrar o reservado do produto abaixo
+    // de zero (reservado negativo INFLA o disponível e o app passa a oferecer
+    // estoque que não existe). Se o cálculo pedir mais do que há reservado, libera
+    // só o que existe. Rede contra qualquer visão defasada do ledger.
+    if(delta<0){
+      const reservadoAtual=todosMovEstoque
+        .filter(m=>_TIPOS_RESERVA.includes(m.tipo) && m.produto_id===pid && (!lojaMov||m.loja_id===lojaMov))
+        .reduce((a,m)=>a+(parseFloat(m.quantidade)||0),0);
+      if(reservadoAtual+delta < -0.0001){
+        console.warn('[reserva] liberação limitada — reservado atual',reservadoAtual,'pedido',delta,'produto',pid);
+        delta=-Math.max(0,reservadoAtual);
+        if(Math.abs(delta)<0.0001) return;
+      }
+    }
     const numStr=String(orc.numero||'').padStart(3,'0');
     registrarMovimento({
       produto_id:pid, tipo: delta>0?'reserva':'liberacao_reserva', quantidade:delta,
       custo_unit:null,
       motivo:(delta>0?'Reserva orçamento #':'Libera reserva #')+numStr,
       ref:'res:orc:'+orc.id+':'+pid+':'+Date.now()+Math.random().toString(36).slice(2,5),
-      lojaId:orc.loja_id
+      lojaId:lojaMov
     });
     mudou=true;
   });
@@ -10205,6 +10232,16 @@ function _reconciliarReservasOrfas(){
   if(_reservasReconciliadas) return;
   if(!Array.isArray(todosMovEstoque)||!todosMovEstoque.length) return; // estoque ainda não carregou
   if(!Array.isArray(todosOrc)||!todosOrc.length) return;               // orçamentos ainda não carregaram
+  // ⚠️ Esta função ESCREVE no ledger — só pode rodar sobre dados confirmados pelo
+  // banco, nunca sobre o cache local. Rodando com cache defasado, um orçamento
+  // APROVADO que ainda não está no cache é lido como "órfão" e tem a reserva
+  // liberada; como a sessão seguinte continua sem enxergar essa liberação, o erro
+  // se repete e empurra o reservado para NEGATIVO (inflando o disponível).
+  // Foi exatamente isso que aconteceu em produção: 17 pares loja/produto afetados,
+  // o orçamento #260 (aprovado) liberado 6 vezes. Só roda com as duas listas vindas
+  // do banco nesta sessão.
+  if(!dbOk||!db) return;
+  if(!_estoqueRemotoOk||!_orcRemotoOk) return;
   _reservasReconciliadas=true;
   try{
     const porOrc={};
