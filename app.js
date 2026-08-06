@@ -2934,8 +2934,19 @@ function orcVivoNoFunil(o){
 // dentro de `orcamentos`, onde o autocomplete mantém a grafia consistente;
 // NÃO serve para cruzar com vistorias/planos, onde os nomes divergem.
 function _normCliente(n){
-  return (n||'').trim().toLowerCase().replace(/\s+/g,' ');
+  // _normNome já resolve caixa + acento ("Atlântico" = "ATLANTICO").
+  return _normNome(n)
+    // Prefixo de tipo não identifica o condomínio: "Edifício Green Valey" e
+    // "Residencial Green Valey" são o mesmo lugar. Medido: 6 grupos assim.
+    .replace(/^(condominio|edificio|residencial|resid\.?|cond\.?|ed\.?)\s+/,'')
+    .replace(/\s+/g,' ')
+    .trim();
 }
+// ⚠️ Deliberadamente CONSERVADOR: só acento, caixa, prefixo e espaço. Nada de
+// similaridade fuzzy — na base real existem "Infinity Coast", "Infinity
+// Paradise" e "Infinity Flat", que são condomínios DIFERENTES. Aproximar por
+// semelhança fundiria clientes distintos, e um CRM que mistura cliente é pior
+// que um CRM que duplica.
 // Uma varredura só para os dois conjuntos — evita reprocessar todosOrc por item.
 function _crmConjuntosCliente(){
   const comEquip=new Set(), jaComprou=new Set();
@@ -9064,6 +9075,7 @@ function renderVisHistorico(){
           ${v.email_responsavel?`<button class="tb" title="Reenviar e-mail" onclick="event.stopPropagation();reenviarEmailVistoria('${v.id}')" style="font-size:11px;background:var(--blue-bg);color:var(--blue);border-color:var(--blue-bg)">📧</button>`:''}
           <button class="tb" title="Enviar resumo via WhatsApp" onclick="event.stopPropagation();enviarWAResumoVistoria('${v.id}')" style="font-size:11px;background:var(--wa-light,#dcfce7);color:var(--wa);border-color:var(--wa-light,#dcfce7)">💬</button>
           <button class="tb" title="Editar / refazer vistoria" onclick="event.stopPropagation();editarVistoria('${v.id}')" style="font-size:11px;background:var(--blue-bg);color:var(--blue);border-color:var(--blue-bg)">✏️</button>
+          ${(!eTecnico() && (cnt.critico||cnt.atencao))?`<button class="tb" title="Gerar orçamento com os itens críticos e de atenção desta vistoria" onclick="event.stopPropagation();orcarDaVistoria('${v.id}')" style="font-size:11px;background:var(--c1);color:white;border-color:var(--c1);font-weight:700">💰 Orçar ${cnt.critico+cnt.atencao}</button>`:''}
           <button class="tb" title="Ver relatório" onclick="event.stopPropagation();abrirVisRelatorio('${v.id}')" style="font-size:11px;background:var(--blue-bg);color:var(--blue);border-color:var(--blue-bg)">👁 Ver</button>
           <button class="tb" title="Baixar PDF" onclick="event.stopPropagation();baixarPDFVistoria('${v.id}',this)" style="font-size:11px;background:var(--c1-light);color:var(--c1);border-color:var(--c1-light)">📥 PDF</button>
           ${!eTecnico()?`<button class="tb" title="Excluir (permanente — remove do arquivo!)" onclick="event.stopPropagation();excluirVistoria('${v.id}')" style="background:var(--red-bg);color:var(--red);border-color:var(--red-bg);font-size:11px">✕</button>`:''}
@@ -9071,6 +9083,66 @@ function renderVisHistorico(){
       </div>
     </div>`;
   }).join('');
+}
+
+// ── Vistoria → Orçamento ────────────────────────────────────────────────────
+// O ciclo natural do negócio é vistoria → orçamento → OS → vistoria seguinte, e
+// o elo do meio faltava: em 05/08 a vistoria do Infinity Coast Tower registrou
+// 13 itens críticos/atenção e nenhum virou orçamento. Conserto detectado em
+// vistoria é SERVIÇO — o trilho que converte 43,5%, contra 8% do equipamento.
+function _visItensOrcaveis(v){
+  const eq = typeof v.equipamentos==='string' ? JSON.parse(v.equipamentos||'[]') : (v.equipamentos||[]);
+  return eq.filter(e=>e.status==='critico'||e.status==='atencao');
+}
+function orcarDaVistoria(id){
+  const v=lsVisLer().find(x=>String(x.id)===String(id));
+  if(!v){ toast('Vistoria não encontrada'); return; }
+  const itens=_visItensOrcaveis(v);
+  if(!itens.length){ toast('Nenhum item crítico ou de atenção nesta vistoria'); return; }
+
+  const criticos=itens.filter(e=>e.status==='critico').length;
+  confirmar(
+    `Vou criar um orçamento para ${v.cliente||'este cliente'} com ${itens.length} item(ns) apontado(s) na vistoria de ${_fmtDataBR(v.data)}${criticos?` — ${criticos} crítico(s)`:''}. Você revisa os preços antes de salvar.`,
+    ()=>_orcarDaVistoriaConfirmado(v, itens),
+    'Gerar orçamento da vistoria?', null, 'Cancelar', 'Gerar orçamento'
+  );
+}
+function _orcarDaVistoriaConfirmado(v, itens){
+  novoOrc();
+  window._skipDraftForm=true; // não deixa rascunho antigo sobrescrever
+  setTimeout(()=>{
+    setV('cli', v.cliente||'');
+    setV('loc', v.local||'');
+    // Cliente com vistoria é cliente da casa — não é lead novo.
+    setOrigemCli('Já é cliente');
+    // Critico primeiro: é a ordem em que o síndico precisa ler.
+    const ordenados=[...itens].sort((a,b)=>(a.status==='critico'?0:1)-(b.status==='critico'?0:1));
+    svcs=[];
+    ordenados.forEach(e=>{
+      const nome=e.nome||e.id;
+      const amb=(e.ambiente||'').trim();
+      const marca=[e.marca,e.modelo].filter(Boolean).join(' ');
+      const prob=(e.obs||'').trim();
+      // Descrição carrega o laudo: é o argumento de venda, e veio do técnico.
+      const d=[
+        e.status==='critico'?'[URGENTE]':'[Preventivo]',
+        amb?amb+' —':'',
+        nome,
+        marca?`(${marca})`:'',
+        prob?`: ${prob}`:''
+      ].filter(Boolean).join(' ').replace(/\s+/g,' ').trim();
+      addSvc(d, '', 1);
+    });
+    setV('escopo', `Serviços apontados na vistoria de ${_fmtDataBR(v.data)}${v.tecnico?` (técnico: ${v.tecnico})`:''}.`);
+    setV('nota-interna', `Gerado da vistoria ${v.id}`);
+    renderSvcs(); upd();
+    toast(`📋 ${itens.length} item(ns) importado(s) — revise os preços`);
+    logAcao?.('orcamento_da_vistoria', `${v.cliente||''} — ${itens.length} itens`);
+  }, 60);
+}
+function _fmtDataBR(d){
+  if(!d) return '—';
+  try{ return new Date(d+'T12:00:00').toLocaleDateString('pt-BR'); }catch(e){ return d; }
 }
 
 // ── Tombstones: ids de vistorias apagadas, para NUNCA ressuscitarem via sync ──
