@@ -2859,23 +2859,81 @@ async function _migrarDataAprovacao(){
   console.log(`[migração] data_aprovacao preenchida em ${semData.length} orçamento(s) aprovado(s)`);
 }
 
+// ══ TRILHO COMERCIAL E CICLO DE DECISÃO ═════════════════════════════════════
+// Medido em 2026-08-06 (ver docs/crm-baseline-2026-08-06.md): equipamento
+// converte ~8% em TODAS as faixas de valor — inclusive abaixo de R$ 15k —
+// enquanto serviço abaixo de R$ 15k converte 43,5%. Ou seja, o que alonga a
+// decisão é o TRILHO (equipamento é investimento, muitas vezes com assembleia
+// de condomínio no meio), e o valor agrava. Por isso os dois entram na regra.
+const ORC_RX_EQUIPAMENTO = /trocador|aquecedor|bomba de calor|fromtherm|jelly/i;
+const ORC_VALOR_CICLO_LONGO = 15000;
+
+// Roda por linha ao renderizar o histórico: quando `servicos` já é string
+// (vindo do banco), testa direto, sem parse+stringify de ida e volta.
+function orcEhEquipamento(o){
+  if(!o||!o.servicos) return false;
+  try{
+    const s = typeof o.servicos==='string' ? o.servicos : JSON.stringify(o.servicos);
+    return ORC_RX_EQUIPAMENTO.test(s);
+  }catch(e){ console.warn('[orcEhEquipamento]', e?.message||e); return false; }
+}
+// Negócio de decisão lenta — não pode ser declarado morto em 5 dias.
+function orcCicloLongo(o){
+  return orcEhEquipamento(o) || (parseFloat(o?.total)||0) >= ORC_VALOR_CICLO_LONGO;
+}
+function _hojeZero(){ const d=new Date(); d.setHours(0,0,0,0); return d; }
+// Data em que o PREÇO expira. Prefere validade_data (pt-BR ou ISO) e cai para
+// data_criacao + validade_dias. Centralizado aqui porque este parsing estava
+// duplicado em verificarVencidos e autoVencerOrc, com regras sutilmente
+// diferentes entre as duas.
+function _orcValidadeData(o){
+  if(o?.validade_data){
+    const p=String(o.validade_data).split('/');
+    const d = p.length===3 ? new Date(p[2]+'-'+p[1]+'-'+p[0]+'T00:00:00')
+                           : new Date(o.validade_data+'T00:00:00');
+    if(!isNaN(d)) return d;
+  }
+  const base = (typeof _orcData==='function') ? _orcData(o) : null;
+  if(!base) return null;
+  const d=new Date(base);
+  d.setDate(d.getDate()+(parseInt(o?.validade_dias)||5));
+  d.setHours(23,59,59,999);
+  return isNaN(d)?null:d;
+}
+// O preço expirou, mas o negócio continua de pé. São dois conceitos distintos
+// que hoje dividem o mesmo campo: `validade_data` é compromisso de PREÇO (vai
+// no PDF, segue curta para não travar custo por 90 dias), enquanto a vida no
+// funil é até quando vale perseguir o negócio (interna, longa).
+function orcPrecoARevalidar(o){
+  if(!o || (o.status!=='pendente' && o.status!=='vencido')) return false;
+  if(!orcCicloLongo(o)) return false;
+  const dv=_orcValidadeData(o);
+  return !!dv && dv < _hojeZero();
+}
+// Negócio ainda perseguível. Inclui os que o RELÓGIO matou (status 'vencido'
+// sem o cliente ter recusado) quando são de ciclo longo — foi o sistema que os
+// declarou mortos, não o cliente. Base para a fila de follow-up.
+function orcVivoNoFunil(o){
+  if(!o) return false;
+  if(o.status==='pendente') return true;
+  return o.status==='vencido' && orcCicloLongo(o);
+}
+
 function verificarVencidos(){
-  const hoje=new Date(); hoje.setHours(0,0,0,0);
+  const hoje=_hojeZero();
   let mudou=false;
   todosOrc.forEach(o=>{
-    if(o.status==='pendente'&&o.validade_data){
-      const partes=o.validade_data.split('/');
-      let dv;
-      if(partes.length===3) dv=new Date(partes[2]+'-'+partes[1]+'-'+partes[0]+'T00:00:00');
-      else dv=new Date(o.validade_data+'T00:00:00');
-      if(!isNaN(dv)&&dv<hoje){
-        o.status='vencido'; mudou=true;
-        lsOrcAtualizar(o.id,{status:'vencido'});
-        if(dbOk&&db&&!String(o.id).startsWith('local_'))
-          db.from('orcamentos').update({status:'vencido'}).eq('id',o.id).then(()=>{}).catch(()=>{});
-        // Vencido não pode segurar estoque: libera reservas deste orçamento
-        if(typeof sincronizarReservaOrcamento==='function') sincronizarReservaOrcamento(o);
-      }
+    if(o.status!=='pendente') return;
+    // Ciclo longo não vence sozinho: vira "preço a revalidar" e SEGUE no funil.
+    if(orcCicloLongo(o)) return;
+    const dv=_orcValidadeData(o);
+    if(dv&&dv<hoje){
+      o.status='vencido'; mudou=true;
+      lsOrcAtualizar(o.id,{status:'vencido'});
+      if(dbOk&&db&&!String(o.id).startsWith('local_'))
+        db.from('orcamentos').update({status:'vencido'}).eq('id',o.id).then(()=>{}).catch(()=>{});
+      // Vencido não pode segurar estoque: libera reservas deste orçamento
+      if(typeof sincronizarReservaOrcamento==='function') sincronizarReservaOrcamento(o);
     }
   });
   return mudou;
@@ -3282,7 +3340,7 @@ function renderTabela(){
       <td><div class="ocl">${esc(o.cliente||'—')}${notaIcon}</div><div class="oloc">${esc(o.local_servico||'')}</div><div class="osvc" title="${esc(svs)}">${esc(svs)}</div><div style="margin-top:3px;display:flex;gap:5px;flex-wrap:wrap;align-items:center">${getLojaBadge(o.loja_id)}${getOrigemBadge(o.origem_cliente)}</div>${(()=>{ const etapas=[]; const st=o.status||'pendente'; const osVinc=(todosOS||[]).find(x=>x.orcamento_id===o.id); const entregue=!orcTemEntregaPendente(o)&&(o.servicos||[]).some(s=>s.produto_id); const etApr=st==='aprovado'||st==='recusado'||osVinc||entregue; const etOS=!!osVinc; const etConc=osVinc?.status==='concluido'; const dot=(ok,lbl)=>`<span style="display:flex;align-items:center;gap:2px;font-size:10px;color:${ok?'#16a34a':'#9ca3af'};font-weight:${ok?'700':'400'}">${ok?'●':'○'} ${lbl}</span>`; return `<div style="display:flex;gap:6px;align-items:center;margin-top:4px;flex-wrap:wrap">${dot(true,'Criado')}›${dot(etApr,'Aprovado')}›${dot(etOS,'OS')}›${dot(etConc,'Concluído')}</div>`; })()}</td>
       ${ocultarFinanceiro?'':'<td><span class="otot">'+brl(ttl)+'</span><br><span class="'+recCl+'" style="font-size:11px">'+recTxt+'</span></td>'}
       <td><span class="odt">${dt}</span></td>
-      <td><select class="ss ${o.status||'pendente'}" onchange="mudarSt('${o.id}',this)">${sopts(o.status||'pendente')}</select></td>
+      <td><select class="ss ${o.status||'pendente'}" onchange="mudarSt('${o.id}',this)">${sopts(o.status||'pendente')}</select>${orcPrecoARevalidar(o)?'<div title="O prazo do preço expirou, mas o negócio continua no funil (equipamento ou acima de R$ 15 mil). Revalide o valor antes de retomar o contato." style="font-size:9px;font-weight:700;color:#b45309;background:#fef3c7;border-radius:4px;padding:2px 5px;margin-top:3px;text-align:center;line-height:1.25">⏳ PREÇO A<br>REVALIDAR</div>':''}</td>
       <td><div class="ta">
         <button class="tb" title="Ver PDF" onclick="verOrcPDF('${o.id}')">👁</button>
         <button class="tb" title="Editar" onclick="abrirOrc('${o.id}')">✎</button>
@@ -3615,15 +3673,16 @@ function populaFiltTecOS(){
   sel.innerHTML='<option value="">👤 Todos técnicos</option>'+tecs.map(t=>`<option value="${t}" ${t===filtroOSTec?'selected':''}>${t}</option>`).join('');
 }
 
-// Auto-vence orçamentos pendentes cujo prazo de validade já expirou
+// Auto-vence orçamentos pendentes cujo prazo de validade já expirou.
+// Exceção: negócio de ciclo longo (equipamento ou >= R$ 15k) não morre pelo
+// relógio — vira "preço a revalidar" e continua no funil. Ver orcCicloLongo().
 function autoVencerOrc(lista){
-  const hoje=new Date(); hoje.setHours(0,0,0,0);
+  const hoje=_hojeZero();
   let mudou=false;
   lista.forEach(o=>{
     if(o.status!=='pendente') return;
-    const dt=_orcData(o); if(!dt) return;
-    const val=parseInt(o.validade_dias)||5;
-    const expira=new Date(dt); expira.setDate(expira.getDate()+val); expira.setHours(23,59,59,999);
+    if(orcCicloLongo(o)) return;
+    const expira=_orcValidadeData(o); if(!expira) return;
     if(expira<hoje){
       o.status='vencido'; mudou=true;
       lsOrcAtualizar(o.id,{status:'vencido'});
