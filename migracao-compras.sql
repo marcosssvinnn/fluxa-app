@@ -1,6 +1,6 @@
 -- ============================================================================
 -- MIGRAÇÃO — Fornecedores e Ordens de Compra
--- Status: PENDENTE. Rodar uma vez no SQL Editor do Supabase.
+-- Status: ✅ APLICADA em 2026-08-06. Mantida como referência e para novas empresas.
 -- ============================================================================
 -- Por que existe: o app JÁ TEM a feature completa de compras — tela de
 -- Fornecedores, cadastro, criação de Ordem de Compra, marcar como recebida
