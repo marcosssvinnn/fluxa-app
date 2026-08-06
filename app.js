@@ -8525,6 +8525,7 @@ function _resetCheckinVis(){
 function _limparFormVistoria(){
   _limparRascunhoVis(); // vistoria finalizada → rascunho não deve ressuscitar
   _visDraftRestaurado=false;
+  visEquipSelecionados=[]; // faltava zerar — chips do form anterior ficavam marcados no próximo
   visEquipDados = {};
   visAmbienteObs={};
   _visEquipsCustom = [];
@@ -8535,6 +8536,7 @@ function _limparFormVistoria(){
   if(visCheckinInterval){ clearInterval(visCheckinInterval); visCheckinInterval = null; }
   _resetCheckinVis();
   window._visLocalId = null;
+  const banner=document.getElementById('vis-plano-banner'); if(banner) banner.style.display='none';
   // Limpa campos do form
   ['vis-cli','vis-loc','vis-hora','vis-obs','vis-recom','vis-email-resp'].forEach(id=>{
     const el=document.getElementById(id); if(el) el.value='';
@@ -8546,6 +8548,25 @@ function _limparFormVistoria(){
   const st = document.getElementById('vis-email-status'); if(st) st.textContent='';
   renderVisChips();
   renderVisEquipGrid();
+}
+
+// Cancela a vistoria em andamento (nova ou edição) e descarta o progresso —
+// hoje só dava pra "sair" clicando Finalizar; sem opção de desistir mesmo.
+// Sempre passa por confirmação (nunca window.confirm — proibido no app).
+function descartarVistoriaEmAndamento(){
+  const emEdicao = !!visEditId;
+  const temAlgo = !!(document.getElementById('vis-cli')?.value||'').trim()
+    || visEquipSelecionados.length || (_visEquipsCustom||[]).length || !!visCheckinTime;
+  if(!temAlgo){ toast('Nada para descartar.'); return; }
+  const msg = emEdicao
+    ? 'As alterações feitas nesta edição serão descartadas. A vistoria já salva não será apagada.'
+    : 'Tudo que foi preenchido nesta vistoria (equipamentos, status, observações, fotos) será descartado e não poderá ser recuperado.';
+  confirmar(msg, ()=>{
+    const voltaPra = emEdicao ? 'hist' : 'nova';
+    _limparFormVistoria();
+    toast(emEdicao ? '↩️ Edição descartada' : '🗑️ Vistoria descartada');
+    visTab(voltaPra);
+  }, emEdicao?'Descartar edição?':'Descartar vistoria?', null, 'Continuar preenchendo', emEdicao?'Descartar edição':'Descartar tudo');
 }
 
 // ── Finalizar vistoria: salva, limpa o form e navega para o histórico ──
