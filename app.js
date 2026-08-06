@@ -9076,6 +9076,7 @@ function renderVisHistorico(){
           <button class="tb" title="Enviar resumo via WhatsApp" onclick="event.stopPropagation();enviarWAResumoVistoria('${v.id}')" style="font-size:11px;background:var(--wa-light,#dcfce7);color:var(--wa);border-color:var(--wa-light,#dcfce7)">💬</button>
           <button class="tb" title="Editar / refazer vistoria" onclick="event.stopPropagation();editarVistoria('${v.id}')" style="font-size:11px;background:var(--blue-bg);color:var(--blue);border-color:var(--blue-bg)">✏️</button>
           ${(!eTecnico() && (cnt.critico||cnt.atencao))?`<button class="tb" title="Gerar orçamento com os itens críticos e de atenção desta vistoria" onclick="event.stopPropagation();orcarDaVistoria('${v.id}')" style="font-size:11px;background:var(--c1);color:white;border-color:var(--c1);font-weight:700">💰 Orçar ${cnt.critico+cnt.atencao}</button>`:''}
+          ${(!eTecnico() && cnt.critico)?`<button class="tb" title="Laudo para o síndico apresentar na assembleia" onclick="event.stopPropagation();gerarDossieAssembleia('${v.id}')" style="font-size:11px;background:var(--c2);color:white;border-color:var(--c2);font-weight:700">🗳️ Dossiê</button>`:''}
           <button class="tb" title="Ver relatório" onclick="event.stopPropagation();abrirVisRelatorio('${v.id}')" style="font-size:11px;background:var(--blue-bg);color:var(--blue);border-color:var(--blue-bg)">👁 Ver</button>
           <button class="tb" title="Baixar PDF" onclick="event.stopPropagation();baixarPDFVistoria('${v.id}',this)" style="font-size:11px;background:var(--c1-light);color:var(--c1);border-color:var(--c1-light)">📥 PDF</button>
           ${!eTecnico()?`<button class="tb" title="Excluir (permanente — remove do arquivo!)" onclick="event.stopPropagation();excluirVistoria('${v.id}')" style="background:var(--red-bg);color:var(--red);border-color:var(--red-bg);font-size:11px">✕</button>`:''}
@@ -9143,6 +9144,130 @@ function _orcarDaVistoriaConfirmado(v, itens){
 function _fmtDataBR(d){
   if(!d) return '—';
   try{ return new Date(d+'T12:00:00').toLocaleDateString('pt-BR'); }catch(e){ return d; }
+}
+
+// ── DOSSIÊ DE ASSEMBLEIA ────────────────────────────────────────────────────
+// Equipamento acima de R$ 50k converte 0%. A hipótese é que o síndico não
+// consegue defender esse valor numa assembleia com um PDF de itens e preço:
+// ele precisa mostrar o problema, a consequência de não fazer e a urgência.
+// Este documento é feito para ser APRESENTADO por ele, não lido por ele.
+//
+// O texto é determinístico (regra por tipo de equipamento + status), não
+// gerado por IA: funciona offline, sem chave de API e sem custo. A camada de
+// IA fica para o polimento de redação, se fizer falta — ver docs/.
+const _DOSSIE_CONSEQ = [
+  { rx:/trocador|aquecedor|bomba de calor|fromtherm|jelly/i, critico:'Piscina sem aquecimento — em pleno uso da temporada, o condomínio perde a área de lazer aquecida e o equipamento parado tende a agravar o dano.', atencao:'Perda de eficiência no aquecimento: consumo de energia maior para entregar a mesma temperatura, e risco de parada no meio da temporada.' },
+  { rx:/motobomba|bomba/i, critico:'Sem circulação de água a piscina fica imprópria para banho em poucos dias: a água não passa pelo filtro nem recebe tratamento.', atencao:'Circulação abaixo do ideal: filtragem menos eficiente e desgaste acelerado do conjunto motor.' },
+  { rx:/filtro/i, critico:'Sem filtragem, a água perde transparência e a qualidade sanitária cai — risco direto ao banhista.', atencao:'Filtragem comprometida: maior consumo de químicos para manter a água dentro do padrão.' },
+  { rx:/sauna/i, critico:'Sauna fora de operação — área de lazer indisponível aos condôminos.', atencao:'Aquecimento irregular da sauna, com risco de parada total.' },
+  { rx:/ilumina/i, critico:'Iluminação submersa inoperante representa risco de segurança no uso noturno.', atencao:'Iluminação parcial: conforto e segurança reduzidos no período noturno.' },
+  { rx:/automa|dosador|cloro|ozon/i, critico:'Sem dosagem automática, o controle químico passa a depender de ajuste manual, com risco de água fora do padrão.', atencao:'Dosagem irregular: variação na qualidade da água e maior consumo de produto.' }
+];
+function _dossieConsequencia(nome, status){
+  const r=_DOSSIE_CONSEQ.find(x=>x.rx.test(nome||''));
+  if(r) return status==='critico' ? r.critico : r.atencao;
+  return status==='critico'
+    ? 'Equipamento fora de operação, comprometendo o funcionamento normal da área de lazer.'
+    : 'Desgaste identificado: sem correção, tende a evoluir para parada do equipamento.';
+}
+function gerarDossieAssembleia(id){
+  const v=lsVisLer().find(x=>String(x.id)===String(id));
+  if(!v){ toast('Vistoria não encontrada'); return; }
+  const itens=_visItensOrcaveis(v);
+  if(!itens.length){ toast('Esta vistoria não tem itens críticos ou de atenção'); return; }
+
+  const LC=getLojaConfig(v.loja_id||lojaAtiva);
+  const criticos=itens.filter(e=>e.status==='critico');
+  const atencao=itens.filter(e=>e.status==='atencao');
+  const _fotoDe=e=>{ const f=(e.fotos||[]).filter(Boolean)[0]; return f||null; };
+
+  const blocoCritico=criticos.map((e,i)=>{
+    const foto=_fotoDe(e);
+    return `<div class="ds-item ds-crit">
+      <div class="ds-item-hd"><span class="ds-num">${i+1}</span>
+        <div><div class="ds-item-nm">${esc(e.nome||e.id)}</div>
+        ${e.ambiente?`<div class="ds-item-amb">📍 ${esc(e.ambiente)}</div>`:''}</div>
+        <span class="ds-tag ds-tag-crit">AÇÃO IMEDIATA</span></div>
+      ${e.obs?`<div class="ds-lb">O que foi encontrado</div><div class="ds-tx">${esc(e.obs)}</div>`:''}
+      <div class="ds-lb">Se não for feito</div><div class="ds-tx ds-conseq">${esc(_dossieConsequencia(e.nome,'critico'))}</div>
+      ${foto?`<img class="ds-foto" src="${esc(foto)}" alt="Registro fotográfico">`:''}
+    </div>`;
+  }).join('');
+
+  const blocoAtencao=atencao.length?`<div class="ds-sec-t">Itens para programar</div>
+    <table class="ds-tb"><thead><tr><th>Equipamento</th><th>Local</th><th>Situação</th></tr></thead><tbody>
+    ${atencao.map(e=>`<tr><td><strong>${esc(e.nome||e.id)}</strong></td><td>${esc(e.ambiente||'—')}</td><td>${esc(e.obs||_dossieConsequencia(e.nome,'atencao'))}</td></tr>`).join('')}
+    </tbody></table>`:'';
+
+  const css=`
+    body{margin:0;padding:80px 20px 40px;background:#f3f4f6;font-family:Inter,-apple-system,sans-serif;color:#111827}
+    .ds{max-width:794px;margin:0 auto;background:#fff;border-radius:8px;box-shadow:0 4px 24px rgba(0,0,0,.15);overflow:hidden}
+    .ds-hd{background:${LC.cor||'#C45E0A'};color:#fff;padding:26px 32px}
+    .ds-hd h1{margin:0 0 4px;font-size:21px;font-weight:800}
+    .ds-hd .ds-sub{font-size:13px;opacity:.9}
+    .ds-bd{padding:28px 32px}
+    .ds-cli{font-size:19px;font-weight:800;margin-bottom:2px}
+    .ds-meta{font-size:12px;color:#6b7280;margin-bottom:20px}
+    .ds-resumo{display:flex;gap:12px;margin-bottom:24px;flex-wrap:wrap}
+    .ds-kpi{flex:1;min-width:130px;border-radius:10px;padding:14px 16px;border:1.5px solid #e5e7eb}
+    .ds-kpi.c{background:#fee2e2;border-color:#fecaca}
+    .ds-kpi.a{background:#fef3c7;border-color:#fde68a}
+    .ds-kpi-v{font-size:26px;font-weight:800;line-height:1}
+    .ds-kpi.c .ds-kpi-v{color:#b91c1c}.ds-kpi.a .ds-kpi-v{color:#b45309}
+    .ds-kpi-l{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#4b5563;margin-top:5px}
+    .ds-sec-t{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:${LC.cor||'#C45E0A'};border-bottom:2px solid #f3f4f6;padding-bottom:7px;margin:26px 0 14px}
+    .ds-item{border:1.5px solid #e5e7eb;border-radius:10px;padding:16px 18px;margin-bottom:14px;page-break-inside:avoid}
+    .ds-crit{border-left:4px solid #ef4444}
+    .ds-item-hd{display:flex;align-items:flex-start;gap:10px;margin-bottom:10px}
+    .ds-num{background:#ef4444;color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0}
+    .ds-item-nm{font-size:15px;font-weight:700}
+    .ds-item-amb{font-size:11px;color:#6b7280;margin-top:1px}
+    .ds-tag{margin-left:auto;font-size:9px;font-weight:800;padding:4px 8px;border-radius:5px;white-space:nowrap}
+    .ds-tag-crit{background:#fee2e2;color:#b91c1c}
+    .ds-lb{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#6b7280;margin-top:9px}
+    .ds-tx{font-size:13px;line-height:1.5;margin-top:3px}
+    .ds-conseq{background:#fef2f2;border-left:3px solid #fca5a5;padding:8px 11px;border-radius:0 6px 6px 0}
+    .ds-foto{width:100%;max-height:230px;object-fit:cover;border-radius:7px;margin-top:11px}
+    .ds-tb{width:100%;border-collapse:collapse;font-size:12px}
+    .ds-tb th{background:#f9fafb;text-align:left;padding:8px 10px;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#6b7280;border-bottom:1.5px solid #e5e7eb}
+    .ds-tb td{padding:8px 10px;border-bottom:1px solid #f3f4f6;vertical-align:top}
+    .ds-ft{background:#f9fafb;padding:18px 32px;font-size:11px;color:#6b7280;border-top:1.5px solid #e5e7eb}
+    #dl{position:fixed;top:16px;left:50%;transform:translateX(-50%);background:${LC.cor||'#C45E0A'};color:#fff;border:none;border-radius:10px;padding:12px 28px;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.2);z-index:99;font-family:Inter,sans-serif}
+    @media print{#dl{display:none!important}body{padding:0;background:#fff}.ds{box-shadow:none;border-radius:0;max-width:none}}`;
+
+  const html=`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Dossie-${(v.cliente||'assembleia').replace(/\s+/g,'-')}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>${css}</style></head><body>
+    <button id="dl" onclick="window.print()">📥 Baixar / Imprimir</button>
+    <div class="ds">
+      <div class="ds-hd">
+        <h1>Laudo Técnico para Assembleia</h1>
+        <div class="ds-sub">${esc(LC.nome||'')}${LC.tel?' · '+esc(LC.tel):''}</div>
+      </div>
+      <div class="ds-bd">
+        <div class="ds-cli">${esc(v.cliente||'')}</div>
+        <div class="ds-meta">${v.local?esc(v.local)+' · ':''}Vistoria realizada em ${_fmtDataBR(v.data)}${v.tecnico?' por '+esc(v.tecnico):''}</div>
+        <div class="ds-resumo">
+          <div class="ds-kpi c"><div class="ds-kpi-v">${criticos.length}</div><div class="ds-kpi-l">Exigem ação imediata</div></div>
+          <div class="ds-kpi a"><div class="ds-kpi-v">${atencao.length}</div><div class="ds-kpi-l">Para programar</div></div>
+          <div class="ds-kpi"><div class="ds-kpi-v">${itens.length}</div><div class="ds-kpi-l">Total apontado</div></div>
+        </div>
+        ${criticos.length?`<div class="ds-sec-t">Itens que exigem ação imediata</div>${blocoCritico}`:''}
+        ${blocoAtencao}
+      </div>
+      <div class="ds-ft">
+        Documento gerado a partir da vistoria técnica de ${_fmtDataBR(v.data)}. As condições descritas
+        refletem o estado dos equipamentos na data da visita.
+        ${LC.nome?esc(LC.nome):''}${LC.tel?' · '+esc(LC.tel):''}
+      </div>
+    </div></body></html>`;
+
+  const url=URL.createObjectURL(new Blob([html],{type:'text/html;charset=utf-8'}));
+  const w=window.open(url,'_blank');
+  if(w){ toast('📄 Dossiê aberto — toque em "Baixar / Imprimir"'); setTimeout(()=>URL.revokeObjectURL(url),120000); logAcao?.('dossie_assembleia', v.cliente||''); }
+  else { URL.revokeObjectURL(url); toast('⚠️ Permita pop-ups para abrir o dossiê'); }
 }
 
 // ── Tombstones: ids de vistorias apagadas, para NUNCA ressuscitarem via sync ──
