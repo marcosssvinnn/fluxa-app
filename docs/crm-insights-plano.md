@@ -140,20 +140,30 @@ Especificação original abaixo, mantida como referência:
 **Urgência real:** Platinum Residence (R$ 83.497 e R$ 65.035) e Infinity Flat
 (R$ 59.826) — **R$ 208 mil** — vencem/venceram nesta semana por essa regra.
 
-### Fase 1 — Gatilhos determinísticos em JS  ⬜ sem schema, sem IA
+### Fase 1 + 2 — Gatilhos + painel de insights  ✅ CONCLUÍDAS (commit `3c796d7`)
 
-Função `crmCandidatos()` sobre `todosOrc`/`todosOS`/`vistorias` em memória,
-escopada por `escopoEmpresaMatch()` (que já resolve Camboriú / Itapema / visão
-geral — nada novo a construir aí).
-
-Retorna `{gatilho, orcamento, cliente, prioridade, fatos}` — mesmo contrato do
-`crm_candidatos_insight` do v2, para que a migração futura seja direta.
-
-### Fase 2 — Painel de insights  ⬜ tela
-
-Nova `page-insights` como landing do gestor, com os dois blocos escolhidos pelo
-Marcos: **Dinheiro do mês** + **Fila de follow-up**. Feedback útil/inútil em
-`localStorage` (sem schema).
+> Implementadas juntas em 2026-08-06, como `page-insights`, landing do
+> gestor/master. `crmCandidatos()` roda sobre `todosOrc` em memória (não
+> `todosOS`/`vistorias` — cross-módulo continua bloqueado pela limitação de
+> identidade do §8), escopado por `filtrarPorLoja()`.
+>
+> Retorna `{equipamento, servico}` **já separados em dois trilhos**, não uma
+> lista única com `gatilho` — a prévia (`crm-fila-followup-previa.md`) mostrou
+> 11 dos 12 primeiros sendo do trilho equipamento (7% de conversão); fila
+> única ordenada por valor deixaria o vendedor sem tocar no trilho de 43%.
+> Score: `(valor/1000) × (3 se já é cliente, senão 1) ÷ dias_parado`.
+>
+> **Filtro negativo implementado e testado**: quem já comprou equipamento não
+> recebe nova oferta do mesmo trilho — validado contra o caso real (Ibiza
+> Towers, R$ 169.210 corretamente suprimido).
+>
+> Feedback em `localStorage` (`fluxa_crm_feedback`, sem schema): dispensou a
+> mesma sugestão 3× → some da fila para sempre; "📞 Liguei" → some por 3 dias.
+> Cada card mostra o motivo (constrói repertório) e uma frase pronta para
+> abrir a ligação — decisão de produto por causa do público (técnicos que
+> também orçam, não vendedores profissionais).
+>
+> Teto de 8 cards por trilho na tela (150 sugestões = nenhuma sugestão).
 
 ### Fase 3 — Persistir a interação  ⬜ schema aditivo (§5)
 
