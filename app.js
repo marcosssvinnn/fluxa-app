@@ -10023,7 +10023,7 @@ async function loadEstoque(){
         db.from('ordens_compra').select('*').order('data_criacao',{ascending:false}).limit(200)
       ]);
       if(fornecs){ todosFornecedores=fornecs; lsFornecSalvar(fornecs); }
-      if(ocs){ todasOC=ocs.map(o=>({...o,itens:typeof o.itens==='string'?JSON.parse(o.itens||'[]'):o.itens||[]})); lsOCSalvar(todasOC); }
+      if(ocs){ todasOC=ocs.map(_ocNormalizar); lsOCSalvar(todasOC); }
       if(e1) throw e1; if(e2) throw e2;
       // Se o banco está vazio, limpa o cache local (dados de teste/simulação)
       if(prods&&prods.length===0){ todosProdutos=[]; lsProdSalvar([]); }
@@ -11263,13 +11263,23 @@ let _ocEditItens = []; // [{produto_id, nome, unidade, qtd, custo_unit}]
 
 function lsOCLer(){ try{ return JSON.parse(ls('fluxa_oc')||'[]'); }catch(e){ return []; } }
 function lsOCSalvar(l){ lsSet('fluxa_oc', JSON.stringify(l)); }
+// Rede de segurança na leitura: garante que `itens` seja SEMPRE array. Cobre
+// registros gravados antes da correção (quando ia como string JSON no jsonb) e
+// qualquer origem futura. Sem isto, Array.isArray() falha e a OC perde os
+// itens na tela, na edição e — pior — ao dar entrada no estoque.
+function _ocNormalizar(o){
+  if(!o) return o;
+  let itens=o.itens;
+  if(typeof itens==='string'){ try{ itens=JSON.parse(itens||'[]'); }catch(e){ console.warn('[OC itens]',e?.message||e); itens=[]; } }
+  return {...o, itens: Array.isArray(itens)?itens:[]};
+}
 
 async function loadOC(){
   todasOC = lsOCLer();
   if(dbOk&&db){
     try{
       const {data}=await db.from('ordens_compra').select('*').order('data_criacao',{ascending:false}).limit(200);
-      if(data){ todasOC=data; lsOCSalvar(data); }
+      if(data){ todasOC=data.map(_ocNormalizar); lsOCSalvar(todasOC); }
     }catch(e){ console.warn('[OC load]',e?.message||e); }
   }
 }
@@ -11383,7 +11393,11 @@ async function salvarOC(status){
   const idx=todasOC.findIndex(o=>o.id===id);
   if(idx>=0) todasOC[idx]=rec; else todasOC.unshift(rec);
   lsOCSalvar(todasOC);
-  if(dbOk&&db){ (async()=>{ try{ await dbUpsert('ordens_compra',{...rec,itens:JSON.stringify(rec.itens)}); }catch(e){ console.warn('[OC save]',e?.message||e); } })(); }
+  // `itens` vai como ARRAY, não string: a coluna é jsonb e aceita a estrutura
+  // nativa. Com JSON.stringify o valor virava uma *string* JSON dentro do
+  // jsonb, e aí Array.isArray(oc.itens) dava false na volta — a OC abria sem
+  // itens (e salvar por cima os apagava) e receber não dava entrada no estoque.
+  if(dbOk&&db){ (async()=>{ try{ await dbUpsert('ordens_compra', rec); }catch(e){ console.warn('[OC save]',e?.message||e); } })(); }
   fecharOCFormModal(); renderOCList(); toast(`✅ OC #${rec.numero} salva`);
 }
 
