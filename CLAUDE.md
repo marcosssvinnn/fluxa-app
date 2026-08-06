@@ -952,6 +952,7 @@ curl "https://lbxwclwzeqqtnwvlxsxs.supabase.co/rest/v1/TABELA?select=COLUNA&limi
 - `vistorias.local_id`: ✅ existe (confirmado 2026-08-06).
 - `agendamentos.local_id`: **ainda NÃO existe** no banco de produção (código grava via wrapper resiliente; rodar ALTER para persistir).
 - `vistorias.recomendacoes` (text) e `vistorias.obs_ambientes` (jsonb): ✅ criadas 2026-08-06 — antes eram descartadas silenciosamente pelo `dbUpsert` (achado ao auditar a vistoria real do Infinity Coast Tower, 51 equip./12 ambientes).
+- `orcamentos.proximo_contato` (date), `orcamentos.decisao_prevista` (date), `orcamentos.motivo_perda` (text), `orcamentos.crm_notas` (jsonb): ✅ criadas 2026-08-06 para a Fase 3 do CRM. Todas nullable; gravadas via `dbUpdate`.
 - `orcamentos.origem_cliente`: criada em 2026-06-13. ✅
 
 ### SQL pendente de rodar no Supabase (produção)
@@ -1282,6 +1283,26 @@ O que já funcionava bem e não precisou de mudança: rascunho automático a cad
 ### Botão "Descartar vistoria" (commit `be6b988`)
 
 Marcos reclamou: a restauração automática do rascunho é ótima quando está de fato no meio de uma vistoria, mas era chata quando ele queria desistir — só dava pra "sair" clicando Finalizar. Adicionado botão "🗑️ Descartar" ao lado de "Finalizar Vistoria" (`descartarVistoriaEmAndamento()`), com confirmação via `confirmar()`. Vistoria nova → apaga rascunho local+nuvem e limpa o form. Edição de vistoria já salva (`visEditId` setado) → descarta só as alterações não salvas, mantém o registro original intacto. De quebra corrigiu lacuna: `_limparFormVistoria` não zerava `visEquipSelecionados`, então os chips de equipamento padrão da vistoria anterior ficavam marcados na próxima (mesmo depois de Finalizar) — corrigido para os dois fluxos.
+
+---
+
+## ⚠️ AO TESTAR CONTRA O BANCO REAL: `dbOk` NÃO é `window.dbOk`
+
+Incidente em 2026-08-06 (revertido, sem perda): tentei neutralizar a gravação
+com `window.dbOk=false` antes de testar o modal de CRM. **Não funcionou** —
+`dbOk`, `db` e `todosOrc` são `let` no escopo do script, e `window.dbOk=false`
+só cria uma propriedade nova em `window`, sem afetar a variável que o código
+lê. Resultado: 3 orçamentos reais foram gravados, um deles (#313, R$ 59.826)
+teve o `status` mudado para `recusado`.
+
+**Como testar com segurança** (em ordem de preferência):
+1. Usar registro com `id` começando em `local_` — o código tem guarda explícita
+   `!String(id).startsWith('local_')` antes de todo `dbUpdate`.
+2. Testar as funções puras isoladamente, sem chamar a que grava.
+3. Se precisar mesmo desligar: `dbOk=false` **sem** `window.` (funciona porque
+   `let` no topo do script é alcançável pelo identificador no console).
+
+E **sempre conferir o banco depois** — foi a checagem pós-teste que pegou isto.
 
 ---
 
