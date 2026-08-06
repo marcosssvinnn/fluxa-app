@@ -1279,6 +1279,10 @@ Marcos levantou a preocupação: vistorias grandes como a do Infinity levam a ma
 
 O que já funcionava bem e não precisou de mudança: rascunho automático a cada toque (local + nuvem, tabela `vistoria_rascunhos`), restauração completa ao reabrir (inclui cronômetro do check-in), upload de foto imediato na captura (não só ao salvar), e o registro da vistoria em si nunca fica só na memória — grava no `localStorage` (`fluxa_visitas`) de forma síncrona antes de qualquer coisa assíncrona rodar.
 
+### Botão "Descartar vistoria" (commit `be6b988`)
+
+Marcos reclamou: a restauração automática do rascunho é ótima quando está de fato no meio de uma vistoria, mas era chata quando ele queria desistir — só dava pra "sair" clicando Finalizar. Adicionado botão "🗑️ Descartar" ao lado de "Finalizar Vistoria" (`descartarVistoriaEmAndamento()`), com confirmação via `confirmar()`. Vistoria nova → apaga rascunho local+nuvem e limpa o form. Edição de vistoria já salva (`visEditId` setado) → descarta só as alterações não salvas, mantém o registro original intacto. De quebra corrigiu lacuna: `_limparFormVistoria` não zerava `visEquipSelecionados`, então os chips de equipamento padrão da vistoria anterior ficavam marcados na próxima (mesmo depois de Finalizar) — corrigido para os dois fluxos.
+
 ---
 
 ## Perguntas em aberto (aguardando Marcos responder)
