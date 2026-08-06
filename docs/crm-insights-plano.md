@@ -110,7 +110,18 @@ qualquer decisão acima de R$ 15k.
 
 ## 4. Fases
 
-### Fase 0 — Validade proporcional ao valor  ⬜ código puro, sem schema
+### Fase 0 — Validade proporcional ao valor  ✅ CONCLUÍDA (commit `b2df8c0`)
+
+> Implementada em 2026-08-06. O corte final ficou **trilho OU valor**
+> (`orcCicloLongo`), não só valor: a linha de base mostrou que equipamento
+> converte ~8% em todas as faixas, inclusive abaixo de R$ 15k. Com isso,
+> 5 dos 8 pendentes reais sobreviveram (R$ 130.598), incluindo dois que a
+> regra só-por-valor teria matado (Andresa R$ 9.871 e Julio Cesar R$ 13.127).
+> A decisão do PDF seguiu a recomendação: `validade_data` **não mudou**, então
+> o documento do cliente continua igual — mudou só a vida interna no funil.
+> Linha de base em `docs/crm-baseline-2026-08-06.md`.
+
+Especificação original abaixo, mantida como referência:
 
 - Ampliar `#val` para incluir 30/45/60/90 dias.
 - Sugerir automaticamente pela faixa ao calcular o total (editável sempre):
