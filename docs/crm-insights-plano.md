@@ -165,10 +165,22 @@ Especificação original abaixo, mantida como referência:
 >
 > Teto de 8 cards por trilho na tela (150 sugestões = nenhuma sugestão).
 
-### Fase 3 — Persistir a interação  ⬜ schema aditivo (§5)
+### Fase 3 — Persistir a interação  ✅ CONCLUÍDA (commit `ea91f39`)
 
-Só quando as fases 1–2 estiverem em uso: registrar ligação, adiamento, data de
-assembleia e motivo da perda.
+> Migração aplicada no Supabase em 2026-08-06 (aditiva, tudo nullable):
+> `proximo_contato date`, `decisao_prevista date`, `motivo_perda text`,
+> `crm_notas jsonb`. Não foram criadas `crm_situacao`, `etapa_desde` nem
+> `preco_revalidar`: a primeira dá para derivar, a segunda só faz sentido com
+> estágios formais de funil (que ainda não existem) e a terceira já é
+> calculada por `orcPrecoARevalidar()` — persistir seria duplicar a verdade.
+>
+> Modal `abrirCrmContato()` com 4 desfechos e campos condicionais. Regra de
+> precedência importante: **assembleia a ≤7 dias fura o silêncio** do
+> `proximo_contato`. Sem isso, agendar o retorno para depois da reunião
+> escondia justamente a janela em que dá para influenciar o resultado.
+>
+> Grava via `dbUpdate` (wrapper resiliente) e local-first: o registro entra em
+> memória e no localStorage antes de tentar a rede.
 
 ### Fase 4 — Camada de IA  ⬜ opcional, depois
 
