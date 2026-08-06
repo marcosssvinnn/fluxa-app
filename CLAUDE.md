@@ -1269,6 +1269,16 @@ Nesse registro específico ficaram `null`/`{}` (Marcos escreveu tudo em "Observa
 
 **Melhoria sugerida (não implementada, aguardando decisão do Marcos):** o item crítico "Aquecedor" (Spa junto com Piscina Interna — painel não funciona) ficou sem nenhuma foto anexada, diferente dos outros itens críticos da mesma vistoria. Possível ideia: alertar visualmente quando um equipamento marcado 🔴 crítico é salvo sem foto.
 
+### Reforço de confiabilidade — vistorias longas com rede instável (commit `d59c44c`)
+
+Marcos levantou a preocupação: vistorias grandes como a do Infinity levam a manhã/tarde inteira em campo, muitas vezes com wifi ruim em casa de máquinas/subsolo — risco de perder tudo ou travar ao salvar no fim. Auditei o mecanismo de rascunho/foto (`_salvarRascunhoVis`, `visAddFotoEquip`, `_uploadFotoStorage`, `loadVistoriasRemoto`, `_reenviarPendentes`) e achei 3 brechas reais, corrigidas:
+
+1. **Foto que falhava 2x no upload nunca mais tentava de novo até o "Finalizar"** — mesmo com a rede voltando minutos depois. Nova função `_retryFotosVisEmAndamento()` entra na varredura periódica já existente (a cada 3min / ao reconectar via `_reenviarPendentes`), cobrindo a vistoria mesmo enquanto ainda está sendo preenchida.
+2. **`_pendingSync` era limpo assim que o registro sincronizava**, mesmo com fotos ainda em base64 dentro do jsonb `equipamentos` — essas fotos nunca mais eram tentadas de novo (saíam da fila de reenvio para sempre). Agora só limpa quando todas as fotos da vistoria viraram URL do Storage; `loadVistoriasRemoto` também para de excluir da varredura os registros que já existem remoto (antes só reenviava vistoria 100% nova).
+3. **Rascunho local sem espaço (muitas fotos, cota do navegador estourada)** descartava silenciosamente do rascunho salvo qualquer foto ainda não enviada — sem avisar o técnico. Se o app fechasse nesse momento, a foto se perdia de verdade. Agora mostra toast (limitado a 1x/min) avisando para manter a internet ligada até finalizar.
+
+O que já funcionava bem e não precisou de mudança: rascunho automático a cada toque (local + nuvem, tabela `vistoria_rascunhos`), restauração completa ao reabrir (inclui cronômetro do check-in), upload de foto imediato na captura (não só ao salvar), e o registro da vistoria em si nunca fica só na memória — grava no `localStorage` (`fluxa_visitas`) de forma síncrona antes de qualquer coisa assíncrona rodar.
+
 ---
 
 ## Perguntas em aberto (aguardando Marcos responder)
