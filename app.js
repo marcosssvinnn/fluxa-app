@@ -2963,14 +2963,21 @@ function crmCandidatos(){
     // boca. (Caso real: Ibiza comprou em 02/05 e recebeu 5 ofertas depois.)
     if(equip && comEquip.has(cli)) return;
     if(_crmFbOculto(o.id)) return; // dispensado 3x, ou "liguei" há menos de 3 dias
+    if(_crmAguardando(o)) return;  // follow-up agendado / assembleia ainda longe
     const dt=_orcData(o);
     const dias=dt?Math.max(0,Math.round((hoje-dt)/86400000)):0;
     const jaCliente=jaComprou.has(cli);
     const valor=parseFloat(o.total)||0;
+    const diasDecisao=_crmDiasAteDecisao(o);
+    // Compromisso vencido e assembleia recém-ocorrida furam a fila: no primeiro
+    // caso alguém JÁ tinha decidido ligar; no segundo, a decisão acabou de sair.
+    const atrasado = !!(o.proximo_contato && o.proximo_contato <= _hojeISO());
+    let score=(valor/1000)*(jaCliente?3:1)/Math.max(dias,1);
+    if(atrasado || (diasDecisao!==null && diasDecisao<=7)) score*=10;
     out.push({
-      orc:o, equip, dias, jaCliente, valor,
+      orc:o, equip, dias, jaCliente, valor, diasDecisao, atrasado,
       revalidar:orcPrecoARevalidar(o),
-      score:(valor/1000)*(jaCliente?3:1)/Math.max(dias,1)
+      score
     });
   });
   out.sort((a,b)=>b.score-a.score);
@@ -2981,6 +2988,12 @@ function crmCandidatos(){
 // pessoa aprende o padrão usando — em vez de virar ordem sem contexto.
 function crmMotivos(c){
   const p=[];
+  if(c.atrasado) p.push('⏰ você marcou de ligar — prazo venceu');
+  if(c.diasDecisao!==null && c.diasDecisao!==undefined){
+    if(c.diasDecisao<0)       p.push(`🗳️ a assembleia foi há ${Math.abs(c.diasDecisao)} dia(s) — pergunte o resultado`);
+    else if(c.diasDecisao===0) p.push('🗳️ a assembleia é HOJE');
+    else                       p.push(`🗳️ assembleia em ${c.diasDecisao} dia(s) — confirme se entrou na pauta`);
+  }
   if(c.jaCliente) p.push('✅ já é cliente — fechou antes com vocês');
   if(c.revalidar) p.push('⏳ preço expirado: revalide o valor antes de ligar');
   if(c.equip && c.valor>=50000) p.push('🔴 faixa que nunca fechou (0% acima de R$ 50 mil) — considere propor em etapas');
@@ -2993,6 +3006,10 @@ function crmMotivos(c){
 }
 // Frase pronta: quem não é vendedor trava no telefone. Um script destrava.
 function crmSugestaoFala(c){
+  if(c.diasDecisao!==null && c.diasDecisao!==undefined){
+    if(c.diasDecisao<0)  return 'Vi que a reunião de vocês já aconteceu. Conseguiram avaliar nossa proposta? Fico à disposição para ajustar o que for preciso.';
+    if(c.diasDecisao<=7) return 'A assembleia de vocês está chegando. O nosso orçamento entrou na pauta? Posso mandar um resumo de uma página para ajudar na apresentação.';
+  }
   if(c.equip && c.valor>=50000)
     return 'Esse valor precisa passar por assembleia? Se sim, posso preparar um resumo de uma página para o síndico apresentar na reunião.';
   if(c.equip)
@@ -3015,6 +3032,30 @@ function _crmFbOculto(orcId){
   if(f.liguei_em && (Date.now()-f.liguei_em) < 3*86400000) return true;
   return false;
 }
+// Follow-up agendado para o futuro → não é abandono, é espera deliberada.
+// Cobrar antes da hora é justamente a "chatice" que mata a confiança na fila.
+function _crmAguardando(o){
+  const hojeISO=_hojeISO();
+  // Assembleia a 7 dias ou menos (ou já ocorrida) tem PRECEDÊNCIA sobre
+  // qualquer silêncio: é a única janela em que dá para influenciar o
+  // resultado — confirmar a pauta, mandar material — ou, se já passou, saber
+  // como foi. Sem isto o proximo_contato (que aponta para depois da reunião)
+  // esconderia justamente o momento que importa.
+  const dd=_crmDiasAteDecisao(o);
+  if(dd!==null && dd<=7) return false;
+  if(o.proximo_contato && o.proximo_contato > hojeISO) return true;
+  if(o.decisao_prevista && o.decisao_prevista > _addDias(hojeISO,7)) return true;
+  return false;
+}
+// Dias até a assembleia: negativo = já aconteceu (hora de perguntar o resultado)
+function _crmDiasAteDecisao(o){
+  if(!o.decisao_prevista) return null;
+  const d=new Date(o.decisao_prevista+'T12:00:00'); if(isNaN(d)) return null;
+  // Ambos ao meio-dia: comparar 00:00 com 12:00 daria meio dia de diferença e o
+  // Math.round jogaria "assembleia hoje" para 1 (off-by-one).
+  const h=_hojeZero(); h.setHours(12,0,0,0);
+  return Math.round((d-h)/86400000);
+}
 function crmDispensar(orcId){
   const m=_crmFbLer();
   m[orcId]=m[orcId]||{}; m[orcId].dispensas=(m[orcId].dispensas||0)+1;
@@ -3022,13 +3063,91 @@ function crmDispensar(orcId){
   toast(m[orcId].dispensas>=3 ? '🔕 Não vou mais sugerir este' : 'Ok, tiro da lista de hoje');
   if(typeof renderPainelInsights==='function') renderPainelInsights();
 }
-function crmLiguei(orcId){
-  const m=_crmFbLer();
-  m[orcId]=m[orcId]||{}; m[orcId].liguei_em=Date.now(); delete m[orcId].dispensas;
-  _crmFbSalvar(m);
-  toast('📞 Marcado — volta a aparecer em 3 dias se ainda estiver em aberto');
-  logAcao?.('crm_contato', 'Orçamento '+orcId);
-  if(typeof renderPainelInsights==='function') renderPainelInsights();
+
+// ── Registrar contato (persiste no banco, não só no aparelho) ───────────────
+// O "Liguei" antigo vivia só no localStorage: trocou de celular, perdeu o
+// histórico, e o gestor nunca via o que o vendedor tinha feito. Agora grava em
+// orcamentos (proximo_contato / decisao_prevista / motivo_perda / crm_notas).
+let _crmCtId=null;
+function abrirCrmContato(orcId){
+  const o=(todosOrc||[]).find(x=>String(x.id)===String(orcId));
+  if(!o){ toast('Orçamento não encontrado'); return; }
+  _crmCtId=orcId;
+  const sub=document.getElementById('crm-contato-sub');
+  if(sub) sub.textContent=`${o.cliente||'—'} · ${brl(parseFloat(o.total)||0)}`;
+  setV('crm-ct-resultado','vai_avaliar');
+  setV('crm-ct-assembleia', o.decisao_prevista||'');
+  setV('crm-ct-motivo', o.motivo_perda||'');
+  setV('crm-ct-prox','7');
+  setV('crm-ct-nota','');
+  _crmCtToggle();
+  document.getElementById('crm-contato-bg')?.classList.add('on');
+}
+function fecharCrmContato(){
+  document.getElementById('crm-contato-bg')?.classList.remove('on');
+  _crmCtId=null;
+}
+// Mostra só o campo que importa para o resultado escolhido — um formulário
+// cheio de campo irrelevante é o caminho mais curto para ninguém preencher.
+function _crmCtToggle(){
+  const r=gV('crm-ct-resultado');
+  const mostra=(id,cond)=>{ const el=document.getElementById(id); if(el) el.style.display=cond?'':'none'; };
+  mostra('crm-ct-wrap-assembleia', r==='assembleia');
+  mostra('crm-ct-wrap-motivo',     r==='perdido');
+  // Em assembleia o retorno é derivado da data da reunião (dia seguinte), então
+  // deixar o campo à mostra seria oferecer uma escolha que o código ignora.
+  mostra('crm-ct-wrap-prox',       r!=='perdido' && r!=='assembleia');
+}
+async function salvarCrmContato(){
+  const id=_crmCtId; if(!id) return;
+  const o=(todosOrc||[]).find(x=>String(x.id)===String(id));
+  if(!o){ toast('Orçamento não encontrado'); return; }
+  const res=gV('crm-ct-resultado'), nota=(gV('crm-ct-nota')||'').trim();
+  const patch={};
+
+  if(res==='assembleia'){
+    const d=gV('crm-ct-assembleia');
+    if(!d){ toast('⚠️ Informe a data prevista da assembleia'); return; }
+    patch.decisao_prevista=d;
+    patch.proximo_contato=_addDias(d,1); // cobra no dia seguinte à reunião
+  } else if(res==='perdido'){
+    const mt=gV('crm-ct-motivo');
+    if(!mt){ toast('⚠️ Informe o motivo da perda'); return; }
+    patch.motivo_perda=mt;
+    patch.status='recusado';
+    patch.proximo_contato=null;
+  } else {
+    const dias=gV('crm-ct-prox');
+    patch.proximo_contato = dias ? _addDias(_hojeISO(), parseInt(dias)) : null;
+  }
+
+  const notas=Array.isArray(o.crm_notas)?o.crm_notas.slice():[];
+  notas.push({ em:new Date().toISOString(), por:(getSessao()?.nome||''), resultado:res, texto:nota||null });
+  patch.crm_notas=notas.slice(-30); // histórico recente basta; evita inchar a linha
+
+  // local primeiro (o app é local-first), banco em seguida via wrapper resiliente
+  Object.assign(o, patch);
+  lsOrcAtualizar(id, patch);
+  fecharCrmContato();
+  toast('✅ Contato registrado');
+  logAcao?.('crm_contato', `${o.cliente||''} — ${res}`);
+  renderPainelInsights?.();
+
+  if(dbOk&&db&&!String(id).startsWith('local_')){
+    try{
+      const r=await dbUpdate('orcamentos', patch, 'id', id);
+      if(r&&r.error){ console.warn('[crmContato]', r.error.message); toast('⚠️ Salvo no aparelho, mas não sincronizou'); }
+    }catch(e){
+      console.warn('[crmContato]', e?.message||e);
+      toast('⚠️ Salvo no aparelho, mas não sincronizou');
+    }
+  }
+}
+function _hojeISO(){ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function _addDias(iso, n){
+  const d=new Date(iso+'T12:00:00'); if(isNaN(d)) return null;
+  d.setDate(d.getDate()+(parseInt(n)||0));
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
 // ── Painel de Insights (page-insights) ──────────────────────────────────────
@@ -3061,7 +3180,7 @@ function _crmCardHTML(c){
     <div class="crm-motivos">${motivos}</div>
     <div class="crm-fala">💬 "${esc(crmSugestaoFala(c))}"</div>
     <div class="crm-acts">
-      <button class="tb g" onclick="crmLiguei('${c.orc.id}')">📞 Liguei</button>
+      <button class="tb g" onclick="abrirCrmContato('${c.orc.id}')">📞 Registrar contato</button>
       <button class="tb" onclick="verOrcPDF('${c.orc.id}')">👁 Ver orçamento</button>
       <button class="tb d" onclick="crmDispensar('${c.orc.id}')">✕ Dispensar</button>
     </div>

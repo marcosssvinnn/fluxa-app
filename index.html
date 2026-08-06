@@ -2280,6 +2280,63 @@
   </div>
 </div>
 
+<!-- ══ MODAL: Registrar contato do CRM ══ -->
+<div class="modal-bg" id="crm-contato-bg" role="dialog" aria-modal="true" aria-labelledby="crm-contato-titulo" onclick="if(event.target===this)fecharCrmContato()">
+  <div class="modal" style="max-width:440px">
+    <h3 id="crm-contato-titulo">📞 Registrar contato</h3>
+    <div style="font-size:13px;color:var(--gray);margin-bottom:14px" id="crm-contato-sub"></div>
+
+    <div class="fl" style="margin-bottom:12px">
+      <label>Como foi?</label>
+      <select id="crm-ct-resultado" onchange="_crmCtToggle()">
+        <option value="sem_resposta">Não atendeu / sem resposta</option>
+        <option value="vai_avaliar">Falei — vai avaliar</option>
+        <option value="assembleia">Falei — vai para assembleia/reunião</option>
+        <option value="perdido">Perdido</option>
+      </select>
+    </div>
+
+    <div class="fl" id="crm-ct-wrap-assembleia" style="margin-bottom:12px;display:none">
+      <label>Data prevista da decisão (assembleia)</label>
+      <input type="date" id="crm-ct-assembleia">
+      <div style="font-size:11px;color:var(--gray);margin-top:4px">Enquanto não chegar a data, este orçamento não fica te cobrando na fila.</div>
+    </div>
+
+    <div class="fl" style="margin-bottom:12px" id="crm-ct-wrap-motivo">
+      <label>Motivo da perda</label>
+      <select id="crm-ct-motivo">
+        <option value="">Selecione…</option>
+        <option value="preco">Preço</option>
+        <option value="concorrente">Escolheu concorrente</option>
+        <option value="adiou">Adiou / sem verba agora</option>
+        <option value="sem_resposta">Nunca respondeu</option>
+        <option value="outro">Outro</option>
+      </select>
+    </div>
+
+    <div class="fl" style="margin-bottom:12px" id="crm-ct-wrap-prox">
+      <label>Voltar a falar em</label>
+      <select id="crm-ct-prox">
+        <option value="3">3 dias</option>
+        <option value="7" selected>1 semana</option>
+        <option value="15">15 dias</option>
+        <option value="30">30 dias</option>
+        <option value="">Não reagendar</option>
+      </select>
+    </div>
+
+    <div class="fl">
+      <label>Anotação (opcional)</label>
+      <textarea id="crm-ct-nota" rows="2" placeholder="Ex.: síndico pediu para retornar depois da reunião do dia 15"></textarea>
+    </div>
+
+    <div class="modal-acts">
+      <button class="btn-sec" onclick="fecharCrmContato()">Cancelar</button>
+      <button class="btn-pri" onclick="salvarCrmContato()">Salvar</button>
+    </div>
+  </div>
+</div>
+
 <!-- ══ MODAL: Criar OS ao aprovar orçamento ══ -->
 <div class="modal-bg" id="aprov-os-bg" onclick="if(event.target===this)fecharAprovOS()">
   <div class="modal" style="max-width:460px">
