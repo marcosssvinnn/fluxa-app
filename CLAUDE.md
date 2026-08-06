@@ -954,17 +954,20 @@ curl "https://lbxwclwzeqqtnwvlxsxs.supabase.co/rest/v1/TABELA?select=COLUNA&limi
 - `vistorias.recomendacoes` (text) e `vistorias.obs_ambientes` (jsonb): ✅ criadas 2026-08-06 — antes eram descartadas silenciosamente pelo `dbUpsert` (achado ao auditar a vistoria real do Infinity Coast Tower, 51 equip./12 ambientes).
 - `orcamentos.proximo_contato` (date), `orcamentos.decisao_prevista` (date), `orcamentos.motivo_perda` (text), `orcamentos.crm_notas` (jsonb): ✅ criadas 2026-08-06 para a Fase 3 do CRM. Todas nullable; gravadas via `dbUpdate`.
 - `clientes.tipo` (text) e `agendamentos.local_id` (text): ✅ criadas 2026-08-06. A primeira o app gravava desde sempre (select `cli-new-tipo`) e era descartada em silêncio — útil agora para o CRM distinguir condomínio de residência.
-- `fornecedores` e `ordens_compra`: ❌ **ainda não existem** — ver `migracao-compras.sql`.
+- `fornecedores` e `ordens_compra`: ✅ criadas 2026-08-06 (`migracao-compras.sql`). ⚠️ O app grava `ordens_compra.itens` com `JSON.stringify` num campo `jsonb`, então o valor fica como string JSON; a leitura já faz o parse defensivo (`typeof o.itens==='string'?JSON.parse(...)`). Funciona, mas impede consultar o conteúdo por SQL.
 - `orcamentos.origem_cliente`: criada em 2026-06-13. ✅
 
 ### SQL pendente de rodar no Supabase (produção)
 
 ✅ `agendamentos.local_id` e `clientes.tipo` foram criadas em 2026-08-06.
 
-🔴 **Pendente:** `migracao-compras.sql` — cria `fornecedores` e `ordens_compra`.
-A feature de compras existe inteira no app (tela, cadastro, OC, recebimento) mas
-as tabelas nunca foram criadas: hoje tudo vive só no localStorage e o app dispara
-~48 erros HTTP 400 por carregamento tentando lê-las. Rodar no SQL Editor.
+✅ `migracao-compras.sql` — `fornecedores` e `ordens_compra` criadas em
+2026-08-06 (RLS ativo, policy `anon full access`). Testado ponta a ponta: leitura
+e escrita pela UI gravam no banco e no localStorage. Com isso acabaram os ~48
+erros HTTP 400 por carregamento que o app disparava tentando lê-las.
+
+⚠️ O que já estava no localStorage **não sobe sozinho** — fornecedores/OCs
+cadastrados antes só sincronizam quando forem salvos de novo.
 
 ---
 
