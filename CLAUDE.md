@@ -1285,6 +1285,37 @@ Marcos reclamou: a restauração automática do rascunho é ótima quando está 
 
 ---
 
+## 📊 Painel de Insights — landing do gestor (2026-08-06, commit `3c796d7`)
+
+Nova `page-insights`: "Dinheiro do mês" (4 KPIs, independente do filtro de mês
+do Histórico — sempre mês corrente) + **fila de follow-up em dois trilhos**
+(equipamento × serviço, nunca uma lista única — ver `orcEhEquipamento`).
+Vira a landing de gestor/master no login (era `go('history')`, agora
+`go('insights')`); técnico e vendas não mudam.
+
+Motor 100% JS puro, sem schema, sem backend, sem IA — `crmCandidatos()` em
+`app.js`, sobre `todosOrc` já em memória:
+
+- **Filtro negativo**: quem já comprou equipamento não recebe nova oferta do
+  mesmo trilho (`_crmConjuntosCliente`). Cliente casado por **nome
+  normalizado** — este banco não tem `cliente_id` (§ identidade do cliente,
+  `docs/crm-insights-plano.md`); funciona só dentro de `orcamentos`.
+- **Teto de 8 cards por trilho** na tela; resto some no rodapé "+N outros".
+- **Feedback local** (`fluxa_crm_feedback`, sem schema): dispensou 3× → some
+  pra sempre; "Liguei" → some por 3 dias.
+- `crmMotivos()`/`crmSugestaoFala()`: mostra o porquê + frase pronta — público
+  são técnicos que também orçam, não vendedores profissionais.
+
+⚠️ Nav mobile (`.mob-nb`) já estava no teto de 5 slots — Insights **não** entrou
+na bottom bar, fica em ☰ Mais (sidebar) como Estoque/Despesas/Produtividade.
+`.hdr-nav` (desktop) é `display:none!important` por design — sidebar é o nav
+real; não é bug se `nb-insights` aparecer oculto em devtools.
+
+Prévia da fila com dados reais (ponto de parada validado antes de construir):
+`docs/crm-fila-followup-previa.md`.
+
+---
+
 ## 💰 Validade de preço ≠ vida no funil (2026-08-06, commit `b2df8c0`)
 
 Dois conceitos que dividiam o mesmo campo e agora são distintos:
