@@ -30,8 +30,11 @@ arquivos seus. `git add` sempre nominal — nunca `git add -A` / `git add .`.
 | Ordem de Entrega / tela inicial Insights | A | ✅ no ar |
 | 1.1 Contas a receber — captura na aprovação | A | ✅ no ar (`2a4b82b`) |
 | 1.1b Painel de recebíveis (aging/PMR/baixa) | A | ✅ no ar (`959fc9e`) |
-| 1.2 Despesas com centro de custo | A | 🔨 em andamento |
-| 2.1 / 2.2 Custo congelado + cobertura de `produto_id` | A | ⏳ fila |
+| 1.2 Despesas com centro de custo | A | ✅ no ar (`474bdd9`) |
+| 2.2 Cobertura de `produto_id` | A | ✅ no ar (`406c39c`) |
+| 1.3 DRE por unidade | A | 🔨 em andamento |
+| 2.1 Custo congelado na venda | A | ⏳ depois que a cobertura subir |
+| 2.3 Mão de obra como custo | A | ❌ **sem lastro** — `duracao_min`/check-in zerados nas 118 OS |
 | 3 Identidade do cliente (tela de confirmação) | A | ⏳ depende do relatório da B |
 | Relatório de deduplicação de clientes | B | ✅ entregue (`65e1ce1`) |
 | Baseline operacional/financeiro | B | ✅ entregue (`ef778c8`) |
