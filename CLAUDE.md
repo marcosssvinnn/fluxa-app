@@ -1338,6 +1338,35 @@ E **sempre conferir o banco depois** — foi a checagem pós-teste que pegou ist
 
 ---
 
+## 📦 Estoque — o que foi destravado (2026-08-07, commit `5355d6e`)
+
+**A lógica de compras já existia inteira e estava capada por 4 colunas ausentes**
+(`fornecedor_id`, `lead_time_dias`, `estoque_seguranca`, `lote_minimo`). O form
+tem os campos, `salvarProduto` grava, e o `dbUpsert` removia em silêncio.
+Consequência: tudo caía em "Sem fornecedor definido", o botão 📲 WhatsApp nunca
+aparecia e `pontoDePedido()` dava sempre 0. ✅ Criadas — `migracao-produtos-compras.sql`.
+
+- **`_estoqueNegativos()`** — alerta no topo da tela de Estoque. Saldo negativo é
+  inconsistência, não operação. Inclui **inativos** de propósito: desativar o
+  produto não zera o saldo, então o furo pode ter sido "resolvido" só sumindo da
+  lista (2 dos 3 casos de ago/2026 estavam assim).
+- **Aba `💲 Sem custo`** + aviso no KPI "Valor em estoque": produto sem custo
+  entra como R$ 0 e derruba o valor total sem avisar (226 sem custo, 29 com saldo).
+
+### Modelo de operação da Forthemp (importante para não “consertar” o que não é problema)
+É **misto**: químicos e itens de consumo têm estoque real; equipamento caro
+(trocador, motobomba) é **vendido primeiro e comprado depois**. Além disso, o
+cadastro de produtos serve como **catálogo para orçar sem redigitar** — por isso
+produto "sem movimento" **não é lixo** e NÃO deve ser arquivado em massa.
+
+⚠️ **Saída sub-registrada:** 303 entradas contra 40 saídas; 118 OS com apenas 1
+concluída (a baixa dispara no check-out) e o campo "Materiais utilizados" da OS é
+texto livre, vazio nas 118. Só ~30% das linhas de orçamento aprovado têm
+`produto_id`, e só essas movem estoque. Falta um caminho de **baixa rápida de
+material** — pendente, ver conversa de 2026-08-07.
+
+---
+
 ## 📊 Insights = PIPELINE, não contabilidade (2026-08-07, commit `0ebbfbb`)
 
 Os 4 KPIs da `page-insights` eram cópia de `atualizarDash()` e recortados por
