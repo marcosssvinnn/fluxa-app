@@ -1353,6 +1353,26 @@ aparecia e `pontoDePedido()` dava sempre 0. ✅ Criadas — `migracao-produtos-c
 - **Aba `💲 Sem custo`** + aviso no KPI "Valor em estoque": produto sem custo
   entra como R$ 0 e derruba o valor total sem avisar (226 sem custo, 29 com saldo).
 
+### ⚡ Baixa rápida de material (2026-08-07, commit `30a1970`)
+
+`abrirBaixaRapida()` — busca produto → quantidade → motivo → confirma, **sem
+depender de orçamento nem de OS concluída**. Botão na tela de Estoque **e em
+"Minhas OS"**: o técnico consome material em campo e não tem acesso ao Estoque,
+então antes não existia caminho nenhum para ele dar baixa.
+
+`BAIXA_MOTIVOS` grava o porquê em `ref` (`baixa:venda`, `baixa:uso_servico`,
+`baixa:perda`, `baixa:uso_interno`) — sem isso "saiu 3 cloros" não diz se a
+empresa ganhou ou perdeu. **Venda** pede o valor e mostra a margem na hora.
+
+- Saldo negativo **não bloqueia** (no modelo sob encomenda é o que joga o item na
+  lista de compras), mas avisa antes de confirmar.
+- Com **"Todas" selecionado a baixa não grava** — evita lançar na loja errada,
+  mesma classe do bug de ajuste corrigido em 2026-08-06.
+
+⚠️ **Ao limpar dado de teste: apague o localStorage ANTES do banco.** Deletar só
+no banco não resolve — o reenvio de pendentes ressuscita o registro a partir do
+cache local (aconteceu nesta sessão).
+
 ### Modelo de operação da Forthemp (importante para não “consertar” o que não é problema)
 É **misto**: químicos e itens de consumo têm estoque real; equipamento caro
 (trocador, motobomba) é **vendido primeiro e comprado depois**. Além disso, o
