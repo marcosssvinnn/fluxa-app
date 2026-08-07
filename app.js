@@ -10367,7 +10367,7 @@ function produtoById(id){ return todosProdutos.find(p=>p.id===id)||null; }
 function movRefExiste(ref){ return todosMovEstoque.some(m=>m.ref===ref); }
 
 // Registra um movimento (local imediato + sync em background, resiliente).
-function registrarMovimento({produto_id, tipo, quantidade, custo_unit, motivo, ref, lojaId}){
+function registrarMovimento({produto_id, tipo, quantidade, custo_unit, motivo, motivoCod, ref, lojaId}){
   if(!produto_id){ console.warn('[mov] produto_id ausente — movimento ignorado', {tipo,ref}); return null; }
   const _TIPOS_VALIDOS=[..._TIPOS_FISICOS,..._TIPOS_RESERVA];
   if(!_TIPOS_VALIDOS.includes(tipo)){ console.warn('[mov] tipo inválido:', tipo, '— esperado:', _TIPOS_VALIDOS.join('|')); return null; }
@@ -10378,7 +10378,7 @@ function registrarMovimento({produto_id, tipo, quantidade, custo_unit, motivo, r
     produto_id, tipo,
     quantidade: parseFloat(quantidade)||0,
     custo_unit: custo_unit!=null?parseFloat(custo_unit)||0:null,
-    motivo: motivo||'', ref: ref||null,
+    motivo: motivo||'', motivo_cod: motivoCod||null, ref: ref||null,
     usuario: s?.nome||'', data: new Date().toISOString()
   };
   todosMovEstoque.unshift(mov);
@@ -11514,6 +11514,12 @@ function abrirMovModal(produtoId, tipo){
     `<span style="color:var(--gray)">${tipo==='ajuste'?'Saldo registrado':'Em estoque agora'}: <strong>${_saldoTxt}</strong></span><br>`+
     `<span style="font-size:11px;color:var(--gray);font-style:italic;margin-top:3px;display:block">${cfg.dica}</span>`;
   setV('mov-qtd',''); setV('mov-motivo','');
+  // Motivo padronizado só faz sentido no ajuste (entrada/saída já têm tipo próprio).
+  // Texto livre gerou 15 grafias diferentes para 21 ajustes — sem código não dá
+  // para separar perda real de erro de contagem.
+  const _mcw=document.getElementById('mov-motivo-cod-wrap');
+  if(_mcw) _mcw.style.display = tipo==='ajuste' ? '' : 'none';
+  setV('mov-motivo-cod','');
   document.getElementById('mov-qtd-label').textContent = tipo==='ajuste' ? 'Quantidade real contada agora' : 'Quantidade';
   const cw=document.getElementById('mov-custo-wrap'); if(cw) cw.style.display = tipo==='entrada' ? '' : 'none';
   setV('mov-custo', p.custo?String(p.custo):'');
@@ -11794,12 +11800,14 @@ function confirmarMovimento(){
   } else if(_movTipo==='saida'){
     registrarMovimento({produto_id:_movProdId, tipo:'saida', quantidade:-Math.abs(val), custo_unit:p.custo, motivo:motivo||'Saída manual', lojaId:lojaAlvo});
   } else { // ajuste: diferença entre saldo físico contado e atual
+    const motivoCod=(gV('mov-motivo-cod')||'').trim();
+    if(!motivoCod){ toast('⚠️ Escolha o que aconteceu'); document.getElementById('mov-motivo-cod')?.focus(); return; }
     if(!motivo){ toast('⚠️ Informe o motivo do ajuste'); document.getElementById('mov-motivo')?.focus(); return; }
     // saldo DA LOJA ALVO — nunca o total do grupo, senão a diferença sai errada
     const atual=_fisicaProdutoNaLoja(_movProdId, lojaAlvo);
     const diff=val-atual;
     if(diff===0){ toast('Saldo já está correto'); fecharMovModal(); return; }
-    registrarMovimento({produto_id:_movProdId, tipo:'ajuste', quantidade:diff, custo_unit:p.custo, motivo:motivo, lojaId:lojaAlvo});
+    registrarMovimento({produto_id:_movProdId, tipo:'ajuste', quantidade:diff, custo_unit:p.custo, motivo:motivo, motivoCod:motivoCod, lojaId:lojaAlvo});
   }
   fecharMovModal();
   renderEstoque();
@@ -12104,7 +12112,7 @@ async function salvarOC(status){
   let numero;
   if(!editId){ const max=todasOC.reduce((a,o)=>Math.max(a,o.numero||0),0); numero=max+1; }
   const existente=todasOC.find(o=>o.id===editId);
-  const rec={id, loja_id:lojaAtiva||LOJA_PADRAO_ID, numero:numero||existente?.numero||1, fornecedor_id:fornId, data:gV('oc-data')||_hojeLocal(), status: existente?.status==='recebida'?'recebida':(status||'rascunho'), itens:_ocEditItens, total, obs:(gV('oc-obs')||'').trim(), data_criacao:existente?.data_criacao||new Date().toISOString()};
+  const rec={id, loja_id:lojaAtiva||LOJA_PADRAO_ID, numero:numero||existente?.numero||1, fornecedor_id:fornId, data:gV('oc-data')||_hojeLocal(), data_prevista:gV('oc-data-prevista')||null, status: existente?.status==='recebida'?'recebida':(status||'rascunho'), itens:_ocEditItens, total, obs:(gV('oc-obs')||'').trim(), data_criacao:existente?.data_criacao||new Date().toISOString()};
   const idx=todasOC.findIndex(o=>o.id===id);
   if(idx>=0) todasOC[idx]=rec; else todasOC.unshift(rec);
   lsOCSalvar(todasOC);
@@ -12204,7 +12212,7 @@ function confirmarBalanco(){
   confirmar(`Registrar ${comDiff.length} ajuste${comDiff.length!==1?'s':''} de inventário em ${esc(getLojaNome(lojaAlvo)||lojaAlvo)}? Esta ação não pode ser desfeita.`, ()=>{
     comDiff.forEach(([id,v])=>{
       const fis=_fisicaProdutoNaLoja(id,lojaAlvo); const diff=(v||0)-fis;
-      registrarMovimento({produto_id:id, tipo:'ajuste', quantidade:diff, custo_unit:produtoById(id)?.custo||0, motivo:'Balanço de inventário '+new Date().toLocaleDateString('pt-BR'), lojaId:lojaAlvo});
+      registrarMovimento({produto_id:id, tipo:'ajuste', quantidade:diff, custo_unit:produtoById(id)?.custo||0, motivo:'Balanço de inventário '+new Date().toLocaleDateString('pt-BR'), motivoCod:'inventario', lojaId:lojaAlvo});
     });
     fecharBalancoModal(); renderEstoque(); toast(`✅ ${comDiff.length} ajuste${comDiff.length!==1?'s':''} registrado${comDiff.length!==1?'s':''}`);
   }, 'Confirmar balanço');
