@@ -1353,6 +1353,33 @@ aparecia e `pontoDePedido()` dava sempre 0. ✅ Criadas — `migracao-produtos-c
 - **Aba `💲 Sem custo`** + aviso no KPI "Valor em estoque": produto sem custo
   entra como R$ 0 e derruba o valor total sem avisar (226 sem custo, 29 com saldo).
 
+### 💸 APROVAR = SAIR DO ESTOQUE (2026-08-07, commit `b66eb92`)
+
+**O modelo mudou.** Não existe mais reserva: aprovar o orçamento **dá baixa
+direta**. O antigo reserva→entrega exigia uma segunda confirmação que não
+acontecia — 95% reservavam, 7% baixavam (a baixa dependia de concluir OS, e só
+1 de 12 era concluída).
+
+`sincronizarSaidaOrcamento()` reconcilia de forma idempotente (desejado − já
+saiu = delta). Logo: **reverter devolve o material sozinho** e rodar duas vezes
+não duplica. `sincronizarBaixaOrcamento` é o ponto de entrada e chama esta.
+
+- **Sem saldo → negativo de propósito.** É o que joga o item na lista de compras
+  como "encomenda". O modelo da casa é vender primeiro e comprar depois.
+- **Não duplica** com `entregarOrcamento` nem com OS concluída: todos usam o ref
+  `baixa:orc:<id>:<pid>`, que `_entregueProdutoOrc` já checa.
+- **Estorno volta para a MESMA loja de onde saiu** (`lojaDaSaida`), nunca para a
+  loja da sessão — foi esse detalhe que espalhou saldo errado no caso #284.
+- **Legado convertido item a item, nunca em massa**: ao tocar num orçamento
+  aprovado que ainda tem reserva antiga, solta a reserva e deixa só a saída
+  (senão o disponível é penalizado duas vezes). Os 179 legados aguardam
+  conferência da equipe.
+
+⚠️ Reservas antigas presas vinham de um bug já corrigido: a reconciliação rodava
+sobre cache defasado, lia orçamento ausente como "órfão" e liberava — repetindo
+a cada sessão e empurrando o reservado a −186. Sintoma clássico no ledger:
+motivo `Libera reserva #00?` e liberação numa loja diferente da reserva.
+
 ### ⚡ Baixa rápida de material (2026-08-07, commit `30a1970`)
 
 `abrirBaixaRapida()` — busca produto → quantidade → motivo → confirma, **sem
