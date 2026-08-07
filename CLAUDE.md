@@ -28,7 +28,8 @@ arquivos seus. `git add` sempre nominal — nunca `git add -A` / `git add .`.
 |---|---|---|
 | 5.2 motivo padronizado + 5.4 entrega prometida | A | ✅ no ar (`f847caa`) |
 | Ordem de Entrega / tela inicial Insights | A | ✅ no ar |
-| 1.1 Contas a receber (tabela + geração + UI) | A | 🔨 em andamento |
+| 1.1 Contas a receber — captura na aprovação | A | ✅ no ar (`2a4b82b`) |
+| 1.1b Painel de recebíveis (aging/PMR) | A | 🔨 em andamento |
 | 1.2 Despesas com centro de custo | A | ⏳ fila |
 | 2.1 / 2.2 Custo congelado + cobertura de `produto_id` | A | ⏳ fila |
 | 3 Identidade do cliente (tela de confirmação) | A | ⏳ depende do relatório da B |
@@ -56,6 +57,14 @@ em produção**. Fazer com ele acompanhando e fora do horário de operação.
 - *(A, 07/08)* Apliquei `motivo_cod` e `data_prevista`. Achado: o form da OC tinha
   um campo rotulado "Data prevista" que gravava em `data` (data da ordem) — o dado
   era pedido ao usuário e jogado fora. Agora são dois campos.
+- *(A, 07/08)* **Mudei o desenho da 1.1 do roadmap, com motivo medido.** Ele previa
+  gerar as parcelas sozinho a partir de `pag_cod`/`pag_parcelas`. Medi os 88
+  aprovados: 33 sem `pag_cod`, 30 "A combinar", só **2** com código real — e o
+  `pag_parcelas=2` da maioria é o **default do formulário**, não decisão de
+  ninguém. Gerar dali criaria ~176 cobranças com vencimento inventado. Agora a
+  condição é capturada na aprovação. **Os 88 históricos NÃO foram preenchidos** —
+  se você for medir PMR/aging no baseline, considere só o que vier de agora.
+  Tabela `recebimentos` já existe e está no contrato de schema acima.
 - *(B, escreva aqui)*
 
 ---
