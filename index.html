@@ -1659,16 +1659,50 @@
     <button class="btn-voltar" onclick="voltar()">← Voltar</button>
     <div class="card" id="desp-form-card" style="display:none">
       <div class="ct">Nova Despesa <button onclick="fecharFormDesp()" aria-label="Fechar" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;line-height:1">×</button></div>
+      <!-- Natureza da despesa. Antes o formulário exigia técnico, então aluguel,
+           salário, contador e software não cabiam — e a tabela ficou com 0
+           registros, o que impede qualquer cálculo de margem. -->
+      <div class="row f1"><div class="fl"><label>Natureza</label>
+        <select id="desp-natureza" onchange="_despNatureza()">
+          <option value="campo">De campo — técnico gastou em serviço</option>
+          <option value="empresa">Da empresa — aluguel, salário, software…</option>
+        </select></div></div>
       <div class="row">
-        <div class="fl"><label>Técnico</label><select id="desp-tec"><option value="">Selecione…</option></select></div>
-        <div class="fl"><label>Data</label><input type="date" id="desp-data"></div>
+        <div class="fl" id="desp-wrap-tec"><label>Técnico</label><select id="desp-tec"><option value="">Selecione…</option></select></div>
+        <div class="fl"><label id="desp-lbl-data">Data</label><input type="date" id="desp-data"></div>
+      </div>
+      <div class="row" id="desp-wrap-empresa" style="display:none">
+        <div class="fl"><label>Centro de custo</label>
+          <select id="desp-centro">
+            <option value="fixo">Fixo — não muda com a venda</option>
+            <option value="variavel">Variável — acompanha a venda</option>
+            <option value="administrativo">Administrativo</option>
+            <option value="campo">Campo</option>
+          </select></div>
+        <div class="fl"><label>Competência</label><input type="month" id="desp-competencia"></div>
+      </div>
+      <div class="row f1" id="desp-wrap-recorrente" style="display:none">
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;color:var(--c2)">
+          <input type="checkbox" id="desp-recorrente" style="width:17px;height:17px;cursor:pointer">
+          <span>Repete todo mês — o app lembra de lançar no mês seguinte</span>
+        </label>
       </div>
       <div class="row">
         <div class="fl"><label>Tipo</label>
           <select id="desp-tipo">
             <option value="">Selecione…</option>
-            <option>Combustível</option><option>Pedágio</option>
-            <option>Material</option><option>Alimentação</option><option>Outro</option>
+            <optgroup label="De campo" id="desp-grp-campo">
+              <option>Combustível</option><option>Pedágio</option>
+              <option>Material</option><option>Alimentação</option>
+            </optgroup>
+            <optgroup label="Da empresa" id="desp-grp-empresa">
+              <option>Aluguel</option><option>Salário / pró-labore</option>
+              <option>Energia / água</option><option>Internet / telefone</option>
+              <option>Software / sistema</option><option>Contador</option>
+              <option>Imposto / taxa</option><option>Manutenção / veículo</option>
+              <option>Marketing</option>
+            </optgroup>
+            <option>Outro</option>
           </select>
         </div>
         <div class="fl"><label>Valor (R$)</label><input type="number" id="desp-valor" placeholder="0,00" step="0.01" min="0" inputmode="decimal"></div>
@@ -1676,7 +1710,7 @@
       <div class="row f1">
         <div class="fl"><label>Descrição</label><input type="text" id="desp-desc" placeholder="Ex: Gasolina ida/volta Camboriú"></div>
       </div>
-      <div class="row f1" style="margin-bottom:4px">
+      <div class="row f1" style="margin-bottom:4px" id="desp-wrap-os">
         <div class="fl"><label>OS Vinculada (opcional)</label>
           <input type="text" id="desp-os-num" placeholder="Número da OS (ex: 042)" list="desp-os-list" oninput="filtrarOSDesp(this.value)">
           <datalist id="desp-os-list"></datalist>
@@ -1695,8 +1729,10 @@
       <button class="btn-primary" onclick="salvarDespesa()">💾 Registrar Despesa</button>
     </div>
 
+    <div id="desp-recorrentes-aviso" style="display:none"></div>
+
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
-      <div style="font-size:18px;font-weight:800;color:var(--c2)">💸 Despesas de Campo</div>
+      <div style="font-size:18px;font-weight:800;color:var(--c2)">💸 Despesas</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <select id="desp-filtro-tec" onchange="renderDespesas()" style="padding:7px 12px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Inter',sans-serif;outline:none">
           <option value="">Todos os técnicos</option>

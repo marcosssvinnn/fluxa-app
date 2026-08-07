@@ -1725,7 +1725,7 @@ function go(p){
   if(p==='equipamentos') loadEquipamentos();
   if(p==='agendamentos'){ loadAgendamentos(); populaTecSelects(); initCal(); renderCal(); }
   if(p==='recebiveis') loadRecebiveisPage();
-  if(p==='despesas') loadDespesas();
+  if(p==='despesas'){ loadDespesas(); setTimeout(renderAvisoRecorrentes,300); }
   if(p==='estoque') loadEstoque();
   if(p==='produtividade'){ loadProdutividade(); setTimeout(renderRelatorioFinanceiro,300); }
   if(p==='usuarios') loadUsuarios();
@@ -6219,9 +6219,16 @@ function renderProd(){
 // ══════════════════════════════════════════════════
 let todasDesp = [], despFotoB64 = '';
 
-function abrirFormDesp(){
+function abrirFormDesp(natureza){
+  ['desp-valor','desp-desc','desp-os-num'].forEach(id=>setV(id,''));
+  const _t=document.getElementById('desp-tipo'); if(_t) _t.value='';
+  despFotoB64='';
   document.getElementById('desp-form-card').style.display='block';
   document.getElementById('desp-data').value=_hojeLocal();
+  setV('desp-competencia', _hojeLocal().slice(0,7));
+  const rc=document.getElementById('desp-recorrente'); if(rc) rc.checked=false;
+  if(natureza) setV('desp-natureza', natureza);
+  _despNatureza();
   populaDespTecSelect();
   filtrarOSDesp('');
   document.getElementById('desp-form-card').scrollIntoView({behavior:'smooth'});
@@ -6229,6 +6236,8 @@ function abrirFormDesp(){
 function fecharFormDesp(){
   document.getElementById('desp-form-card').style.display='none';
   despFotoB64='';
+  ['desp-valor','desp-desc','desp-os-num'].forEach(id=>setV(id,''));
+  const t=document.getElementById('desp-tipo'); if(t) t.value='';
 }
 
 function populaDespTecSelect(){
@@ -6267,23 +6276,102 @@ function carregarFotoDesp(inp){
 }
 function removerFotoDesp(){ despFotoB64=''; document.getElementById('desp-foto-prev').style.display='none'; document.getElementById('desp-foto-lbl').textContent='Fotografar comprovante'; document.getElementById('desp-btn-rm-foto').style.display='none'; document.getElementById('desp-foto-input').value=''; }
 
+// ── Despesa: campo × empresa ─────────────────────────────────────────
+// O formulário só aceitava despesa de campo (exigia técnico), então aluguel,
+// salário, contador e software não cabiam — e a tabela ficou com 0 registros.
+// Sem despesa não há margem, só faturamento bruto.
+function _despNatureza(){
+  const emp = gV('desp-natureza')==='empresa';
+  const mostra=(id,v)=>{ const e=document.getElementById(id); if(e) e.style.display=v?'':'none'; };
+  mostra('desp-wrap-tec', !emp);
+  mostra('desp-wrap-os', !emp);
+  mostra('desp-wrap-empresa', emp);
+  mostra('desp-wrap-recorrente', emp);
+  const gc=document.getElementById('desp-grp-campo'), ge=document.getElementById('desp-grp-empresa');
+  if(gc) gc.style.display = emp?'none':'';
+  if(ge) ge.style.display = emp?'':'none';
+  const lbl=document.getElementById('desp-lbl-data');
+  if(lbl) lbl.textContent = emp ? 'Data de pagamento' : 'Data';
+  // competência default = mês da data informada (aluguel de agosto pago em
+  // setembro continua pertencendo a agosto — por isso os dois campos existem)
+  if(emp && !gV('desp-competencia')) setV('desp-competencia', (gV('desp-data')||_hojeLocal()).slice(0,7));
+  const tipo=document.getElementById('desp-tipo'); if(tipo) tipo.value='';
+}
+
+// Despesa fixa que depende de digitação mensal vira tabela vazia. Aqui o app
+// compara o mês anterior com o atual e mostra o que ficou para trás.
+function _despRecorrentesPendentes(){
+  const hoje=_hojeLocal(), mesAtual=hoje.slice(0,7);
+  const d=new Date(parseInt(mesAtual.slice(0,4)), parseInt(mesAtual.slice(5,7))-1, 1);
+  d.setMonth(d.getMonth()-1);
+  const mesAnt=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+  const lista=filtrarPorLoja(todasDesp||[]);
+  const doMes=m=>lista.filter(x=>x.recorrente && (x.competencia||String(x.data||'').slice(0,7))===m);
+  const jaNoAtual=new Set(doMes(mesAtual).map(x=>((x.tipo||'')+'|'+(x.descricao||'')).toLowerCase()));
+  return doMes(mesAnt).filter(x=>!jaNoAtual.has(((x.tipo||'')+'|'+(x.descricao||'')).toLowerCase()));
+}
+function renderAvisoRecorrentes(){
+  const el=document.getElementById('desp-recorrentes-aviso'); if(!el) return;
+  const p=_despRecorrentesPendentes();
+  if(!p.length){ el.style.display='none'; return; }
+  const tot=p.reduce((a,x)=>a+(parseFloat(x.valor)||0),0);
+  el.style.display='';
+  el.innerHTML=`<div class="card" style="border-left:3px solid var(--yellow);background:#fffbeb">
+    <div style="font-size:13px;font-weight:700;color:#b45309;margin-bottom:5px">
+      ${p.length} despesa${p.length>1?'s':''} fixa${p.length>1?'s':''} ainda não lançada${p.length>1?'s':''} neste mês</div>
+    <div style="font-size:12px;color:var(--gray);margin-bottom:9px">
+      ${p.map(x=>esc(x.tipo||x.descricao||'—')).join(' · ')} — ${brl(tot)}</div>
+    <button class="tb g" style="font-weight:700" onclick="repetirRecorrentes()">↻ Lançar no mês atual</button>
+  </div>`;
+}
+async function repetirRecorrentes(){
+  const p=_despRecorrentesPendentes();
+  if(!p.length) return;
+  const mes=_hojeLocal().slice(0,7);
+  for(const x of p){
+    const rec={ ...x, id:'desp_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
+      competencia:mes, data:_hojeLocal(), data_pagamento:null, status:'pendente',
+      data_criacao:new Date().toISOString() };
+    delete rec.foto_base64; // comprovante é do mês anterior, não vale para este
+    todasDesp.unshift(rec);
+    if(dbOk&&db){ try{ await dbInsert('despesas', rec); }catch(e){ console.warn('[repetirRecorrentes]', e?.message||e); } }
+  }
+  lsDespSalvar(todasDesp);
+  renderDespesas(); renderAvisoRecorrentes();
+  toast(`✅ ${p.length} despesa${p.length>1?'s':''} lançada${p.length>1?'s':''} neste mês`);
+}
+
 async function salvarDespesa(){
+  const emp = gV('desp-natureza')==='empresa';
   const tec=gV('desp-tec'), tipo=gV('desp-tipo'), valor=parseFloat(gV('desp-valor'))||0;
-  if(!tec||!tipo||!valor){ toast('⚠️ Informe técnico, tipo e valor'); return; }
-  lsSet('fluxa_ultimo_tec',tec);
-  const osInput=gV('desp-os-num');
-  let osNum=null; const m=osInput.match(/\d+/); if(m) osNum=parseInt(m[0]);
-  const dados={ tecnico:tec, data:gV('desp-data'), tipo, valor, descricao:gV('desp-desc'), os_numero:osNum||null, foto_base64:despFotoB64||null, status:'pendente', loja_id:lojaAtiva||LOJA_PADRAO_ID };
-  const rec={...dados, id:'desp_'+Date.now(), data_criacao:new Date().toISOString()};
+  if(!tipo||!valor){ toast('⚠️ Informe tipo e valor'); return; }
+  if(!emp && !tec){ toast('⚠️ Informe o técnico'); return; }
+  if(!emp) lsSet('fluxa_ultimo_tec',tec);
+  let osNum=null;
+  if(!emp){ const m=(gV('desp-os-num')||'').match(/\d+/); if(m) osNum=parseInt(m[0]); }
+  const dataInf=gV('desp-data')||_hojeLocal();
+  const rec={
+    id:'desp_'+Date.now(),
+    tecnico: emp?null:tec, data:dataInf, tipo, valor,
+    descricao:gV('desp-desc'), os_numero:osNum||null,
+    foto_base64:despFotoB64||null, status: emp?'empresa':'pendente',
+    loja_id:lojaAtiva||LOJA_PADRAO_ID,
+    categoria: emp?'empresa':'campo',
+    centro_custo: emp?(gV('desp-centro')||'fixo'):'campo',
+    // competência ≠ data de pagamento: aluguel de agosto pago em setembro
+    // pertence a agosto. Sem isso o DRE joga a despesa no mês errado.
+    competencia: (emp ? (gV('desp-competencia')||dataInf.slice(0,7)) : dataInf.slice(0,7)),
+    recorrente: emp ? !!document.getElementById('desp-recorrente')?.checked : false,
+    data_pagamento: emp?dataInf:null,
+    data_criacao:new Date().toISOString()
+  };
   todasDesp.unshift(rec); lsDespSalvar(todasDesp);
   if(dbOk&&db){
-    (async()=>{
-      try{ const {data:ins}=await db.from('despesas').insert([dados]).select('*').single();
-        if(ins){ todasDesp=todasDesp.filter(x=>x.id!==rec.id); todasDesp.unshift(ins); lsDespSalvar(todasDesp); }
-      }catch(e){ console.warn('desp sync:',e.message); }
-    })();
+    (async()=>{ try{ await dbInsert('despesas', rec); }
+      catch(e){ console.warn('[salvarDespesa]', e?.message||e); toast('⚠️ Salvo aqui, mas não sincronizou'); } })();
   }
-  fecharFormDesp(); renderDespesas(); toast('✅ Despesa registrada!');
+  fecharFormDesp(); renderDespesas(); renderAvisoRecorrentes();
+  toast('✅ Despesa registrada!');
 }
 
 async function reembolsarDesp(id){
@@ -6356,13 +6444,17 @@ function renderDespesas(){
       <div class="desp-info">
         <div class="desp-tipo">${esc(d.tipo||'')}${d.os_numero?' · OS #'+String(d.os_numero).padStart(3,'0'):''}</div>
         <div class="desp-desc">${esc(d.descricao||'—')}</div>
-        <div class="desp-meta">👤 ${esc(d.tecnico||'—')} · 📅 ${d.data?new Date(d.data+'T12:00:00').toLocaleDateString('pt-BR'):'—'}</div>
+        <div class="desp-meta">${d.categoria==='empresa'
+          ? '🏢 '+esc({fixo:'Fixo',variavel:'Variável',administrativo:'Administrativo',campo:'Campo'}[d.centro_custo]||d.centro_custo||'—')
+            + (d.competencia?' · 🗓 comp. '+esc(d.competencia):'')
+            + (d.recorrente?' · ↻ mensal':'')
+          : '👤 '+esc(d.tecnico||'—')+' · 📅 '+(d.data?new Date(d.data+'T12:00:00').toLocaleDateString('pt-BR'):'—')}</div>
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0">
         <div class="desp-valor">${brl(d.valor||0)}</div>
-        <span class="desp-st ${d.status||'pendente'}">${d.status==='reembolsado'?'✅ Reembolsado':'⏳ Pendente'}</span>
+        <span class="desp-st ${d.status||'pendente'}">${d.categoria==='empresa'?'🏢 Empresa':(d.status==='reembolsado'?'✅ Reembolsado':'⏳ Pendente')}</span>
         <div style="display:flex;gap:4px">
-          ${d.status==='pendente'?`<button class="tb g" onclick="reembolsarDesp('${d.id}')">✅</button>`:''}
+          ${d.status==='pendente'&&d.categoria!=='empresa'?`<button class="tb g" onclick="reembolsarDesp('${d.id}')">✅</button>`:''}
           ${d.foto_base64?`<button class="tb" onclick="verFotoDesp('${d.id}')">🧾</button>`:''}
           <button class="tb d" onclick="excluirDesp('${d.id}')">🗑</button>
         </div>
