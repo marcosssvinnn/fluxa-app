@@ -1417,6 +1417,92 @@ de 5 dias deixa só 8 pendentes de 272; serviço converte 43% × equipamento 7,1
 
 ---
 
+## Sessão 2026-08-06 (continuação) — reservado negativo no estoque + OC via jsonb
+
+> Relatado pelo Marcos: *"anomalia na contabilidade do estoque, por vezes os itens
+> aparecem com quantidade errada e elas não estão conseguindo corrigir manualmente"*.
+> Investigado contra o banco real (leitura via REST/anon). **Confirmado, com causa
+> raiz provada nos dados.**
+
+### 🔴 O bug: reservado NEGATIVO inflava o disponível
+
+`disponível = física − reservada`. Com a reservada negativa, o app **mostrava mais
+estoque do que existe**. Pior caso: SAL P/ GERADOR em Camboriú com física 86 e
+reservada −60 aparecia como **146 disponíveis**. **17 pares loja/produto afetados**
+(não 5 — a primeira contagem parou nos mais visíveis).
+
+**Por que não conseguiam corrigir na mão:** o ajuste de inventário só escreve
+movimento **físico**. O erro estava no **reservado**, que não tem nenhuma tela de
+correção. Contavam certo, ajustavam o físico, e o número continuava errado.
+
+### Causa raiz (provada, não suposta)
+
+`_reconciliarReservasOrfas` **escrevia no ledger rodando sobre cache local**. A
+guarda só exigia listas não-vazias — não exigia que a carga do banco tivesse dado
+certo. Com `localStorage` defasado, um orçamento **APROVADO** ausente do cache era
+lido como "órfão" e tinha a reserva liberada; a sessão seguinte repetia, empurrando
+o reservado para negativo.
+
+**Prova:** o orçamento **#260 está aprovado** e mesmo assim foi liberado 6 vezes com
+motivo `#00?` — esse `?` só sai do fallback de órfã (`numero:'?'`), ou seja, o
+orçamento **não foi encontrado** em `todosOrc`. Um dos casos acumulou 1 reserva
+contra 8 liberações.
+
+**Segundo defeito, junto:** a liberação usava `orc.loja_id`, que é `null` no caminho
+de órfã → `registrarMovimento` caía no fallback `lojaAtiva` (a loja que o usuário
+estava **vendo** na hora). Resultado real: reserva lançada em Camboriú e liberada em
+**Aquamotor**, contaminando uma loja com saldo de produto que ela nunca reservou.
+
+### Correções (commit `6ecee03`, sw v49→v50)
+1. **Reconciliação só roda com dados confirmados do banco** — flags `_orcRemotoOk`/
+   `_estoqueRemotoOk`, marcadas só após o merge remoto bem-sucedido em `loadHist`/
+   `loadEstoque`. Offline não reconcilia mais. (Declaradas no topo do arquivo de
+   propósito — declarar junto da função daria TDZ, que este projeto já sofreu.)
+2. **Liberação herda a loja da reserva original**, nunca a da sessão.
+3. **Trava nova:** liberação nunca derruba o reservado do produto abaixo de zero,
+   mesmo com visão defasada do ledger.
+
+### Reparo dos dados (aplicado, 17 movimentos)
+Ledger é append-only por design, então a correção **não apaga** os lançamentos
+errados: adiciona um `reserva` compensatório por (loja, produto), ref
+`fix:reserva-negativa:<loja>:<produto>`, motivo explícito. 186 unidades no total,
+**nenhum saldo físico tocado**. Reservado negativo: 17 → **0**.
+
+### OC: `itens` gravado como string dentro de coluna `jsonb` (commit `9460670`)
+`salvarOC` fazia `JSON.stringify(rec.itens)` numa coluna que já é `jsonb` — na volta
+`Array.isArray()` dava `false` e virava `[]`. Três consequências: OC listada com 0
+itens, abrir para editar vinha vazia (**e salvar por cima apagava**), e receber a OC
+**não dava entrada no estoque**. Grava array nativo + `_ocNormalizar` na leitura dos
+dois loaders (cobre registro antigo). A tabela estava vazia, então **nenhum dado foi
+corrompido** — o fix é preventivo.
+
+### Auditoria — 18/18 testes passaram
+Harness que **extrai as funções reais do `app.js`** por casamento de chaves (não
+redigita) e roda no JavaScriptCore via `osascript`. Cobre: gate offline (3 cenários),
+órfã legítima ainda liberada, orçamento aprovado preservado, idempotência entre
+sessões, trava do reservado negativo, loja correta na liberação, ciclo normal
+aprovar/reverter/reverter-2x, e 6 casos de normalização de OC.
+
+**Estado final do banco:** reservado negativo 0 · reservas em aberto 20, todas
+legítimas, 0 órfãs · OC corrompida 0.
+
+### Pendências que sobraram (precisam de decisão humana)
+- **3 saldos físicos negativos** (−1 cada): CLORO GENCO L.E e CABO DE ALUMÍNIO 6M em
+  Camboriú, gerado de cloro 500 em Itapema. **Não corrigi de propósito** — exige
+  contagem real, inventar quantidade seria fabricar dado.
+- **2 orçamentos aprovados com produto sem reserva nem baixa**: #193 (essência de
+  eucalipto) e #188 (termômetro flutuante).
+- **31 movimentos de teste** ainda no ledger (`test_toast*`, `test_concluir_orc*`).
+
+### Lição para o protocolo
+Função que **escreve** no ledger nunca pode rodar sobre cache local não confirmado.
+Local-first é ótimo para *criar* registro (não perde trabalho em campo), e péssimo
+para *reconciliar* (decide apagar coisa certa com base em visão incompleta). Toda
+rotina de reconciliação precisa de duas guardas: (1) os dados vieram do banco nesta
+sessão? (2) o resultado é impossível de ficar absurdo (saldo negativo)?
+
+---
+
 ## Perguntas em aberto (aguardando Marcos responder)
 
 1. **CNPJs reais** das 3 empresas — para preencher tabela `lojas` e emissão de NF
