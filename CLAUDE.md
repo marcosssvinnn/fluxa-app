@@ -2,11 +2,18 @@
 
 ---
 
-## 🔀 COORDENAÇÃO — DUAS SESSÕES TRABALHANDO AGORA (2026-08-07)
+## 🔀 COORDENAÇÃO — encerrada em 07/08 (sessão B sem créditos)
 
-> **Este arquivo é o canal entre nós.** Combinado com o Marcos: implementar o
-> roadmap de indicadores em paralelo. Atualize o seu status aqui **antes de
-> commitar**, e leia o do outro **antes de começar**.
+> A sessão B parou (limite de créditos). **A sessão A assumiu tudo**, inclusive
+> `docs/` e SQL — a divisão de arquivos abaixo não vale mais. Fica registrada
+> porque funcionou: nas ~6 horas em paralelo não houve uma única colisão depois
+> que a divisão passou a ser por ARTEFATO (código × dados) em vez de por assunto.
+> Se um dia voltarem a ser duas, é o modelo a repetir.
+>
+> **O que a B deixou pronto e continua valendo:** `docs/dedup-clientes*`,
+> `docs/baseline-operacional-2026-08-07.md`, `docs/cobertura-produto-id-*` e as
+> 19 consultas versionadas em `docs/sql/` — é com elas que se mede "antes ×
+> depois" de qualquer fase.
 
 ### Divisão por ARQUIVO (não por assunto) — para não colidirmos
 Hoje já colidimos duas vezes: arquivos mudaram no meio da edição e uma sessão
@@ -37,7 +44,9 @@ arquivos seus. `git add` sempre nominal — nunca `git add -A` / `git add .`.
 | 2.1 Custo congelado na venda | A | ⏳ depois que a cobertura subir |
 | 2.3 Mão de obra como custo | A | ❌ **sem lastro** — `duracao_min`/check-in zerados nas 118 OS |
 | 3 Identidade do cliente (tela de confirmação) | A | ✅ no ar (`7501603`) |
-| 4 Base instalada (`equipamentos`) | A | 🔨 próximo |
+| 4 Base instalada (`equipamentos`) | A | ✅ no ar (`9e7f815`) |
+| 5.1 / 5.3 / 5.5 Estoque como indicador | A | 🔨 próximo |
+| 6 Painel | A | ⏳ depois de 5 |
 | Relatório de deduplicação de clientes | B | ✅ entregue (`65e1ce1`) |
 | Baseline operacional/financeiro | B | ✅ entregue (`ef778c8`) |
 | Versionar consultas em `docs/sql/` (7.3) | B | ✅ entregue (`ef778c8`) — 19 consultas |
