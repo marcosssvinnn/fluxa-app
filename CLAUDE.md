@@ -45,8 +45,9 @@ arquivos seus. `git add` sempre nominal — nunca `git add -A` / `git add .`.
 | 2.3 Mão de obra como custo | A | ❌ **sem lastro** — `duracao_min`/check-in zerados nas 118 OS |
 | 3 Identidade do cliente (tela de confirmação) | A | ✅ no ar (`7501603`) |
 | 4 Base instalada (`equipamentos`) | A | ✅ no ar (`9e7f815`) |
-| 5.1 / 5.3 / 5.5 Estoque como indicador | A | 🔨 próximo |
-| 6 Painel | A | ⏳ depois de 5 |
+| 5.1 / 5.3 / 5.5 Estoque como indicador | A | ✅ no ar (`327dd7a`) |
+| 6 Painel — camada diária | A | ✅ no ar (`30251a9`) |
+| 7.1 Segurança (Auth + RLS) | — | ⛔ **só com o Marcos presente** |
 | Relatório de deduplicação de clientes | B | ✅ entregue (`65e1ce1`) |
 | Baseline operacional/financeiro | B | ✅ entregue (`ef778c8`) |
 | Versionar consultas em `docs/sql/` (7.3) | B | ✅ entregue (`ef778c8`) — 19 consultas |
