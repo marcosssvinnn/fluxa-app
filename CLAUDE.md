@@ -1655,6 +1655,48 @@ mudar entre o seu `git add` e o seu `push`.
 
 ---
 
+## Tela inicial e Ordem de Entrega (2026-08-07)
+
+### `telaInicial()` — ponto ÚNICO da tela de entrada (`ac33a98` + `c50a9e2`)
+O Marcos pediu que o app **sempre** abrisse no Insights. O login já fazia isso,
+mas o boot chamava `go('form')` fixo — então F5, reabrir pelo atalho ou voltar de
+um PDF largavam a gestora no Novo Orçamento. Reproduzido recarregando de verdade:
+gestor Camboriú/Itapema e master caíam em `form`.
+
+Havia **6 lugares** decidindo a tela inicial com regra própria (login por PIN de
+gestor, de técnico/vendas, seleção de loja, seleção de empresa do técnico, boot e
+fim do setup de conexão). Todos passam por `telaInicial(sessao)` agora.
+**Quem for mudar o destino, mude lá — não espalhe `go('...')` pelos pontos de
+entrada de novo.** Foi a divergência entre eles que criou o bug.
+
+Regra: gestor/master → `insights` · técnico → `minhas-os` · vendas → `form` ·
+sem sessão → `form`. **Insights é gestor/master de propósito**: não está em
+`pagesVendasOk` nem em `pagesTecnicoOk`, então mandar vendas/técnico para lá só
+dispara "Acesso não permitido".
+
+### 🧾 Ordem de Entrega (`978dddb`)
+Venda de produto avulso (químico, peça) **não vira OS**: o material só sai e
+alguém no local recebe. Faltava o papel que o comprador confere e assina.
+
+`pdoc-entrega` (index.html) + `preencherDocEntrega(orc)` / `gerarOrdemEntrega(id)`
+(app.js), no mesmo padrão dos outros documentos. Dois acessos: botão no modal de
+aprovação (`#aprov-entrega-row`, aparece só quando há itens) e botão "🧾 Entrega"
+no histórico, para reimprimir quando quiser.
+
+- **Não cria registro no banco** — é derivado do orçamento. Reimprimir não duplica
+  nada e não precisou de schema novo.
+- **Lista TODOS os itens**, não só os com `produto_id`: químico digitado à mão não
+  tem vínculo de produto e mesmo assim precisa ser conferido.
+- **Sem preços**, de propósito: o objetivo é conferir O QUE chegou. Quem recebe
+  costuma ser zelador/porteiro. Se um dia quiserem valor, é só adicionar a coluna.
+- **Data da entrega em branco**: a entrega acontece dias depois da aprovação e quem
+  preenche é quem recebe.
+- `imprimirDoc('entrega')` — ao adicionar documento novo, lembre dos **3** pontos:
+  `imprimirDoc`, o listener `beforeprint` e o `afterprint` (o do Android depende do
+  primeiro; os outros dois do desktop).
+
+---
+
 ## Perguntas em aberto (aguardando Marcos responder)
 
 1. **CNPJs reais** das 3 empresas — para preencher tabela `lojas` e emissão de NF
