@@ -946,7 +946,16 @@ function lsOrcProxNum(){ return lsOrcLer().reduce((a,o)=>Math.max(a,o.numero||0)
   const sbUrl = FLUXA_CONFIG.supabaseUrl;
   const sbKey = FLUXA_CONFIG.supabaseKey;
   lsSet('sb_url', sbUrl); lsSet('sb_key', sbKey);
-  go('form');
+
+  // ── Tela inicial: mesma regra do login ──
+  // Era go('form') fixo, então o login levava o gestor ao Insights mas QUALQUER
+  // recarga (F5, reabrir o app pelo atalho, voltar de um PDF) o largava no Novo
+  // Orçamento. Sem sessão o destino é irrelevante (fica atrás do login), mas
+  // 'form' evita disparar o toast de "acesso não permitido".
+  if(!sessaoExistente)                        go('form');
+  else if(sessaoExistente.perfil==='tecnico') go('minhas-os');
+  else if(sessaoExistente.perfil==='vendas')  go('form');
+  else                                        go('insights'); // gestor e master
 
   async function tentarConectar(tentativa){
     try {
