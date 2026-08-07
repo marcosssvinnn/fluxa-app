@@ -1639,6 +1639,17 @@
           <tbody id="fin-tabela-body"><tr><td colspan="4" style="text-align:center;color:var(--gray);padding:20px">Carregando…</td></tr></tbody>
         </table>
       </div>
+
+    <!-- DRE gerencial: receita reconhecida − custo direto − despesa, com as duas
+         unidades lado a lado. O baseline mostrou que comparar Camboriú com
+         Itapema revela problema de processo mais rápido que qualquer média. -->
+    <div class="card">
+      <div class="ct">📊 DRE por unidade
+        <select id="dre-mes" onchange="renderDRE()" style="margin-left:auto;padding:6px 11px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Inter',sans-serif;outline:none;cursor:pointer"></select>
+      </div>
+      <div id="dre-corpo"></div>
+      <div id="dre-nota" style="font-size:11.5px;color:var(--gray);margin-top:10px;line-height:1.5"></div>
+    </div>
     </div>
 
     <!-- ── Contas a Receber ── -->
