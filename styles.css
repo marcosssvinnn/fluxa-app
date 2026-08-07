@@ -198,6 +198,7 @@
     .dash{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
     .dc{background:var(--white);border-radius:var(--r);padding:16px 18px;box-shadow:var(--sh);border-top:3px solid var(--gray-mid)}
     .dc.o{border-top-color:var(--c1)}.dc.g{border-top-color:var(--green)}.dc.y{border-top-color:var(--yellow)}.dc.b{border-top-color:var(--blue)}
+    .dc.r{border-top-color:var(--red)}
     .dl{font-size:11px;font-weight:600;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px}
     .dv{font-size:22px;font-weight:800;color:var(--c2)}
     .ds{font-size:12px;color:var(--gray);margin-top:2px}
@@ -256,6 +257,30 @@
     /* Ação principal da fila — tocada o tempo todo em campo, min. 44px (regra de acessibilidade) */
     .crm-acts .tb{min-height:44px;padding:10px 14px}
     @media(max-width:768px){ .crm-trilhos{grid-template-columns:1fr} }
+
+    /* ── Barra de estágio (fase do orçamento por idade) ── */
+    .fase-barra{display:flex;height:26px;border-radius:8px;overflow:hidden;background:var(--gray-light)}
+    .fase-seg{border:none;padding:0;cursor:pointer;font-family:'Inter',sans-serif;font-size:11px;font-weight:800;color:#fff;
+             display:flex;align-items:center;justify-content:center;transition:filter .15s;min-width:0}
+    .fase-seg:hover{filter:brightness(1.08)}
+    .fase-seg.off{opacity:.35}
+    .fase-leg{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px}
+    /* display:block explícito — como é <button>, herdava flex de regra global
+       do projeto e os três filhos ficavam espremidos lado a lado (nome truncava
+       para "Que..."). Aqui eles precisam empilhar. */
+    .fase-item{display:block;border:none;background:none;padding:8px 6px;border-radius:8px;cursor:pointer;text-align:left;
+              font-family:'Inter',sans-serif;border-left:3px solid transparent;transition:background .15s;min-width:0}
+    .fase-item>div{white-space:normal;overflow:visible;text-overflow:clip}
+    .fase-item:hover{background:var(--gray-light)}
+    .fase-item.on{background:var(--gray-light)}
+    .fase-nome{font-size:12px;font-weight:700;color:var(--c2)}
+    .fase-sub{font-size:10px;color:var(--gray);margin-top:1px}
+    .fase-num{font-size:13px;font-weight:800;margin-top:3px}
+    /* 375px: 4 colunas de legenda não cabem; vira 2x2 e a barra segue inteira */
+    @media(max-width:680px){
+      .fase-leg{grid-template-columns:1fr 1fr}
+      .fase-seg{font-size:10px}
+    }
     .load{display:flex;align-items:center;justify-content:center;gap:9px;padding:30px;color:var(--gray);font-size:13px}
     .spin{width:18px;height:18px;border:2.5px solid var(--gray-mid);border-top-color:var(--c1);border-radius:50%;animation:spin .7s linear infinite}
     @keyframes spin{to{transform:rotate(360deg)}}
@@ -890,8 +915,24 @@
     .est-qty-n{font-size:15px;font-weight:700}
     .est-qty-u{font-size:10px;color:var(--gray)}
     .est-qty-d{font-size:9.5px;color:var(--gray);margin-top:1px}
-    .est-acts{display:flex;flex-direction:column;gap:5px;flex-shrink:0;align-items:flex-end}
-    .est-acts-row{display:flex;gap:4px;align-items:center}
+    /* precisa ENCOLHER (era flex-shrink:0): com 5 ações a coluna passa da largura
+       do card no celular e o último botão fica fora da área tocável. Encolher é
+       seguro agora que .est-acts-row quebra linha — os botões descem em vez de
+       serem esmagados. */
+    .est-acts{display:flex;flex-direction:column;gap:5px;flex-shrink:1;min-width:0;align-items:flex-end}
+    /* wrap: com 5 ações (Editar/Corrigir/Reserva/Transf./Histórico) a linha passa
+       de 370px dentro de um card de ~317px no celular — sem quebrar, o último
+       botão sai do card e fica inalcançável no toque. */
+    .est-acts-row{display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+    /* No celular a fileira de ações não cabe ao lado do texto: .est-main
+       (flex:1;min-width:0) era espremido até 0px e, como .est-nome tem
+       overflow:hidden, o NOME DO PRODUTO ficava invisível na lista. Aqui as ações
+       descem para uma linha própria e o nome volta a ter largura real. */
+    @media(max-width:680px){
+      .est-item{flex-wrap:wrap}
+      .est-acts{flex:1 0 100%;align-items:flex-start;margin-top:6px}
+      .est-acts-row{justify-content:flex-start}
+    }
     .eb{border:none;border-radius:7px;cursor:pointer;font-family:'Inter',sans-serif;transition:opacity .1s}
     .eb:hover{opacity:.82}
     .eb.ein{background:#dcfce7;color:#15803d;font-size:11.5px;font-weight:700;padding:6px 12px}

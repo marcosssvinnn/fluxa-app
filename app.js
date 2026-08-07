@@ -851,6 +851,11 @@ let db = null, dbOk = false;
 let svcs = [], editId = null;
 let osSvcs = [], modalOrcId = null, osOrcId = null; // osOrcId = ID do orçamento vinculado à OS
 let todosOrc = [], filtroSt = localStorage.getItem('fluxa_filtroSt')||'todos', busca = '', filtroOrigem = '';
+// Ordenação do histórico: 'recente' (padrão, como sempre foi) ou 'idade' (mais
+// parado primeiro — a ordem para cobrar carteira). Declarada AQUI no topo, não
+// junto da função: renderTabela roda no boot via loadHist, e `let` no meio do
+// arquivo daria TDZ (ver nota de _orcRemotoOk — já aconteceu neste projeto).
+let histOrdem = 'recente';
 // Confirmação de que a lista veio do BANCO nesta sessão (não do cache local).
 // Declaradas aqui no topo de propósito: são lidas por loadHist/loadEstoque, que
 // podem rodar durante o boot — declarar junto da função daria TDZ (já aconteceu).
@@ -2891,6 +2896,15 @@ function orcCicloLongo(o){
   return orcEhEquipamento(o) || (parseFloat(o?.total)||0) >= ORC_VALOR_CICLO_LONGO;
 }
 function _hojeZero(){ const d=new Date(); d.setHours(0,0,0,0); return d; }
+// Idade em DIAS DE CALENDÁRIO (não em horas corridas). Um orçamento feito
+// ontem às 18h tem 1 dia, não 0 — é assim que a pessoa conta. Comparar horas
+// cruas fazia o mesmo registro cair em faixas diferentes conforme a hora do dia.
+function _idadeEmDias(o){
+  const d=(typeof _orcData==='function')?_orcData(o):null;
+  if(!d||isNaN(d)) return 0;
+  const d0=new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  return Math.max(0, Math.round((_hojeZero()-d0)/86400000));
+}
 // Data em que o PREÇO expira. Prefere validade_data (pt-BR ou ISO) e cai para
 // data_criacao + validade_dias. Centralizado aqui porque este parsing estava
 // duplicado em verificarVencidos e autoVencerOrc, com regras sutilmente
@@ -2967,6 +2981,10 @@ function _crmConjuntosCliente(){
 // Valor alto e recente sobe; negócio velho desce. Quem já comprou vale 3× mais
 // tempo de telefone: 14 clientes que já fecharam têm R$ 239k em aberto contra
 // 114 que nunca fecharam com R$ 2,04 mi — os primeiros convertem muito melhor.
+// Conversão histórica por trilho (medida na base em ago/2026). Usada para
+// converter valor bruto em valor ESPERADO no score da fila — ver crmCandidatos.
+const CRM_CONV_EQUIP=0.068, CRM_CONV_SERV=0.398;
+
 function crmCandidatos(){
   const {comEquip, jaComprou}=_crmConjuntosCliente();
   const hoje=_hojeZero();
@@ -2980,15 +2998,23 @@ function crmCandidatos(){
     if(equip && comEquip.has(cli)) return;
     if(_crmFbOculto(o.id)) return; // dispensado 3x, ou "liguei" há menos de 3 dias
     if(_crmAguardando(o)) return;  // follow-up agendado / assembleia ainda longe
-    const dt=_orcData(o);
-    const dias=dt?Math.max(0,Math.round((hoje-dt)/86400000)):0;
+    const dias=_idadeEmDias(o);
     const jaCliente=jaComprou.has(cli);
     const valor=parseFloat(o.total)||0;
     const diasDecisao=_crmDiasAteDecisao(o);
     // Compromisso vencido e assembleia recém-ocorrida furam a fila: no primeiro
     // caso alguém JÁ tinha decidido ligar; no segundo, a decisão acabou de sair.
     const atrasado = !!(o.proximo_contato && o.proximo_contato <= _hojeISO());
-    let score=(valor/1000)*(jaCliente?3:1)/Math.max(dias,1);
+    // VALOR ESPERADO, não valor bruto. Antes o score usava `valor/1000` puro, e
+    // como equipamento tem ticket ~12x maior ele monopolizava a fila — só que
+    // equipamento fecha ~7% e serviço ~40%. Ponderar pela conversão histórica
+    // do trilho aproxima o score do retorno real por ligação:
+    //   equipamento R$ 28.000 x 6,8% ≈ R$ 1.900 esperado
+    //   serviço     R$  2.267 x 39,8% ≈ R$   900 esperado
+    // (dentro de um mesmo trilho a ordem não muda — o fator é constante —,
+    //  mas os dois passam a ser comparáveis na mesma régua.)
+    const esperado=valor*(equip?CRM_CONV_EQUIP:CRM_CONV_SERV);
+    let score=(esperado/1000)*(jaCliente?3:1)/Math.max(dias,1);
     if(atrasado || (diasDecisao!==null && diasDecisao<=7)) score*=10;
     out.push({
       orc:o, equip, dias, jaCliente, valor, diasDecisao, atrasado,
@@ -3169,23 +3195,84 @@ function _addDias(iso, n){
 // ── Painel de Insights (page-insights) ──────────────────────────────────────
 // "Dinheiro do mês" independe do filtro de mês do Histórico (orcMesRef): mostra
 // sempre o mês corrente, sem acoplar ao estado de outra tela.
-function _crmMesAtualStats(){
-  const hoje=new Date();
+// ── Números de PIPELINE (não contábeis) ─────────────────────────────────────
+// Os 4 KPIs daqui eram cópia do dashboard principal (`atualizarDash`): mesmos
+// Total Emitido / Aprovados / A Receber / Ticket, e recortados pelo mês.
+// Estavam errados para esta tela por três motivos:
+//   1. duplicavam informação que já existe no Histórico;
+//   2. pipeline de vendedor NÃO é mensal — orçamento de junho ainda aberto
+//      continua sendo trabalho de hoje; mês é recorte contábil;
+//   3. "A Receber" era falso: `valor_recebido` é 0 em ~100% dos aprovados,
+//      então o card mostrava tudo que já foi aprovado na história.
+// `atualizarDash()` continua intocado — lá os KPIs contábeis fazem sentido.
+
+// "Aberto no pipeline" = ainda não decidido pelo cliente (nem aprovado, nem
+// recusado). É MAIS amplo que `orcVivoNoFunil`, e de propósito: aquele responde
+// "vale a pena ligar?" (usado pela fila de ação), este responde "o que está na
+// carteira?" (visão). Um serviço vencido de R$ 800 não merece ligação mas
+// continua sendo carteira aberta.
+function orcAbertoNoPipeline(o){
+  return !!o && (o.status==='pendente' || o.status==='vencido');
+}
+const CRM_FAIXAS_IDADE=[
+  // Os rótulos são de INTENÇÃO, não de tempo, porque quando existir o rastreio
+  // de abertura do portal a faixa 8-30d passa a se chamar "Cliente visualizou"
+  // sem que o resto da tela precise mudar.
+  {id:'quente',   nome:'Quente',       sub:'0-7 dias',   max:7,        cor:'#16a34a', bg:'#dcfce7'},
+  {id:'semresp',  nome:'Sem resposta', sub:'8-30 dias',  max:30,       cor:'#0284c7', bg:'#e0f2fe'},
+  {id:'esfriando',nome:'Esfriando',    sub:'31-90 dias', max:90,       cor:'#d97706', bg:'#fef3c7'},
+  {id:'frio',     nome:'Frio',         sub:'90+ dias',   max:Infinity, cor:'#6b7280', bg:'#f3f4f6'}
+];
+function _crmFaixaDe(dias){
+  return (CRM_FAIXAS_IDADE.find(f=>dias<=f.max)||CRM_FAIXAS_IDADE[CRM_FAIXAS_IDADE.length-1]).id;
+}
+function _crmPipelineStats(){
+  const hoje=_hojeZero();
+  const abertos=filtrarPorLoja(todosOrc||[]).filter(orcAbertoNoPipeline);
+  const val=o=>parseFloat(o.total)||0;
+  const idade=_idadeEmDias;
+
+  const pipeQtd=abertos.length;
+  const pipeValor=abertos.reduce((a,o)=>a+val(o),0);
+
+  const parados=abertos.filter(o=>idade(o)>30);
+  // nullish guard: empresa nova (0 abertos) não pode virar NaN%
+  const paradoPct=pipeQtd>0?Math.round(parados.length/pipeQtd*100):0;
+
+  // Vence em 7 dias: usa a validade de PREÇO (`_orcValidadeData`), não a idade.
+  const em7=new Date(hoje); em7.setDate(em7.getDate()+7);
+  const vencendo=abertos.filter(o=>{ const dv=_orcValidadeData(o); return dv && dv>=hoje && dv<=em7; });
+
+  // Único card mensal — este é sobre resultado, não sobre carteira.
   const mesRef=hoje.getFullYear()+'-'+String(hoje.getMonth()+1).padStart(2,'0');
-  const lista=filtrarPorLoja(todosOrc||[]).filter(o=>{
+  const doMes=filtrarPorLoja(todosOrc||[]).filter(o=>{
     const ref=(o.status==='aprovado'&&o.data_aprovacao)?new Date(o.data_aprovacao):_orcData(o);
     return ref&&!isNaN(ref)&&ref.getFullYear()+'-'+String(ref.getMonth()+1).padStart(2,'0')===mesRef;
   });
-  const tot=lista.length, soma=lista.reduce((a,o)=>a+(parseFloat(o.total)||0),0);
-  const aprov=lista.filter(o=>o.status==='aprovado');
-  const somaA=aprov.reduce((a,o)=>a+(parseFloat(o.total)||0),0);
-  const aRec=Math.max(0, aprov.reduce((a,o)=>a+(parseFloat(o.total)||0)-(parseFloat(o.valor_recebido)||0),0));
-  const tick=tot>0?soma/tot:0;
-  const taxaConv=tot>0?Math.round(aprov.length/tot*100):0;
-  return {tot,soma,aprov,somaA,aRec,tick,taxaConv, mesLabel:hoje.toLocaleDateString('pt-BR',{month:'long',year:'numeric'})};
+  const fechados=doMes.filter(o=>o.status==='aprovado');
+  const convPct=doMes.length>0?Math.round(fechados.length/doMes.length*100):0;
+
+  // Faixas de idade para a barra de estágio
+  const faixas={}; CRM_FAIXAS_IDADE.forEach(f=>faixas[f.id]={qtd:0,valor:0});
+  abertos.forEach(o=>{ const f=faixas[_crmFaixaDe(idade(o))]; f.qtd++; f.valor+=val(o); });
+
+  return {
+    pipeQtd, pipeValor,
+    paradoQtd:parados.length, paradoValor:parados.reduce((a,o)=>a+val(o),0), paradoPct,
+    vencQtd:vencendo.length, vencValor:vencendo.reduce((a,o)=>a+val(o),0),
+    fechQtd:fechados.length, fechValor:fechados.reduce((a,o)=>a+val(o),0), emitidosMes:doMes.length, convPct,
+    faixas, idadeDe:idade,
+    mesLabel:hoje.toLocaleDateString('pt-BR',{month:'long',year:'numeric'})
+  };
 }
 // Teto na tela — princípio anti-chatice: 150 sugestões = nenhuma sugestão.
 const CRM_TETO_FILA=8;
+// Equipamento entra em DOSE MENOR que serviço, de propósito. Não é limitação
+// técnica: é venda consultiva de ciclo longo (fecha ~7%, leva semanas, pode
+// depender de assembleia) — trabalhar 3 por dia com profundidade rende mais que
+// 8 por cima. Serviço fecha ~40% em 24h e merece o volume. Sem isto a fila do
+// dia ficava dominada pelo trilho que menos fecha, só porque tem ticket maior.
+const CRM_TETO_EQUIP=3;
 function _crmCardHTML(c){
   const motivos=crmMotivos(c).map(m=>`<span class="crm-motivo">${esc(m)}</span>`).join('');
   return `<div class="crm-card">
@@ -3202,33 +3289,86 @@ function _crmCardHTML(c){
     </div>
   </div>`;
 }
-function _crmRenderTrilho(elId, subId, lista, vazioTxt){
+function _crmRenderTrilho(elId, subId, lista, vazioTxt, teto){
   const el=document.getElementById(elId); if(!el) return;
   if(!lista.length){ el.innerHTML=`<div class="empty-st" style="padding:20px"><div class="ei">✅</div><p>${vazioTxt}</p></div>`; }
   else{
-    const visiveis=lista.slice(0,CRM_TETO_FILA);
+    const visiveis=lista.slice(0, teto||CRM_TETO_FILA);
     el.innerHTML=visiveis.map(_crmCardHTML).join('')
       + (lista.length>visiveis.length?`<div style="text-align:center;font-size:11px;color:var(--gray);padding:6px 0">+${lista.length-visiveis.length} outro(s) — resolva estes primeiro</div>`:'');
   }
   const sub=document.getElementById(subId);
   if(sub) sub.textContent = lista.length ? `${lista.length} em aberto` : 'tudo em dia';
 }
+// Faixa de estágio selecionada (filtra a fila). '' = todas.
+let _crmFaixaFiltro='';
+function crmFiltrarFaixa(id){
+  _crmFaixaFiltro = (_crmFaixaFiltro===id) ? '' : id; // clicar de novo desmarca
+  renderPainelInsights();
+}
+function _crmRenderEstagio(s){
+  const barra=document.getElementById('ins-estagio-barra');
+  const leg=document.getElementById('ins-estagio-leg');
+  const card=document.getElementById('ins-estagio-card');
+  if(!barra||!leg) return;
+  const total=s.pipeQtd;
+  if(!total){ // empresa nova / nada aberto — não mostra barra vazia
+    if(card) card.style.display='none';
+    return;
+  }
+  if(card) card.style.display='';
+  barra.innerHTML=CRM_FAIXAS_IDADE.map(f=>{
+    const d=s.faixas[f.id]; if(!d.qtd) return '';
+    const pct=d.qtd/total*100;
+    const apagado=_crmFaixaFiltro&&_crmFaixaFiltro!==f.id?' off':'';
+    return `<button class="fase-seg${apagado}" style="width:${pct}%;background:${f.cor}"
+      title="${esc(f.nome)} (${f.sub}) — ${d.qtd} orçamento(s) · ${brl(d.valor)}"
+      onclick="crmFiltrarFaixa('${f.id}')">${pct>=9?d.qtd:''}</button>`;
+  }).join('');
+  leg.innerHTML=CRM_FAIXAS_IDADE.map(f=>{
+    const d=s.faixas[f.id];
+    const sel=_crmFaixaFiltro===f.id?' on':'';
+    return `<button class="fase-item${sel}" style="border-left-color:${f.cor}" onclick="crmFiltrarFaixa('${f.id}')">
+      <div class="fase-nome">${esc(f.nome)}</div>
+      <div class="fase-sub">${f.sub}</div>
+      <div class="fase-num" style="color:${f.cor}">${d.qtd} · ${brl(d.valor)}</div>
+    </button>`;
+  }).join('');
+  const sub=document.getElementById('ins-estagio-sub');
+  if(sub) sub.textContent=_crmFaixaFiltro
+    ? 'filtrando a fila — toque de novo para limpar'
+    : 'toque numa faixa para filtrar a fila';
+}
 function renderPainelInsights(){
   if(!document.getElementById('page-insights')) return;
-  const s=_crmMesAtualStats();
-  document.getElementById('ins-mes-label').textContent='· '+s.mesLabel;
-  document.getElementById('ins-d-emit').textContent=brl(s.soma);
-  document.getElementById('ins-d-emit-q').textContent=s.tot+' orç. este mês';
-  document.getElementById('ins-d-aprov').textContent=brl(s.somaA);
-  document.getElementById('ins-d-aprov-q').textContent=s.aprov.length+' aprov. · '+(s.tot>0?s.taxaConv+'% conversão':'—');
-  document.getElementById('ins-d-rec').textContent=brl(s.aRec);
-  document.getElementById('ins-d-tick').textContent=s.tick>0?brl(s.tick):'—';
+  const s=_crmPipelineStats();
+  const set=(id,txt)=>{ const el=document.getElementById(id); if(el) el.textContent=txt; };
 
-  const {equipamento, servico}=crmCandidatos();
-  _crmRenderTrilho('ins-fila-equip','ins-sub-equip', equipamento, 'Nenhum equipamento parado no momento.');
-  _crmRenderTrilho('ins-fila-servico','ins-sub-servico', servico, 'Nenhum serviço parado no momento.');
+  set('ins-mes-label','· pipeline completo');
+  set('ins-d-emit', brl(s.pipeValor));
+  set('ins-d-emit-q', s.pipeQtd+' orçamento(s) em aberto');
+  set('ins-d-aprov', brl(s.paradoValor));
+  set('ins-d-aprov-q', s.paradoQtd+' orç. · '+s.paradoPct+'% do pipeline');
+  set('ins-d-rec', brl(s.vencValor));
+  set('ins-d-rec-q', s.vencQtd ? s.vencQtd+' orç. — revalidar o preço' : 'nada vencendo');
+  set('ins-d-tick', brl(s.fechValor));
+  set('ins-d-tick-q', s.fechQtd+'/'+s.emitidosMes+' emitidos · '+s.convPct+'% · '+s.mesLabel);
+
+  _crmRenderEstagio(s);
+
+  let {equipamento, servico}=crmCandidatos();
+  if(_crmFaixaFiltro){
+    const naFaixa=c=>_crmFaixaDe(s.idadeDe(c.orc))===_crmFaixaFiltro;
+    equipamento=equipamento.filter(naFaixa);
+    servico=servico.filter(naFaixa);
+  }
+  _crmRenderTrilho('ins-fila-equip','ins-sub-equip', equipamento, 'Nenhum equipamento parado no momento.', CRM_TETO_EQUIP);
+  _crmRenderTrilho('ins-fila-servico','ins-sub-servico', servico, 'Nenhum serviço parado no momento.', CRM_TETO_FILA);
   const totalFila=equipamento.length+servico.length;
-  document.getElementById('ins-fila-sub').textContent = totalFila ? `${totalFila} orçamento(s) merecem uma ligação` : 'tudo em dia — nada parado';
+  const faixaNome=_crmFaixaFiltro?(CRM_FAIXAS_IDADE.find(f=>f.id===_crmFaixaFiltro)||{}).nome:'';
+  document.getElementById('ins-fila-sub').textContent = totalFila
+    ? `${totalFila} orçamento(s) merecem uma ligação${faixaNome?' · filtro: '+faixaNome:''}`
+    : (_crmFaixaFiltro?`nada nesta faixa (${faixaNome})`:'tudo em dia — nada parado');
 }
 
 function verificarVencidos(){
@@ -3412,6 +3552,11 @@ function filt(btn){
   document.querySelectorAll('.hf .fb[data-s]').forEach(b=>b.classList.remove('on'));
   btn.classList.add('on'); filtroSt=btn.dataset.s;
   localStorage.setItem('fluxa_filtroSt', filtroSt);
+  renderTabela();
+}
+function histToggleOrdem(){
+  histOrdem = histOrdem==='idade' ? 'recente' : 'idade';
+  toast(histOrdem==='idade' ? '⏱ Ordenado pelo tempo parado' : '📅 Ordenado por data');
   renderTabela();
 }
 function buscar(v){ busca=v.toLowerCase(); renderTabela(); }
@@ -3621,7 +3766,11 @@ function renderTabela(){
     selOrig.value=atual;
   }
   let lista=listaMes;
-  if(filtroSt!=='todos') lista=lista.filter(o=>o.status===filtroSt);
+  // "abertos" não é um status: é o que o cliente ainda não decidiu (pendente +
+  // vencido). É a visão de carteira que faltava — sem ela o vendedor não tinha
+  // onde ver o funil inteiro, só os 16 cards da fila de ação.
+  if(filtroSt==='abertos') lista=lista.filter(orcAbertoNoPipeline);
+  else if(filtroSt!=='todos') lista=lista.filter(o=>o.status===filtroSt);
   if(filtroOrigem==='__sem__') lista=lista.filter(o=>!o.origem_cliente);
   else if(filtroOrigem) lista=lista.filter(o=>o.origem_cliente===filtroOrigem);
   if(busca) lista=lista.filter(o=>
@@ -3634,9 +3783,15 @@ function renderTabela(){
       orcMesRef?`Nenhum orçamento em ${_renderOrcMesLabelStr()}.`:'Nenhum orçamento encontrado.';
     document.getElementById('hist-body').innerHTML=`<div class="empty-st"><div class="ei">📭</div><p>${msgBusca}</p><button class="btn-primary" style="margin-top:12px" onclick="novoOrc();go('form')">＋ Criar Orçamento</button></div>`; return;
   }
+  // Ordenar por idade (mais velho primeiro) é o que serve para cobrar carteira:
+  // o orçamento que está há mais tempo parado é o que corre risco de morrer.
+  const _idadeDias=_idadeEmDias;
+  if(histOrdem==='idade') lista=lista.slice().sort((a,b)=>_idadeDias(b)-_idadeDias(a));
+
   const sopts=s=>['pendente','aprovado','recusado','vencido'].map(x=>`<option value="${x}" ${x===s?'selected':''}>${x.charAt(0).toUpperCase()+x.slice(1)}</option>`).join('');
   const ocultarFinanceiro=eVendas();
-  let h=`<div class="htw"><table class="ht"><thead><tr><th>#</th><th>Cliente</th>${ocultarFinanceiro?'':'<th>Total / Recebido</th>'}<th>Data</th><th>Status</th><th>Ações</th></tr></thead><tbody>`;
+  const setaIdade=histOrdem==='idade'?' ▼':'';
+  let h=`<div class="htw"><table class="ht"><thead><tr><th>#</th><th>Cliente</th>${ocultarFinanceiro?'':'<th>Total / Recebido</th>'}<th style="cursor:pointer;user-select:none" onclick="histToggleOrdem()" title="Ordenar pelo tempo parado">Data / idade${setaIdade}</th><th>Status</th><th>Ações</th></tr></thead><tbody>`;
   lista.forEach(o=>{
     _nc[o.id]=o;
     const num=String(o.numero||'—').padStart(3,'0');
@@ -3651,7 +3806,7 @@ function renderTabela(){
       <td><span class="on">#${num}</span>${pendSync?'<div title="Não sincronizado com o banco — aguardando conexão" style="font-size:9px;font-weight:700;color:#dc2626;background:#fee2e2;border-radius:4px;padding:1px 5px;margin-top:2px;text-align:center">⚠ PEND.</div>':''}</td>
       <td><div class="ocl">${esc(o.cliente||'—')}${notaIcon}</div><div class="oloc">${esc(o.local_servico||'')}</div><div class="osvc" title="${esc(svs)}">${esc(svs)}</div><div style="margin-top:3px;display:flex;gap:5px;flex-wrap:wrap;align-items:center">${getLojaBadge(o.loja_id)}${getOrigemBadge(o.origem_cliente)}</div>${(()=>{ const etapas=[]; const st=o.status||'pendente'; const osVinc=(todosOS||[]).find(x=>x.orcamento_id===o.id); const entregue=!orcTemEntregaPendente(o)&&(o.servicos||[]).some(s=>s.produto_id); const etApr=st==='aprovado'||st==='recusado'||osVinc||entregue; const etOS=!!osVinc; const etConc=osVinc?.status==='concluido'; const dot=(ok,lbl)=>`<span style="display:flex;align-items:center;gap:2px;font-size:10px;color:${ok?'#16a34a':'#9ca3af'};font-weight:${ok?'700':'400'}">${ok?'●':'○'} ${lbl}</span>`; return `<div style="display:flex;gap:6px;align-items:center;margin-top:4px;flex-wrap:wrap">${dot(true,'Criado')}›${dot(etApr,'Aprovado')}›${dot(etOS,'OS')}›${dot(etConc,'Concluído')}</div>`; })()}</td>
       ${ocultarFinanceiro?'':'<td><span class="otot">'+brl(ttl)+'</span><br><span class="'+recCl+'" style="font-size:11px">'+recTxt+'</span></td>'}
-      <td><span class="odt">${dt}</span></td>
+      <td><span class="odt">${dt}</span>${(()=>{ if(!orcAbertoNoPipeline(o)) return ''; const d=_idadeDias(o); const cor=d>90?'var(--red)':d>30?'var(--yellow)':'var(--gray)'; return `<div style="font-size:11px;font-weight:600;color:${cor};margin-top:2px">${d===0?'hoje':'há '+d+'d'}</div>`; })()}</td>
       <td><select class="ss ${o.status||'pendente'}" onchange="mudarSt('${o.id}',this)">${sopts(o.status||'pendente')}</select>${orcPrecoARevalidar(o)?'<div title="O prazo do preço expirou, mas o negócio continua no funil (equipamento ou acima de R$ 15 mil). Revalide o valor antes de retomar o contato." style="font-size:9px;font-weight:700;color:#b45309;background:#fef3c7;border-radius:4px;padding:2px 5px;margin-top:3px;text-align:center;line-height:1.25">⏳ PREÇO A<br>REVALIDAR</div>':''}</td>
       <td><div class="ta">
         <button class="tb" title="Ver PDF" onclick="verOrcPDF('${o.id}')">👁</button>
