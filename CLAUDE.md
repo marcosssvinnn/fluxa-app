@@ -1338,6 +1338,38 @@ E **sempre conferir o banco depois** — foi a checagem pós-teste que pegou ist
 
 ---
 
+## 📊 Insights = PIPELINE, não contabilidade (2026-08-07, commit `0ebbfbb`)
+
+Os 4 KPIs da `page-insights` eram cópia de `atualizarDash()` e recortados por
+mês. Trocados por **Pipeline aberto · Parado +30d · Vence em 7 dias · Fechado no
+mês** (só o último é mensal — carteira não zera na virada do mês).
+⚠️ **`atualizarDash()` e o dashboard do Histórico NÃO foram tocados** — lá os
+KPIs contábeis fazem sentido; o erro foi terem sido copiados para a tela de venda.
+
+- `orcAbertoNoPipeline(o)` = pendente **ou** vencido. É MAIS amplo que
+  `orcVivoNoFunil` de propósito: aquele responde "vale ligar?" (fila de ação),
+  este "o que está na carteira?" (visão).
+- **Barra de estágio** (`CRM_FAIXAS_IDADE`): Quente 0-7d · Sem resposta 8-30d ·
+  Esfriando 31-90d · Frio 90d+, derivada da idade, sem schema. Clicar filtra a
+  fila. Rótulos são de INTENÇÃO — quando houver rastreio de abertura do portal,
+  "Sem resposta" vira "Cliente visualizou" sem reescrever a tela.
+- **Score da fila** usa VALOR ESPERADO (`valor × CRM_CONV_EQUIP|SERV`), não valor
+  bruto: equipamento tem ticket ~12x maior mas fecha ~7% contra ~40% do serviço.
+  Equipamento também entra em dose menor na tela (`CRM_TETO_EQUIP=3` contra
+  `CRM_TETO_FILA=8`) — é venda consultiva, 3 com profundidade rendem mais que 8
+  por cima. Resultado: 6 serviço x 3 equipamento na fila do dia.
+- **Histórico**: filtro `📂 Só abertos`, idade em dias por linha e cabeçalho
+  `Data / idade` clicável (`histToggleOrdem`) para ordenar pelo mais parado.
+
+⚠️ **`.est-*` é do módulo de ESTOQUE.** As classes da barra de estágio usam
+`.fase-*` porque `.est-item`/`.est-nome` já existiam e sobrescreviam o layout dos
+produtos (pego na verificação). Não reutilizar o prefixo `est-` fora do estoque.
+
+⚠️ **Idade sempre por `_idadeEmDias()`** (dias de calendário). Comparar horas
+corridas fazia o mesmo orçamento cair em faixas diferentes conforme a hora.
+
+---
+
 ## 📊 Painel de Insights — landing do gestor (2026-08-06, commit `3c796d7`)
 
 Nova `page-insights`: "Dinheiro do mês" (4 KPIs, independente do filtro de mês
