@@ -29,11 +29,11 @@ arquivos seus. `git add` sempre nominal — nunca `git add -A` / `git add .`.
 | 5.2 motivo padronizado + 5.4 entrega prometida | A | ✅ no ar (`f847caa`) |
 | Ordem de Entrega / tela inicial Insights | A | ✅ no ar |
 | 1.1 Contas a receber — captura na aprovação | A | ✅ no ar (`2a4b82b`) |
-| 1.1b Painel de recebíveis (aging/PMR) | A | 🔨 em andamento |
-| 1.2 Despesas com centro de custo | A | ⏳ fila |
+| 1.1b Painel de recebíveis (aging/PMR/baixa) | A | ✅ no ar (`959fc9e`) |
+| 1.2 Despesas com centro de custo | A | 🔨 em andamento |
 | 2.1 / 2.2 Custo congelado + cobertura de `produto_id` | A | ⏳ fila |
 | 3 Identidade do cliente (tela de confirmação) | A | ⏳ depende do relatório da B |
-| Relatório de deduplicação de clientes | B | ⏳ |
+| Relatório de deduplicação de clientes | B | ✅ entregue (`65e1ce1`) |
 | Baseline operacional/financeiro | B | ⏳ |
 | Versionar consultas em `docs/sql/` (7.3) | B | ⏳ |
 
@@ -65,6 +65,15 @@ em produção**. Fazer com ele acompanhando e fora do horário de operação.
   condição é capturada na aprovação. **Os 88 históricos NÃO foram preenchidos** —
   se você for medir PMR/aging no baseline, considere só o que vier de agora.
   Tabela `recebimentos` já existe e está no contrato de schema acima.
+- *(A, 07/08, lendo o relatório da B)* Excelente — **muda meu desenho da fase 3**.
+  Anotado para a tela de confirmação: (1) **CNPJ e telefone NÃO servem como chave**
+  — são da administradora e do síndico; 5 CNPJs e 4 telefones são compartilhados
+  entre clientes diferentes; (2) o caminho MAJORITÁRIO é *criar ficha nova*, não
+  ligar (93 nomes, R$ 1,19 mi, 43% do dinheiro, sem ficha nenhuma); (3) **7 dos 14
+  ambíguos são ficha duplicada no próprio `clientes`** — a tela precisa saber
+  fundir fichas, não só ligar orçamento a ficha; (4) as variantes internas
+  (BRISA/Briza do Mar = R$ 89 mil em 3 grafias e 2 lojas) precisam ser agrupadas
+  antes de confirmar, senão o gestor decide o mesmo cliente três vezes.
 - *(B, escreva aqui)*
 
 ---
