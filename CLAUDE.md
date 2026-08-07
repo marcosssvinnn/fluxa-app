@@ -2,6 +2,64 @@
 
 ---
 
+## 🔀 COORDENAÇÃO — DUAS SESSÕES TRABALHANDO AGORA (2026-08-07)
+
+> **Este arquivo é o canal entre nós.** Combinado com o Marcos: implementar o
+> roadmap de indicadores em paralelo. Atualize o seu status aqui **antes de
+> commitar**, e leia o do outro **antes de começar**.
+
+### Divisão por ARQUIVO (não por assunto) — para não colidirmos
+Hoje já colidimos duas vezes: arquivos mudaram no meio da edição e uma sessão
+chegou a commitar o trabalho da outra pela metade. Por isso a divisão é por
+artefato, e não por tema.
+
+| | Sessão A (código) | Sessão B (dados/análise) |
+|---|---|---|
+| **Pode editar** | `app.js`, `index.html`, `styles.css`, `sw.js` | `docs/**`, `docs/sql/**`, `*.sql` novos |
+| **NÃO toca** | os arquivos da B | **`app.js`, `index.html`, `styles.css`, `sw.js`** |
+| **Schema** | cria as colunas/tabelas que o código usa | **não altera schema** — pede aqui |
+| **Banco** | escreve | **só leitura** (teste com `begin; … rollback;`) |
+
+**Antes de todo commit, as duas:** `git diff --stat` e confirmar que só aparecem
+arquivos seus. `git add` sempre nominal — nunca `git add -A` / `git add .`.
+
+### Status
+| Item do roadmap | Quem | Estado |
+|---|---|---|
+| 5.2 motivo padronizado + 5.4 entrega prometida | A | ✅ no ar (`f847caa`) |
+| Ordem de Entrega / tela inicial Insights | A | ✅ no ar |
+| 1.1 Contas a receber (tabela + geração + UI) | A | 🔨 em andamento |
+| 1.2 Despesas com centro de custo | A | ⏳ fila |
+| 2.1 / 2.2 Custo congelado + cobertura de `produto_id` | A | ⏳ fila |
+| 3 Identidade do cliente (tela de confirmação) | A | ⏳ depende do relatório da B |
+| Relatório de deduplicação de clientes | B | ⏳ |
+| Baseline operacional/financeiro | B | ⏳ |
+| Versionar consultas em `docs/sql/` (7.3) | B | ⏳ |
+
+### Schema que a Sessão A vai criar (contrato — B pode contar com isso)
+- `recebimentos` (`orcamento_id`, `parcela_n`, `vencimento`, `valor`,
+  `data_pagamento`, `forma`, `loja_id`) — `orcamentos.valor_recebido` vira
+  derivado, mantido por compatibilidade e nunca mais editado à mão.
+- `despesas`: + `categoria`, `centro_custo`, `competencia`, `recorrente`,
+  `fornecedor_id`; `os_id` passa a ser opcional.
+- `orcamentos.servicos[]`: + `custo_unit` e `custo_total` congelados na aprovação.
+- `cliente_id` em `orcamentos`, `ordens_servico`, `vistorias`, `equipamentos`,
+  `locais_vistoria` — **backfill só com confirmação humana**, nunca automático.
+
+### 🔴 Segurança (7.1) — NÃO mexer sem o Marcos presente
+Todas as tabelas têm `anon full access` e a anon key está num repo público:
+qualquer um lê e escreve o banco inteiro (comprovado — as medições do roadmap
+rodaram com ela). Trocar por Auth + RLS **pode trancar a equipe fora do sistema
+em produção**. Fazer com ele acompanhando e fora do horário de operação.
+
+### Recados
+- *(A, 07/08)* Apliquei `motivo_cod` e `data_prevista`. Achado: o form da OC tinha
+  um campo rotulado "Data prevista" que gravava em `data` (data da ordem) — o dado
+  era pedido ao usuário e jogado fora. Agora são dois campos.
+- *(B, escreva aqui)*
+
+---
+
 ## 🛡️ PROTOCOLO DE VERIFICAÇÃO — OBRIGATÓRIO ANTES DE ENTREGAR QUALQUER MUDANÇA
 
 > **Regra do Marcos:** *"sempre verificar todos os ângulos e brechas do código para não aparecer bug no futuro."*
