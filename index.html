@@ -840,11 +840,24 @@
       <button class="tb" onclick="renderPainelInsights()">🔄 Atualizar</button>
     </div>
 
+    <!-- KPIs de PIPELINE (não contábeis — o dashboard do Histórico cobre aquilo).
+         Os três primeiros ignoram o mês de propósito: carteira aberta não zera
+         na virada. Só "Fechado no mês" é mensal. -->
     <div class="dash">
-      <div class="dc o"><div class="dl">Total Emitido</div><div class="dv" id="ins-d-emit">—</div><div class="ds" id="ins-d-emit-q">— orç.</div></div>
-      <div class="dc g"><div class="dl">Aprovados</div><div class="dv" id="ins-d-aprov">—</div><div class="ds" id="ins-d-aprov-q">— aprovados</div></div>
-      <div class="dc y"><div class="dl">A Receber</div><div class="dv" id="ins-d-rec">—</div><div class="ds">aprovado s/ pagto</div></div>
-      <div class="dc b"><div class="dl">Ticket Médio</div><div class="dv" id="ins-d-tick">—</div><div class="ds">por orçamento</div></div>
+      <div class="dc b"><div class="dl">Pipeline aberto</div><div class="dv" id="ins-d-emit">—</div><div class="ds" id="ins-d-emit-q">— orç.</div></div>
+      <div class="dc r"><div class="dl">Parado +30 dias</div><div class="dv" id="ins-d-aprov">—</div><div class="ds" id="ins-d-aprov-q">—</div></div>
+      <div class="dc y"><div class="dl">Vence em 7 dias</div><div class="dv" id="ins-d-rec">—</div><div class="ds" id="ins-d-rec-q">revalidar o preço</div></div>
+      <div class="dc g"><div class="dl">Fechado no mês</div><div class="dv" id="ins-d-tick">—</div><div class="ds" id="ins-d-tick-q">—</div></div>
+    </div>
+
+    <!-- Barra de estágio: responde "em que fase está" sem schema novo, derivando
+         da idade do orçamento. Clicar numa faixa filtra a fila abaixo. -->
+    <div class="card" id="ins-estagio-card">
+      <div class="ct">📶 Em que fase está
+        <span style="font-size:11px;font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0" id="ins-estagio-sub">toque numa faixa para filtrar a fila</span>
+      </div>
+      <div id="ins-estagio-barra" class="fase-barra"></div>
+      <div id="ins-estagio-leg" class="fase-leg"></div>
     </div>
 
     <div class="card">
@@ -946,6 +959,7 @@
       <!-- ── Filtros de status + busca ── -->
       <div class="hf">
         <button class="fb on" data-s="todos" onclick="filt(this)">Todos</button>
+        <button class="fb" data-s="abertos" onclick="filt(this)" title="Tudo que o cliente ainda não decidiu — pendente + vencido">📂 Só abertos</button>
         <button class="fb" data-s="pendente" onclick="filt(this)">⏳ Pendente</button>
         <button class="fb" data-s="aprovado" onclick="filt(this)">✅ Aprovado</button>
         <button class="fb" data-s="recusado" onclick="filt(this)">❌ Recusado</button>
