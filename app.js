@@ -1738,7 +1738,7 @@ function go(p){
   if(p==='recebiveis') loadRecebiveisPage();
   if(p==='despesas'){ loadDespesas(); setTimeout(renderAvisoRecorrentes,300); }
   if(p==='estoque'){ loadEstoque(); setTimeout(renderIndicadoresEstoque,400); }
-  if(p==='produtividade'){ loadProdutividade(); setTimeout(()=>{ renderRelatorioFinanceiro(); renderDRE(); },300); }
+  if(p==='produtividade'){ loadProdutividade(); setTimeout(()=>{ renderRelatorioFinanceiro(); renderDRE(); renderAnaliseClientes(); },300); }
   if(p==='usuarios') loadUsuarios();
   if(p==='auditoria') loadAuditoria();
   if(p==='minhas-os') loadMinhasOS();
@@ -6555,6 +6555,89 @@ function _dreCalcular(mes, lojas){
   return {receita, custoDireto, campo, variavel, fixo, admin, margemContrib, resultado,
           margemPct: receita? (margemContrib/receita*100) : null,
           resultadoPct: receita? (resultado/receita*100) : null};
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  ANÁLISE DE CLIENTES (fase 6, camada trimestral) — ABC, LTV e recompra
+//  Agrupa por `cliente_id` quando ele existe e cai para o nome normalizado
+//  quando não existe. Sem esse fallback a tela nasceria vazia e ficaria assim
+//  até alguém confirmar as 216 identidades — inútil justamente no momento em
+//  que ajudaria a priorizar quais confirmar.
+//  A tela declara quanto do valor já está por identidade confirmada, para o
+//  número ser lido pelo que é.
+// ══════════════════════════════════════════════════════════════════════
+function _cliChave(o){
+  return o.cliente_id ? 'id:'+o.cliente_id : 'nome:'+(_identNorm? _identNorm(o.cliente) : String(o.cliente||'').toLowerCase());
+}
+function analiseClientes(){
+  const orcs=filtrarPorLoja(todosOrc||[]).filter(o=>(o.cliente||'').trim());
+  const aprov=orcs.filter(o=>o.status==='aprovado');
+  const map=new Map();
+  aprov.forEach(o=>{
+    const k=_cliChave(o);
+    if(!map.has(k)) map.set(k,{chave:k, nome:o.cliente, porId:!!o.cliente_id, orcs:[], valor:0});
+    const g=map.get(k); g.orcs.push(o); g.valor+=parseFloat(o.total)||0;
+    if(o.cliente_id) g.porId=true;
+  });
+  const lista=[...map.values()].map(g=>{
+    const datas=g.orcs.map(o=>{ const ap=o.data_aprovacao?new Date(o.data_aprovacao):null;
+      return (ap&&!isNaN(ap))?ap:_orcData(o); }).filter(d=>d&&!isNaN(d)).sort((a,b)=>a-b);
+    const primeiro=datas[0], ultimo=datas[datas.length-1];
+    return {...g, compras:g.orcs.length, ticket:g.valor/g.orcs.length,
+      primeiro, ultimo, recompra:g.orcs.length>1,
+      diasDesdeUltima: ultimo? Math.round((new Date(_hojeLocal()+'T12:00:00')-ultimo)/86400000) : null};
+  }).sort((a,b)=>b.valor-a.valor);
+
+  // Curva ABC por faturamento: A até 80% acumulado, B até 95%, C o resto
+  const total=lista.reduce((a,c)=>a+c.valor,0);
+  // Classifica pelo acumulado ANTES do item: o que CRUZA os 80% pertence ao A.
+  // Classificando pelo acumulado depois, um cliente que sozinho vale 81% do
+  // faturamento cai em B e a curva fica sem nenhum A — exatamente ao contrário.
+  let acc=0;
+  lista.forEach(c=>{ const antes=total?acc/total:0; acc+=c.valor;
+    c.classe = antes<0.8 ? 'A' : (antes<0.95 ? 'B' : 'C'); c.acumPct=(total?acc/total:0)*100; });
+  const porId=lista.filter(c=>c.porId).reduce((a,c)=>a+c.valor,0);
+  return {lista, total, cobertura: total? porId/total*100 : 0};
+}
+
+function renderAnaliseClientes(){
+  const el=document.getElementById('cli-analise'); if(!el) return;
+  const {lista,total,cobertura}=analiseClientes();
+  if(!lista.length){ el.innerHTML='<div style="font-size:12.5px;color:var(--gray);padding:8px 0">Nenhum orçamento aprovado no escopo atual.</div>'; return; }
+  const cls=c=>lista.filter(x=>x.classe===c);
+  const soma=l=>l.reduce((a,c)=>a+c.valor,0);
+  const rec=lista.filter(c=>c.recompra);
+  const sumidos=lista.filter(c=>c.diasDesdeUltima!==null && c.diasDesdeUltima>90);
+
+  el.innerHTML=
+   `<div class="dash">
+      <div class="dc o"><div class="dl">Clientes que compraram</div><div class="dv">${lista.length}</div>
+        <div class="ds">${brl(total)} no total</div></div>
+      <div class="dc g"><div class="dl">Classe A</div><div class="dv">${cls('A').length}</div>
+        <div class="ds">${total?Math.round(soma(cls('A'))/total*100):0}% do faturamento</div></div>
+      <div class="dc b"><div class="dl">Voltaram a comprar</div><div class="dv">${rec.length}</div>
+        <div class="ds">${lista.length?Math.round(rec.length/lista.length*100):0}% dos clientes</div></div>
+      <div class="dc ${sumidos.length?'y':'g'}"><div class="dl">Sem comprar há 90d+</div><div class="dv">${sumidos.length}</div>
+        <div class="ds">${brl(soma(sumidos))} de histórico</div></div>
+    </div>
+    <table class="fin-tabela" style="width:100%">
+      <thead><tr><th style="text-align:left">Cliente</th><th>Classe</th><th style="text-align:right">Compras</th>
+        <th style="text-align:right">Total</th><th style="text-align:right">Ticket</th><th style="text-align:right">Última</th></tr></thead>
+      <tbody>${lista.slice(0,25).map(c=>`<tr>
+        <td style="font-weight:600">${esc(String(c.nome).slice(0,34))}${c.porId?'':' <span title="agrupado pelo nome — identidade ainda não confirmada" style="color:var(--gray);font-weight:400">~</span>'}</td>
+        <td style="text-align:center"><span style="font-weight:800;color:${c.classe==='A'?'var(--green)':c.classe==='B'?'var(--yellow)':'var(--gray)'}">${c.classe}</span></td>
+        <td style="text-align:right">${c.compras}</td>
+        <td style="text-align:right;font-weight:700">${brl(c.valor)}</td>
+        <td style="text-align:right;color:var(--gray)">${brl(c.ticket)}</td>
+        <td style="text-align:right;color:${c.diasDesdeUltima>90?'var(--yellow)':'var(--gray)'}">${c.diasDesdeUltima!==null?c.diasDesdeUltima+'d':'—'}</td>
+      </tr>`).join('')}</tbody>
+    </table>
+    ${lista.length>25?`<div style="font-size:11px;color:var(--gray);padding:6px 0">Mostrando os 25 maiores de ${lista.length}.</div>`:''}
+    <div style="font-size:11.5px;color:var(--gray);margin-top:9px;line-height:1.5">
+      ${cobertura>=99
+        ? 'Agrupado por identidade confirmada.'
+        : `Só <strong>${cobertura.toFixed(0)}%</strong> do valor está agrupado por identidade confirmada; o resto (marcado com <strong>~</strong>) foi agrupado pelo nome digitado, então o mesmo cliente escrito de dois jeitos ainda conta como dois. Confirme em <a href="#" onclick="go('identidade');return false" style="color:var(--c1);font-weight:600">Identidade</a> — comece pelos de maior valor.`}
+    </div>`;
 }
 
 function renderDRE(){
@@ -11937,8 +12020,12 @@ function curvaABC(){
   prods.forEach(p=>{ valor[p.id]=giroProduto(p.id,180)*(parseFloat(p.custo)||0); });
   const ordenados=prods.slice().sort((a,b)=>(valor[b.id]||0)-(valor[a.id]||0));
   const total=ordenados.reduce((a,p)=>a+(valor[p.id]||0),0)||1;
+  // Classifica pelo acumulado ANTES do item (o que cruza os 80% e' A). Antes
+  // usava o acumulado DEPOIS, entao um produto que sozinho vale 85% do consumo
+  // caia em B e a curva ficava sem nenhum A.
   let acc=0; const classe={};
-  ordenados.forEach(p=>{ acc+=(valor[p.id]||0); const pct=acc/total; classe[p.id]= (valor[p.id]||0)<=0 ? 'C' : pct<=0.8?'A':pct<=0.95?'B':'C'; });
+  ordenados.forEach(p=>{ const antes=acc/total; acc+=(valor[p.id]||0);
+    classe[p.id]= (valor[p.id]||0)<=0 ? 'C' : (antes<0.8?'A':antes<0.95?'B':'C'); });
   return {valor, classe, ordenados, total};
 }
 
