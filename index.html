@@ -157,6 +157,7 @@
     <button class="snb" id="snb-clientes" onclick="go('clientes')"><span class="sicon">👥</span><span class="slabel">Clientes</span></button>
     <button class="snb" id="snb-equipamentos" onclick="go('equipamentos')"><span class="sicon">🔧</span><span class="slabel">Equipamentos</span></button>
     <button class="snb" id="snb-estoque" onclick="go('estoque')"><span class="sicon">📦</span><span class="slabel">Estoque</span></button>
+    <button class="snb" id="snb-identidade" onclick="go('identidade')"><span class="sicon">🪪</span><span class="slabel">Identidade</span></button>
     <button class="snb" id="snb-recebiveis" onclick="go('recebiveis')"><span class="sicon">💰</span><span class="slabel">A Receber</span></button>
     <button class="snb" id="snb-despesas" onclick="go('despesas')"><span class="sicon">💸</span><span class="slabel">Despesas</span></button>
     <button class="snb" id="snb-produtividade" onclick="go('produtividade')"><span class="sicon">📈</span><span class="slabel">Produtividade</span></button>
@@ -479,6 +480,32 @@
     <div class="card">
       <div class="ct">Parcelas <span id="receb-contagem" style="font-size:11px;font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0"></span></div>
       <div id="receb-lista"></div>
+    </div>
+  </div>
+</div>
+
+<div class="page" id="page-identidade">
+  <div class="wrap">
+    <button class="tb" onclick="voltar()" style="margin-bottom:12px">← Voltar</button>
+    <h2 style="margin:0 0 4px;font-size:22px;font-weight:800">🪪 Identidade dos clientes</h2>
+    <p style="margin:0 0 6px;font-size:13px;color:var(--gray);max-width:62ch">
+      O nome do cliente no orçamento é texto livre — o mesmo condomínio aparece escrito
+      de vários jeitos e o sistema não soma a história dele. Aqui você confirma quem é quem.</p>
+    <p style="margin:0 0 16px;font-size:12.5px;color:#b45309;max-width:62ch">
+      Nada é ligado automaticamente. <strong>CNPJ e telefone não servem como chave</strong> —
+      o CNPJ costuma ser da administradora e o telefone do síndico, então condomínios
+      diferentes compartilham os dois.</p>
+
+    <div class="dash" id="ident-kpis"></div>
+
+    <div class="card">
+      <div class="ct">Filtrar</div>
+      <div id="ident-filtros" style="display:flex;gap:7px;flex-wrap:wrap"></div>
+    </div>
+
+    <div class="card">
+      <div class="ct">Nomes <span id="ident-contagem" style="font-size:11px;font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0"></span></div>
+      <div id="ident-lista"></div>
     </div>
   </div>
 </div>
