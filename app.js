@@ -2291,7 +2291,7 @@ function renderSvcs(){
       : `<button type="button" onclick="abrirPickerProduto(${s.id})" style="background:none;border:1px dashed var(--gray-mid);border-radius:50px;padding:3px 10px;font-size:11px;color:var(--gray);cursor:pointer;font-family:'Inter',sans-serif">📦 Vincular produto do estoque</button>`;
     r.innerHTML=`<div class="srow-t">
       <input type="number" class="qty-f" placeholder="1" min="1" value="${qty}" data-id="${s.id}" data-f="qty" oninput="updSvcQty(this)" title="Quantidade">
-      <input type="text" placeholder="Descrição do serviço ou produto" value="${esc(s.d)}" data-id="${s.id}" data-f="d" oninput="updSvc(this)" style="flex:1">
+      <input type="text" list="svc-prod-list" placeholder="Descrição — comece a digitar para buscar no estoque" value="${esc(s.d)}" data-id="${s.id}" data-f="d" oninput="updSvc(this)" style="flex:1">
       <button class="btn-rm" onclick="rmSvc(${s.id})">✕</button>
     </div>
     <div class="srow-b">
@@ -2302,8 +2302,33 @@ function renderSvcs(){
     </div>`;
     el.appendChild(r);
   });
+  renderDatalistProdutos();
+  renderAvisoVinculo();
 }
-function updSvc(inp){ const s=svcs.find(x=>x.id===parseFloat(inp.dataset.id)); if(s) s[inp.dataset.f]=inp.value; upd(); }
+// Fora do renderSvcs de propósito: precisa atualizar a cada tecla, e o
+// renderSvcs só roda quando a linha muda de forma (senão o aviso ficava mudo
+// justamente no caso que ele existe para avisar — o texto livre).
+function renderAvisoVinculo(){
+  const av=document.getElementById('svc-aviso-vinculo'); if(!av) return;
+  const semv=_svcSemVinculo();
+  av.style.display = semv? '' : 'none';
+  av.innerHTML = semv
+    ? `<span style="color:var(--gray)">${semv} ${semv>1?'itens ficaram':'item ficou'} sem vínculo com o estoque — ${semv>1?'eles não movem':'ele não move'} saldo nem custo ao aprovar.</span>`
+    : '';
+}
+function updSvc(inp){
+  const s=svcs.find(x=>x.id===parseFloat(inp.dataset.id));
+  if(s){
+    s[inp.dataset.f]=inp.value;
+    if(inp.dataset.f==='d' && _svcAutoVincular(s)){
+      renderSvcs(); upd();
+      toast('📦 '+(produtoById(s.produto_id)?.nome||'Produto')+' vinculado ao estoque');
+      return;
+    }
+  }
+  renderAvisoVinculo();
+  upd();
+}
 function updSvcQty(inp){ const s=svcs.find(x=>x.id===parseFloat(inp.dataset.id)); if(s){ s.qty=parseInt(inp.value)||1; renderSvcs(); upd(); } }
 function updSvcP(inp){
   const raw=inp.value.replace(',','.').replace(/[^\d.]/g,'');
@@ -2350,6 +2375,42 @@ function renderPickerProduto(q){
     </div>`;
   }).join('');
 }
+
+// ── Cobertura de produto_id: vincular tem que ser MAIS FÁCIL que digitar ──
+// Medido em 07/08 nos itens aprovados: Camboriú 24,3%, Itapema 47,2%. Como a
+// baixa passou a acontecer na aprovação, três quartos do que Camboriú vende não
+// move estoque — foi digitado como texto livre. O picker existia, mas era um
+// passo A MAIS; aqui o catálogo entra como sugestão no próprio campo de
+// descrição e já traz o preço, então o caminho vinculado vira o mais curto.
+function _catalogoSugestoes(){
+  const vis = (typeof produtosVisiveis==='function') ? produtosVisiveis() : (todosProdutos||[]);
+  return (vis||[]).filter(p=>p && p.nome && p.ativo!==false);
+}
+function renderDatalistProdutos(){
+  const dl=document.getElementById('svc-prod-list'); if(!dl) return;
+  dl.innerHTML=_catalogoSugestoes()
+    .map(p=>`<option value="${esc(p.nome)}">${p.preco_venda?brl(p.preco_venda):''}</option>`).join('');
+}
+// Casa o texto digitado com um produto do catálogo (exato, ignorando caixa/acento)
+function _produtoPorNome(txt){
+  const n=_normNome? _normNome(txt) : String(txt||'').trim().toLowerCase();
+  if(!n) return null;
+  return _catalogoSugestoes().find(p=>(_normNome? _normNome(p.nome) : String(p.nome).trim().toLowerCase())===n)||null;
+}
+// Chamado no input da descrição: se o texto bate com o catálogo, vincula sozinho.
+// NÃO desvincula quando deixa de bater — quem desvincula é o ✕, senão editar a
+// descrição de um item já vinculado o soltaria do estoque sem a pessoa perceber.
+function _svcAutoVincular(s){
+  if(!s || s.produto_id) return false;
+  const p=_produtoPorNome(s.d);
+  if(!p) return false;
+  s.produto_id=p.id;
+  if(!s.p || parseFloat(s.p)===0) s.p=String(p.preco_venda||0);
+  return true;
+}
+// Quantos itens ficaram sem vínculo — mostrado no rodapé da lista, sem bloquear.
+function _svcSemVinculo(){ return (svcs||[]).filter(x=>!x.produto_id && (x.d||'').trim()).length; }
+
 function vincularProdutoSvc(produtoId){
   const p=produtoById(produtoId); if(!p) return;
   const s=svcs.find(x=>x.id===_pickerSvcId);
