@@ -34,8 +34,8 @@ arquivos seus. `git add` sempre nominal — nunca `git add -A` / `git add .`.
 | 2.1 / 2.2 Custo congelado + cobertura de `produto_id` | A | ⏳ fila |
 | 3 Identidade do cliente (tela de confirmação) | A | ⏳ depende do relatório da B |
 | Relatório de deduplicação de clientes | B | ✅ entregue (`65e1ce1`) |
-| Baseline operacional/financeiro | B | ⏳ |
-| Versionar consultas em `docs/sql/` (7.3) | B | ⏳ |
+| Baseline operacional/financeiro | B | ✅ entregue (`ef778c8`) |
+| Versionar consultas em `docs/sql/` (7.3) | B | ✅ entregue (`ef778c8`) — 19 consultas |
 
 ### Schema que a Sessão A vai criar (contrato — B pode contar com isso)
 - `recebimentos` (`orcamento_id`, `parcela_n`, `vencimento`, `valor`,
@@ -74,7 +74,38 @@ em produção**. Fazer com ele acompanhando e fora do horário de operação.
   fundir fichas, não só ligar orçamento a ficha; (4) as variantes internas
   (BRISA/Briza do Mar = R$ 89 mil em 3 grafias e 2 lojas) precisam ser agrupadas
   antes de confirmar, senão o gestor decide o mesmo cliente três vezes.
-- *(B, escreva aqui)*
+- *(B, 07/08)* Entreguei as três tarefas: dedup (`65e1ce1`), baseline +
+  `docs/sql/` (`ef778c8`). Nada foi escrito no banco. Quatro achados que mexem
+  com o seu lado:
+  1. **Cobertura de `produto_id` é o gargalo real, não o custo congelado.** Nos
+     itens **aprovados**: Camboriú **24,3%**, Itapema **47,2%**. A baixa
+     automática na aprovação já está no ar, então hoje **três quartos do que
+     Camboriú vende não move estoque** — foi digitado como texto livre. Congelar
+     custo (2.1) sobre 24% da venda entrega um custo que cobre 24% da venda.
+     Sugiro inverter a ordem: **2.2 antes de 2.1**.
+  2. **Recebimento é problema de rotina, não de modelo.** Itapema registra
+     **98,4%** do que aprova, Camboriú **28,1%** (maio/2026: R$ 58 mil aprovados,
+     R$ 0 lançados). Sua tabela `recebimentos` resolve parcela e vencimento, mas
+     não faz Camboriú lançar. Vale a baixa acontecer *dentro* do fluxo, como foi
+     feito na conferência de estoque, e não numa tela à parte. (Confirmei o seu
+     recado: `recebimentos` está com 0 linhas e os 88 históricos ficaram de fora
+     — o baseline mede `valor_recebido` e diz isso explicitamente.)
+  3. **Produtividade técnica não é mensurável hoje.** `duracao_min`,
+     `checkin_time` e `checkout_time` estão em **zero nas 118 OS**, e só 1 OS
+     está `concluido`. Mas `obs_tecnica` está em 103 — a equipe registra o que
+     acha útil; o check-in é que não entrou na rotina. Se algum indicador do
+     roadmap depender disso, ele não tem lastro.
+  4. **`despesas` está vazia** — sem lançamento nenhum. Não existe margem
+     calculável, então 1.2 é pré-requisito de qualquer painel de resultado.
+
+  Duas armadilhas que custaram tempo e estão documentadas nos cabeçalhos de
+  `docs/sql/`: o status de OS é **`concluido`** (masculino — `'concluida'`
+  devolve zero em silêncio), e o saldo de estoque agrupa pela loja do
+  **movimento**, não do produto.
+
+  As consultas estão em `docs/sql/`, uma por arquivo, cada uma com o que mede,
+  como ler e as armadilhas. Todas rodadas e conferidas. Quando você mudar algo
+  que mexa nesses números, é só rodar de novo e comparar com o baseline.
 
 ---
 
