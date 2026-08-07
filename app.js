@@ -1727,7 +1727,7 @@ function go(p){
   if(p==='recebiveis') loadRecebiveisPage();
   if(p==='despesas'){ loadDespesas(); setTimeout(renderAvisoRecorrentes,300); }
   if(p==='estoque') loadEstoque();
-  if(p==='produtividade'){ loadProdutividade(); setTimeout(renderRelatorioFinanceiro,300); }
+  if(p==='produtividade'){ loadProdutividade(); setTimeout(()=>{ renderRelatorioFinanceiro(); renderDRE(); },300); }
   if(p==='usuarios') loadUsuarios();
   if(p==='auditoria') loadAuditoria();
   if(p==='minhas-os') loadMinhasOS();
@@ -4021,7 +4021,14 @@ function filtOrigem(v){ filtroOrigem=v; renderTabela(); }
 function _orcData(o){
   // campo correto de data: data_criacao (ISO) é o mais confiável
   const raw = o.data_criacao || o.data_orc || o.data || '';
-  return raw ? new Date(raw) : null;
+  if(!raw) return null;
+  // ⚠️ String só-data ('2026-08-01') é lida pelo JS como MEIA-NOITE UTC; no
+  // Brasil (UTC-3) isso vira 31/07 no horário local, e getMonth() devolve o mês
+  // ERRADO. Resultado: todo orçamento do dia 1º caía no mês anterior em qualquer
+  // relatório que agrupe por mês. Ancorar ao meio-dia local elimina a borda —
+  // mesmo tratamento que o app já dá às datas de despesa.
+  const s=String(raw);
+  return new Date(/^\d{4}-\d{2}-\d{2}$/.test(s) ? s+'T12:00:00' : s);
 }
 
 function renderGraficoDash(){
@@ -6172,6 +6179,132 @@ function renderContasReceber(){
 // ──────────────────────────────────────────────────
 //  RELATÓRIO FINANCEIRO
 // ──────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════
+//  DRE GERENCIAL POR UNIDADE
+//  Receita reconhecida − custo direto − despesa, com Camboriú e Itapema em
+//  colunas separadas: o baseline mostrou que comparar as duas revela problema
+//  de processo mais rápido que qualquer média consolidada.
+//
+//  Custo direto NÃO é recalculado pelo CMP de hoje: vem do `custo_unit` que o
+//  ledger carimbou em cada saída no momento da venda. Recalcular com o custo
+//  atual daria margem errada para meses passados — e ninguém perceberia.
+// ══════════════════════════════════════════════════════════════════════
+function _dreMesesDisponiveis(){
+  const set=new Set();
+  (todosOrc||[]).forEach(o=>{ const d=_orcData(o); if(d&&!isNaN(d)) set.add(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')); });
+  (todasDesp||[]).forEach(x=>{ const m=x.competencia||String(x.data||'').slice(0,7); if(/^\d{4}-\d{2}$/.test(m)) set.add(m); });
+  const hoje=_hojeLocal().slice(0,7); set.add(hoje);
+  return [...set].sort().reverse().slice(0,24);
+}
+
+// Um bloco de números por unidade. `lojas` permite somar o grupo na coluna Total.
+function _dreCalcular(mes, lojas){
+  const dentro = lj => lojas.includes(lj||'');
+  // Receita: orçamento aprovado, pelo mês de referência que o app já usa
+  const receita=(todosOrc||[]).filter(o=>{
+    if(o.status!=='aprovado' || !dentro(o.loja_id)) return false;
+    // Reconhece a receita no mês da APROVAÇÃO (é quando a venda aconteceu),
+    // não no da criação — orçamento feito em julho e fechado em agosto é
+    // receita de agosto. Mesmo critério que o histórico já usa.
+    const ap=o.data_aprovacao ? new Date(o.data_aprovacao) : null;
+    const d=(ap&&!isNaN(ap)) ? ap : _orcData(o);
+    if(!d||isNaN(d)) return false;
+    return (d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'))===mes;
+  }).reduce((a,o)=>a+(parseFloat(o.total)||0),0);
+
+  // Custo direto: saídas de baixa de orçamento, com o custo do dia da venda
+  const custoDireto=(todosMovEstoque||[]).filter(m=>
+    m.tipo==='saida' && String(m.ref||'').startsWith('baixa:orc:') &&
+    dentro(m.loja_id) && String(m.data||'').slice(0,7)===mes
+  ).reduce((a,m)=>a+Math.abs(parseFloat(m.quantidade)||0)*(parseFloat(m.custo_unit)||0),0);
+
+  // Despesas por centro de custo, pela COMPETÊNCIA (não pela data de pagamento)
+  const desp=(todasDesp||[]).filter(x=>{
+    if(!dentro(x.loja_id)) return false;
+    return (x.competencia||String(x.data||'').slice(0,7))===mes;
+  });
+  const porCentro=c=>desp.filter(x=>(x.centro_custo||(x.categoria==='empresa'?'fixo':'campo'))===c)
+                        .reduce((a,x)=>a+(parseFloat(x.valor)||0),0);
+  const campo=porCentro('campo'), variavel=porCentro('variavel');
+  const fixo=porCentro('fixo'), admin=porCentro('administrativo');
+
+  const margemContrib = receita - custoDireto - variavel - campo;
+  const resultado = margemContrib - fixo - admin;
+  return {receita, custoDireto, campo, variavel, fixo, admin, margemContrib, resultado,
+          margemPct: receita? (margemContrib/receita*100) : null,
+          resultadoPct: receita? (resultado/receita*100) : null};
+}
+
+function renderDRE(){
+  const sel=document.getElementById('dre-mes'); if(!sel) return;
+  const meses=_dreMesesDisponiveis();
+  if(!sel.options.length || sel.dataset.n!==String(meses.length)){
+    const atual=sel.value;
+    sel.innerHTML=meses.map(m=>{
+      const [y,mm]=m.split('-');
+      const rot=new Date(parseInt(y),parseInt(mm)-1,1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+      return `<option value="${m}">${rot}</option>`;
+    }).join('');
+    sel.dataset.n=String(meses.length);
+    if(atual && meses.includes(atual)) sel.value=atual;
+  }
+  const mes=sel.value||meses[0];
+
+  // Só as unidades que o usuário pode ver agora (respeita o seletor do header)
+  const visiveis = (typeof LOJAS!=='undefined'?LOJAS:[]).filter(l=>{
+    if(lojaAtiva) return l.id===lojaAtiva;
+    return filtrarPorLoja([{loja_id:l.id}]).length>0;
+  });
+  const cols = visiveis.map(l=>({id:l.id, nome:l.nome, d:_dreCalcular(mes,[l.id])}));
+  const total = {nome:'Total', d:_dreCalcular(mes, visiveis.map(l=>l.id))};
+
+  const linha=(rot, campo, opts)=>{
+    const o=opts||{};
+    const cel=d=>{
+      const v=d[campo];
+      if(v===null||v===undefined) return '<td style="text-align:right;color:var(--gray)">—</td>';
+      const cor = o.neg ? 'var(--red)' : (o.destaque ? (v>=0?'var(--green)':'var(--red)') : 'var(--c2)');
+      return `<td style="text-align:right;color:${cor};${o.destaque?'font-weight:800':''};font-variant-numeric:tabular-nums">${
+        o.pct ? (v===null?'—':v.toFixed(1).replace('.',',')+'%') : (o.neg&&v>0?'− ':'')+brl(Math.abs(v))}</td>`;
+    };
+    return `<tr${o.borda?' style="border-top:2px solid var(--gray-mid)"':''}>
+      <td style="${o.destaque?'font-weight:800':'font-weight:600'};${o.recuo?'padding-left:16px;font-weight:400;color:var(--gray)':''}">${rot}</td>
+      ${cols.map(c=>cel(c.d)).join('')}${cols.length>1?cel(total.d):''}</tr>`;
+  };
+
+  document.getElementById('dre-corpo').innerHTML=`
+  <div style="overflow-x:auto">
+   <table class="fin-tabela" style="width:100%;min-width:${260+cols.length*110}px">
+    <thead><tr>
+      <th style="text-align:left">Conta</th>
+      ${cols.map(c=>`<th style="text-align:right">${esc(c.nome)}</th>`).join('')}
+      ${cols.length>1?'<th style="text-align:right">Total</th>':''}
+    </tr></thead>
+    <tbody>
+      ${linha('Receita reconhecida','receita')}
+      ${linha('Custo do produto vendido','custoDireto',{neg:true,recuo:true})}
+      ${linha('Despesa de campo','campo',{neg:true,recuo:true})}
+      ${linha('Despesa variável','variavel',{neg:true,recuo:true})}
+      ${linha('Margem de contribuição','margemContrib',{destaque:true,borda:true})}
+      ${linha('% sobre a receita','margemPct',{pct:true,recuo:true})}
+      ${linha('Despesa fixa','fixo',{neg:true,recuo:true})}
+      ${linha('Administrativo','admin',{neg:true,recuo:true})}
+      ${linha('Resultado','resultado',{destaque:true,borda:true})}
+      ${linha('% sobre a receita','resultadoPct',{pct:true,recuo:true})}
+    </tbody>
+   </table>
+  </div>`;
+
+  // Honestidade sobre o que o número ainda não cobre
+  const semDesp = cols.every(c=>!c.d.campo && !c.d.variavel && !c.d.fixo && !c.d.admin);
+  const semCusto = cols.every(c=>!c.d.custoDireto);
+  const avisos=[];
+  if(semDesp) avisos.push('Nenhuma despesa lançada neste mês — o resultado abaixo da margem é só a receita, não o lucro.');
+  if(semCusto) avisos.push('Nenhum custo de produto neste mês: ou não houve venda de material, ou os itens do orçamento não estavam vinculados ao estoque.');
+  avisos.push('Receita = orçamento aprovado no mês. Custo do produto vem do valor gravado na baixa, não do custo de hoje. Despesa entra pela competência.');
+  document.getElementById('dre-nota').innerHTML=avisos.map(a=>'• '+a).join('<br>');
+}
+
 function renderRelatorioFinanceiro(){
   const tbody=document.getElementById('fin-tabela-body'); if(!tbody) return;
   const periodo=(document.getElementById('fin-periodo')||{value:'6m'}).value;
