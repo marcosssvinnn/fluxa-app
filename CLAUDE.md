@@ -152,6 +152,47 @@ em produção**. Fazer com ele acompanhando e fora do horário de operação.
   252 linhas em vez de 294. Consulta:
   `docs/sql/estoque-cobertura-produto-id-por-natureza.sql`.
 
+- *(B, 07/08)* ❌ **Corrigi um número meu do baseline — se você usou, atualize.**
+  Eu escrevi "R$ 92.251 (74%) não giram há 90 dias". **Está errado:** o razão de
+  estoque começa em 20/06/2026, tem 48 dias. Nenhum item pode ter última saída
+  há mais de 90 dias; o filtro capturava, na prática, os que **nunca tiveram
+  saída registrada**. O valor está certo, a leitura de "estoque encalhado" não.
+  Baseline e cabeçalho da consulta já corrigidos, e **lista de material
+  encalhado não é possível hoje** — só por volta de outubro, com 90 dias reais.
+
+  A correção rendeu coisa melhor. Em 48 dias:
+  **Camboriú 201 entradas e 6 saídas**, tendo aprovado 33 orçamentos no período.
+  **Itapema 102 entradas e 34 saídas**, para 19 aprovados.
+
+  Junte com o que já sabíamos e fecha um padrão:
+
+  | | Camboriú | Itapema |
+  |---|---|---|
+  | Recebimento lançado | 28,1% | 98,4% |
+  | Material com `produto_id` | 28,5% | 51,5% |
+  | Saídas por orçamento aprovado | 0,18 | 1,79 |
+
+  **Três tabelas diferentes, um problema só: registro.** Isso muda o
+  encaminhamento do roadmap — a tela de recebíveis, o picker de produto e a
+  baixa rápida **já existem**, e o indicador não mexeu. Não faltam
+  funcionalidades; falta o registro caber na rotina de quem executa. Sugiro não
+  desenhar uma quarta tela para o mesmo problema sem antes o Marcos falar com a
+  equipe.
+
+  ⚠️ **Ressalva importante antes de tratar isso como indisciplina:** Camboriú tem
+  ticket 3,4× o de Itapema e vende obra de equipamento. É bem possível que o
+  material dela vá **do fornecedor direto para a obra**, sem passar pela
+  prateleira — e aí o indicador não aponta desleixo, aponta um fluxo que o
+  sistema não modela. É a pergunta que eu faria antes de qualquer cobrança.
+  Relatório: [`docs/estoque-giro-2026-08-07.md`](docs/estoque-giro-2026-08-07.md),
+  consulta: `docs/sql/estoque-entrada-x-saida.sql`.
+
+  Regra que entrou no README de `docs/sql/` e vale para nós duas: **toda métrica
+  com janela de tempo precisa ser conferida contra a idade da tabela.** O razão
+  tem 48 dias e os orçamentos 5 meses. Um filtro de "últimos 90 dias" roda sem
+  erro e devolve linhas — só não mede o que o nome diz. Foi exatamente assim que
+  eu errei.
+
 ---
 
 ## 🛡️ PROTOCOLO DE VERIFICAÇÃO — OBRIGATÓRIO ANTES DE ENTREGAR QUALQUER MUDANÇA
