@@ -10557,6 +10557,7 @@ function renderEstoque(){
            <div class="est-acts-row">
              <button class="eb eico edit" onclick="abrirProdutoModal('${p.id}')" title="Editar produto">✏️ Editar</button>
              <button class="eb eico fix" onclick="abrirMovModal('${p.id}','ajuste')" title="Corrigir saldo / Inventário">⚖️ Corrigir</button>
+             <button class="eb eico fix" onclick="abrirResvModal('${p.id}')" title="Conferir/corrigir a quantidade reservada em orçamentos"${res<-0.001?' style="border-color:var(--red);color:var(--red)"':''}>🔒 Reserva</button>
              ${LOJAS.length>1?`<button class="eb eico trf" onclick="abrirTransfModal('${p.id}')" title="Transferir para outra unidade">🔄 Transf.</button>`:''}
              <button class="eb ehist" onclick="abrirHistProduto('${p.id}')" title="Ver histórico de movimentos">📜</button>
            </div>`;
@@ -11123,6 +11124,119 @@ function abrirMovModal(produtoId, tipo){
   setTimeout(()=>document.getElementById('mov-qtd')?.focus(),80);
 }
 function fecharMovModal(){ document.getElementById('mov-modal').style.display='none'; }
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  CORREÇÃO MANUAL DA RESERVA
+//  A reserva é DERIVADA dos orçamentos aprovados (movimentos `res:orc:*`), então
+//  não existe — de propósito — um campo editável para ela. O problema é que,
+//  quando ela sai do lugar, o "disponível" mente (disp = física − reservada) e a
+//  tela de inventário não resolve, porque aquela só mexe no saldo FÍSICO. Foi
+//  exatamente esse buraco que deixou 17 produtos com reserva negativa em 2026-08.
+//  Aqui o gestor vê de onde vem a reserva atual e corrige — de preferência
+//  recalculando pelos orçamentos, que é determinístico.
+// ══════════════════════════════════════════════════════════════════════════════
+let _resvProdId=null, _resvLoja='';
+function _reservaBreakdown(pid, loja){
+  const movs=(todosMovEstoque||[]).filter(m=>m.produto_id===pid && (m.loja_id||'')===loja && _TIPOS_RESERVA.includes(m.tipo));
+  const atual=movs.reduce((a,m)=>a+(parseFloat(m.quantidade)||0),0);
+  let manual=0; const porOrc={};
+  movs.forEach(m=>{
+    const q=parseFloat(m.quantidade)||0;
+    const i=m.ref?m.ref.indexOf('orc:'):-1;
+    if(i<0){ manual+=q; return; }                 // correção manual / ref sem orçamento
+    const resto=m.ref.slice(i+4);
+    const j=resto.indexOf(':'+pid);
+    porOrc[j>0?resto.slice(0,j):resto.split(':')[0]]=(porOrc[j>0?resto.slice(0,j):resto.split(':')[0]]||0)+q;
+  });
+  // Esperado = mesma regra do sincronizarReservaOrcamento: aprovado e não entregue.
+  let esperado=0; const abertos=[];
+  (todosOrc||[]).forEach(o=>{
+    if(o.status!=='aprovado' || (o.loja_id||'')!==loja) return;
+    let svcs=o.servicos;
+    if(typeof svcs==='string'){ try{ svcs=JSON.parse(svcs||'[]'); }catch(e){ console.warn('[resv svcs]',e?.message||e); svcs=[]; } }
+    (svcs||[]).forEach(s=>{
+      if(!s || s.produto_id!==pid) return;
+      if(_entregueProdutoOrc(o.id,pid)) return;   // já entregue → não deveria estar reservado
+      const q=parseInt(s.qty)||1; esperado+=q;
+      abertos.push({numero:o.numero, cliente:o.cliente||'—', qtd:q});
+    });
+  });
+  return {atual, esperado, manual, porOrc, abertos};
+}
+
+function abrirResvModal(produtoId){
+  if(!eGestor()){ toast('Acesso não permitido.'); return; }
+  const loja=_lojaParaMovimento();
+  if(!loja){ toast('⚠️ Selecione a unidade no topo para corrigir a reserva'); return; }
+  const p=produtoById(produtoId); if(!p) return;
+  _resvProdId=produtoId; _resvLoja=loja;
+  const b=_reservaBreakdown(produtoId, loja);
+  const un=esc(p.unidade||'un');
+  const bate=Math.abs(b.atual-b.esperado)<0.001;
+  document.getElementById('resv-info').innerHTML=
+    `<strong style="color:var(--c2)">${esc(p.nome)}</strong><br>`+
+    `<span style="color:var(--gray)">Unidade: <strong>${esc(getLojaNome(loja)||loja)}</strong></span>`;
+  let det=`<div style="border:1px solid var(--line,#e5e7eb);border-radius:8px;padding:10px;font-size:12px">`+
+    `<div style="display:flex;justify-content:space-between;margin-bottom:4px">`+
+      `<span>Reservado registrado hoje</span>`+
+      `<strong style="color:${b.atual<0?'var(--red)':'var(--c2)'}">${fmtQtd(b.atual)} ${un}</strong></div>`+
+    `<div style="display:flex;justify-content:space-between">`+
+      `<span>Pelos orçamentos aprovados</span><strong style="color:var(--c2)">${fmtQtd(b.esperado)} ${un}</strong></div>`;
+  if(b.abertos.length){
+    det+=`<div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--line,#e5e7eb)">`+
+      b.abertos.map(o=>`<div style="display:flex;justify-content:space-between;color:var(--gray)">`+
+        `<span>#${esc(String(o.numero||'?'))} · ${esc(String(o.cliente).slice(0,26))}</span>`+
+        `<span>${fmtQtd(o.qtd)} ${un}</span></div>`).join('')+`</div>`;
+  } else {
+    det+=`<div style="margin-top:6px;color:var(--gray)">Nenhum orçamento aprovado pendente com este produto.</div>`;
+  }
+  if(Math.abs(b.manual)>0.001)
+    det+=`<div style="margin-top:6px;color:var(--gray)">Inclui ${fmtQtd(b.manual)} ${un} de correção manual anterior.</div>`;
+  if(b.atual<-0.001)
+    det+=`<div style="margin-top:8px;color:var(--red);font-weight:600">⚠️ Reserva negativa — o disponível está sendo mostrado maior do que existe.</div>`;
+  else if(!bate)
+    det+=`<div style="margin-top:8px;color:var(--orange,#b45309)">Diferença de ${fmtQtd(b.atual-b.esperado)} ${un} em relação aos orçamentos.</div>`;
+  else
+    det+=`<div style="margin-top:8px;color:var(--green,#15803d)">✅ Bate com os orçamentos — nada a corrigir.</div>`;
+  det+=`</div>`;
+  document.getElementById('resv-detalhe').innerHTML=det;
+  document.getElementById('resv-btn-recalc').innerHTML=
+    `↻ Usar o valor dos orçamentos (${fmtQtd(b.esperado)} ${un})`;
+  setV('resv-qtd', String(b.esperado)); setV('resv-motivo','');
+  document.getElementById('resv-modal').style.display='flex';
+  setTimeout(()=>document.getElementById('resv-motivo')?.focus(),80);
+}
+function fecharResvModal(){ document.getElementById('resv-modal').style.display='none'; }
+function resvUsarEsperado(){
+  if(!_resvProdId) return;
+  setV('resv-qtd', String(_reservaBreakdown(_resvProdId,_resvLoja).esperado));
+}
+function confirmarResv(){
+  if(!eGestor()){ toast('Acesso não permitido.'); return; }
+  if(!_resvProdId||!_resvLoja) return;
+  const p=produtoById(_resvProdId); if(!p) return;
+  const alvo=parseFloat((gV('resv-qtd')||'').replace(',','.'));
+  if(isNaN(alvo)){ toast('⚠️ Informe a quantidade reservada correta'); return; }
+  if(alvo<0){ toast('⚠️ A reserva não pode ser negativa'); return; }
+  const motivo=(gV('resv-motivo')||'').trim();
+  if(!motivo){ toast('⚠️ Informe o motivo da correção'); document.getElementById('resv-motivo')?.focus(); return; }
+  const atual=_reservaBreakdown(_resvProdId,_resvLoja).atual;
+  const diff=alvo-atual;
+  if(Math.abs(diff)<0.001){ toast('Reserva já está correta'); fecharResvModal(); return; }
+  // ref SEM 'orc:' de propósito — a reconciliação de órfãs varre por 'orc:' e não
+  // pode confundir uma correção manual com reserva de um orçamento inexistente.
+  registrarMovimento({
+    produto_id:_resvProdId,
+    tipo: diff>0?'reserva':'liberacao_reserva',
+    quantidade: diff, custo_unit:null,
+    motivo:'Correção de reserva: '+motivo,
+    ref:'fix:reserva-manual:'+_resvLoja+':'+_resvProdId+':'+Date.now(),
+    lojaId:_resvLoja
+  });
+  logAcao('estoque_reserva_corrigida', `${p.nome} · ${fmtQtd(atual)} → ${fmtQtd(alvo)} em ${getLojaNome(_resvLoja)||_resvLoja} (${motivo})`);
+  fecharResvModal(); renderEstoque();
+  toast(`✅ Reserva corrigida para ${fmtQtd(alvo)} ${p.unidade||'un'}`);
+}
 function confirmarMovimento(){
   const p=produtoById(_movProdId); if(!p) return;
   const val=parseFloat((gV('mov-qtd')||'').replace(',','.'));
