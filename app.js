@@ -1707,7 +1707,16 @@ function go(p){
   const snb=document.getElementById('snb-'+p); if(snb){ snb.classList.add('on'); snb.setAttribute('aria-current','page'); }
   closeSidebar();
   if(p==='portal') { /* página gerenciada por checkPortalHash */ }
-  if(p==='insights') renderPainelInsights();
+  if(p==='insights'){
+    renderPainelInsights();
+    // carrega o que o bloco "hoje" precisa e redesenha — sem isso o gestor via
+    // zero recebível vencido só porque a tabela ainda não tinha sido lida
+    Promise.all([
+      (typeof loadRecebimentos==='function'? loadRecebimentos() : null),
+      (typeof loadEstoque==='function' && !(todosProdutos||[]).length ? loadEstoque() : null),
+      (typeof loadDespesas==='function' && !(todasDesp||[]).length ? loadDespesas() : null)
+    ]).then(()=>{ try{ renderPainelHoje(); }catch(e){ console.warn('[painelHoje]', e?.message||e); } });
+  }
   if(p==='history'){ initOrcMes(); loadHist(); setTimeout(renderGraficoDash,200); }
   if(p==='form'){
     // Restaura rascunho APENAS quando se navega direto para a tela (nav/menu).
@@ -4038,8 +4047,75 @@ function _crmRenderEstagio(s){
     ? 'filtrando a fila — toque de novo para limpar'
     : 'toque numa faixa para filtrar a fila';
 }
+// ── Diário do gestor (fase 6) ────────────────────────────────────────
+// O painel vem por último de propósito: agora existe dado real por trás de cada
+// número. Este bloco é a camada DIÁRIA — só o que precisa de ação hoje, com o
+// botão da ação junto. Dinheiro vencendo e material faltando não podem depender
+// de alguém lembrar de abrir outra tela; foi essa a lição do recebimento, em
+// que uma unidade registra 98% e a outra 28%.
+function renderPainelHoje(){
+  const card=document.getElementById('ins-hoje-card'), el=document.getElementById('ins-hoje-corpo');
+  if(!card||!el) return;
+  const itens=[];
+
+  // 1. Recebíveis vencidos e vencendo
+  const rec=filtrarPorLoja(todosReceb||[]).filter(r=>!r.data_pagamento);
+  const venc=rec.filter(r=>_recebDiasAtraso(r)>0);
+  const hoje=rec.filter(r=>_recebDiasAtraso(r)===0);
+  const somaR=l=>l.reduce((a,r)=>a+(parseFloat(r.valor)||0),0);
+  if(venc.length) itens.push({cor:'var(--red)', icone:'💸',
+    titulo:`${brl(somaR(venc))} vencido`,
+    sub:`${venc.length} parcela${venc.length!==1?'s':''} · a mais antiga há ${Math.max(...venc.map(_recebDiasAtraso))} dias`,
+    acao:'Cobrar', fn:"go('recebiveis')"});
+  if(hoje.length) itens.push({cor:'var(--yellow)', icone:'📅',
+    titulo:`${brl(somaR(hoje))} vence hoje`,
+    sub:`${hoje.length} parcela${hoje.length!==1?'s':''} — marque quando entrar`,
+    acao:'Ver', fn:"go('recebiveis')"});
+
+  // 2. Material faltando (ruptura aberta) — é venda que não sai
+  const rup=(typeof historicoRuptura==='function'? historicoRuptura(lojaAtiva||'') : []).filter(r=>r.aberta);
+  if(rup.length) itens.push({cor:'var(--red)', icone:'📦',
+    titulo:`${rup.length} produto${rup.length!==1?'s':''} em falta`,
+    sub: rup.slice(0,3).map(r=>esc((produtoById(r.produto_id)||{}).nome||'—')).join(' · ')+(rup.length>3?` +${rup.length-3}`:''),
+    acao:'Comprar', fn:"go('estoque')"});
+
+  // 3. Despesa fixa não lançada — sem ela o resultado do mês fica otimista
+  const dp=(typeof _despRecorrentesPendentes==='function'? _despRecorrentesPendentes() : []);
+  if(dp.length) itens.push({cor:'var(--yellow)', icone:'🧾',
+    titulo:`${dp.length} despesa${dp.length!==1?'s':''} fixa${dp.length!==1?'s':''} não lançada${dp.length!==1?'s':''}`,
+    sub:'Sem elas o resultado do mês parece maior do que é',
+    acao:'Lançar', fn:"go('despesas')"});
+
+  // 4. Orçamentos sem identidade de cliente — trava LTV e recompra
+  const semId=filtrarPorLoja(todosOrc||[]).filter(o=>!o.cliente_id && (o.cliente||'').trim());
+  if(semId.length>=10) itens.push({cor:'var(--gray)', icone:'🪪',
+    titulo:`${semId.length} orçamentos sem cliente identificado`,
+    sub:'Não entram no histórico do cliente',
+    acao:'Revisar', fn:"go('identidade')"});
+
+  if(!itens.length){
+    card.style.display='';
+    el.innerHTML=`<div style="display:flex;align-items:center;gap:10px;padding:6px 0">
+      <span style="font-size:22px">✅</span>
+      <span style="font-size:13px;color:var(--gray)">Nada vencido, nada faltando, contas do mês lançadas.</span></div>`;
+    return;
+  }
+  card.style.display='';
+  el.innerHTML=itens.map(i=>`
+    <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--gray-light);flex-wrap:wrap">
+      <div style="width:4px;align-self:stretch;border-radius:2px;background:${i.cor};min-height:32px"></div>
+      <span style="font-size:18px">${i.icone}</span>
+      <div style="flex:1;min-width:150px">
+        <div style="font-size:13px;font-weight:700;color:var(--c2)">${i.titulo}</div>
+        <div style="font-size:11.5px;color:var(--gray)">${i.sub}</div>
+      </div>
+      <button class="tb g" style="font-weight:700" onclick="${i.fn}">${i.acao}</button>
+    </div>`).join('');
+}
+
 function renderPainelInsights(){
   if(!document.getElementById('page-insights')) return;
+  try{ renderPainelHoje(); }catch(e){ console.warn('[painelHoje]', e?.message||e); }
   const s=_crmPipelineStats();
   const set=(id,txt)=>{ const el=document.getElementById(id); if(el) el.textContent=txt; };
 
