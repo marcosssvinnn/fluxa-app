@@ -68,6 +68,8 @@ python3 sql_v1.py "$(cat docs/sql/orcamentos-por-status-e-loja.sql)"
 | `estoque-tipos-de-movimento.sql` | Composição do razão por tipo |
 | `estoque-saldo-e-giro-por-loja.sql` | Valor parado, sem giro em 90 dias, saldo negativo |
 | `estoque-cobertura-produto-id.sql` | Quanto do que se vende consegue dar baixa |
+| `estoque-cobertura-produto-id-por-natureza.sql` | A mesma conta com o denominador certo (só material) |
+| `orcamentos-escopo-fechado.sql` | Orçamentos com itens a preço zero e valor numa linha final |
 | `estoque-motivos-de-ajuste.sql` | Se o motivo do ajuste está padronizado |
 
 ### Identidade do cliente
