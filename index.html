@@ -1889,6 +1889,17 @@
     <div id="mov-saldo-atual" style="font-size:12px;color:var(--gray);margin-bottom:10px"></div>
     <div class="row f1"><div class="fl"><label id="mov-qtd-label">Quantidade</label><input type="text" inputmode="decimal" id="mov-qtd" placeholder="0"></div></div>
     <div class="row f1" id="mov-custo-wrap"><div class="fl"><label>Custo por unidade (R$)</label><input type="text" inputmode="decimal" id="mov-custo" placeholder="0,00"></div></div>
+    <div class="row f1" id="mov-motivo-cod-wrap" style="display:none"><div class="fl"><label>O que aconteceu?</label>
+      <select id="mov-motivo-cod">
+        <option value="">Selecione…</option>
+        <option value="contagem">Erro de contagem</option>
+        <option value="quebra">Quebra / avaria</option>
+        <option value="perda">Perda / vencimento</option>
+        <option value="devolucao">Devolução</option>
+        <option value="furto">Furto</option>
+        <option value="inventario">Inventário geral</option>
+        <option value="outro">Outro</option>
+      </select></div></div>
     <div class="row f1"><div class="fl"><label>Motivo</label><input type="text" id="mov-motivo" placeholder="opcional — ex: compra, perda, acerto de inventário"></div></div>
     <button class="btn-primary" onclick="confirmarMovimento()" style="width:100%">Confirmar</button>
   </div>
@@ -2023,7 +2034,11 @@
     <div class="ct" id="oc-form-titulo">Nova Ordem de Compra <button onclick="fecharOCFormModal()" aria-label="Fechar" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;line-height:1;margin-left:auto;padding:0 4px">×</button></div>
     <div class="row">
       <div class="fl"><label class="req">Fornecedor</label><select id="oc-fornecedor"></select></div>
-      <div class="fl"><label>Data prevista</label><input type="date" id="oc-data"></div>
+      <div class="fl"><label>Data da ordem</label><input type="date" id="oc-data"></div>
+    </div>
+    <div class="row">
+      <div class="fl"><label>Entrega prometida</label><input type="date" id="oc-data-prevista"></div>
+      <div class="fl" style="display:flex;align-items:flex-end"><div style="font-size:11.5px;color:var(--gray);line-height:1.35;padding-bottom:9px">Comparada com a data em que a mercadoria chegar, vira o prazo real de cada fornecedor.</div></div>
     </div>
     <div class="row f1"><div class="fl"><label>Observações</label><input type="text" id="oc-obs" placeholder="condições, prazo de pagamento..."></div></div>
     <div style="margin:10px 0 6px;font-size:12px;font-weight:700;color:var(--c1)">ITENS DA ORDEM</div>
