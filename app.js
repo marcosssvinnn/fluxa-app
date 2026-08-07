@@ -1728,7 +1728,7 @@ function go(p){
   if(p==='identidade') loadIdentidade();
   if(p==='recebiveis') loadRecebiveisPage();
   if(p==='despesas'){ loadDespesas(); setTimeout(renderAvisoRecorrentes,300); }
-  if(p==='estoque') loadEstoque();
+  if(p==='estoque'){ loadEstoque(); setTimeout(renderIndicadoresEstoque,400); }
   if(p==='produtividade'){ loadProdutividade(); setTimeout(()=>{ renderRelatorioFinanceiro(); renderDRE(); },300); }
   if(p==='usuarios') loadUsuarios();
   if(p==='auditoria') loadAuditoria();
@@ -11278,6 +11278,153 @@ function reservadoProduto(produtoId){ return (_getSaldoCache()[produtoId]||{rese
 // é destrutivo, porque o que se lança é a DIFERENÇA: contar 86 na prateleira de
 // Camboriú com 188 no grupo lançaria −102 em Camboriú. Por isso toda movimentação
 // manual precisa de loja explícita, e o saldo comparado tem que ser o daquela loja.
+// ══════════════════════════════════════════════════════════════════════
+//  ESTOQUE COMO INDICADOR (fase 5) — tudo derivado do LEDGER
+//  Nada de snapshot diário: o razão já contém a história completa, e uma
+//  segunda fonte só criaria risco de divergência. Saldo retroativo, ruptura e
+//  acuracidade saem de reler os mesmos movimentos.
+//
+//  ⚠️ A janela é curta: o razão começa em 20/06/2026. Giro "anual" tirado daí
+//  seria extrapolação de ~7 semanas, então TODO indicador aqui declara sobre
+//  quantos dias foi medido — e a tela mostra isso junto do número.
+// ══════════════════════════════════════════════════════════════════════
+function _movsDaLoja(loja){
+  return (todosMovEstoque||[]).filter(m=>!loja || (m.loja_id||'')===loja);
+}
+function _ledgerJanela(loja){
+  const ds=_movsDaLoja(loja).map(m=>String(m.data||'').slice(0,10)).filter(Boolean).sort();
+  if(!ds.length) return null;
+  const ini=ds[0], fim=_hojeLocal();
+  const dias=Math.max(1, Math.round((new Date(fim+'T12:00:00')-new Date(ini+'T12:00:00'))/86400000));
+  return {ini, fim, dias};
+}
+// Saldo FÍSICO de um produto numa data — reconstruído do razão, sem tabela nova.
+function saldoNaData(pid, loja, iso){
+  return _movsDaLoja(loja).filter(m=>m.produto_id===pid && _TIPOS_FISICOS.includes(m.tipo) &&
+      String(m.data||'').slice(0,10)<=iso)
+    .reduce((a,m)=>a+(parseFloat(m.quantidade)||0),0);
+}
+// Consumo médio por dia (só saídas de verdade, não ajuste nem transferência —
+// ajuste é correção de erro e transferência não é consumo).
+function _consumoDia(pid, loja, jan){
+  if(!jan) return 0;
+  const saiu=_movsDaLoja(loja).filter(m=>m.produto_id===pid && m.tipo==='saida')
+    .reduce((a,m)=>a+Math.abs(parseFloat(m.quantidade)||0),0);
+  return saiu/jan.dias;
+}
+// Dias que o saldo atual ainda cobre no ritmo medido. null = não houve consumo.
+function coberturaDias(pid, loja){
+  const jan=_ledgerJanela(loja); const c=_consumoDia(pid,loja,jan);
+  if(!c) return null;
+  return Math.round(_fisicaProdutoNaLoja(pid, loja||lojaAtiva||LOJA_PADRAO_ID)/c);
+}
+// Giro na janela: saídas ÷ saldo médio. Não anualizo — seriam 7 semanas viradas
+// em 12 meses, e o número pareceria muito mais confiável do que é.
+function giroJanela(pid, loja){
+  const jan=_ledgerJanela(loja); if(!jan) return null;
+  const saiu=_movsDaLoja(loja).filter(m=>m.produto_id===pid && m.tipo==='saida')
+    .reduce((a,m)=>a+Math.abs(parseFloat(m.quantidade)||0),0);
+  if(!saiu) return 0;
+  const ini=saldoNaData(pid,loja,jan.ini), fim=saldoNaData(pid,loja,jan.fim);
+  const medio=(ini+fim)/2;
+  return medio>0 ? saiu/medio : null;
+}
+
+// ── Ruptura: relê o razão em ordem e marca quando o saldo cruzou para negativo.
+// Hoje listaEncomendas() mostra só o estado de AGORA; a série é que vira
+// indicador (quantas vezes faltou, por quanto tempo, quanto deixou de entregar).
+function historicoRuptura(loja){
+  const porProd={};
+  _movsDaLoja(loja).filter(m=>_TIPOS_FISICOS.includes(m.tipo))
+    .slice().sort((a,b)=>String(a.data||'').localeCompare(String(b.data||'')))
+    .forEach(m=>{
+      const p=porProd[m.produto_id]=porProd[m.produto_id]||{saldo:0, eventos:[], aberto:null};
+      const antes=p.saldo;
+      p.saldo+=parseFloat(m.quantidade)||0;
+      const dia=String(m.data||'').slice(0,10);
+      if(antes>=0 && p.saldo<0) p.aberto={inicio:dia, pior:p.saldo};
+      else if(p.aberto && p.saldo<0) p.aberto.pior=Math.min(p.aberto.pior, p.saldo);
+      else if(p.aberto && p.saldo>=0){
+        p.eventos.push({...p.aberto, fim:dia,
+          dias:Math.max(1,Math.round((new Date(dia+'T12:00:00')-new Date(p.aberto.inicio+'T12:00:00'))/86400000))});
+        p.aberto=null;
+      }
+    });
+  const hoje=_hojeLocal();
+  const out=[];
+  Object.entries(porProd).forEach(([pid,p])=>{
+    p.eventos.forEach(e=>out.push({produto_id:pid, ...e, aberta:false}));
+    if(p.aberto) out.push({produto_id:pid, ...p.aberto, fim:null, aberta:true,
+      dias:Math.max(1,Math.round((new Date(hoje+'T12:00:00')-new Date(p.aberto.inicio+'T12:00:00'))/86400000))});
+  });
+  return out.sort((a,b)=>String(b.inicio).localeCompare(String(a.inicio)));
+}
+
+// ── Acuracidade do inventário: o ajuste de balanço JÁ guarda a diferença, e o
+// saldo do sistema naquele dia é reconstruível. Erro = |diferença| ÷ saldo que o
+// sistema achava que tinha. Não precisou de tabela nova.
+function acuraciaInventario(loja){
+  const ajustes=_movsDaLoja(loja).filter(m=>m.tipo==='ajuste' &&
+    (m.motivo_cod==='inventario' || /invent/i.test(m.motivo||'')));
+  if(!ajustes.length) return null;
+  let somaErro=0, comBase=0, itens=0, unidades=0;
+  ajustes.forEach(m=>{
+    const dia=String(m.data||'').slice(0,10);
+    const diff=parseFloat(m.quantidade)||0;
+    const sistema=saldoNaData(m.produto_id, loja, dia)-diff; // antes do ajuste
+    itens++; unidades+=Math.abs(diff);
+    if(sistema>0){ somaErro+=Math.abs(diff)/sistema; comBase++; }
+  });
+  return {itens, unidades, contagens:ajustes.length,
+          acuracia: comBase? Math.max(0, 100-(somaErro/comBase*100)) : null};
+}
+
+function renderIndicadoresEstoque(){
+  const el=document.getElementById('est-indicadores'); if(!el) return;
+  const loja=lojaAtiva||'';
+  const jan=_ledgerJanela(loja);
+  if(!jan){ el.innerHTML=''; return; }
+  const prods=(typeof produtosVisiveis==='function'?produtosVisiveis():todosProdutos)||[];
+  const rup=historicoRuptura(loja);
+  const abertas=rup.filter(r=>r.aberta);
+  const ac=acuraciaInventario(loja);
+
+  // capital parado: sem NENHUMA saída na janela
+  const parados=prods.filter(p=>{
+    const saiu=_movsDaLoja(loja).some(m=>m.produto_id===p.id && m.tipo==='saida');
+    return !saiu && _fisicaProdutoNaLoja(p.id, loja||LOJA_PADRAO_ID)>0;
+  });
+  const capitalParado=parados.reduce((a,p)=>a+_fisicaProdutoNaLoja(p.id, loja||LOJA_PADRAO_ID)*(parseFloat(p.custo)||0),0);
+
+  el.innerHTML=
+   `<div class="dash">
+      <div class="dc b"><div class="dl">Janela medida</div><div class="dv">${jan.dias}d</div>
+        <div class="ds">desde ${_dataBR(jan.ini)}</div></div>
+      <div class="dc ${abertas.length?'r':'g'}"><div class="dl">Faltando agora</div>
+        <div class="dv"${abertas.length?' style="color:var(--red)"':''}>${abertas.length}</div>
+        <div class="ds">${rup.length} ruptura${rup.length!==1?'s':''} na janela</div></div>
+      <div class="dc y"><div class="dl">Capital parado</div><div class="dv">${brl(capitalParado)}</div>
+        <div class="ds">${parados.length} sem saída na janela</div></div>
+      <div class="dc ${ac&&ac.acuracia!=null?(ac.acuracia>=95?'g':'y'):'b'}"><div class="dl">Acuracidade</div>
+        <div class="dv">${ac&&ac.acuracia!=null?ac.acuracia.toFixed(0)+'%':'—'}</div>
+        <div class="ds">${ac?`${ac.itens} item${ac.itens!==1?'s':''} contado${ac.itens!==1?'s':''}`:'nenhum balanço ainda'}</div></div>
+    </div>`+
+   (rup.length? `<div style="font-size:12.5px;color:var(--c2);font-weight:700;margin:4px 0 6px">Rupturas na janela</div>`+
+     rup.slice(0,8).map(r=>{
+       const p=produtoById(r.produto_id);
+       return `<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--gray-light);font-size:12.5px">
+         <div style="min-width:0"><div style="font-weight:600;color:var(--c2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p?p.nome:r.produto_id)}</div>
+           <div style="font-size:11px;color:var(--gray)">${_dataBR(r.inicio)}${r.fim?' → '+_dataBR(r.fim):' → em aberto'} · ${r.dias} dia${r.dias!==1?'s':''}</div></div>
+         <div style="text-align:right;white-space:nowrap;color:${r.aberta?'var(--red)':'var(--gray)'};font-weight:700">${fmtQtd(Math.abs(r.pior))} em falta</div>
+       </div>`;}).join('')
+     +(rup.length>8?`<div style="font-size:11px;color:var(--gray);padding:6px 0">+${rup.length-8} outras</div>`:'')
+    : '')+
+   `<div style="font-size:11px;color:var(--gray);margin-top:9px;line-height:1.5">
+      Tudo calculado relendo o razão de estoque, sem tabela paralela. A janela é
+      curta (${jan.dias} dias): giro e cobertura valem para esse período, não
+      para o ano.</div>`;
+}
+
 function _lojaParaMovimento(){ return lojaAtiva || (Array.isArray(LOJAS)&&LOJAS.length===1 ? LOJAS[0].id : ''); }
 function _fisicaProdutoNaLoja(produtoId, loja){
   return (todosMovEstoque||[])
@@ -11734,6 +11881,7 @@ function _validadeInfo(dateStr){
 function produtoVencendo(p){ const i=_validadeInfo(p&&p.validade); return !!i && i.dias<=30; }
 
 function renderEstoque(){
+  setTimeout(()=>{ try{ renderIndicadoresEstoque(); }catch(e){ console.warn('[indEstoque]',e?.message||e); } },0);
   const body=document.getElementById('estoque-body'); if(!body) return;
   const todos=produtosVisiveis(); // ativos da loja
   const inativos=produtosVisiveisInativos();
