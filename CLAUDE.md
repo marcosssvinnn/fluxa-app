@@ -36,7 +36,8 @@ arquivos seus. `git add` sempre nominal — nunca `git add -A` / `git add .`.
 | Quantidade escrita no texto | A | ✅ no ar (`a9567e0`) |
 | 2.1 Custo congelado na venda | A | ⏳ depois que a cobertura subir |
 | 2.3 Mão de obra como custo | A | ❌ **sem lastro** — `duracao_min`/check-in zerados nas 118 OS |
-| 3 Identidade do cliente (tela de confirmação) | A | ⏳ depende do relatório da B |
+| 3 Identidade do cliente (tela de confirmação) | A | ✅ no ar (`7501603`) |
+| 4 Base instalada (`equipamentos`) | A | 🔨 próximo |
 | Relatório de deduplicação de clientes | B | ✅ entregue (`65e1ce1`) |
 | Baseline operacional/financeiro | B | ✅ entregue (`ef778c8`) |
 | Versionar consultas em `docs/sql/` (7.3) | B | ✅ entregue (`ef778c8`) — 19 consultas |
