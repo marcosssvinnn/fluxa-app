@@ -2299,7 +2299,15 @@ function renderSvcs(){
       <input type="text" inputmode="decimal" class="pf" placeholder="0,00" value="${v>0?v.toFixed(2).replace('.',','):''}" data-id="${s.id}" oninput="updSvcP(this)" onblur="fmtP(this)">
       ${qty>1?`<span class="plabel" style="margin-left:8px">= ${brl(v*qty)}</span>`:''}
       <span style="margin-left:auto">${prodBadge}</span>
-    </div>`;
+    </div>${(()=>{
+      const pre=_extrairQtdPrefixo(s.d);
+      if(!pre || pre.qtd===qty) return '';
+      return `<div style="padding:5px 0 2px;font-size:11.5px;color:#b45309">
+        A quantidade <strong>${pre.qtd}</strong> está no texto, mas o campo diz <strong>${qty}</strong> —
+        a baixa usa o campo.
+        <button type="button" onclick="aplicarQtdDoTexto(${s.id})" style="margin-left:6px;background:#fef3c7;border:1px solid #fbbf24;color:#b45309;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif">Usar ${pre.qtd}</button>
+      </div>`;
+    })()}`;
     el.appendChild(r);
   });
   renderDatalistProdutos();
@@ -2382,6 +2390,33 @@ function renderPickerProduto(q){
 // move estoque — foi digitado como texto livre. O picker existia, mas era um
 // passo A MAIS; aqui o catálogo entra como sugestão no próprio campo de
 // descrição e já traz o preço, então o caminho vinculado vira o mais curto.
+// A equipe escreve a quantidade DENTRO da descrição e deixa qty=1:
+// "05 Leds RGS Resinado", "21 Sal para gerador de cloro". Isso cria DOIS
+// problemas, e os dois são resolvidos tirando o prefixo do texto:
+//  1) o item baixaria 1 unidade em vez de 21 assim que fosse vinculado — trocaria
+//     um problema visível (o aviso do rodapé) por um invisível (estoque parece
+//     certo e está errado por 5x);
+//  2) o prefixo cega a sugestão: nenhum produto do catálogo contém "01 Trocador",
+//     então quem digita assim não vê sugestão nenhuma. São 19,8% dos usos.
+// Só trata como quantidade número de até 3 dígitos seguido de espaço — "220V
+// Motobomba" não vira quantidade 220.
+function _extrairQtdPrefixo(txt){
+  const m=String(txt||'').match(/^\s*(\d{1,3})\s*[-–x×]?\s+(.{3,})$/i);
+  if(!m) return null;
+  const q=parseInt(m[1]);
+  if(!q || q>999) return null;
+  return {qtd:q, resto:m[2].trim()};
+}
+// Aplica: joga o número no campo de quantidade e limpa a descrição.
+function aplicarQtdDoTexto(svcId){
+  const s=(svcs||[]).find(x=>x.id===svcId); if(!s) return;
+  const p=_extrairQtdPrefixo(s.d); if(!p) return;
+  s.qty=p.qtd; s.d=p.resto;
+  _svcAutoVincular(s);
+  renderSvcs(); upd();
+  toast(`✔ Quantidade ${p.qtd} · "${p.resto.slice(0,28)}"`);
+}
+
 function _catalogoSugestoes(){
   const vis = (typeof produtosVisiveis==='function') ? produtosVisiveis() : (todosProdutos||[]);
   return (vis||[]).filter(p=>p && p.nome && p.ativo!==false);
@@ -2402,7 +2437,8 @@ function _produtoPorNome(txt){
 // descrição de um item já vinculado o soltaria do estoque sem a pessoa perceber.
 function _svcAutoVincular(s){
   if(!s || s.produto_id) return false;
-  const p=_produtoPorNome(s.d);
+  let p=_produtoPorNome(s.d);
+  if(!p){ const pre=_extrairQtdPrefixo(s.d); if(pre) p=_produtoPorNome(pre.resto); }
   if(!p) return false;
   s.produto_id=p.id;
   if(!s.p || parseFloat(s.p)===0) s.p=String(p.preco_venda||0);
