@@ -10090,6 +10090,19 @@ function _saldoPorLoja(produtoId){
   return r;
 }
 function reservadoProduto(produtoId){ return (_getSaldoCache()[produtoId]||{reservado:0}).reservado; }
+
+// ── Movimentação MANUAL: exige uma unidade definida ──────────────────────────
+// fisicaProduto() passa por filtrarPorLoja: em "Todas" ele devolve a soma do GRUPO
+// (Camboriú + Itapema), mas registrarMovimento grava numa loja só. No ajuste isso
+// é destrutivo, porque o que se lança é a DIFERENÇA: contar 86 na prateleira de
+// Camboriú com 188 no grupo lançaria −102 em Camboriú. Por isso toda movimentação
+// manual precisa de loja explícita, e o saldo comparado tem que ser o daquela loja.
+function _lojaParaMovimento(){ return lojaAtiva || (Array.isArray(LOJAS)&&LOJAS.length===1 ? LOJAS[0].id : ''); }
+function _fisicaProdutoNaLoja(produtoId, loja){
+  return (todosMovEstoque||[])
+    .filter(m=>m.produto_id===produtoId && (m.loja_id||'')===loja && _TIPOS_FISICOS.includes(m.tipo))
+    .reduce((a,m)=>a+(parseFloat(m.quantidade)||0),0);
+}
 function disponivelProduto(produtoId){ const s=_getSaldoCache()[produtoId]||{}; return (s.fisico||0)-(s.reservado||0); }
 function saldoProduto(produtoId){ return fisicaProduto(produtoId); } // compat
 function produtoById(id){ return todosProdutos.find(p=>p.id===id)||null; }
@@ -11092,9 +11105,15 @@ function abrirMovModal(produtoId, tipo){
   const cfg=config[tipo]||config.entrada;
   document.getElementById('mov-modal-titulo').innerHTML=
     `<span>${cfg.titulo}</span><button onclick="fecharMovModal()" aria-label="Fechar" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;line-height:1;margin-left:auto;padding:0 4px">×</button>`;
+  // Deixa explícito em QUAL unidade o movimento vai cair e qual saldo está sendo
+  // comparado — no ajuste, contar contra o saldo de outra loja lança diferença errada.
+  const _lm=_lojaParaMovimento();
+  const _saldoTxt = _lm
+    ? `${fmtQtd(tipo==='ajuste'?_fisicaProdutoNaLoja(produtoId,_lm):disponivelProduto(produtoId))} ${esc(p.unidade||'un')} em ${esc(getLojaNome(_lm)||_lm)}`
+    : '<span style="color:var(--red)">selecione a unidade no topo</span>';
   document.getElementById('mov-saldo-atual').innerHTML=
     `<strong style="color:var(--c2)">${esc(p.nome)}</strong><br>`+
-    `<span style="color:var(--gray)">Em estoque agora: <strong>${fmtQtd(disponivelProduto(produtoId))} ${esc(p.unidade||'un')}</strong></span><br>`+
+    `<span style="color:var(--gray)">${tipo==='ajuste'?'Saldo registrado':'Em estoque agora'}: <strong>${_saldoTxt}</strong></span><br>`+
     `<span style="font-size:11px;color:var(--gray);font-style:italic;margin-top:3px;display:block">${cfg.dica}</span>`;
   setV('mov-qtd',''); setV('mov-motivo','');
   document.getElementById('mov-qtd-label').textContent = tipo==='ajuste' ? 'Quantidade real contada agora' : 'Quantidade';
@@ -11109,19 +11128,24 @@ function confirmarMovimento(){
   const val=parseFloat((gV('mov-qtd')||'').replace(',','.'));
   if(isNaN(val)){ toast('⚠️ Informe a quantidade'); return; }
   const motivo=(gV('mov-motivo')||'').trim();
+  // Unidade explícita: sem isso o movimento cai na loja de CADASTRO do produto,
+  // que pode não ser a loja onde a pessoa contou/recebeu (ver _lojaParaMovimento).
+  const lojaAlvo=_lojaParaMovimento();
+  if(!lojaAlvo){ toast('⚠️ Selecione a unidade no topo antes de movimentar o estoque'); return; }
   if(_movTipo==='entrada'){
     const custo=parseFloat((gV('mov-custo')||'').replace(',','.'));
     const fisAntes=fisicaProdutoTotal(_movProdId); // ANTES de registrar, p/ o CMP
-    registrarMovimento({produto_id:_movProdId, tipo:'entrada', quantidade:Math.abs(val), custo_unit:isNaN(custo)?p.custo:custo, motivo:motivo||'Entrada manual'});
+    registrarMovimento({produto_id:_movProdId, tipo:'entrada', quantidade:Math.abs(val), custo_unit:isNaN(custo)?p.custo:custo, motivo:motivo||'Entrada manual', lojaId:lojaAlvo});
     if(!isNaN(custo)) recomputarCMP(_movProdId, Math.abs(val), custo, fisAntes); // custo médio ponderado
   } else if(_movTipo==='saida'){
-    registrarMovimento({produto_id:_movProdId, tipo:'saida', quantidade:-Math.abs(val), custo_unit:p.custo, motivo:motivo||'Saída manual'});
+    registrarMovimento({produto_id:_movProdId, tipo:'saida', quantidade:-Math.abs(val), custo_unit:p.custo, motivo:motivo||'Saída manual', lojaId:lojaAlvo});
   } else { // ajuste: diferença entre saldo físico contado e atual
     if(!motivo){ toast('⚠️ Informe o motivo do ajuste'); document.getElementById('mov-motivo')?.focus(); return; }
-    const atual=fisicaProduto(_movProdId);
+    // saldo DA LOJA ALVO — nunca o total do grupo, senão a diferença sai errada
+    const atual=_fisicaProdutoNaLoja(_movProdId, lojaAlvo);
     const diff=val-atual;
     if(diff===0){ toast('Saldo já está correto'); fecharMovModal(); return; }
-    registrarMovimento({produto_id:_movProdId, tipo:'ajuste', quantidade:diff, custo_unit:p.custo, motivo:motivo});
+    registrarMovimento({produto_id:_movProdId, tipo:'ajuste', quantidade:diff, custo_unit:p.custo, motivo:motivo, lojaId:lojaAlvo});
   }
   fecharMovModal();
   renderEstoque();
@@ -11505,20 +11529,28 @@ function renderBalancoLista(){
 function _atualizarResumoBalanco(){
   const res=document.getElementById('balanco-resumo'); if(!res) return;
   const contados=Object.entries(_balancoContagem).filter(([,v])=>v!=null);
-  const comDiff=contados.filter(([id,v])=>{ const fis=fisicaProduto(id); return Math.abs((v||0)-fis)>0.001; });
+  // usa o MESMO saldo que o confirmarBalanco vai usar (da loja alvo), senão a
+  // prévia mostra um número e a gravação lança outro
+  const _lb=_lojaParaMovimento();
+  const _fis=id=>_lb?_fisicaProdutoNaLoja(id,_lb):fisicaProduto(id);
+  const comDiff=contados.filter(([id,v])=>{ const fis=_fis(id); return Math.abs((v||0)-fis)>0.001; });
   if(!contados.length){ res.innerHTML='<span style="color:var(--gray)">Preencha os campos acima com a contagem física.</span>'; return; }
-  const positivos=comDiff.filter(([id,v])=>(v||0)>fisicaProduto(id)).length;
-  const negativos=comDiff.filter(([id,v])=>(v||0)<fisicaProduto(id)).length;
+  if(!_lb){ res.innerHTML='<span style="color:var(--red)">⚠️ Selecione a unidade no topo — a contagem é sempre de uma prateleira física.</span>'; return; }
+  const positivos=comDiff.filter(([id,v])=>(v||0)>_fis(id)).length;
+  const negativos=comDiff.filter(([id,v])=>(v||0)<_fis(id)).length;
   res.innerHTML=`<strong>${contados.length}</strong> produto${contados.length!==1?'s':''} contado${contados.length!==1?'s':''} · <span style="color:var(--green)">${positivos} sobra${positivos!==1?'s':''}</span> · <span style="color:var(--red)">${negativos} falta${negativos!==1?'s':''}</span> · ${comDiff.length} ajuste${comDiff.length!==1?'s':''} a registrar`;
 }
 
 function confirmarBalanco(){
-  const comDiff=Object.entries(_balancoContagem).filter(([id,v])=>{ if(v==null) return false; const fis=fisicaProduto(id); return Math.abs((v||0)-fis)>0.001; });
+  // Mesma regra do ajuste avulso: contagem é sempre de uma prateleira física.
+  const lojaAlvo=_lojaParaMovimento();
+  if(!lojaAlvo){ toast('⚠️ Selecione a unidade no topo antes de fechar o balanço'); return; }
+  const comDiff=Object.entries(_balancoContagem).filter(([id,v])=>{ if(v==null) return false; const fis=_fisicaProdutoNaLoja(id,lojaAlvo); return Math.abs((v||0)-fis)>0.001; });
   if(!comDiff.length){ toast('Nenhuma diferença encontrada.'); fecharBalancoModal(); return; }
-  confirmar(`Registrar ${comDiff.length} ajuste${comDiff.length!==1?'s':''} de inventário? Esta ação não pode ser desfeita.`, ()=>{
+  confirmar(`Registrar ${comDiff.length} ajuste${comDiff.length!==1?'s':''} de inventário em ${esc(getLojaNome(lojaAlvo)||lojaAlvo)}? Esta ação não pode ser desfeita.`, ()=>{
     comDiff.forEach(([id,v])=>{
-      const fis=fisicaProduto(id); const diff=(v||0)-fis;
-      registrarMovimento({produto_id:id, tipo:'ajuste', quantidade:diff, custo_unit:produtoById(id)?.custo||0, motivo:'Balanço de inventário '+new Date().toLocaleDateString('pt-BR')});
+      const fis=_fisicaProdutoNaLoja(id,lojaAlvo); const diff=(v||0)-fis;
+      registrarMovimento({produto_id:id, tipo:'ajuste', quantidade:diff, custo_unit:produtoById(id)?.custo||0, motivo:'Balanço de inventário '+new Date().toLocaleDateString('pt-BR'), lojaId:lojaAlvo});
     });
     fecharBalancoModal(); renderEstoque(); toast(`✅ ${comDiff.length} ajuste${comDiff.length!==1?'s':''} registrado${comDiff.length!==1?'s':''}`);
   }, 'Confirmar balanço');
