@@ -7,6 +7,22 @@ function clearSessao(){ sessionStorage.removeItem('fluxa_user'); }
 function eMaster(){ const s=getSessao(); return s?.perfil==='master'; }
 function eGestor(){ const s=getSessao(); return s?.perfil==='gestor'||s?.perfil==='master'; } // master herda acesso de gestor
 
+// ── Tela inicial do app — PONTO ÚNICO ──
+// Havia 6 lugares decidindo isso com regra própria (login por PIN, seleção de
+// loja, seleção de empresa do técnico, boot, fim do setup). Eles divergiram: o
+// login mandava o gestor para o Insights e o boot para o Novo Orçamento, então
+// qualquer F5 tirava a gestora do lugar certo. Quem for mudar o destino, mude
+// AQUI — não espalhe go('...') pelos pontos de entrada de novo.
+// Insights é gestor/master: não está em pagesVendasOk nem em pagesTecnicoOk,
+// então mandar vendas ou técnico para lá só dispara "Acesso não permitido".
+function telaInicial(sessao){
+  const s = sessao || getSessao();
+  if(!s) return 'form';                        // sem sessão: fica atrás do login
+  if(s.perfil==='tecnico') return 'minhas-os';
+  if(s.perfil==='vendas')  return 'form';
+  return 'insights';                           // gestor e master
+}
+
 // Estado de estoque declarado no TOPO (antes do boot) para evitar TDZ.
 // O boot (aplicarCFG → aplicarPermissoesPerfil) chama loadEstoque() para gestor,
 // que usa estas variáveis — antes elas eram declaradas lá embaixo (erro
@@ -671,7 +687,7 @@ async function fazerLogin(){
       aplicarPermissoesPerfil();
       atualizarHeaderLoja();
       logAcao('login', loginUserSelecionado.nome+' (gestor '+(getLojaNome(loginUserSelecionado.loja_id))+')');
-      go('insights');
+      go(telaInicial(sessao));
     } else if(loginUserSelecionado.perfil==='tecnico' &&
               (!loginUserSelecionado.loja_id ||
                Object.keys(FLUXA_CONFIG.acessoGrupo||{}).some(g=>podeAcessarGrupo(g, loginUserSelecionado.nome)))){
@@ -691,9 +707,7 @@ async function fazerLogin(){
       aplicarPermissoesPerfil();
       atualizarHeaderLoja();
       logAcao('login', loginUserSelecionado.nome+' ('+sessao.perfil+')');
-      // Destino inicial explícito por perfil
-      if(sessao.perfil==='tecnico') go('minhas-os');
-      else if(sessao.perfil==='vendas') go('form');
+      go(telaInicial(sessao));
     }
   } else {
     loginAttempts++;
@@ -764,7 +778,7 @@ function confirmarLojaGestor(lojaId){
   atualizarBadgeUsuario();
   aplicarPermissoesPerfil();
   atualizarHeaderLoja();
-  go('insights');
+  go(telaInicial(sessao));
 }
 
 // Técnico escolhe a empresa da sessão (Fortemp ou Aquamotor) — reusa a tela de seleção
@@ -952,10 +966,7 @@ function lsOrcProxNum(){ return lsOrcLer().reduce((a,o)=>Math.max(a,o.numero||0)
   // recarga (F5, reabrir o app pelo atalho, voltar de um PDF) o largava no Novo
   // Orçamento. Sem sessão o destino é irrelevante (fica atrás do login), mas
   // 'form' evita disparar o toast de "acesso não permitido".
-  if(!sessaoExistente)                        go('form');
-  else if(sessaoExistente.perfil==='tecnico') go('minhas-os');
-  else if(sessaoExistente.perfil==='vendas')  go('form');
-  else                                        go('insights'); // gestor e master
+  go(telaInicial(sessaoExistente));
 
   async function tentarConectar(tentativa){
     try {
@@ -1625,7 +1636,7 @@ async function salvarBD(){
   if(ok){ lsSet('sb_url',url); lsSet('sb_key',key); await carregarCFGremoto(); aplicarCFG();
     msg.style.color='var(--green)'; msg.textContent='✅ Conectado! Abrindo o app…';
     const backRow=document.getElementById('setup-back-row'); if(backRow) backRow.style.display='flex';
-    setTimeout(()=>go('form'),1100);
+    setTimeout(()=>go(telaInicial()),1100);
   } else { msg.style.color='var(--red)'; msg.textContent='❌ Verifique URL e chave.'; }
   btn.disabled=false; btn.textContent='Conectar e Salvar';
 }
