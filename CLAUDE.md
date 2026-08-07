@@ -1533,6 +1533,50 @@ para *reconciliar* (decide apagar coisa certa com base em visão incompleta). To
 rotina de reconciliação precisa de duas guardas: (1) os dados vieram do banco nesta
 sessão? (2) o resultado é impossível de ficar absurdo (saldo negativo)?
 
+### 🔴 Corrigir manualmente em "Todas" lançava diferença errada na loja errada (`485250c`)
+Perguntado pelo Marcos ("se precisarmos ajustar manualmente agora dá para corrigir?").
+Dava — **errado**. O ajuste lança a DIFERENÇA entre o contado e o saldo atual, mas
+`fisicaProduto()` passa por `filtrarPorLoja`: em "Todas" devolve a soma do GRUPO
+enquanto o movimento cai numa loja só. Com dado real: SAL tem 86 em Camboriú e 102 em
+Itapema; contar a prateleira de Camboriú (86) em "Todas" lançava `86 − 188 = −102` em
+Camboriú, levando o saldo a **−16**. A gestora corrigiria de boa-fé e criaria um rombo
+maior. Mesmo defeito no **balanço de inventário em lote**, multiplicado por produto.
+
+Corrigido: movimentação manual (entrada/saída/ajuste) exige unidade definida
+(`_lojaParaMovimento()`; tenant de loja única resolve sozinho); ajuste e balanço
+comparam com `_fisicaProdutoNaLoja()`, nunca com o total do grupo; `lojaId` explícito;
+modal e resumo do balanço mostram a unidade e o saldo daquela unidade.
+
+**Como corrigir saldo hoje:** selecionar a unidade no topo (nunca "Todas") → Estoque →
+⚖️ Corrigir → digitar a **quantidade real contada** (não a diferença). Resolve saldo
+negativo: conta 4 com saldo −1 → lança +5.
+
+### Tela de correção de RESERVA (`2ee1bca`)
+A reserva é derivada dos orçamentos aprovados, então de propósito nunca teve campo
+editável — e o inventário não resolve, porque só mexe no físico. Era o buraco que
+deixou as gestoras sem conseguir corrigir. Botão **🔒 Reserva** no card (gestor,
+vermelho quando negativa) abre modal que mostra a origem da reserva quebrada por
+orçamento, o esperado recalculado pelos aprovados, e permite acertar.
+`ref` = `fix:reserva-manual:*` **sem `orc:` de propósito** — a reconciliação de órfãs
+varre por `orc:` e não pode confundir correção manual com reserva de orçamento
+inexistente. Recusa valor negativo e exige motivo (vai para `logAcao`).
+
+### Card de estoque no celular (`3cda715`)
+Com a 5ª ação a fileira foi para 372px dentro de um card de 317px e o botão Reserva
+ficou **fora da área tocável**. Ao medir apareceu um bug ANTERIOR: `.est-main`
+(`flex:1;min-width:0`) era espremido até 0px e, como `.est-nome` tem `overflow:hidden`,
+o **nome do produto ficava invisível** na lista em telas pequenas. `.est-acts-row`
+passou a quebrar linha, `.est-acts` a encolher, e em ≤680px as ações vão para linha
+própria. Desktop sem regressão.
+
+### ⚠️ Duas sessões de IA escrevendo no MESMO worktree (2026-08-06)
+Aconteceu de verdade nesta sessão: enquanto eu validava, a outra sessão commitou o
+working tree inteiro — que naquele momento misturava minhas correções de CSS com a
+feature de pipeline dela ainda em andamento. Ninguém perdeu trabalho, mas foi sorte.
+**Antes de commitar, rode `git diff --stat` e confirme que tudo ali é seu**; se houver
+mistura, avise em vez de commitar por cima. `git log --oneline -1 origin/main` pode
+mudar entre o seu `git add` e o seu `push`.
+
 ---
 
 ## Perguntas em aberto (aguardando Marcos responder)
