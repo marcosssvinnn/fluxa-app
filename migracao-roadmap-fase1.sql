@@ -58,3 +58,13 @@ alter table locais_vistoria add column if not exists cliente_id text;
 create index if not exists idx_orc_cliente_id on orcamentos(cliente_id);
 create index if not exists idx_os_cliente_id  on ordens_servico(cliente_id);
 create index if not exists idx_vis_cliente_id on vistorias(cliente_id);
+
+-- ══════════════════════════════════════════════════════════════════════
+--  Fase 4 — base instalada. APLICADO em 2026-08-07.
+--  `equipamentos` tinha 0 registros, mas os equipamentos ja existem dentro do
+--  jsonb das vistorias (o Infinity Coast Tower sozinho tem 51).
+-- ══════════════════════════════════════════════════════════════════════
+alter table equipamentos add column if not exists ambiente text;
+alter table equipamentos add column if not exists origem   text;
+comment on column equipamentos.ambiente is 'Onde o equipamento fica. Faz parte da IDENTIDADE: predios tem equipamentos identicos em ambientes diferentes — sem isto a importacao duplica.';
+comment on column equipamentos.origem   is 'vistoria|manual';

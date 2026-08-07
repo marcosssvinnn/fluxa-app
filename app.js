@@ -1723,7 +1723,7 @@ function go(p){
   if(p==='os-history') loadOSHist();
   if(p==='clientes'){ renderClientes(); carregarClientesRemoto(); }
   if(p==='empresa') preencherFormEmpresa();
-  if(p==='equipamentos') loadEquipamentos();
+  if(p==='equipamentos'){ loadEquipamentos(); setTimeout(renderEqImport,400); }
   if(p==='agendamentos'){ loadAgendamentos(); populaTecSelects(); initCal(); renderCal(); }
   if(p==='identidade') loadIdentidade();
   if(p==='recebiveis') loadRecebiveisPage();
@@ -7519,6 +7519,102 @@ function excluirEq(id){
 }
 
 // localStorage para equipamentos
+// ══════════════════════════════════════════════════════════════════════
+//  BASE INSTALADA (fase 4) — popular `equipamentos` a partir das vistorias
+//  A tabela estava com 0 registros, mas os equipamentos já existem dentro do
+//  jsonb das vistorias (o Infinity Coast Tower sozinho tem 51). Sem base
+//  instalada não há manutenção recorrente por equipamento — e é justamente o
+//  serviço recorrente que converte a 43%, contra 8% do equipamento avulso.
+// ══════════════════════════════════════════════════════════════════════
+function _eqChave(cliente, e){
+  const n=x=>_identNorm? _identNorm(x) : String(x||'').trim().toLowerCase();
+  return [n(cliente), n(e.nome||e.tipo), n(e.marca), n(e.modelo), n(e.ambiente)].join('|');
+}
+// Varre as vistorias no escopo e devolve o que ainda não virou ficha de equipamento.
+function _eqCandidatos(){
+  const vis=(typeof lsVisLer==='function'? lsVisLer() : []).filter(v=>
+    typeof escopoEmpresaMatch==='function' ? escopoEmpresaMatch(v.loja_id) : true);
+  // Lê `ambiente` da coluna dedicada — antes o ambiente era gravado só dentro de
+  // `obs`, então esta chave saía com ambiente vazio de um lado e preenchido do
+  // outro, e a importação duplicava tudo ao ser rodada de novo.
+  const jaTem=new Set((todosEq||[]).map(x=>_eqChave(x.cliente_nome,
+    {nome:x.tipo, marca:x.marca, modelo:x.modelo, ambiente:x.ambiente||''})));
+  const out=new Map();
+  vis.forEach(v=>{
+    let eqs=v.equipamentos;
+    if(typeof eqs==='string'){ try{ eqs=JSON.parse(eqs||'[]'); }catch(e){ eqs=[]; } }
+    (Array.isArray(eqs)?eqs:[]).forEach(e=>{
+      if(!e || !(e.nome||e.tipo)) return;
+      if(e.status==='na') return;                    // marcado como não se aplica
+      const k=_eqChave(v.cliente, e);
+      if(jaTem.has(k) || out.has(k)) {
+        // guarda o mais recente para o status/observação valerem o último laudo
+        const ant=out.get(k);
+        if(ant && String(v.data||'')>String(ant.dataVis||'')){ out.set(k, {...ant, status:e.status, obs:e.obs, dataVis:v.data}); }
+        return;
+      }
+      out.set(k, { chave:k, cliente:v.cliente, cliente_id:v.cliente_id||null,
+        local:v.local||'', loja_id:v.loja_id||null, dataVis:v.data||'',
+        tipo:e.nome||e.tipo, marca:e.marca||'', modelo:e.modelo||'', potencia:e.potencia||'',
+        ambiente:e.ambiente||'', status:e.status||'', obs:e.obs||'',
+        foto:(Array.isArray(e.fotos)&&e.fotos[0])||'' });
+    });
+  });
+  return [...out.values()].sort((a,b)=>String(a.cliente).localeCompare(String(b.cliente)));
+}
+
+function renderEqImport(){
+  const card=document.getElementById('eq-import-card'), el=document.getElementById('eq-import-corpo');
+  if(!card||!el) return;
+  const cands=_eqCandidatos();
+  if(!cands.length){ card.style.display='none'; return; }
+  card.style.display='';
+  const porCliente={};
+  cands.forEach(c=>{ (porCliente[c.cliente]=porCliente[c.cliente]||[]).push(c); });
+  const criticos=cands.filter(c=>c.status==='critico').length;
+  el.innerHTML=
+    `<div style="font-size:12.5px;color:var(--gray);margin-bottom:10px">
+       ${cands.length} equipamento${cands.length!==1?'s':''} em ${Object.keys(porCliente).length} cliente${Object.keys(porCliente).length!==1?'s':''} apareceram em vistoria e não estão na base instalada.
+       ${criticos?`<strong style="color:var(--red)">${criticos} com laudo crítico.</strong>`:''}
+     </div>`+
+    Object.entries(porCliente).map(([cli,lista])=>
+      `<div style="border-bottom:1px solid var(--gray-light);padding:9px 0">
+        <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center">
+          <div style="min-width:170px">
+            <div style="font-size:13px;font-weight:700;color:var(--c2)">${esc(cli||'(sem cliente)')}</div>
+            <div style="font-size:11px;color:var(--gray)">${lista.length} equipamento${lista.length!==1?'s':''} · ${esc((lista[0].local||'').slice(0,44))}</div>
+            <div style="font-size:11px;color:var(--gray);margin-top:2px">${lista.slice(0,4).map(x=>esc(x.tipo)+(x.status==='critico'?' 🔴':x.status==='atencao'?' ⚠️':'')).join(' · ')}${lista.length>4?` +${lista.length-4}`:''}</div>
+          </div>
+          <button class="tb g" style="font-weight:700" onclick="importarEqDaVistoria('${esc(cli).replace(/'/g,"\\\\'")}')">＋ Cadastrar ${lista.length}</button>
+        </div>
+      </div>`).join('')+
+    `<button class="btn-primary" style="width:100%;margin-top:12px" onclick="importarEqDaVistoria()">＋ Cadastrar todos os ${cands.length}</button>`;
+}
+
+async function importarEqDaVistoria(cliente){
+  const cands=_eqCandidatos().filter(c=>!cliente || c.cliente===cliente);
+  if(!cands.length){ toast('Nada a cadastrar'); return; }
+  let n=0;
+  for(const c of cands){
+    const rec={ id:'eq_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
+      cliente_nome:c.cliente, cliente_id:c.cliente_id||null,
+      tipo:c.tipo, marca:c.marca, modelo:c.modelo, potencia:c.potencia,
+      numero_serie:'', data_instalacao:null, garantia_meses:null, garantia_vencimento:null,
+      // guarda de onde veio e o último laudo: é o que transforma a ficha em
+      // gatilho comercial em vez de cadastro morto
+      ambiente:c.ambiente||'', origem:'vistoria',
+      obs:c.obs?('Último laudo: '+c.obs):'',
+      foto_base64:c.foto||null, ativo:true, loja_id:c.loja_id||lojaAtiva||LOJA_PADRAO_ID,
+      data_criacao:new Date().toISOString() };
+    todosEq.unshift(rec); n++;
+    if(dbOk&&db){ try{ await dbInsert('equipamentos', rec); }catch(e){ console.warn('[importarEq]', e?.message||e); } }
+  }
+  lsEqSalvar(todosEq);
+  logAcao('base_instalada', `${n} equipamento(s) cadastrado(s) a partir de vistoria`);
+  renderEqGrid(); renderEqImport();
+  toast(`✅ ${n} equipamento${n!==1?'s':''} na base instalada`);
+}
+
 function lsEqLer(){ try{ return JSON.parse(ls('fluxa_equipamentos')||'[]'); }catch(e){ return []; } }
 function lsEqSalvar(lista){ lsSet('fluxa_equipamentos', JSON.stringify(lista)); }
 
