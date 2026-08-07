@@ -983,6 +983,7 @@ function lsOrcProxNum(){ return lsOrcLer().reduce((a,o)=>Math.max(a,o.numero||0)
         await sincronizarSeedUsuarios();
         await carregarUsuarios();
         loadVistoriasRemoto();
+        loadRecebimentos(); // contas a receber (não bloqueia o boot)
         renderLoginUsers(); // sempre atualiza lista de usuários após carregar do banco
         // Atualiza aba Locais se estiver aberta
         if(document.getElementById('vis-view-locais')?.style.display!=='none') renderLocaisTab();
@@ -1833,6 +1834,159 @@ async function criarOSjunto(dados, orcNum){
     preencherDocOS(osDados, numStr);
     imprimirDoc('both');
   }catch(e){ console.error('criarOSjunto:',e); toast('⚠️ Erro ao gerar OS: '+e.message); }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  CONTAS A RECEBER  (tabela `recebimentos`, uma linha por parcela)
+//  Antes, o recebimento era UM número escalar em orcamentos.valor_recebido:
+//  sem vencimento, sem data de pagamento, sem linha por parcela — logo, sem
+//  aging, sem prazo médio, sem inadimplência e sem projeção de caixa.
+//
+//  ⚠️ Por que NÃO gero as parcelas sozinho a partir de pag_cod/pag_parcelas:
+//  medido em 07/08 nos 88 aprovados — 33 sem pag_cod, 30 "A combinar", só 2 com
+//  código real; e o pag_parcelas=2 da maioria é o DEFAULT do formulário
+//  (`parseInt(gV('pag-parcelas'))||2`), não uma decisão de ninguém. Gerar a
+//  partir disso criaria ~176 cobranças com vencimento inventado. Por isso o dado
+//  é capturado na aprovação, o único momento em que alguém sabe a resposta.
+//  `orcamentos.valor_recebido` continua intacto — o histórico depende dele.
+// ══════════════════════════════════════════════════════════════════════
+let todosReceb = [];
+function lsRecebLer(){ try{ return JSON.parse(ls('fluxa_recebimentos')||'[]'); }catch(e){ return []; } }
+function lsRecebSalvar(l){ lsSet('fluxa_recebimentos', JSON.stringify(l)); }
+
+// Soma dias a uma data YYYY-MM-DD sem cair em fuso (new Date('2026-08-07') vira UTC)
+function _addDias(iso, dias){
+  const p=String(iso||'').split('-').map(Number);
+  if(p.length!==3 || !p[0] || !p[1] || !p[2]) return iso;
+  const dt=new Date(p[0], p[1]-1, p[2]);
+  dt.setDate(dt.getDate()+(parseInt(dias)||0));
+  return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
+}
+function _dataBR(iso){ const p=String(iso||'').split('-'); return p.length===3?(p[2]+'/'+p[1]+'/'+p[0]):(iso||''); }
+
+// PURA — só parâmetros, sem DOM e sem banco (por isso dá para testar isolada).
+// Trabalha em centavos e joga o resto na ÚLTIMA parcela, para a soma bater exato.
+function gerarParcelas(o){
+  const tot=Math.round((parseFloat(o&&o.total)||0)*100);
+  const modo=(o&&o.modo)||'avista';
+  if(tot<=0 || modo==='depois') return [];
+  const venc=(o&&o.primeiroVenc)||_hojeLocal();
+  const intv=parseInt(o&&o.intervalo)||30;
+  if(modo==='avista') return [{parcela_n:1, parcelas_total:1, vencimento:venc, valor:tot/100}];
+
+  const qtd=Math.max(1, parseInt(o&&o.n)||1);
+  let ent=0, resto=tot;
+  if(modo==='entrada'){
+    ent=Math.round((parseFloat(o&&o.entrada)||0)*100);
+    if(ent<=0) return gerarParcelas({total:o.total, modo:'parcelado', n:qtd, primeiroVenc:venc, intervalo:intv});
+    if(ent>=tot) return [{parcela_n:1, parcelas_total:1, vencimento:venc, valor:tot/100}];
+    resto=tot-ent;
+  }
+  const base=Math.floor(resto/qtd);
+  const totalLinhas=qtd+(ent>0?1:0);
+  const out=[];
+  if(ent>0) out.push({parcela_n:1, parcelas_total:totalLinhas, vencimento:venc, valor:ent/100});
+  for(let i=0;i<qtd;i++){
+    const v = (i===qtd-1) ? (resto-base*(qtd-1)) : base;
+    out.push({ parcela_n:out.length+1, parcelas_total:totalLinhas,
+      vencimento:_addDias(venc, intv*(ent>0 ? i+1 : i)), valor:v/100 });
+  }
+  return out;
+}
+
+function _perguntarRecebimento(orc){
+  if(!orc) return;
+  const tot=parseFloat(orc.total)||0;
+  if(tot<=0){ _perguntarCriarOS(orc); return; }
+  document.getElementById('receb-orc-id').value=orc.id;
+  document.getElementById('receb-titulo').textContent='Orçamento #'+String(orc.numero||'?').padStart(3,'0')+' aprovado!';
+  document.getElementById('receb-total').textContent=brl(tot);
+  setV('receb-modo','avista'); setV('receb-n','2'); setV('receb-entrada','');
+  setV('receb-intervalo','30'); setV('receb-venc',_hojeLocal());
+  const f=(orc.pag_cod||'').trim();
+  setV('receb-forma', /combinar/i.test(f) ? '' : f);
+  _recebPreview();
+  document.getElementById('receb-bg').classList.add('on');
+}
+function fecharReceb(){ document.getElementById('receb-bg').classList.remove('on'); }
+
+function _recebPreviewParcelas(){
+  const orc=(todosOrc||[]).find(o=>String(o.id)===String(gV('receb-orc-id')));
+  return gerarParcelas({ total: orc?orc.total:0, modo:gV('receb-modo'), n:gV('receb-n'),
+    entrada:gV('receb-entrada'), primeiroVenc:gV('receb-venc'), intervalo:gV('receb-intervalo') });
+}
+function _recebPreview(){
+  const modo=gV('receb-modo');
+  const mostra=(id,v)=>{ const e=document.getElementById(id); if(e) e.style.display=v?'':'none'; };
+  mostra('receb-wrap-entrada', modo==='entrada');
+  mostra('receb-wrap-n', modo==='parcelado'||modo==='entrada');
+  mostra('receb-wrap-int', modo==='parcelado'||modo==='entrada');
+  const campos=document.getElementById('receb-campos'); if(campos) campos.style.display = modo==='depois'?'none':'';
+  const lbl=document.getElementById('receb-lbl-venc');
+  if(lbl) lbl.textContent = modo==='avista' ? 'Vencimento' : (modo==='entrada'?'Data da entrada':'1º vencimento');
+  const btn=document.getElementById('receb-btn'), pv=document.getElementById('receb-preview');
+  if(modo==='depois'){
+    if(btn) btn.textContent='Deixar em aberto';
+    if(pv) pv.innerHTML='<span style="color:var(--gray)">Nada é cobrado agora. Dá para registrar depois, pelo histórico.</span>';
+    return;
+  }
+  if(btn) btn.textContent='💰 Registrar';
+  const ps=_recebPreviewParcelas();
+  if(pv) pv.innerHTML = ps.length
+    ? ps.map(p=>'<div style="display:flex;justify-content:space-between;border-bottom:1px dashed var(--gray-light);padding:3px 0">'+
+        '<span>'+(p.parcelas_total>1?p.parcela_n+'/'+p.parcelas_total+' · ':'')+_dataBR(p.vencimento)+'</span>'+
+        '<strong style="color:var(--c2)">'+brl(p.valor)+'</strong></div>').join('')
+      + '<div style="display:flex;justify-content:space-between;padding-top:5px;font-weight:700"><span>Total</span><span>'+brl(ps.reduce((a,p)=>a+p.valor,0))+'</span></div>'
+    : '<span style="color:var(--gray)">Informe o valor.</span>';
+}
+
+function pularRecebimento(){
+  const orc=(todosOrc||[]).find(o=>String(o.id)===String(gV('receb-orc-id')));
+  fecharReceb();
+  setTimeout(()=>{ if(orc) _perguntarCriarOS(orc); }, 200);
+}
+
+async function salvarRecebimento(){
+  const orc=(todosOrc||[]).find(o=>String(o.id)===String(gV('receb-orc-id')));
+  if(!orc){ toast('⚠️ Orçamento não encontrado'); fecharReceb(); return; }
+  if(gV('receb-modo')==='depois'){ pularRecebimento(); return; }
+  const ps=_recebPreviewParcelas();
+  if(!ps.length){ toast('⚠️ Confira os valores'); return; }
+  const forma=(gV('receb-forma')||'').trim();
+  const lj=orc.loja_id||lojaAtiva||LOJA_PADRAO_ID;
+  const linhas=ps.map((p,i)=>({
+    id:'rec_'+Date.now()+'_'+i+'_'+Math.random().toString(36).slice(2,6),
+    orcamento_id:orc.id, loja_id:lj,
+    parcela_n:p.parcela_n, parcelas_total:p.parcelas_total,
+    vencimento:p.vencimento, valor:p.valor,
+    data_pagamento:null, forma:forma||null, obs:null, origem:'aprovacao'
+  }));
+  // Local-first, igual ao resto do app. Regravar substitui as parcelas antigas
+  // deste orçamento — evita duplicar se a pessoa aprovar, reverter e reaprovar.
+  todosReceb=[...linhas, ...todosReceb.filter(r=>String(r.orcamento_id)!==String(orc.id))];
+  lsRecebSalvar(todosReceb);
+  fecharReceb();
+  toast('✅ '+linhas.length+' parcela'+(linhas.length>1?'s':'')+' registrada'+(linhas.length>1?'s':''));
+  setTimeout(()=>_perguntarCriarOS(orc), 250);
+  if(dbOk&&db){
+    for(const l of linhas){
+      try{ await dbInsert('recebimentos', l); }catch(e){ console.warn('[receb sync]', e?.message||e); }
+    }
+  }
+}
+
+async function loadRecebimentos(){
+  todosReceb = lsRecebLer();
+  if(dbOk&&db){
+    try{
+      const {data}=await db.from('recebimentos').select('*').order('vencimento',{ascending:true}).limit(3000);
+      if(data){
+        const ids=new Set(data.map(r=>r.id));
+        todosReceb=[...data, ...todosReceb.filter(r=>!ids.has(r.id))];
+        lsRecebSalvar(todosReceb);
+      }
+    }catch(e){ console.warn('[loadRecebimentos]', e?.message||e); }
+  }
 }
 
 // ── Modal: Criar OS a partir da aprovação do orçamento ──
@@ -3976,7 +4130,7 @@ async function mudarSt(id, sel){
       }).join(', ');
       toast(`✅ Aprovado · 📦 Baixado do estoque: ${resumo}`);
     } else { toast('✅ Orçamento aprovado!'); }
-    setTimeout(()=>_perguntarCriarOS(o), 700);
+    setTimeout(()=>_perguntarRecebimento(o), 700); // captura o recebimento e depois segue p/ a OS
   } else { toast('✅ Status atualizado'); }
 }
 
