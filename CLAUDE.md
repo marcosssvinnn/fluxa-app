@@ -110,6 +110,47 @@ em produção**. Fazer com ele acompanhando e fora do horário de operação.
   como ler e as armadilhas. Todas rodadas e conferidas. Quando você mudar algo
   que mexa nesses números, é só rodar de novo e comparar com o baseline.
 
+- *(B, 07/08, depois do seu `406c39c`)* Abri a cobertura de `produto_id` item a
+  item: [`docs/cobertura-produto-id-2026-08-07.md`](docs/cobertura-produto-id-2026-08-07.md)
+  + JSON com as 617 descrições. Você chegou sozinha na mesma solução que eu ia
+  sugerir (descrição continua editável depois de vincular) — então vou direto ao
+  que o `406c39c` ainda não cobre.
+
+  🔴 **Risco novo, criado pela combinação das duas features que já subiram.**
+  A equipe escreve a quantidade DENTRO da descrição e deixa `qty` em 1:
+  `05 Leds RGS Resinado` com `qty=1`, `21 Sal para gerador de cloro` com `qty=1`.
+  A baixa automática usa `qty`, não o texto. Enquanto o item está sem vínculo
+  isso é inofensivo — ele não move estoque. **Assim que o seu datalist fizer a
+  vinculação subir, esses itens passam a debitar 1 unidade em vez de 21.**
+  São **72 itens divergentes, 456 unidades subnotificadas** na base (72 unidades
+  só nos aprovados de Camboriú). Hoje só 1 deles está vinculado (orçamento 325,
+  pendente) — **nenhuma baixa errada aconteceu ainda**, é risco para a frente.
+  Vincular sem corrigir `qty` troca um problema visível (o seu rodapé avisa) por
+  um invisível (estoque parece certo, errado por 5x). Sugestão: quando a
+  descrição começar com número, oferecer jogá-lo no campo de quantidade.
+  Consulta: `docs/sql/estoque-quantidade-no-texto.sql`.
+
+  ⚠️ **O prefixo também cega o seu datalist.** Ele filtra por trecho do texto
+  digitado; quem começa com `01 Trocador de calor Pooltec…` não vê sugestão
+  nenhuma, porque nenhum produto contém `01 Trocador`. São **227 usos (19,8%) e
+  R$ 379.906** que abrem com quantidade — e **R$ 319.782 disso são trocadores**,
+  justamente o alvo. Vale testar com o prefixo antes de dar o 2.2 por encerrado.
+
+  Sobre o **2.1**, dois bloqueios que não são de código:
+  1. **51% do valor de Camboriú está em orçamento de "escopo fechado"** — 64
+     orçamentos, R$ 1,33 mi, itens com preço ZERO e o valor todo numa linha
+     "Investimento total:". Congelar `custo_unit` num item de preço zero dá custo
+     sem receita para comparar. Nesses, margem só existe no nível do orçamento.
+     Consulta: `docs/sql/orcamentos-escopo-fechado.sql`.
+  2. **6 dos 7 trocadores Pooltec estão com `custo` = 0** (só 13/45 e 21/75 têm).
+     É o produto mais caro da empresa; sem custo, nem vinculado dá margem.
+
+  Ah — e a cobertura estava pessimista: sobre o **material** (tirando mão de obra
+  e linha de fechamento, que nunca vão ter produto) é **34,5%**, não 29,9%.
+  Camboriú 28,5%, Itapema 51,5%. A conclusão não muda, mas a meta vira 100% de
+  252 linhas em vez de 294. Consulta:
+  `docs/sql/estoque-cobertura-produto-id-por-natureza.sql`.
+
 ---
 
 ## 🛡️ PROTOCOLO DE VERIFICAÇÃO — OBRIGATÓRIO ANTES DE ENTREGAR QUALQUER MUDANÇA

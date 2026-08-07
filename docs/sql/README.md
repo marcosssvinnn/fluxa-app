@@ -70,6 +70,7 @@ python3 sql_v1.py "$(cat docs/sql/orcamentos-por-status-e-loja.sql)"
 | `estoque-cobertura-produto-id.sql` | Quanto do que se vende consegue dar baixa |
 | `estoque-cobertura-produto-id-por-natureza.sql` | A mesma conta com o denominador certo (só material) |
 | `orcamentos-escopo-fechado.sql` | Orçamentos com itens a preço zero e valor numa linha final |
+| `estoque-quantidade-no-texto.sql` | Itens cuja quantidade está na descrição e não em `qty` |
 | `estoque-motivos-de-ajuste.sql` | Se o motivo do ajuste está padronizado |
 
 ### Identidade do cliente

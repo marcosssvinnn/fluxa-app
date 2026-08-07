@@ -161,6 +161,59 @@ frente cada ligação vale menos. Não existe motivo para perseguir 100%.
 
 ---
 
+---
+
+## ⚠️ Antes do mutirão de vinculação: a quantidade está no texto
+
+Este é o achado que mais pesa, e ele **cresce** conforme a vinculação melhora.
+
+A equipe escreve a quantidade dentro da descrição e deixa o campo `qty` em 1:
+
+| Orçamento | Descrição | `qty` |
+|---|---|---|
+| 45 | `05 Leds RGS Resinado;` | 1 |
+| 45 | `04 Dispositivos de retorno em ABS para Vinil;` | 1 |
+| 47 | `10 clarificante Genco de 1l;` | (vazio) |
+| 313 | `02 Trocadores de calor Pooltec 120.000btus Inverter` | 1 |
+| **325** | `21 Sal para gerador de cloro- embalagem de 20kg` | **1 — e já vinculado** |
+
+**A baixa automática usa `qty`, não o texto.** Enquanto o item está sem
+`produto_id` isso é inofensivo — ele não move estoque de jeito nenhum. O
+problema aparece exatamente quando o item passa a ser vinculado: o sistema
+debita **1 unidade em vez de 21**.
+
+| | Itens | Unidades a menos |
+|---|---|---|
+| Camboriú, aprovados | 18 divergentes | **72** |
+| Camboriú, vencidos | 44 | 329 |
+| Camboriú, pendentes | 3 | 22 |
+| Outros | 7 | 33 |
+| **Total na base** | **72** | **456** |
+
+**Nenhuma baixa errada aconteceu ainda** — só 1 item divergente está vinculado
+hoje (o orçamento 325, que está pendente). É risco para a frente, não estrago
+feito.
+
+> **Recomendação:** vincular sem corrigir `qty` **piora** a situação. Hoje o item
+> sem vínculo é um problema *visível* — o rodapé do orçamento avisa que ele não
+> move estoque. Depois de vinculado com `qty` errado ele vira um problema
+> *invisível*: o estoque parece certo e está errado por um fator de cinco.
+>
+> Sugiro que o formulário, ao detectar que a descrição começa com um número,
+> ofereça passar esse número para o campo de quantidade. Consulta para
+> acompanhar: `docs/sql/estoque-quantidade-no-texto.sql`.
+
+### E o prefixo atrapalha a própria sugestão do catálogo
+
+O `<datalist>` do campo de descrição filtra as opções por trecho do texto
+digitado. Quem começa escrevendo `01 Trocador de calor Pooltec…` não vê
+sugestão nenhuma — nenhum produto do catálogo contém `01 Trocador`.
+
+**227 usos (19,8%) e R$ 379.906 começam com quantidade**, e **R$ 319.782 disso
+são trocadores** — justamente o que a sugestão do catálogo foi feita para
+capturar. Vale testar o comportamento com o prefixo antes de considerar o 2.2
+encerrado.
+
 ## Como o casamento foi feito
 
 Mesmo critério conservador do relatório de clientes: **na dúvida, "revisar".**
