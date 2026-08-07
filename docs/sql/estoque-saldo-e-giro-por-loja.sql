@@ -1,11 +1,23 @@
--- O QUE MEDE: valor parado em estoque, quanto não gira há 90 dias, e itens com
--- saldo negativo — por unidade.
+-- O QUE MEDE: valor em estoque, itens sem saída registrada, e saldo negativo —
+-- por unidade.
 --
 -- COMO LER: 'valor_parado' usa o custo cadastrado no produto. Como 36 itens com
 -- saldo estão com custo zero, o valor real é MAIOR que o mostrado — este número
 -- é piso, não estimativa.
--- 'sem_giro_90d' inclui itens que nunca tiveram saída. É o indicador que
--- interessa: capital imobilizado que não está virando serviço.
+--
+-- 🔴 NÃO LEIA 'sem_giro_90d' COMO ESTOQUE ENCALHADO. O nome da coluna promete
+-- mais do que ela entrega, e a primeira versão deste arquivo induziu a leitura
+-- errada. O razão de estoque começou em 20/06/2026 — tem menos de 90 dias de
+-- vida. Logo NENHUM item pode ter "última saída há mais de 90 dias", e o que a
+-- coluna captura, na prática, são os itens que **nunca tiveram saída
+-- registrada** (o `ultima_saida is null` do filtro).
+-- Item que entrou há 9 dias e ainda não saiu cai aqui igual a item encalhado.
+--
+-- O número certo a tirar daqui é a comparação entrada × saída, não o giro:
+-- em 48 dias Camboriú lançou 201 entradas e **6 saídas**, tendo aprovado 33
+-- orçamentos no período; Itapema lançou 102 entradas e 34 saídas para 19
+-- aprovados. Não é estoque parado — é saída que não está sendo lançada.
+-- A leitura completa está em docs/estoque-giro-2026-08-07.md.
 -- 'negativos' deveria ficar em zero ou perto: negativo significa que saiu mais
 -- do que entrou, ou seja, entrada não lançada. Com a baixa automática na
 -- aprovação, negativo passou a ser o sinal normal de "precisa comprar" — o que

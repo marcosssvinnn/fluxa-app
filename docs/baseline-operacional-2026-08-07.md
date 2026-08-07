@@ -190,17 +190,43 @@ fora do sistema — de todo modo, "OS concluídas" não é um indicador disponí
 | Produtos com movimento | 180 | 128 |
 | Com saldo positivo | 149 | 114 |
 | **Valor parado** | **R$ 84.014** | **R$ 40.225** |
-| Sem giro há 90 dias | 121 itens | 98 itens |
-| **Valor sem giro** | **R$ 62.858 (74,8%)** | **R$ 29.393 (73,1%)** |
+| Nunca tiveram saída | 121 itens | 98 itens |
+| **Valor sem saída registrada** | **R$ 62.858 (74,8%)** | **R$ 29.393 (73,1%)** |
 | Itens com custo zero | 12 | 24 |
 | Saldo negativo | 2 itens (−2 un) | 1 item (−1 un) |
 | Reserva legada em aberto | 21 un | 158 un |
 
-**R$ 124.239 parados, dos quais R$ 92.251 (74%) não giram há 90 dias.** Nas duas
-unidades a proporção é praticamente a mesma — é padrão de compra, não
-particularidade de uma loja.
+> ⚠️ **Correção (mesma data).** A linha "sem giro há 90 dias" desta tabela está
+> mal rotulada e o número dela não sustenta a leitura de estoque encalhado.
+> **O razão de estoque só tem 48 dias de vida** (20/06 a 07/08/2026), então
+> nenhum item pode ter "última saída há mais de 90 dias" — o que a consulta
+> capturou foram os itens que **nunca tiveram saída registrada**. O valor
+> (R$ 92.251) está certo; o rótulo e a conclusão não estavam.
+> A leitura correta está abaixo e detalhada em
+> [`estoque-giro-2026-08-07.md`](estoque-giro-2026-08-07.md).
 
-O valor parado é **piso, não estimativa**: 36 itens com saldo estão com custo
+**R$ 124.239 em estoque, dos quais R$ 92.251 (74%) nunca tiveram uma saída
+registrada.** O estoque foi carregado no sistema entre 22 e 24/06 (carga inicial:
+188 lançamentos de entrada em três dias); as entradas de julho são compras
+reais.
+
+Isso **não** prova estoque parado. Prova que a **saída não está sendo
+registrada** — e a comparação entre as unidades mostra isso sem margem para
+dúvida:
+
+| Em 48 dias | Camboriú | Itapema |
+|---|---|---|
+| Movimentos de entrada | 201 | 102 |
+| Movimentos de **saída** | **6** | **34** |
+| Orçamentos aprovados no período | 33 | 19 |
+
+Camboriú aprovou 33 orçamentos e registrou 6 saídas. O material saiu da
+prateleira; o lançamento não aconteceu. É a mesma assinatura que aparece no
+recebimento (28,1% × 98,4%) e na cobertura de `produto_id` (28,5% × 51,5%) —
+**um único problema de rotina de registro, visível em três indicadores
+diferentes.**
+
+O valor em estoque é **piso, não estimativa**: 36 itens com saldo estão com custo
 zero cadastrado e entram na conta valendo nada.
 
 **Os saldos negativos praticamente zeraram** (3 unidades no total). O bug de

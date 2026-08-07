@@ -34,6 +34,11 @@ python3 sql_v1.py "$(cat docs/sql/orcamentos-por-status-e-loja.sql)"
   `quantidade` por tipo de movimento, agrupada pela **loja do movimento**, não
   pela loja do produto. Agrupar pela loja do produto dá número errado — o mesmo
   produto recebe movimento nas duas unidades.
+- **Toda métrica com janela de tempo precisa ser conferida contra a idade da
+  tabela.** O razão de estoque só existe desde **20/06/2026** (48 dias) e os
+  orçamentos desde **abril/2026**. Um filtro de "últimos 90 dias" roda sem erro
+  e devolve linhas, mas o que ele mede não é o que o nome sugere — foi assim
+  que "sem giro há 90 dias" virou, na prática, "nunca teve saída".
 - **CNPJ e telefone não identificam cliente.** Veja
   `identidade-cnpj-compartilhado.sql` e `identidade-telefone-compartilhado.sql`.
 
@@ -66,7 +71,8 @@ python3 sql_v1.py "$(cat docs/sql/orcamentos-por-status-e-loja.sql)"
 | Arquivo | Mede |
 |---|---|
 | `estoque-tipos-de-movimento.sql` | Composição do razão por tipo |
-| `estoque-saldo-e-giro-por-loja.sql` | Valor parado, sem giro em 90 dias, saldo negativo |
+| `estoque-saldo-e-giro-por-loja.sql` | Valor em estoque, itens sem saída, saldo negativo |
+| `estoque-entrada-x-saida.sql` | Entradas × saídas por unidade — a mais reveladora do estoque |
 | `estoque-cobertura-produto-id.sql` | Quanto do que se vende consegue dar baixa |
 | `estoque-cobertura-produto-id-por-natureza.sql` | A mesma conta com o denominador certo (só material) |
 | `orcamentos-escopo-fechado.sql` | Orçamentos com itens a preço zero e valor numa linha final |
