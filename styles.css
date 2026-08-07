@@ -195,7 +195,10 @@
     .os-atrasado{background:#fff7ed;color:#c2410c}
 
     /* ── HISTÓRICO ── */
-    .dash{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+    /* minmax(0,…): com `1fr` puro a coluna nao encolhe abaixo do min-content e um
+       valor longo (ex.: "R$ 4.200,00" com rotulo grande) empurra o ultimo card
+       para fora da area visivel — apareceu em Contas a Receber. */
+    .dash{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:20px}
     .dc{background:var(--white);border-radius:var(--r);padding:16px 18px;box-shadow:var(--sh);border-top:3px solid var(--gray-mid)}
     .dc.o{border-top-color:var(--c1)}.dc.g{border-top-color:var(--green)}.dc.y{border-top-color:var(--yellow)}.dc.b{border-top-color:var(--blue)}
     .dc.r{border-top-color:var(--red)}
@@ -690,7 +693,7 @@
     @media(max-width:680px){
       .row,.row.f3,.row.f4{grid-template-columns:1fr}
       .acts{grid-template-columns:1fr}
-      .dash{grid-template-columns:1fr 1fr}
+      .dash{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
       .hsrch{width:100%;margin-left:0;margin-top:4px}
       .seg-grid{grid-template-columns:1fr 1fr}
 

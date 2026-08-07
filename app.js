@@ -128,6 +128,7 @@ function aplicarPermissoesPerfil(){
     'snb-minhas-os'    : tecnico,
     'snb-equipamentos' : gestor,
     'snb-visitas'      : gestor||tecnico,
+    'snb-recebiveis'   : gestor,
     'snb-despesas'     : gestor,
     'snb-estoque'      : gestor,
     'snb-produtividade': gestor,
@@ -1723,6 +1724,7 @@ function go(p){
   if(p==='empresa') preencherFormEmpresa();
   if(p==='equipamentos') loadEquipamentos();
   if(p==='agendamentos'){ loadAgendamentos(); populaTecSelects(); initCal(); renderCal(); }
+  if(p==='recebiveis') loadRecebiveisPage();
   if(p==='despesas') loadDespesas();
   if(p==='estoque') loadEstoque();
   if(p==='produtividade'){ loadProdutividade(); setTimeout(renderRelatorioFinanceiro,300); }
@@ -1987,6 +1989,145 @@ async function loadRecebimentos(){
       }
     }catch(e){ console.warn('[loadRecebimentos]', e?.message||e); }
   }
+}
+
+// ── Painel de recebíveis: aging, prazo médio e baixa ──────────────────
+// A tabela só vira indicador quando alguém marca o que entrou. Sem a baixa,
+// tudo vira "vencido" e o número perde sentido — por isso a ação de marcar é
+// o elemento mais visível da tela.
+let _recebFiltro='aberto';
+const _RECEB_FILTROS=[['aberto','Em aberto'],['vencido','Vencido'],['hoje','Vence hoje'],
+                      ['semana','Próx. 7 dias'],['pago','Recebido'],['todos','Todos']];
+
+function _recebDoDia(){ return _hojeLocal(); }
+function _recebDiasAtraso(r){
+  if(r.data_pagamento) return 0;
+  const h=_recebDoDia();
+  if(!r.vencimento) return 0;
+  return Math.round((new Date(h+'T00:00:00') - new Date(r.vencimento+'T00:00:00'))/86400000);
+}
+// Escopo por loja: usa o mesmo filtro do resto do app, para "Todas" não
+// misturar Aquamotor com Forthemp.
+function _recebVisiveis(){ return filtrarPorLoja(todosReceb||[]); }
+
+function _recebClassifica(r){
+  if(r.data_pagamento) return 'pago';
+  const d=_recebDiasAtraso(r);
+  if(d>0) return 'vencido';
+  if(d===0) return 'hoje';
+  if(d>=-7) return 'semana';
+  return 'futuro';
+}
+function _recebFiltrar(lista){
+  if(_recebFiltro==='todos') return lista;
+  if(_recebFiltro==='aberto') return lista.filter(r=>!r.data_pagamento);
+  return lista.filter(r=>_recebClassifica(r)===_recebFiltro);
+}
+
+// Prazo médio de recebimento: dias entre vencimento e pagamento efetivo.
+// Só conta parcela paga — senão o número mede espera, não desempenho.
+function _recebPMR(lista){
+  const pagas=lista.filter(r=>r.data_pagamento&&r.vencimento);
+  if(!pagas.length) return null;
+  const soma=pagas.reduce((a,r)=>a+Math.round(
+    (new Date(r.data_pagamento+'T00:00:00')-new Date(r.vencimento+'T00:00:00'))/86400000),0);
+  return Math.round(soma/pagas.length);
+}
+
+function _orcDoReceb(r){ return (todosOrc||[]).find(o=>String(o.id)===String(r.orcamento_id)); }
+
+function renderRecebiveis(){
+  const todas=_recebVisiveis();
+  const abertas=todas.filter(r=>!r.data_pagamento);
+  const venc=abertas.filter(r=>_recebDiasAtraso(r)>0);
+  const hoje=abertas.filter(r=>_recebDiasAtraso(r)===0);
+  const soma=l=>l.reduce((a,r)=>a+(parseFloat(r.valor)||0),0);
+  const pmr=_recebPMR(todas);
+
+  const kpis=document.getElementById('receb-kpis');
+  if(kpis) kpis.innerHTML=
+    `<div class="dc o"><div class="dl">A receber</div><div class="dv">${brl(soma(abertas))}</div><div class="ds">${abertas.length} parcela${abertas.length!==1?'s':''}</div></div>`+
+    `<div class="dc ${venc.length?'r':'g'}"><div class="dl">Vencido</div><div class="dv" style="${venc.length?'color:var(--red)':''}">${brl(soma(venc))}</div><div class="ds">${venc.length} parcela${venc.length!==1?'s':''}</div></div>`+
+    `<div class="dc y"><div class="dl">Vence hoje</div><div class="dv">${brl(soma(hoje))}</div><div class="ds">${hoje.length} parcela${hoje.length!==1?'s':''}</div></div>`+
+    `<div class="dc b"><div class="dl">Prazo médio</div><div class="dv">${pmr===null?'—':(pmr>0?'+':'')+pmr+'d'}</div><div class="ds">${pmr===null?'nada recebido ainda':(pmr>0?'depois do vencimento':'em dia ou adiantado')}</div></div>`;
+
+  const fl=document.getElementById('receb-filtros');
+  if(fl) fl.innerHTML=_RECEB_FILTROS.map(([k,rot])=>{
+    const qtd = k==='todos'?todas.length
+      : k==='aberto'?abertas.length
+      : todas.filter(r=>_recebClassifica(r)===k).length;
+    return `<button class="tb${_recebFiltro===k?' g':''}" onclick="_recebSetFiltro('${k}')"${_recebFiltro===k?' style="font-weight:700"':''}>${rot} ${qtd}</button>`;
+  }).join('');
+
+  const lista=_recebFiltrar(todas).sort((a,b)=>String(a.vencimento||'').localeCompare(String(b.vencimento||'')));
+  const cont=document.getElementById('receb-contagem');
+  if(cont) cont.textContent=lista.length?`· ${lista.length} de ${todas.length}`:'';
+  const el=document.getElementById('receb-lista');
+  if(!el) return;
+  if(!lista.length){
+    el.innerHTML=`<div class="empty-st"><div class="ei">💰</div><p>${
+      todas.length? 'Nada nesta situação.' :
+      'Nenhuma parcela ainda. Elas nascem ao aprovar um orçamento, quando você informa como vai receber.'}</p></div>`;
+    return;
+  }
+  el.innerHTML=lista.map(r=>{
+    const o=_orcDoReceb(r);
+    const cls=_recebClassifica(r);
+    const d=_recebDiasAtraso(r);
+    const cor = cls==='pago'?'var(--green)' : cls==='vencido'?'var(--red)' : cls==='hoje'?'var(--yellow)':'var(--gray)';
+    const sit = cls==='pago' ? `recebido em ${_dataBR(r.data_pagamento)}`
+      : cls==='vencido' ? `${d} dia${d!==1?'s':''} em atraso`
+      : cls==='hoje' ? 'vence hoje' : `vence em ${Math.abs(d)} dia${Math.abs(d)!==1?'s':''}`;
+    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--gray-light);flex-wrap:wrap">
+      <div style="width:4px;align-self:stretch;border-radius:2px;background:${cor};min-height:34px"></div>
+      <div style="flex:1;min-width:150px">
+        <div style="font-size:13px;font-weight:600;color:var(--c2)">${esc(o?.cliente||'(orçamento removido)')}</div>
+        <div style="font-size:11px;color:var(--gray)">
+          ${o?'#'+String(o.numero||'?').padStart(3,'0')+' · ':''}${r.parcelas_total>1?`parcela ${r.parcela_n}/${r.parcelas_total} · `:''}${_dataBR(r.vencimento)}
+          ${r.forma?' · '+esc(r.forma):''}
+        </div>
+        <div style="font-size:11px;font-weight:700;color:${cor}">${sit}</div>
+      </div>
+      <div style="text-align:right;white-space:nowrap">
+        <div style="font-size:15px;font-weight:700;color:var(--c2)">${brl(parseFloat(r.valor)||0)}</div>
+        ${r.data_pagamento
+          ? `<button class="tb" style="font-size:11px;margin-top:3px" onclick="desmarcarRecebido('${r.id}')">↩ desfazer</button>`
+          : `<button class="tb g" style="font-size:11px;margin-top:3px;font-weight:700" onclick="marcarRecebido('${r.id}')">✓ Recebi</button>`}
+      </div>
+    </div>`;
+  }).join('');
+}
+function _recebSetFiltro(k){ _recebFiltro=k; renderRecebiveis(); }
+
+async function marcarRecebido(id){
+  const r=(todosReceb||[]).find(x=>String(x.id)===String(id));
+  if(!r) return;
+  r.data_pagamento=_hojeLocal();
+  lsRecebSalvar(todosReceb);
+  renderRecebiveis();
+  toast(`✅ ${brl(parseFloat(r.valor)||0)} recebido`);
+  logAcao('receb_baixa', `${brl(parseFloat(r.valor)||0)} · ${_orcDoReceb(r)?.cliente||''}`);
+  if(dbOk&&db){
+    try{ await dbUpdate('recebimentos', {data_pagamento:r.data_pagamento}, 'id', r.id); }
+    catch(e){ console.warn('[marcarRecebido]', e?.message||e); toast('⚠️ Salvo aqui, mas não sincronizou'); }
+  }
+}
+async function desmarcarRecebido(id){
+  const r=(todosReceb||[]).find(x=>String(x.id)===String(id));
+  if(!r) return;
+  r.data_pagamento=null;
+  lsRecebSalvar(todosReceb);
+  renderRecebiveis();
+  if(dbOk&&db){
+    try{ await dbUpdate('recebimentos', {data_pagamento:null}, 'id', r.id); }
+    catch(e){ console.warn('[desmarcarRecebido]', e?.message||e); }
+  }
+}
+
+async function loadRecebiveisPage(){
+  await loadRecebimentos();
+  if(!(todosOrc||[]).length && typeof loadHist==='function') await loadHist();
+  renderRecebiveis();
 }
 
 // ── Modal: Criar OS a partir da aprovação do orçamento ──
