@@ -10550,6 +10550,33 @@ function giroProduto(pid, dias){ // total de SAÍDA (consumo) nos últimos N dia
 }
 function consumoDia(pid){ return giroProduto(pid,90)/90; }
 function diasParaRuptura(pid){ const c=consumoDia(pid); if(c<=0) return Infinity; const d=disponivelProduto(pid); return d<=0?0:d/c; }
+// Saldos físicos negativos no escopo atual. Negativo é INCONSISTÊNCIA (saiu mais
+// do que entrou), não uma situação de operação — vale tanto para item de estoque
+// próprio quanto para venda sob encomenda. Sem este alerta o caso só aparecia
+// para quem abrisse produto a produto: 3 saldos ficaram meses assim.
+// Percorre por LOJA porque o erro costuma ser de lançamento na loja errada
+// (baixa feita em Itapema de um produto que só existia em Camboriú).
+// Inclui INATIVOS de propósito: desativar o produto não zera o saldo, então um
+// item negativo pode ter sido "resolvido" apenas sumindo da lista — o furo
+// contábil continua lá. Medido: dos 3 negativos em ago/2026, 2 estavam assim.
+function _estoqueNegativos(){
+  const out=[];
+  const _push=(p,saldo,lojaNome)=>out.push({p, saldo, lojaNome, inativo:p.ativo===false});
+  [...produtosVisiveis(), ...produtosVisiveisInativos()].forEach(p=>{
+    if(lojaAtiva){
+      const s=fisicaProduto(p.id);
+      if(s<-0.0001) _push(p,s,'');
+      return;
+    }
+    // Visão consolidada: aponta a loja específica onde o saldo furou.
+    const porLoja=_saldoPorLoja(p.id);
+    Object.keys(porLoja).forEach(lid=>{
+      if(porLoja[lid].fisico < -0.0001) _push(p, porLoja[lid].fisico, getLojaNome(lid));
+    });
+  });
+  // Ativos primeiro (acionáveis), depois os inativos; dentro de cada, pior saldo.
+  return out.sort((a,b)=>(a.inativo?1:0)-(b.inativo?1:0) || a.saldo-b.saldo);
+}
 function produtoParado(pid){
   if(fisicaProduto(pid)<=0) return false;
   if(giroProduto(pid,90)>0) return false;
@@ -10598,6 +10625,12 @@ function renderEstoque(){
   const repor=todos.filter(p=>{ const m=parseFloat(p.estoque_minimo)||0; const d=disponivelProduto(p.id); return m>0 && d>=0 && d<=m; });
   const parados=todos.filter(p=>produtoParado(p.id));
   const vencendo=todos.filter(produtoVencendo);
+  // Sem custo = sem margem e sem valor de estoque confiável. Prioriza quem TEM
+  // saldo (esses distorcem o "Valor em estoque" contando como zero); os demais
+  // vêm depois. Medido em ago/2026: 236 de 419 sem custo, 30 deles com saldo.
+  const semCusto=todos.filter(p=>!(parseFloat(p.custo)>0))
+    .sort((a,b)=>(fisicaProduto(b.id)>0?1:0)-(fisicaProduto(a.id)>0?1:0));
+  const semCustoComSaldo=semCusto.filter(p=>fisicaProduto(p.id)>0).length;
   const abc=curvaABC();
 
   // ── KPIs ──
@@ -10607,7 +10640,7 @@ function renderEstoque(){
   const valorParado=parados.reduce((a,p)=>a+(Math.max(0,fisicaProduto(p.id))*(parseFloat(p.custo)||0)),0);
   const kpis=document.getElementById('estoque-kpis');
   if(kpis) kpis.innerHTML=`
-    <div class="dc o"><div class="dl">Valor em estoque</div><div class="dv">${brl(valorEstoque)}</div><div class="ds">${todos.length} produto${todos.length!==1?'s':''}</div></div>
+    <div class="dc o" ${semCustoComSaldo?`style="cursor:pointer" onclick="filtEstoque('semcusto')"`:''}><div class="dl">Valor em estoque</div><div class="dv">${brl(valorEstoque)}</div><div class="ds"${semCustoComSaldo?' style="color:var(--yellow);font-weight:700" title="Estes produtos têm saldo mas custo zerado, então entram como R$ 0 e o valor real é maior"':''}>${todos.length} produto${todos.length!==1?'s':''}${semCustoComSaldo?` · ⚠️ ${semCustoComSaldo} sem custo`:''}</div></div>
     <div class="dc ${enc.length?'r':'g'}" style="cursor:pointer" onclick="filtEstoque('comprar')"><div class="dl">A comprar (encomenda)</div><div class="dv">${enc.length}</div><div class="ds">${brl(valorEncomenda)}</div></div>
     <div class="dc y" style="cursor:pointer" onclick="filtEstoque('repor')"><div class="dl">Repor (mínimo)</div><div class="dv">${repor.length}</div><div class="ds">abaixo do mínimo</div></div>
     <div class="dc b" style="cursor:pointer" onclick="filtEstoque('parados')"><div class="dl">Capital parado</div><div class="dv">${brl(valorParado)}</div><div class="ds">${parados.length} sem giro (90d)</div></div>
@@ -10620,6 +10653,7 @@ function renderEstoque(){
     ['repor','🔄 Repor',repor.length],
     ['parados','💤 Parados',parados.length],
     ['validade','⏳ Validade',vencendo.length],
+    ['semcusto','💲 Sem custo',semCusto.length],
     ['inativos','🚫 Inativos',inativos.length],
   ];
   const tabsEl=document.getElementById('estoque-tabs');
@@ -10631,6 +10665,7 @@ function renderEstoque(){
     : estoqueFiltro==='repor' ? repor.slice()
     : estoqueFiltro==='parados' ? parados.slice()
     : estoqueFiltro==='validade' ? vencendo.slice()
+    : estoqueFiltro==='semcusto' ? semCusto.slice()
     : todos.slice();
   if(estoqueBusca) lista=lista.filter(p=>(p.nome||'').toLowerCase().includes(estoqueBusca)||(p.codigo||'').toLowerCase().includes(estoqueBusca));
   if(estoqueCategoria) lista=lista.filter(p=>(p.categoria||'')===estoqueCategoria);
@@ -10685,6 +10720,9 @@ function renderEstoque(){
       if(preco>0) priceParts.push(`Venda: <strong>${brl(preco)}</strong>`);
       if(custo>0) priceParts.push(`Custo: <strong>${brl(custo)}</strong>`);
       if(capitalEstoque>0) priceParts.push(`Capital: <strong>${brl(capitalEstoque)}</strong>`);
+      // Sem custo com saldo em mãos: este produto entra como R$ 0 no "Valor em
+      // estoque", puxando o número para baixo sem ninguém perceber.
+      if(!(custo>0)) priceParts.push(`<span style="color:var(--yellow);font-weight:700" title="Sem custo cadastrado — não entra no valor de estoque nem permite calcular margem">⚠️ sem custo</span>`);
       const pricesHtml=priceParts.length?`<div class="est-prices">${priceParts.join(' · ')}</div>`:'';
 
       // Por loja — sempre visível para lojas do grupo Forthemp
@@ -10736,10 +10774,21 @@ function renderEstoque(){
     body.innerHTML=h;
   }
 
-  // ── Alerta resumido (encomendas + repor) ──
+  // ── Alerta resumido (inconsistências + encomendas + repor) ──
   const al=document.getElementById('estoque-alerta');
   if(al){
     let aviso='';
+    // Saldo NEGATIVO vem primeiro: é inconsistência, não operação. Saiu mais do
+    // que entrou — algo foi lançado errado. Em qualquer modelo (estoque próprio
+    // ou venda sob encomenda) isso é erro. Ficava invisível porque só aparecia
+    // para quem fosse procurar produto a produto: 3 casos passaram meses assim.
+    const negativos=_estoqueNegativos();
+    if(negativos.length){
+      aviso+=`<div style="color:#991b1b;background:#fee2e2;border-radius:8px;padding:8px 10px;margin-bottom:8px">
+        <strong>⚠️ ${negativos.length} saldo(s) negativo(s)</strong> — saiu mais do que entrou, algum lançamento está errado:
+        ${negativos.slice(0,4).map(x=>`<button class="tb" style="font-size:11px;padding:3px 8px;margin:4px 4px 0 0${x.inativo?';opacity:.7':''}" onclick="abrirMovModal('${x.p.id}','ajuste')" title="${x.inativo?'Produto inativado, mas o saldo negativo continua no ledger. ':''}Corrigir pelo inventário">${esc(x.p.nome)} (${fmtQtd(x.saldo)}${x.lojaNome?' · '+esc(x.lojaNome):''})${x.inativo?' 🚫':''}</button>`).join('')}
+        ${negativos.length>4?`<span style="font-size:11px"> +${negativos.length-4} outro(s)</span>`:''}</div>`;
+    }
     if(enc.length) aviso+=`<div style="color:#b91c1c"><strong>📥 ${enc.length} para comprar:</strong> `+enc.slice(0,5).map(x=>`${esc(x.p.nome)} (faltam ${fmtQtd(x.falta)})`).join(' · ')+(enc.length>5?' …':'')+`</div>`;
     if(repor.length) aviso+=`<div style="margin-top:${enc.length?'6px':'0'}"><strong>🔄 ${repor.length} para repor:</strong> `+repor.slice(0,5).map(p=>`${esc(p.nome)} (${fmtQtd(disponivelProduto(p.id))})`).join(' · ')+(repor.length>5?' …':'')+`</div>`;
     al.style.display=aviso?'':'none'; al.innerHTML=aviso;
