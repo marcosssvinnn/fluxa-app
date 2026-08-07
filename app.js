@@ -3868,7 +3868,7 @@ async function mudarSt(id, sel){
   if(dbOk&&db&&!String(id).startsWith('local_'))
     orcSyncUpdate(id, changes).catch(e=>console.warn('[mudarSt]', e?.message||e));
   logAcao('orcamento_status', `#${o?.numero||'?'} ${o?.cliente||''} → ${st}`);
-  // Feedback de reserva de estoque ao aprovar + modal para criar OS
+  // Feedback da baixa de estoque ao aprovar + modal para criar OS
   if(st==='aprovado' && o){
     const prods=(o.servicos||[]).filter(s=>s.produto_id);
     if(prods.length){
@@ -3876,7 +3876,7 @@ async function mudarSt(id, sel){
         const p=produtoById(s.produto_id);
         return `${Math.abs(parseInt(s.qty)||1)}× ${p?.nome||s.desc||s.produto_id}`;
       }).join(', ');
-      toast(`✅ Aprovado · 📦 Reservado: ${resumo}`);
+      toast(`✅ Aprovado · 📦 Baixado do estoque: ${resumo}`);
     } else { toast('✅ Orçamento aprovado!'); }
     setTimeout(()=>_perguntarCriarOS(o), 700);
   } else { toast('✅ Status atualizado'); }
@@ -10388,7 +10388,97 @@ function entregarOrcamento(orc, origem, qtyMap){
   } else if(origem==='manual'||origem==='validar'){ toast('Nada a baixar (sem produtos ou já confirmado)'); }
 }
 // Compat: chamadas antigas de baixa agora gerenciam a RESERVA
-function sincronizarBaixaOrcamento(orc){ sincronizarReservaOrcamento(orc); }
+// ══════════════════════════════════════════════════════════════════════════════
+//  APROVOU → SAI DO ESTOQUE  (substitui o antigo reserva → entrega)
+//  O desenho de duas etapas exigia confirmar a entrega depois, e isso não
+//  acontecia: 95% dos aprovados reservavam, só 7% davam baixa — porque a baixa
+//  dependia de concluir a OS, e só 1 de 12 OS era concluída. O material saía do
+//  depósito na vida real e o sistema continuava contando como se estivesse lá.
+//
+//  Aqui a baixa acontece no momento da venda, que é quando a decisão realmente
+//  ocorre. Se não houver saldo, fica negativo de propósito: é assim que o item
+//  entra na lista de compras — o modelo da casa é vender primeiro e comprar
+//  depois. Reserva deixa de existir: só protege quem tem estoque para proteger.
+//
+//  Reconciliação idempotente (mesma ideia da antiga): compara o que DEVERIA ter
+//  saído com o que JÁ saiu e lança só a diferença. Então reverter um orçamento
+//  aprovado devolve o material sozinho, e rodar duas vezes não duplica nada.
+// ══════════════════════════════════════════════════════════════════════════════
+function sincronizarSaidaOrcamento(orc){
+  if(!orc||!orc.id) return;
+  const aprovado = orc.status==='aprovado';
+  const desejado={};
+  if(aprovado){
+    (orc.servicos||[]).filter(s=>s.produto_id).forEach(s=>{
+      desejado[s.produto_id]=(desejado[s.produto_id]||0)+Math.abs(parseInt(s.qty)||1);
+    });
+  }
+  // Quanto já saiu por este orçamento (saida negativa, estorno positivo).
+  const jaSaiu={}, lojaDaSaida={};
+  (todosMovEstoque||[]).forEach(m=>{
+    if(!m.ref||m.ref.indexOf('baixa:orc:'+orc.id)!==0) return;
+    const q=parseFloat(m.quantidade)||0;
+    jaSaiu[m.produto_id]=(jaSaiu[m.produto_id]||0)+(-q); // guarda como positivo
+    if(!lojaDaSaida[m.produto_id] && m.tipo==='saida') lojaDaSaida[m.produto_id]=m.loja_id||null;
+  });
+  // ── Legado: orçamento do modelo antigo ainda tem RESERVA em aberto ──────────
+  // Se deixássemos a reserva de pé e ainda lançássemos a saída, o disponível
+  // levaria o golpe duas vezes (reservado + baixado). Ao tocar num orçamento
+  // assim, converte: solta a reserva e deixa só a saída, que é a verdade agora.
+  // Acontece item a item, conforme o orçamento é mexido — nunca em massa, para
+  // não baixar os 179 legados sem a conferência da equipe.
+  const reservaAberta={}, lojaDaReservaLegado={};
+  (todosMovEstoque||[]).forEach(m=>{
+    if(!m.ref||m.ref.indexOf('res:orc:'+orc.id)!==0) return;
+    if(!_TIPOS_RESERVA.includes(m.tipo)) return;
+    reservaAberta[m.produto_id]=(reservaAberta[m.produto_id]||0)+(parseFloat(m.quantidade)||0);
+    if(!lojaDaReservaLegado[m.produto_id] && m.tipo==='reserva') lojaDaReservaLegado[m.produto_id]=m.loja_id||null;
+  });
+  Object.keys(reservaAberta).forEach(pid=>{
+    const resta=reservaAberta[pid];
+    if(resta<=0.0001) return;
+    registrarMovimento({
+      produto_id:pid, tipo:'liberacao_reserva', quantidade:-resta, custo_unit:null,
+      motivo:'Libera reserva #'+String(orc.numero||'').padStart(3,'0')+' — agora a baixa é na aprovação',
+      ref:'libres:orc:'+orc.id+':'+pid+':migra',
+      lojaId:lojaDaReservaLegado[pid]||orc.loja_id||_lojaParaMovimento()
+    });
+  });
+
+  const ids=new Set([...Object.keys(desejado),...Object.keys(jaSaiu)]);
+  let mudou=false;
+  ids.forEach(pid=>{
+    const delta=(desejado[pid]||0)-(jaSaiu[pid]||0);
+    if(Math.abs(delta)<0.0001) return;
+    const p=produtoById(pid);
+    const numStr=String(orc.numero||'').padStart(3,'0');
+    // O estorno TEM que voltar para a mesma loja de onde saiu — usar a loja da
+    // sessão aqui foi o que espalhou saldo errado entre as unidades antes.
+    const loja=lojaDaSaida[pid]||orc.loja_id||_lojaParaMovimento();
+    registrarMovimento({
+      produto_id:pid,
+      tipo: delta>0?'saida':'entrada',
+      quantidade: delta>0?-delta:Math.abs(delta),
+      custo_unit:p?p.custo:null,
+      motivo:(delta>0?'Venda — orçamento #':'Estorno — orçamento #')+numStr+(delta>0?'':' deixou de estar aprovado'),
+      ref:'baixa:orc:'+orc.id+':'+pid,
+      lojaId:loja
+    });
+    mudou=true;
+  });
+  if(mudou){
+    if(typeof renderTabela==='function') renderTabela();
+    if(document.getElementById('page-estoque')?.classList.contains('on')) renderEstoque();
+    atualizarDash&&atualizarDash();
+  }
+  return mudou;
+}
+// Ponto de entrada usado em toda mudança de status (aprovar, reverter, excluir,
+// aprovação pelo portal). Mantém o nome antigo para não espalhar a troca.
+// ⚠️ NÃO reprocessa os orçamentos aprovados ANTES desta mudança: aqueles ainda
+// têm reserva do modelo antigo e estão em conferência com a equipe. Reprocessar
+// baixaria tudo de uma vez, sem ninguém checar se já foi entregue.
+function sincronizarBaixaOrcamento(orc){ return sincronizarSaidaOrcamento(orc); }
 
 // ── Reconciliação de reservas órfãs (1x por sessão de gestor) ──
 // Reserva só é legítima com orçamento APROVADO aguardando entrega. Se o orc
