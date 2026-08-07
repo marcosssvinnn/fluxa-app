@@ -1845,9 +1845,27 @@ function _perguntarCriarOS(orc){
   const sel=document.getElementById('aprov-os-tec');
   const tecs=getTecnicos();
   sel.innerHTML='<option value="">Selecione…</option>'+tecs.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join('');
+  // Só oferece a Ordem de Entrega se houver o que entregar.
+  const _row=document.getElementById('aprov-entrega-row');
+  if(_row) _row.style.display = _orcTemItens(orc) ? '' : 'none';
   document.getElementById('aprov-os-bg').classList.add('on');
 }
 function fecharAprovOS(){ document.getElementById('aprov-os-bg').classList.remove('on'); }
+
+// Orçamento tem itens? (aceita `servicos` como array ou string JSON — dado legado)
+function _orcTemItens(orc){
+  let s=orc&&orc.servicos;
+  if(typeof s==='string'){ try{ s=JSON.parse(s||'[]'); }catch(e){ return false; } }
+  return Array.isArray(s) && s.length>0;
+}
+// Botão "Ordem de entrega" do modal de aprovação
+function gerarEntregaDaAprovacao(){
+  const id=document.getElementById('aprov-os-orc-id').value;
+  if(!id){ toast('⚠️ Orçamento não identificado'); return; }
+  fecharAprovOS();
+  // deixa o modal fechar antes de abrir a impressão (senão o modal entra no PDF)
+  setTimeout(()=>gerarOrdemEntrega(id), 180);
+}
 
 async function criarOSdeAprovacao(){
   const orcId=document.getElementById('aprov-os-orc-id').value;
@@ -2540,6 +2558,65 @@ function coletarForm(){
     dias, obs:gV('obs'),
     escopo:gV('escopo'), dataSvc:gV('data-svc'), dataStr, vData, sub:sub(), desc:disc(sub()), tot:tot(),
     svcs:svcs.filter(s=>s.d.trim()).map(s=>({desc:s.d.trim(),preco:gP(s),precoUnit:parseFloat(s.p)||0,qty:parseInt(s.qty)||1,produto_id:s.produto_id||null})) };
+}
+
+// ══════════════════════════════════════════════════
+//  ORDEM DE ENTREGA — comprovante que viaja com a mercadoria
+//  Venda de produto avulso (químico, peça) não gera OS: o material só sai e
+//  alguém no local recebe. Este é o papel que o comprador confere e assina.
+//  NÃO cria registro no banco — é derivado do orçamento, então pode ser
+//  reimpresso quantas vezes precisar sem duplicar nada.
+// ══════════════════════════════════════════════════
+function preencherDocEntrega(orc){
+  const LC=getLojaConfig(orc.loja_id||lojaAtiva);
+  const c1=LC.cor, c2=LC.cor2;
+  document.getElementById('pd-header-ent').style.background=c1;
+  document.getElementById('pd-thead-ent').style.background=c2;
+  document.getElementById('pd-foot-ent').style.background=c2;
+  document.getElementById('pd-cli-bar-ent').style.background=c1;
+  document.getElementById('pd-obs-bar-ent').style.background=c1;
+  const logoEl=document.getElementById('pd-hdr-logo-ent'), initEl=document.getElementById('pd-hdr-init-ent');
+  if(LC.logoB64){ logoEl.src=LC.logoB64; logoEl.className='pd-hdr-logo-img has-logo'; initEl.className='pd-hdr-logo-initials'; }
+  else { logoEl.className='pd-hdr-logo-img'; initEl.textContent=(LC.nome||'?').charAt(0).toUpperCase(); initEl.className='pd-hdr-logo-initials show-init'; }
+  setV_el('pd-nm-ent',LC.nome,'textContent');
+  setV_el('pd-sb-ent',LC.sub,'textContent');
+  const tagEnt=document.getElementById('pd-tag-ent'); if(tagEnt){ tagEnt.textContent=LC.tagline||''; tagEnt.style.display=LC.tagline?'block':'none'; }
+  setV_el('pd-cont-ent',[LC.tel,LC.cidades].filter(Boolean).join('  ·  ')||LC.nome,'textContent');
+
+  const numStr=String(orc.numero||'?').padStart(3,'0');
+  setV_el('pd-num-ent','#'+numStr,'textContent');
+  // Data da entrega vai em branco de propósito: a entrega costuma acontecer dias
+  // depois da aprovação, e quem preenche é quem recebe, na hora.
+  document.getElementById('pd-meta-ent').innerHTML=
+    'Ref. Orçamento <strong>#'+esc(numStr)+'</strong><br>Data da entrega: ____ / ____ / ______';
+  setV_el('pd-cli-nm-ent',orc.cliente||'—','textContent');
+  setV_el('pd-cli-loc-ent',orc.local||'','textContent');
+  setV_el('pd-sign-resp-ent','Entregue por — '+(LC.nome||''),'textContent');
+  setV_el('pd-foot-ent',(LC.nome||'')+(LC.tel?'   ·   '+LC.tel:'')+(LC.cidades?'   ·   '+LC.cidades:''),'textContent');
+
+  // Lista TODOS os itens, não só os com produto_id: químico digitado à mão não
+  // tem vínculo de produto e mesmo assim precisa ser conferido na entrega.
+  let svcs=orc.servicos;
+  if(typeof svcs==='string'){ try{ svcs=JSON.parse(svcs||'[]'); }catch(e){ console.warn('[docEntrega svcs]',e?.message||e); svcs=[]; } }
+  svcs=Array.isArray(svcs)?svcs:[];
+  const tb=document.getElementById('pd-tbody-ent');
+  tb.innerHTML = svcs.length
+    ? svcs.map((s,i)=>'<tr>'+
+        '<td style="text-align:center;font-size:19px;line-height:1;padding-top:7px;padding-bottom:7px">☐</td>'+
+        '<td>'+(i+1)+'</td>'+
+        '<td>'+esc(s.desc||'—')+'</td>'+
+        '<td style="text-align:center;font-weight:700">'+fmtQtd(parseFloat(s.qty)||1)+'</td>'+
+      '</tr>').join('')
+    : '<tr><td colspan="4" style="text-align:center;color:#777">Sem itens no orçamento</td></tr>';
+  return svcs.length;
+}
+
+// Abre a Ordem de Entrega para impressão (histórico ou modal de aprovação)
+function gerarOrdemEntrega(orcId){
+  const orc=(todosOrc||[]).find(o=>String(o.id)===String(orcId));
+  if(!orc){ toast('⚠️ Orçamento não encontrado'); return; }
+  if(!preencherDocEntrega(orc)){ toast('⚠️ Este orçamento não tem itens para entregar'); return; }
+  imprimirDoc('entrega');
 }
 
 function preencherDocOrc(d, num){
@@ -3834,6 +3911,7 @@ function renderTabela(){
         <button class="tb" title="Duplicar" onclick="duplicarOrc('${o.id}')">⧉</button>
         ${(()=>{ const osVinc=(todosOS||[]).find(x=>x.orcamento_id===o.id); if(osVinc){ const stOS=osVinc.status||'agendado'; const stLabel={agendado:'agendada',em_andamento:'em andamento',concluido:'concluída'}[stOS]||stOS; return `<button class="tb" title="OS #${String(osVinc.numero||'').padStart(3,'0')} — ${stLabel}" onclick="verDetalhesOS('${osVinc.id}')" style="background:#16a34a;color:white;border-color:#16a34a;font-weight:700">✅ OS#${String(osVinc.numero||'').padStart(3,'0')}</button>`; } if(o.status==='aprovado') return `<button class="tb" title="Gerar Ordem de Serviço" onclick="gerarOS_deOrc('${o.id}')" style="background:#C45E0A;color:white;border-color:#C45E0A;font-weight:700">📋 Gerar OS</button>`; return `<button class="tb" title="Gerar OS" onclick="gerarOS_deOrc('${o.id}')">📋</button>`; })()}
         ${orcTemEntregaPendente(o)?`<button class="tb g" title="Marcar como entregue (baixa do estoque)" onclick="entregarOrcamento(getNC('${o.id}'),'manual')">📦 Entregar</button>`:''}
+        ${o.status==='aprovado'&&_orcTemItens(o)?`<button class="tb" title="Imprimir comprovante de entrega para o cliente conferir e assinar" onclick="gerarOrdemEntrega('${o.id}')">🧾 Entrega</button>`:''}
         ${ocultarFinanceiro?'':'<button class="tb g" title="Registrar pagamento" onclick="abrirModalPg(\''+o.id+'\','+ttl+')">💰</button>'}
         ${o.status==='aprovado'?`<button class="tb" title="Corrigir mês de aprovação no faturamento" onclick="corrigirDataAprovacao('${o.id}')" style="font-size:10px;font-weight:700;color:#b45309;border-color:#fbbf24;background:#fef9c3">MÊS</button>`:''}
         ${!ocultarFinanceiro&&o.status==='aprovado'?`<button class="tb" title="Emitir Nota Fiscal" onclick="abrirModalNFe('${o.id}')" style="background:#7c3aed;color:white;border-radius:6px;padding:4px 7px;font-size:11px;font-weight:700;border:none;cursor:pointer">NF</button>`:''}
@@ -4965,8 +5043,10 @@ window.addEventListener('beforeprint',()=>{
   const showOrc = printMode==='orc' || printMode==='both';
   const showOs  = printMode==='os'  || printMode==='both';
   const showVis = printMode==='vis';
+  const showEnt = printMode==='entrega';
   document.getElementById('pdoc-orc').classList.toggle('print-active', showOrc);
   document.getElementById('pdoc-os').classList.toggle('print-active',  showOs);
+  document.getElementById('pdoc-entrega')?.classList.toggle('print-active', showEnt);
   // pdoc-visita: se n\u00E3o for modo vis, garante que n\u00E3o aparece
   const pdocVis = document.getElementById('pdoc-visita');
   if(pdocVis && !showVis) pdocVis.classList.remove('print-active');
@@ -4981,12 +5061,12 @@ window.addEventListener('beforeprint',()=>{
       const dt  = (numEl?.textContent||'').replace(/\//g,'-');
       document.title = cli ? `Vistoria_${cli}_${dt}` : `Vistoria_${dt||'relatorio'}`;
     } else {
-      const refMode = printMode==='os' ? 'os' : 'orc';
+      const refMode = printMode==='os' ? 'os' : printMode==='entrega' ? 'ent' : 'orc';
       const numEl = document.getElementById('pd-num-'+refMode);
       const cliEl = document.getElementById('pd-cli-nm-'+refMode);
       const num = (numEl?.textContent||'').replace(/[^0-9]/g,'').padStart(3,'0');
       const cli = (cliEl?.textContent||'').replace(/[^a-zA-Z0-9\u00C0-\u024F\s]/g,'').trim().replace(/\s+/g,'_');
-      const prefix = printMode==='os'?'OS':printMode==='both'?'ORC+OS':'ORC';
+      const prefix = printMode==='os'?'OS':printMode==='both'?'ORC+OS':printMode==='entrega'?'ENTREGA':'ORC';
       if(cli && num) document.title = `${cli}_${prefix}${num}`;
       else if(num) document.title = `${prefix}${num}`;
     }
@@ -4996,6 +5076,7 @@ window.addEventListener('afterprint',()=>{
   document.getElementById('pdoc-orc').classList.remove('print-active');
   document.getElementById('pdoc-os').classList.remove('print-active');
   document.getElementById('pdoc-visita')?.classList.remove('print-active');
+  document.getElementById('pdoc-entrega')?.classList.remove('print-active');
   document.title = _printTitleBackup || 'Sistema de Orçamentos';
   printMode = '';
 });
@@ -5009,9 +5090,11 @@ function imprimirDoc(modo){
   const showOrc = modo==='orc' || modo==='both';
   const showOs  = modo==='os'  || modo==='both';
   const showVis = modo==='vis';
+  const showEnt = modo==='entrega';
   document.getElementById('pdoc-orc')?.classList.toggle('print-active', showOrc);
   document.getElementById('pdoc-os')?.classList.toggle('print-active',  showOs);
   document.getElementById('pdoc-visita')?.classList.toggle('print-active', showVis);
+  document.getElementById('pdoc-entrega')?.classList.toggle('print-active', showEnt);
   // Nome do arquivo PDF: no desktop o beforeprint nomeia; no Android ele não
   // dispara — sem isto o cliente recebia "Acquamotor — Orçamentos.pdf".
   // (Mesma lógica do beforeprint — manter as duas em sincronia.)
@@ -5022,10 +5105,10 @@ function imprimirDoc(modo){
       const dt =(document.getElementById('pd-num-vis')?.textContent||'').replace(/\//g,'-');
       document.title = cli ? `Vistoria_${cli}_${dt}` : `Vistoria_${dt||'relatorio'}`;
     } else {
-      const refMode = modo==='os' ? 'os' : 'orc';
+      const refMode = modo==='os' ? 'os' : modo==='entrega' ? 'ent' : 'orc';
       const num=(document.getElementById('pd-num-'+refMode)?.textContent||'').replace(/[^0-9]/g,'').padStart(3,'0');
       const cli=(document.getElementById('pd-cli-nm-'+refMode)?.textContent||'').replace(/[^a-zA-Z0-9À-ɏ\s]/g,'').trim().replace(/\s+/g,'_');
-      const prefix = modo==='os'?'OS':modo==='both'?'ORC+OS':'ORC';
+      const prefix = modo==='os'?'OS':modo==='both'?'ORC+OS':modo==='entrega'?'ENTREGA':'ORC';
       if(cli && num) document.title = `${cli}_${prefix}${num}`;
       else if(num) document.title = `${prefix}${num}`;
     }
