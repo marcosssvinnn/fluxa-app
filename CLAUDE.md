@@ -1697,6 +1697,53 @@ no histórico, para reimprimir quando quiser.
 
 ---
 
+## 📊 Roadmap de indicadores — números conferidos e primeiras entregas (2026-08-07)
+
+Um roadmap de 7 fases foi proposto por outra análise. **Conferi os números contra
+o banco real antes de agir** — eles batem:
+
+| Afirmação do roadmap | Medido no banco |
+|---|---|
+| Cobertura de `produto_id` 14,5% | **14,5%** (194 de 1.341 linhas) — bate exato |
+| `despesas` = 0 | 0 |
+| `equipamentos` = 0 | 0 |
+| Itapema 92% × Camboriú 37% de recebimento | **92,3% × 35,5%** |
+| 214 nomes × 141 fichas de cliente | 216 × 141 |
+| `cliente_id` em 0% dos orçamentos | 0 de 303 |
+| `motivo` de ajuste é texto livre | 21 ajustes → **15 grafias distintas** |
+
+### Aplicado: itens 5.2 e 5.4 (`f847caa`, `migracao-roadmap-fase5.sql`)
+Os dois de esforço quase nulo que destravam indicador inteiro. **Aditivos**, já
+no banco e verificados com insert de prova + rollback.
+- `estoque_movimentos.motivo_cod` — seletor padronizado no ajuste (quebra, perda,
+  contagem, devolução, furto, inventário, outro). **A coluna `motivo` NÃO virou
+  enum de propósito** — seria destrutivo e perderia os 21 registros; o código
+  entra ao lado e `motivo` segue com o detalhe escrito. Só aparece no ajuste
+  (entrada/saída já têm tipo próprio); o balanço marca `inventario` sozinho.
+- `ordens_compra.data_prevista` — **achado no caminho:** o formulário já tinha um
+  campo rotulado "Data prevista" que na verdade gravava em `data` (data da
+  ordem). Agora são dois campos de verdade; com `data_recebimento` sai o prazo
+  real por fornecedor.
+
+### 🔴 Confirmado, NÃO corrigido: qualquer um lê o banco inteiro
+A fase 7.1 do roadmap está certa e eu **comprovei sem querer**: as consultas de
+verificação acima rodaram com a anon key, que está num repositório **público** —
+li os 303 orçamentos, faturamento e a base de clientes sem nenhuma credencial
+privada. Todas as tabelas têm `anon full access` e o controle de acesso vive só
+no JS.
+**Não mexi de propósito:** trocar isso por Auth + RLS sem o Marcos presente
+arrisca trancar a equipe inteira fora do sistema em produção. Precisa ser feito
+com ele acompanhando, e de preferência fora do horário de operação.
+
+### Não fiz por serem decisão de produto, não de engenharia
+Contas a receber por parcela (1.1), despesas com centro de custo (1.2), DRE
+(1.3), `cliente_id` + deduplicação (fase 3) e base instalada (fase 4). São
+grandes, mexem em dinheiro e identidade, e o próprio roadmap diz que o backfill
+de cliente tem de ser **assistido, não automático** — 73 nomes sem ficha e 13 de
+14 locais de vistoria sem match; casamento por string erraria em silêncio.
+
+---
+
 ## Perguntas em aberto (aguardando Marcos responder)
 
 1. **CNPJs reais** das 3 empresas — para preencher tabela `lojas` e emissão de NF
