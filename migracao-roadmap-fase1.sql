@@ -40,3 +40,21 @@ alter table despesas add column if not exists data_pagamento date;
 comment on column despesas.competencia  is 'Mes de referencia YYYY-MM. Diferente da data de pagamento: aluguel de agosto pago em setembro pertence a agosto.';
 comment on column despesas.centro_custo is 'fixo|variavel|campo|administrativo';
 comment on column despesas.recorrente   is 'Se true, o app lembra de lancar no mes seguinte.';
+
+-- ══════════════════════════════════════════════════════════════════════
+--  Fase 3 — identidade do cliente. APLICADO em 2026-08-07.
+--  orcamentos.cliente e TEXTO LIVRE: 216 nomes para 141 fichas, e nenhum
+--  orcamento aponta para uma ficha. Sem isso nao ha LTV, recompra, ABC de
+--  cliente nem base instalada por cliente.
+--  ⚠️ Backfill SO com confirmacao humana (tela "Identidade"): CNPJ e da
+--  ADMINISTRADORA e telefone e do SINDICO — 5 CNPJs e 4 telefones sao
+--  compartilhados por clientes DIFERENTES. Casar por eles funde clientes.
+-- ══════════════════════════════════════════════════════════════════════
+alter table orcamentos      add column if not exists cliente_id text;
+alter table ordens_servico  add column if not exists cliente_id text;
+alter table vistorias       add column if not exists cliente_id text;
+alter table equipamentos    add column if not exists cliente_id text;
+alter table locais_vistoria add column if not exists cliente_id text;
+create index if not exists idx_orc_cliente_id on orcamentos(cliente_id);
+create index if not exists idx_os_cliente_id  on ordens_servico(cliente_id);
+create index if not exists idx_vis_cliente_id on vistorias(cliente_id);

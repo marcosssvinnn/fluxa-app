@@ -128,6 +128,7 @@ function aplicarPermissoesPerfil(){
     'snb-minhas-os'    : tecnico,
     'snb-equipamentos' : gestor,
     'snb-visitas'      : gestor||tecnico,
+    'snb-identidade'   : gestor,
     'snb-recebiveis'   : gestor,
     'snb-despesas'     : gestor,
     'snb-estoque'      : gestor,
@@ -1724,6 +1725,7 @@ function go(p){
   if(p==='empresa') preencherFormEmpresa();
   if(p==='equipamentos') loadEquipamentos();
   if(p==='agendamentos'){ loadAgendamentos(); populaTecSelects(); initCal(); renderCal(); }
+  if(p==='identidade') loadIdentidade();
   if(p==='recebiveis') loadRecebiveisPage();
   if(p==='despesas'){ loadDespesas(); setTimeout(renderAvisoRecorrentes,300); }
   if(p==='estoque') loadEstoque();
@@ -2128,6 +2130,214 @@ async function loadRecebiveisPage(){
   await loadRecebimentos();
   if(!(todosOrc||[]).length && typeof loadHist==='function') await loadHist();
   renderRecebiveis();
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  IDENTIDADE DO CLIENTE — confirmação assistida (fase 3 do roadmap)
+//  `orcamentos.cliente` é texto livre: 216 nomes para 141 fichas, e nenhum
+//  orçamento aponta para uma ficha. Sem isso não há LTV, recompra, ABC de
+//  cliente nem base instalada.
+//
+//  ⚠️ Por que NÃO é automático (medido pela outra sessão em 07/08):
+//   • CNPJ é da ADMINISTRADORA — 5 CNPJs são compartilhados por condomínios
+//     diferentes (Torre de Esmeralda / Villa Di Mare / Villa dos Corais).
+//   • Telefone é do SÍNDICO — 4 telefones aparecem em clientes distintos.
+//   • "Infinity Coast", "Infinity Paradise" e "Infinity Flat" são condomínios
+//     DIFERENTES: nome parecido não é o mesmo cliente.
+//  Casar por qualquer um desses funde clientes distintos, e o erro fica
+//  invisível depois. Por isso a tela sugere e a pessoa decide.
+// ══════════════════════════════════════════════════════════════════════
+let _identFiltro='pendente';
+function _identNorm(t){ return _normNome? _normNome(t) : String(t||'').trim().toLowerCase(); }
+
+// Agrupa os orçamentos por nome digitado, dentro do escopo de loja atual.
+function _identGrupos(){
+  const orcs=filtrarPorLoja(todosOrc||[]);
+  const map=new Map();
+  orcs.forEach(o=>{
+    const nome=(o.cliente||'').trim();
+    if(!nome) return;
+    const k=_identNorm(nome);
+    if(!map.has(k)) map.set(k,{chave:k, nomes:new Set(), orcs:[], valor:0, ligados:0});
+    const g=map.get(k);
+    g.nomes.add(nome); g.orcs.push(o); g.valor+=parseFloat(o.total)||0;
+    if(o.cliente_id) g.ligados++;
+  });
+  return [...map.values()].map(g=>{
+    const nomes=[...g.nomes];
+    const ficha=_identSugerir(nomes);
+    return {...g, nomes, ficha,
+      estado: g.ligados===g.orcs.length ? 'ok' : (g.ligados>0 ? 'parcial' : 'pendente')};
+  }).sort((a,b)=>b.valor-a.valor);
+}
+
+// Sugestão: só nome idêntico depois de normalizar, ou idêntico sem a palavra de
+// tipo (condomínio/edifício/residencial). Nada de distância de edição — foi o
+// que fez "Bella Vista" casar com "Bella Citta" no relatório, e são prédios
+// diferentes.
+const _IDENT_TIPOS=/^(condominio|condomínio|cond\.?|edificio|edifício|ed\.?|residencial|resid\.?|torre|villa|vila)\s+/i;
+// Chaves de comparação de um nome: o nome inteiro E o nome sem a palavra de tipo.
+// Comparar só núcleo com núcleo errava "Condominio Villa dos Corais" × ficha
+// "Villa dos Corais": o regex tirava "Villa" do segundo também, sobrando
+// "dos corais", e os dois deixavam de casar. Cruzando as duas chaves de cada
+// lado, basta UMA coincidir.
+function _identChaves(n){
+  const full=_identNorm(n);
+  const sem=_identNorm(String(n||'').replace(_IDENT_TIPOS,''));
+  return sem && sem!==full ? [full, sem] : [full];
+}
+function _identCasa(a,b){
+  const ka=_identChaves(a), kb=_identChaves(b);
+  return ka.some(x=>x && kb.includes(x));
+}
+// Distância de edição só para SUGERIR conferência — nunca para ligar sozinho.
+// "Bella Vista" × "Bella Citta" e "Infinity Coast" × "Infinity Flat" são
+// prédios diferentes com nome parecido; por isso isto vira aviso, não ação.
+function _identParecido(a,b){
+  const x=_identNorm(a), y=_identNorm(b);
+  if(!x||!y||Math.abs(x.length-y.length)>3) return 0;
+  const m=x.length, n=y.length; let prev=[...Array(n+1).keys()], cur=[];
+  for(let i=1;i<=m;i++){ cur=[i];
+    for(let j=1;j<=n;j++) cur[j]=Math.min(prev[j]+1, cur[j-1]+1, prev[j-1]+(x[i-1]===y[j-1]?0:1));
+    prev=cur;
+  }
+  return 1 - prev[n]/Math.max(m,n);
+}
+function _identSugerir(nomes){
+  const cli=lsCliLer()||[];   // o app guarda clientes no localStorage, não em global
+  for(const n of nomes){
+    const alvo=_identNorm(n);
+    const ex=cli.filter(c=>_identNorm(c.nome)===alvo);
+    if(ex.length===1) return {id:ex[0].id, nome:ex[0].nome, conf:'exato', motivo:'nome idêntico'};
+    if(ex.length>1)  return {conf:'duplicada', motivo:`${ex.length} fichas com esse mesmo nome`, fichas:ex};
+  }
+  for(const n of nomes){
+    const pr=cli.filter(c=>_identCasa(c.nome, n));
+    if(pr.length===1) return {id:pr[0].id, nome:pr[0].nome, conf:'provavel', motivo:'igual sem a palavra de tipo'};
+    if(pr.length>1)  return {conf:'duplicada', motivo:`${pr.length} fichas equivalentes`, fichas:pr};
+  }
+  // Nada casou: procura o mais parecido só para a pessoa conferir
+  let melhor=null, score=0;
+  for(const n of nomes) for(const c of cli){
+    const sc=_identParecido(c.nome, n);
+    if(sc>score){ score=sc; melhor=c; }
+  }
+  if(melhor && score>=0.82)
+    return {conf:'conferir', id:melhor.id, nome:melhor.nome, score,
+            motivo:`parecido com "${melhor.nome}" (${Math.round(score*100)}%) — confira, nome parecido não é o mesmo cliente`};
+  return {conf:'nenhum', motivo:'não existe ficha — criar'};
+}
+
+function _identFiltrar(gs){
+  if(_identFiltro==='todos') return gs;
+  if(_identFiltro==='pendente') return gs.filter(g=>g.estado!=='ok');
+  if(_identFiltro==='decidir')  return gs.filter(g=>g.estado!=='ok' && ['duplicada','nenhum'].includes(g.ficha.conf));
+  if(_identFiltro==='variante') return gs.filter(g=>g.nomes.length>1);
+  return gs.filter(g=>g.estado==='ok');
+}
+
+function renderIdentidade(){
+  const gs=_identGrupos();
+  const pend=gs.filter(g=>g.estado!=='ok');
+  const soma=l=>l.reduce((a,g)=>a+g.valor,0);
+  const k=document.getElementById('ident-kpis');
+  if(k) k.innerHTML=
+    `<div class="dc o"><div class="dl">Sem ficha ligada</div><div class="dv">${pend.length}</div><div class="ds">de ${gs.length} nomes</div></div>`+
+    `<div class="dc y"><div class="dl">Valor sem identidade</div><div class="dv">${brl(soma(pend))}</div><div class="ds">não entra no histórico do cliente</div></div>`+
+    `<div class="dc r"><div class="dl">Precisam de decisão</div><div class="dv">${gs.filter(g=>g.estado!=='ok'&&['duplicada','nenhum'].includes(g.ficha.conf)).length}</div><div class="ds">sem ficha ou ficha duplicada</div></div>`+
+    `<div class="dc g"><div class="dl">Já ligados</div><div class="dv">${gs.length-pend.length}</div><div class="ds">${gs.length?Math.round((gs.length-pend.length)/gs.length*100):0}% dos nomes</div></div>`;
+
+  const fl=document.getElementById('ident-filtros');
+  if(fl) fl.innerHTML=[['pendente','Pendentes'],['decidir','Precisam de decisão'],
+      ['variante','Escritos de vários jeitos'],['ok','Já ligados'],['todos','Todos']]
+    .map(([kk,rot])=>`<button class="tb${_identFiltro===kk?' g':''}" onclick="_identSetFiltro('${kk}')"${_identFiltro===kk?' style="font-weight:700"':''}>${rot} ${_identFiltro===kk?'':''}${(kk==='todos'?gs.length:_identFiltroCount(gs,kk))}</button>`).join('');
+
+  const lista=_identFiltrar(gs);
+  const c=document.getElementById('ident-contagem');
+  if(c) c.textContent=`· ${lista.length} de ${gs.length}`;
+  const el=document.getElementById('ident-lista'); if(!el) return;
+  if(!lista.length){ el.innerHTML='<div class="empty-st"><div class="ei">🪪</div><p>Nada nesta situação.</p></div>'; return; }
+
+  el.innerHTML=lista.slice(0,120).map(g=>{
+    const f=g.ficha;
+    const cor = g.estado==='ok'?'var(--green)' : f.conf==='exato'?'var(--blue)'
+              : (f.conf==='provavel'||f.conf==='conferir')?'var(--yellow)':'var(--red)';
+    const variantes = g.nomes.length>1
+      ? `<div style="font-size:11px;color:#b45309;margin-top:2px">✎ escrito de ${g.nomes.length} jeitos: ${g.nomes.map(n=>esc(n)).join(' · ')}</div>` : '';
+    let acao='';
+    if(g.estado==='ok') acao=`<span style="font-size:11.5px;color:var(--green);font-weight:700">✅ ligado</span>`;
+    else if(f.conf==='exato'||f.conf==='provavel'||f.conf==='conferir')
+      acao=`<button class="tb g" style="font-weight:700" onclick="identLigar('${g.chave}','${f.id}')">Ligar a "${esc((f.nome||'').slice(0,22))}"</button>
+            <button class="tb" onclick="identCriarFicha('${g.chave}')">Criar nova</button>`;
+    else if(f.conf==='duplicada')
+      acao=(f.fichas||[]).map(x=>`<button class="tb" onclick="identLigar('${g.chave}','${x.id}')">Usar "${esc(x.nome.slice(0,20))}"</button>`).join(' ')
+           +` <button class="tb" onclick="identCriarFicha('${g.chave}')">Criar nova</button>`;
+    else acao=`<button class="tb g" style="font-weight:700" onclick="identCriarFicha('${g.chave}')">＋ Criar ficha</button>`;
+    return `<div style="display:flex;gap:10px;padding:11px 0;border-bottom:1px solid var(--gray-light);flex-wrap:wrap;align-items:flex-start">
+      <div style="width:4px;align-self:stretch;border-radius:2px;background:${cor};min-height:38px"></div>
+      <div style="flex:1;min-width:190px">
+        <div style="font-size:13.5px;font-weight:700;color:var(--c2)">${esc(g.nomes[0])}</div>
+        <div style="font-size:11px;color:var(--gray)">${g.orcs.length} orçamento${g.orcs.length!==1?'s':''} · ${brl(g.valor)}${g.ligados?` · ${g.ligados} já ligado${g.ligados!==1?'s':''}`:''}</div>
+        <div style="font-size:11px;color:${cor};font-weight:600">${esc(f.motivo)}</div>
+        ${variantes}
+      </div>
+      <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">${acao}</div>
+    </div>`;
+  }).join('') + (lista.length>120?`<div style="font-size:11.5px;color:var(--gray);padding:9px 0">Mostrando os 120 de maior valor. Confirme esses e a lista recarrega.</div>`:'');
+}
+function _identFiltroCount(gs,k){ const s=_identFiltro; _identFiltro=k; const n=_identFiltrar(gs).length; _identFiltro=s; return n; }
+function _identSetFiltro(k){ _identFiltro=k; renderIdentidade(); }
+
+// Liga TODOS os orçamentos daquele nome à ficha escolhida. Também marca OS e
+// vistorias com o mesmo nome — é a mesma decisão, e pedir de novo seria ruído.
+async function identLigar(chave, clienteId){
+  const cli=(lsCliLer()||[]).find(c=>String(c.id)===String(clienteId));
+  if(!cli){ toast('⚠️ Ficha não encontrada'); return; }
+  const alvo=(todosOrc||[]).filter(o=>_identNorm(o.cliente)===chave && !o.cliente_id);
+  for(const o of alvo){
+    o.cliente_id=cli.id;
+    lsOrcAtualizar(o.id,{cliente_id:cli.id});
+    if(dbOk&&db&&!String(o.id).startsWith('local_')){
+      try{ await orcSyncUpdate(o.id,{cliente_id:cli.id}); }catch(e){ console.warn('[identLigar]',e?.message||e); }
+    }
+  }
+  let extras=0;
+  const _vis = (typeof lsVisLer==='function') ? lsVisLer() : [];
+  for(const t of [['ordens_servico',todosOS],['vistorias',_vis]]){
+    for(const r of (t[1]||[])){
+      if(_identNorm(r.cliente)===chave && !r.cliente_id){
+        r.cliente_id=cli.id; extras++;
+        if(t[0]==='vistorias' && typeof lsVisSalvar==='function') lsVisSalvar(_vis);
+        if(dbOk&&db){ try{ await dbUpdate(t[0],{cliente_id:cli.id},'id',r.id); }catch(e){ console.warn('[identLigar '+t[0]+']',e?.message||e); } }
+      }
+    }
+  }
+  logAcao('cliente_identidade', `${alvo.length} orç. + ${extras} reg. → ${cli.nome}`);
+  renderIdentidade();
+  toast(`✅ ${alvo.length} orçamento${alvo.length!==1?'s':''} ligado${alvo.length!==1?'s':''} a ${cli.nome}`);
+}
+
+// Cria a ficha e já liga. É o caminho MAJORITÁRIO: 43% dos nomes (R$ 1,19 mi)
+// nunca tiveram cadastro — não é erro de grafia, é cliente que nunca foi criado.
+async function identCriarFicha(chave){
+  const g=_identGrupos().find(x=>x.chave===chave);
+  if(!g){ toast('⚠️ Grupo não encontrado'); return; }
+  const base=g.orcs.find(o=>o.tel_cliente||o.cnpj)||g.orcs[0]||{};
+  // Campos com os nomes que a tabela usa de verdade (tel/end, não telefone/endereco)
+  const rec={ id:'cli_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
+    nome:g.nomes[0], tel:base.tel_cliente||'', end:base.local_servico||base.local||'',
+    cnpj:base.cnpj||'', email_responsavel:'', tipo:'',
+    portal_token:crypto.randomUUID(), loja_id:base.loja_id||lojaAtiva||LOJA_PADRAO_ID };
+  const _cl=lsCliLer(); _cl.unshift(rec); lsCliSalvar(_cl);
+  if(dbOk&&db){ try{ await dbInsert('clientes', rec); }catch(e){ console.warn('[identCriarFicha]',e?.message||e); } }
+  await identLigar(chave, rec.id);
+}
+
+async function loadIdentidade(){
+  if(!(todosOrc||[]).length && typeof loadHist==='function') await loadHist();
+  if(!(todosOS||[]).length && typeof loadOSHist==='function') await loadOSHist();
+  if(typeof carregarClientesRemoto==='function') await carregarClientesRemoto();
+  renderIdentidade();
 }
 
 // ── Modal: Criar OS a partir da aprovação do orçamento ──
