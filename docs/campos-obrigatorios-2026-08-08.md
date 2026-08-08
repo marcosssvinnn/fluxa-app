@@ -12,6 +12,13 @@
 > `app.js`/`index.html` e cruzando com os números de produção que já medimos
 > esta semana (baseline, cobertura de estoque, funil) — cada recomendação tem
 > o dado que a sustenta, não é achismo.
+>
+> **Atualização — implementado no mesmo dia.** O Marcos pediu para seguir com
+> tudo. Os itens marcados **✅ implementado** abaixo já estão no código
+> (testado sem escrever no banco de produção, com orçamento/produto/OC falsos
+> em memória). O check-in de OS **não foi mexido** — é o único caso do
+> levantamento em que a recomendação era conversar com a equipe antes, não
+> travar campo nenhum, e essa conversa ainda não aconteceu.
 
 ---
 
@@ -34,29 +41,35 @@ que faltou algo depois de clicar. Não existe também nenhum estilo de "campo
 obrigatório" no CSS hoje — isso é infraestrutura nova, não uma extensão do
 que já tem.
 
-## O mecanismo único (proposta, para "as ferramentas se comunicarem")
+## O mecanismo único — implementado
 
-Antes de listar campo por campo, a peça que falta é um **padrão comum** que
-qualquer formulário novo (e os que já existem) usem, em vez de reinventar:
+Ao ler o CSS pra construir isto, achei que **o marcador visual já existia**:
+`label.req` (asterisco vermelho) já era usado em 8 campos, só que sem nenhuma
+validação de verdade atrás — reaproveitado em vez de inventar um segundo
+padrão (`obrig-badge`) do zero.
 
-1. **No HTML:** o campo ganha uma classe `campo-obrig` e um `<span
-   class="obrig-badge" title="por que isso importa">*</span>` ao lado do
-   rótulo. O `title` já carrega a explicação — sem precisar de tela extra.
-2. **No JS:** uma função só, `validarObrigatorios(formId)`, varre os campos
-   marcados, e para o primeiro vazio: rola até ele, foca, pinta a borda de
-   vermelho e mostra o toast com a explicação. Cada `salvarX()` chama essa
-   função uma linha no início, em vez de reescrever o `if(!campo)`.
-3. **Explicação curta, não bloqueio raso:** o texto do `title`/toast segue um
-   padrão de duas partes — *o que* falta e *o que quebra* se não preencher.
-   Ex.: "Forma de pagamento — sem isso o relatório financeiro não sabe
-   separar boleto de pix, e o prazo médio de recebimento fica errado."
-4. **Obrigatório condicional existe** (ex.: técnico só é obrigatório se a
-   despesa NÃO for da empresa) — o mecanismo precisa aceitar uma função de
-   condição, não só "sempre obrigatório".
+O que entrou de novo:
 
-Isso é useful para TODAS as telas de uma vez, e é a parte que eu ficaria à
-disposição pra implementar depois deste levantamento — o Marcos decide o quê
-vira obrigatório, eu construo o mecanismo e aplico.
+1. **`avisarCampoObrigatorio(id, msg)`** (app.js) — foca o campo, rola até
+   ele, pinta a borda de vermelho (`.campo-obrig-erro`, some sozinha assim
+   que a pessoa começa a digitar) e mostra o toast já com a explicação do
+   porquê, não só "preencha isto". Toda checagem nova usa essa função em vez
+   de reinventar o próprio aviso.
+2. **Obrigatório condicional funciona** de dois jeitos, conforme o caso pedia:
+   um toggle explícito (checkbox "não é produto" no item do orçamento) e um
+   momento certo em vez de sempre (forma de pagamento só trava na aprovação,
+   não na criação da proposta — enviar sem saber como o cliente vai pagar é
+   normal).
+
+**Não fiz** um `validarObrigatorios(formId)` genérico que varre o form
+inteiro — os 5 campos novos têm regras diferentes demais entre si (um trava
+no salvar, dois travam num MOMENTO diferente do salvar — aprovação, envio ao
+fornecedor —, um é condicional a um toggle) para uma função única de
+"campo vazio = bloqueia" resolver sozinha. `avisarCampoObrigatorio` cobre a
+parte que de fato se repetia — o aviso — e cada `salvarX()`/`mudarSt` decide
+quando chamá-la, o que a validação anterior (33 checagens) também já fazia
+certo. Se aparecer um sexto campo com a mesma regra simples de um desses,
+vale reconsiderar.
 
 ---
 
@@ -66,10 +79,10 @@ vira obrigatório, eu construo o mecanismo e aplico.
 
 | Campo | Hoje | Por que importa | Recomendação |
 |---|---|---|---|
-| **Forma de pagamento** (`pag_cod`) | Opcional — sem checagem nenhuma | Medido: **33 dos 88 aprovados** não têm código real, **30 estão em "A combinar"** — e "2 parcelas" aparece porque é o *default do formulário*, não decisão de ninguém. Foi por isso que a Sessão A decidiu **não** gerar parcela de recebimento sozinha a partir daí. | **Obrigatório.** Sem ele, a Fase 1 (contas a receber) inteira nasce capenga. |
-| **Item vinculado ao estoque** (`produto_id` em cada linha) | Opcional, mesmo depois do datalist de sugestão que já existe | Medido: Camboriú **24,3%** de cobertura nos aprovados. É a causa raiz do estoque não bater — a baixa automática só enxerga item vinculado. | **Obrigatório condicional:** cada linha de material precisa estar vinculada OU marcada como "avulso/mão de obra" (um toggle, não um vínculo forçado — nem tudo é produto de estoque). |
-| **Cliente com ficha** (`cliente_id`) | Existe tela de confirmação de identidade, mas não bloqueia salvar | Medido: **43% dos nomes** de orçamento não têm ficha — R$ 1,19 milhão. | **Não travar o salvar** (atrapalharia o fluxo de vendedor em campo) — mas reforçar a tela de confirmação para aparecer sempre que o nome for novo, com o motivo já dito no relatório de dedup. |
-| Local do serviço | Opcional | Sem local, a rota do técnico e a OS gerada ficam incompletas | Obrigatório — é rápido de preencher e sempre existe. |
+| **Forma de pagamento** (`pag_cod`) | ✅ **Implementado** — mas não no salvar, **na aprovação** (`mudarSt`). Enviar uma proposta sem forma de pagamento definida é normal; aprovar sem isso é que trava a Fase 1 inteira. Reverter para pendente/recusado não exige. | Medido: **33 dos 88 aprovados** não têm código real, **30 estão em "A combinar"**. | ~~Obrigatório.~~ Feito. |
+| **Item vinculado ao estoque** (`produto_id` em cada linha) | ✅ **Implementado**, condicional e também na aprovação. Checkbox **"não é produto"** por linha (`toggleSvcAvulso`) para mão de obra/material genérico — quem marca não precisa vincular. | Medido: Camboriú **24,3%** de cobertura nos aprovados. | ~~Obrigatório condicional.~~ Feito. |
+| **Cliente com ficha** (`cliente_id`) | Sem mudança — mantido como estava. | Medido: **43% dos nomes** de orçamento não têm ficha — R$ 1,19 milhão. | Não travar o salvar (fica para reforçar a tela de confirmação de identidade, separado deste levantamento). |
+| Local do serviço | ✅ **Implementado** — trava no salvar (`salvarApenas` e `gerarPDF`). | Sem local, a rota do técnico e a OS gerada ficam incompletas | ~~Obrigatório.~~ Feito. |
 
 ### 2. Estoque — ajuste manual (`registrarMovimento`, tipo `ajuste`)
 
@@ -82,14 +95,14 @@ vira obrigatório, eu construo o mecanismo e aplico.
 
 | Campo | Hoje | Por que importa | Recomendação |
 |---|---|---|---|
-| **Forma de pagamento** (`forma`) | Opcional (`forma:forma\|\|null`) | Sem ela, o relatório financeiro não separa boleto de pix de cartão, e nenhuma reconciliação bancária futura é possível. | Obrigatório. |
+| **Forma de pagamento** (`forma`) | ✅ **Implementado** — trava no lançar. | Sem ela, o relatório financeiro não separa boleto de pix de cartão, e nenhuma reconciliação bancária futura é possível. | ~~Obrigatório.~~ Feito. |
 | Modo (à vista/parcelado/entrada) | Já efetivamente obrigatório (tem default e um caminho de "decidir depois" explícito) | — | Nenhuma ação. |
 
 ### 4. Produtos — cadastro (`salvarProduto`)
 
 | Campo | Hoje | Por que importa | Recomendação |
 |---|---|---|---|
-| **Custo** | Opcional, vira `0` em silêncio (`parseFloat(...)\|\|0`) | Medido: **6 dos 7 modelos de trocador Pooltec** — o equipamento mais caro da empresa — estão com custo zero. Toda margem calculada sobre eles hoje está errada. | **Obrigatório**, com uma saída: se realmente não souber agora, um botão "cadastrar depois" que grava e marca o produto com um aviso visível na lista (em vez de deixar em zero sem ninguém saber). |
+| **Custo** | ✅ **Implementado** — com `custo=0`, salvar abre confirmação ("sem custo, este produto não tem margem calculável — salvar assim mesmo?") em vez de travar de vez, porque às vezes o preço de compra ainda não chegou. | Medido: **6 dos 7 modelos de trocador Pooltec** — o equipamento mais caro da empresa — estão com custo zero. | ~~Obrigatório com saída.~~ Feito. |
 | Categoria | **Já obrigatório** | — | Nenhuma ação. |
 
 ### 5. Ordens de serviço — conclusão
@@ -104,7 +117,7 @@ vira obrigatório, eu construo o mecanismo e aplico.
 |---|---|---|---|
 | Fornecedor | **Já obrigatório** (`if(!fornId){ toast(...) }`) | — | Nenhuma ação. |
 | Item na ordem | **Já obrigatório** | — | Nenhuma ação. |
-| **Data prevista** (`data_prevista`) | Opcional | Sem ela, não existe lead time real nem OTIF de fornecedor — a coluna virou `date` de verdade nesta semana justamente para viabilizar isso. | Obrigatório quando o status sai de "rascunho" — não em "rascunho", porque nem toda OC nasce com data combinada com o fornecedor. |
+| **Data prevista** (`data_prevista`) | ✅ **Implementado** — trava só ao enviar ao fornecedor (`status='enviada'`), não em rascunho. | Sem ela, não existe lead time real nem OTIF de fornecedor — a coluna virou `date` de verdade nesta semana justamente para viabilizar isso. | ~~Obrigatório quando sai de rascunho.~~ Feito. |
 
 ### 7. Despesas — **já está bem resolvido**
 
@@ -115,18 +128,31 @@ está correto.
 
 ---
 
-## Prioridade de implementação, se for seguir em frente
+## O que ficou de fora, de propósito
 
-1. **Forma de pagamento no orçamento e no recebimento** — maior volume de
-   dinheiro afetado, dado já quantificado, sem ambiguidade de "quando não se
-   aplica".
-2. **Custo do produto** — afeta cálculo de margem hoje, poucos produtos por
-   vez (começar pelos 6 trocadores Pooltec resolve a maior fatia).
-3. **Vínculo de item ao estoque no orçamento (condicional)** — o de maior
-   impacto no negócio, mas o mais delicado de implementar bem (precisa do
-   toggle "avulso" para não travar quem vende serviço/material genérico).
-4. **Conversa sobre o check-in de OS** — não é implementação, é entender com
-   a equipe por que o passo está sendo pulado, antes de forçar qualquer coisa.
+1. **Check-in de OS.** Continua sem nenhuma trava. Não existe campo pra
+   marcar obrigatório — existe um botão que ninguém aperta — então forçar
+   qualquer coisa aqui sem entender o porquê arrisca é piorar (a pessoa
+   inventa um check-in só pra passar da tela, e aí o dado além de ausente
+   fica falso). Fica esperando a conversa com a equipe.
+2. **Identidade do cliente (`cliente_id`).** Mantive como estava — travar o
+   salvar do orçamento atrapalharia o vendedor em campo. A tela de
+   confirmação de identidade que já existe é o lugar certo pra reforçar isto,
+   e é trabalho separado deste levantamento.
+3. **Quantidade escrita no texto em vez do campo.** Não é um campo que vira
+   obrigatório — é o formulário aprender a detectar o número na descrição e
+   oferecer aplicar no campo certo. Registrado como pendência técnica em
+   `docs/cobertura-produto-id-2026-08-07.md`, ainda não feito.
+4. Segurança (Auth/RLS) — combinado que fica para depois, com o Marcos
+   presente.
 
-Não incluí segurança (Auth/RLS) nem nada do que já está combinado ficar para
-depois — isto aqui é só o levantamento de campo.
+## Um ponto de atenção pra quando isto for pro ar
+
+O bloqueio de forma de pagamento e de vínculo de item acontece **na
+aprovação**, não só em orçamento novo — e vale pros que já estão parados no
+funil hoje. Camboriú tem cobertura de vínculo de ~28%, então a maioria dos
+147 orçamentos hoje em aberto vai pedir pra vincular ou marcar "não é
+produto" na primeira vez que alguém tentar aprovar um deles depois do
+deploy. Resolver um orçamento existente é rápido — o datalist de sugestão já
+vincula sozinho quem bate com o nome do produto, e o resto é um clique por
+item — mas é um atrito que vai aparecer de uma vez, não gradualmente.
