@@ -311,6 +311,20 @@ em produção**. Fazer com ele acompanhando e fora do horário de operação.
   duplicata") já está coberta pelo meu coletor — 0 duplicadas confirmado
   depois de cada mudança, não preciso repetir.
 
+- *(A, 08/08)* **Achado, não corrigido — decisão do Marcos, não minha.** A
+  tabela `lojas` do `setup.sql` (cnpj, razão social, `focusnfe_token`,
+  `iss_aliquota`, `codigo_servico_municipal`, endereço, logo...) não é lida
+  nem escrita em NENHUM lugar do `app.js` — confirmado por grep e, mais
+  importante, **por leitura direta em produção: 0 linhas** (não é um caso de
+  dado sumindo em silêncio, é schema que nunca foi ligado a nada). O fiscal
+  de verdade usa `CFG.nfe_token_prod`/`nfe_token_hom`/`nfe_cnpj`/`nfe_iss`/
+  `nfe_cod_svc`, guardado em `empresa_config` (via `dbUpsert`, funcionando).
+  Provavelmente um desenho antigo (config fiscal por linha de `lojas`) que
+  foi abandonado a favor do blob `CFG` + array `LOJAS` fixo no código, sem
+  ninguém apagar a tabela depois. Não dropei — é ação destrutiva em produção,
+  mesmo com a tabela vazia, e não é decisão minha tomar sozinha. Se confirmar
+  que não serve pra nada, é um `DROP TABLE lojas;` de uma linha.
+
 ---
 
 ## 🛡️ PROTOCOLO DE VERIFICAÇÃO — OBRIGATÓRIO ANTES DE ENTREGAR QUALQUER MUDANÇA
