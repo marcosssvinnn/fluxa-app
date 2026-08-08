@@ -458,6 +458,19 @@ em produção**. Fazer com ele acompanhando e fora do horário de operação.
   misturar isso com uma feature. Registrado pra próxima vez que alguém mexer
   no `setup.sql` de propósito.
 
+- *(A, 08/08)* 🔴 **Achado ao conferir "cliente" na lista de 7 tabelas
+  simétricas acima — não era bem simétrico.** `excluirCliente(id)` nunca
+  chamou `db.from('clientes').delete(...)` em lugar nenhum — só removia da
+  lista local. Diferente dos outros (que TENTAM apagar remoto e só falham em
+  silêncio às vezes), aqui o delete remoto **nunca existiu**: o próprio
+  comentário de `carregarClientesRemoto` já dizia "BD é fonte de verdade" —
+  então TODO cliente excluído voltava, sempre, no próximo sync (não é
+  condição de corrida, é garantido). Corrigido com o mesmo tombstone
+  (`fluxa_cli_tombstones`) + agora `excluirCliente` chama o delete remoto de
+  verdade. Testado no browser: excluir → tombstone gravado → simulei que o
+  servidor ainda tinha a linha → `carregarClientesRemoto` filtra e reenvia o
+  delete, cliente não ressuscita. Zero erro de console.
+
 ---
 
 ## 🛡️ PROTOCOLO DE VERIFICAÇÃO — OBRIGATÓRIO ANTES DE ENTREGAR QUALQUER MUDANÇA
