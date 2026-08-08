@@ -4124,6 +4124,21 @@ function renderPainelHoje(){
     sub:`${hoje.length} parcela${hoje.length!==1?'s':''} — marque quando entrar`,
     acao:'Ver', fn:"go('recebiveis')"});
 
+  // 1b. Aprovado sem NENHUMA cobrança lançada — diferente do "vencido" acima
+  // (que exige uma parcela já criada pra poder vencer): aqui não existe
+  // parcela nenhuma, então nunca aparece como vencido, mesmo aprovado há
+  // meses. É o gap medido entre lojas (uma loja lança quase tudo, outra
+  // lança um terço) — sem esse item o painel fica cego pra ele.
+  const semReceb=(typeof _orcAprovadosSemReceb==='function'? _orcAprovadosSemReceb() : []);
+  if(semReceb.length){
+    const totalSemReceb=semReceb.reduce((a,o)=>a+(parseFloat(o.total)||0),0);
+    const maisAntigo=semReceb[semReceb.length-1];
+    itens.push({cor:'var(--red)', icone:'🧮',
+      titulo:`${brl(totalSemReceb)} aprovado sem cobrança lançada`,
+      sub:`${semReceb.length} orçamento${semReceb.length!==1?'s':''} · o mais antigo desde ${_dataBR(String(maisAntigo?.data_aprovacao||maisAntigo?.data_criacao||'').slice(0,10))}`,
+      acao:'Lançar', fn:"go('recebiveis')"});
+  }
+
   // 2. Material faltando (ruptura aberta) — é venda que não sai
   const rup=(typeof historicoRuptura==='function'? historicoRuptura(lojaAtiva||'') : []).filter(r=>r.aberta);
   if(rup.length) itens.push({cor:'var(--red)', icone:'📦',
