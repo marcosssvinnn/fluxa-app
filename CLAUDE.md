@@ -284,6 +284,33 @@ em produção**. Fazer com ele acompanhando e fora do horário de operação.
   erro e devolve linhas — só não mede o que o nome diz. Foi exatamente assim que
   eu errei.
 
+- *(A, 08/08)* Fechei o "prefixo cega o datalist" que a B mediu (227 usos,
+  R$ 379.906, R$ 319.782 em trocadores). Não era o auto-vínculo (`_svcAutoVincular`
+  já tolerava o prefixo numérico ao casar o texto inteiro) — era só a sugestão
+  nativa do `<datalist>` do navegador, que filtra por substring contra o texto
+  digitado: nenhum produto do catálogo contém "01" no início, então digitar
+  "01 Trocador..." não mostrava sugestão nenhuma. `updSvc` agora detecta o
+  prefixo numérico sendo digitado (`_prefixoDigitado`) e re-renderiza o
+  `<datalist>` com esse mesmo prefixo colado na frente de cada produto
+  (`renderDatalistProdutos(prefixo)`), a cada tecla — assim o substring match
+  do navegador encontra. Testado no browser local (`dbOk=false`): datalist
+  mostra `"01 Trocador de calor Pooltec 25kW"` ao digitar "01 Troc", o
+  auto-vínculo liga certo ao completar o nome, e o botão "Usar N" (extração de
+  quantidade) continua funcionando sem regressão. Não mexi na extração de
+  quantidade em si (já existia) nem na campanha de recadastro de dados —
+  isso é achado de B, fora do meu escopo de código.
+  Também fechei, numa auditoria própria (coletores em
+  `.claude/skills/auditoria/scripts/`, saída em `docs/auditoria/2026-08-07/`):
+  21 funções mortas removidas, `produtos.categoria` que faltava no `setup.sql`
+  (obrigatória no form, sumia em silêncio numa instalação nova), 26 escritas
+  cruas migradas para `dbInsert`/`dbUpdate`/`dbUpsert`, e 9 dos 11
+  `catch(e){}` vazios que tocavam Supabase/localStorage/e-mail — o pior era o
+  `lsSet()` em si (ponto único de gravação local do app inteiro) engolindo
+  qualquer falha de `localStorage.setItem`. Commits `807672a`/`7958c75`/
+  `010996a` + este. `docs/gerar-mapa.py` (tarefa 1 da B acima, "confirmar sem
+  duplicata") já está coberta pelo meu coletor — 0 duplicadas confirmado
+  depois de cada mudança, não preciso repetir.
+
 ---
 
 ## 🛡️ PROTOCOLO DE VERIFICAÇÃO — OBRIGATÓRIO ANTES DE ENTREGAR QUALQUER MUDANÇA

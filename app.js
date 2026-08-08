@@ -2490,6 +2490,7 @@ function updSvc(inp){
   const s=svcs.find(x=>x.id===parseFloat(inp.dataset.id));
   if(s){
     s[inp.dataset.f]=inp.value;
+    if(inp.dataset.f==='d') renderDatalistProdutos(_prefixoDigitado(inp.value));
     if(inp.dataset.f==='d' && _svcAutoVincular(s)){
       renderSvcs(); upd();
       toast('📦 '+(produtoById(s.produto_id)?.nome||'Produto')+' vinculado ao estoque');
@@ -2583,10 +2584,19 @@ function _catalogoSugestoes(){
   const vis = (typeof produtosVisiveis==='function') ? produtosVisiveis() : (todosProdutos||[]);
   return (vis||[]).filter(p=>p && p.nome && p.ativo!==false);
 }
-function renderDatalistProdutos(){
+function renderDatalistProdutos(prefixo){
   const dl=document.getElementById('svc-prod-list'); if(!dl) return;
+  const pre=prefixo||'';
   dl.innerHTML=_catalogoSugestoes()
-    .map(p=>`<option value="${esc(p.nome)}">${p.preco_venda?brl(p.preco_venda):''}</option>`).join('');
+    .map(p=>`<option value="${esc(pre+p.nome)}">${p.preco_venda?brl(p.preco_venda):''}</option>`).join('');
+}
+// Detecta um prefixo numérico SENDO digitado (sem exigir texto depois — ao
+// contrário de _extrairQtdPrefixo, que só reconhece quantidade quando já há
+// pelo menos 3 caracteres de descrição). Usado só para casar o <datalist>
+// nativo com o que a pessoa já digitou, não para decidir quantidade.
+function _prefixoDigitado(txt){
+  const m=String(txt||'').match(/^\s*\d{1,3}\s*[-–x×]?\s+/i);
+  return m ? m[0] : '';
 }
 // Casa o texto digitado com um produto do catálogo (exato, ignorando caixa/acento)
 function _produtoPorNome(txt){
