@@ -332,6 +332,11 @@
     /* ── MODAL RECEBIMENTO ── */
     .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;display:none;align-items:center;justify-content:center}
     .modal-bg.on{display:flex}
+    /* confirmar() é o "tem certeza?" genérico — precisa ficar por CIMA de
+       qualquer outro modal que o tenha chamado (produto z600, cliente/NF-e
+       z800), senão fica invisível e inclicável atrás deles. Achado testando
+       o aviso de "salvar produto sem custo" (QA runtime, 08/08). */
+    #confirmar-modal-bg{z-index:900}
     .modal{background:var(--white);border-radius:var(--r);padding:24px;width:100%;max-width:380px;box-shadow:0 8px 32px rgba(0,0,0,.18)}
     .modal h3{font-size:17px;font-weight:800;margin-bottom:16px}
     .modal-acts{display:flex;gap:10px;margin-top:18px}
