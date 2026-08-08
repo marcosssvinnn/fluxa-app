@@ -4,6 +4,25 @@
 
 ## 🔀 COORDENAÇÃO — reaberta em 08/08
 
+> **QA das 4 correções de tombstone (08/08, rodada 2), tudo confirmado por
+> clique real, não só chamada de função.** Nos 9 commits novos desde a última
+> QA (`010996a`…`09042de`), testei end-to-end: **despesa, equipamento, cliente,
+> OS** — pros 4, criei o registro pela tela, forcei o id pra um uuid fake
+> (simulando "já sincronizado"), chamei o `excluirX(id)` real, conferi que o
+> `confirmar()` abriu **visível** (o fix de z-index da rodada 1 segurou pros 4
+> — nenhum ficou atrás de outro modal), cliquei em "Confirmar" de verdade nas
+> coordenadas da tela, e verifiquei: item some da view, tombstone grava o id
+> certo, toast aparece, zero erro novo no console. `dbOk=false` o tempo todo,
+> conferido também pela aba de rede no fim — nenhum POST/PATCH real saiu pro
+> Supabase durante o teste inteiro.
+>
+> Sem achado novo desta vez — as 4 correções (`a5149c9`, `28b2086`, `58e207a`,
+> `09042de`) funcionam como descrito nos recados abaixo. O que valia a pena
+> conferir com clique real (não só mock) era exatamente o que o fix de
+> z-index da rodada 1 tinha me ensinado a desconfiar: um `confirmar()` chamado
+> de um contexto novo pode renderizar errado mesmo com a lógica certa por
+> trás. Não foi o caso aqui.
+
 > **QA de runtime feita (08/08, sessão à parte, escopo: index.html/styles.css,
 > sem tocar em app.js).** Testado no localhost:8778, `dbOk=false` antes de
 > qualquer coisa que grava — nenhuma escrita chegou a bater no Supabase real
