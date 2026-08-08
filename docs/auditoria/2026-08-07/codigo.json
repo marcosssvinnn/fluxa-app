@@ -1,0 +1,479 @@
+{
+  "arquivo": {
+    "app_js_linhas": 13574,
+    "index_html_linhas": 2889
+  },
+  "funcoes": {
+    "declaradas": 745,
+    "distintas": 745
+  },
+  "duplicadas": {},
+  "mortas": [],
+  "chamadas_so_pelo_html": [
+    "_impConfirmar",
+    "_impDrop",
+    "abrirBaixaRapida",
+    "abrirBalancoModal",
+    "abrirBuscaCli",
+    "abrirFormAg",
+    "abrirFormUsuario",
+    "abrirFornecModal",
+    "abrirImportProdutos",
+    "abrirListaCompras",
+    "abrirOCListModal",
+    "abrirWAPortal",
+    "addChkItem",
+    "agTab",
+    "baixaBuscar",
+    "buscaEstoque",
+    "buscarEq",
+    "buscarOS",
+    "carregarFotoDesp",
+    "carregarFotoEq",
+    "carregarOSFoto",
+    "confirmarBaixaRapida",
+    "confirmarItensOS",
+    "confirmarMovimento",
+    "confirmarPreCarga",
+    "confirmarResv",
+    "confirmarTransferencia",
+    "copiarListaCompras",
+    "copiarWA",
+    "criarOCDaListaCompras",
+    "criarOCManual",
+    "desativarProduto",
+    "descartarVistoriaEmAndamento",
+    "dispensarAlertaEstoque",
+    "enviarOCWhatsApp",
+    "enviarWA",
+    "exportarVistoriasBackup",
+    "fazerCheckin",
+    "fazerCheckout",
+    "fazerLogout",
+    "fecharFornecModal",
+    "fecharImportProdutos",
+    "fecharModalNFe",
+    "fecharOCListModal",
+    "fecharQR",
+    "filtCategoria",
+    "filtOS",
+    "filtOrigem",
+    "filtStatusMinhasOS",
+    "filtVisStatus",
+    "filtrarCliAg",
+    "filtrarClientesEq",
+    "filtrarTipoEq",
+    "gerarEntregaDaAprovacao",
+    "hideSugCli",
+    "hideSugCliOS",
+    "importarClientesDeOrcamentos",
+    "imprimirQR",
+    "locVisMesAnterior",
+    "locVisMesProximo",
+    "mostrarSugestoesCli",
+    "mostrarSugestoesCliOS",
+    "mostrarSugestoesCliVis",
+    "navCal",
+    "orcNavMes",
+    "orcVerTodos",
+    "removerFotoDesp",
+    "removerFotoEq",
+    "removerOSFoto",
+    "reorganizarCalendarioPlanos",
+    "resetChecklist",
+    "resvUsarEsperado",
+    "salvarAgendamento",
+    "salvarBD",
+    "salvarConcluirVis",
+    "salvarCrmContato",
+    "salvarFornecedor",
+    "salvarPagamento",
+    "salvarRecebimento",
+    "setComissaoPct",
+    "setMetaTec",
+    "syncCor",
+    "syncCor2",
+    "testarEmailJS",
+    "toggleCategOutro",
+    "toggleGear",
+    "toggleOsCard",
+    "toggleSidebar",
+    "toggleVisDados",
+    "uploadLogo",
+    "visAddEquipManual",
+    "visCheckout",
+    "visPuxarPrioridades",
+    "voltarParaPin"
+  ],
+  "onclick_sem_funcao": [
+    "if",
+    "setTimeout"
+  ],
+  "globais_topo": {
+    "total": 134,
+    "nomes": [
+      "BAIXA_MOTIVOS",
+      "CFG",
+      "CFG_DEF",
+      "CRM_CONV_EQUIP",
+      "CRM_FAIXAS_IDADE",
+      "CRM_TETO_EQUIP",
+      "CRM_TETO_FILA",
+      "DRAFT_KEYS",
+      "FLUXA_CONFIG",
+      "FOTO_MAX_BYTES",
+      "GRUPO_FORTHEMP",
+      "LOJAS",
+      "LOJA_PADRAO_ID",
+      "LS_ATTEMPTS_KEY",
+      "LS_CLI_FULL",
+      "LS_CRM_FB",
+      "LS_LOCAIS_VIS",
+      "LS_LOCKOUT_KEY",
+      "LS_ORC",
+      "LS_VIS",
+      "LS_VIS_DRAFT",
+      "MAX_FOTOS_EQUIP",
+      "ORC_RX_EQUIPAMENTO",
+      "ORC_VALOR_CICLO_LONGO",
+      "ORIGEM_EMOJI",
+      "OS_CHECKLIST_DEFAULT",
+      "PERFIL_INFO",
+      "PIN_SALT",
+      "VIS_EQUIPAMENTOS_DEFAULT",
+      "_DOSSIE_CONSEQ",
+      "_HIST_POR_PAG",
+      "_IDENT_TIPOS",
+      "_IMP_MAP",
+      "_MESES_ORC",
+      "_MOV_POR_PAG",
+      "_RECEB_FILTROS",
+      "_TIPOS_FISICOS",
+      "_TIPOS_RESERVA",
+      "_appTag",
+      "_auditoria",
+      "_baixaProdId",
+      "_balancoContagem",
+      "_buscaCliCtx",
+      "_checkoutEmAndamento",
+      "_cliEditId",
+      "_crmCtId",
+      "_crmFaixaFiltro",
+      "_cvEquipData",
+      "_dashChart",
+      "_eqIdSeq",
+      "_finalizandoVis",
+      "_histProdId",
+      "_identFiltro",
+      "_impLinhas",
+      "_locEquipCustom",
+      "_locaisTabelaOk",
+      "_loginUsersCache",
+      "_movFiltroTipo",
+      "_movPagina",
+      "_movProdId",
+      "_nc",
+      "_ocEditItens",
+      "_orcRemotoOk",
+      "_pdfStorageOk",
+      "_pickerSvcId",
+      "_printTitleBackup",
+      "_prodConfirmouSemCusto",
+      "_prodEditId",
+      "_recebFiltro",
+      "_reenvioEmAndamento",
+      "_reservasReconciliadas",
+      "_resvProdId",
+      "_saldoCache",
+      "_salvandoLocal",
+      "_sigDrawing",
+      "_swRefreshing",
+      "_tecVerTodos",
+      "_toastTimer",
+      "_transfProdId",
+      "_ultimoAvisoRascunhoCheio",
+      "_usrEditId",
+      "_visCache",
+      "_visDraftCloudTimer",
+      "_visDraftId",
+      "_visDraftRestaurado",
+      "_visDraftTimer",
+      "_visEquipAbertos",
+      "_visEquipsCustom",
+      "db",
+      "eqBusca",
+      "estoqueCategoria",
+      "estoqueFiltro",
+      "fotosB64",
+      "histOrdem",
+      "locaisVisMesRef",
+      "locaisVistoria",
+      "lockoutTimer",
+      "loginAttempts",
+      "loginLockedUntil",
+      "loginUserSelecionado",
+      "lojaAtiva",
+      "lojasExtraConfig",
+      "nfeOrcAtual",
+      "nfePollingTimer",
+      "nfeTipoAtual",
+      "orcMesRef",
+      "osCheckinId",
+      "osChecklist",
+      "osEditId",
+      "osFotos",
+      "osSvcs",
+      "portalCliente",
+      "printMode",
+      "qrEqAtual",
+      "realtimeChannel",
+      "svcs",
+      "tecOSFiltro",
+      "todasDesp",
+      "todosAg",
+      "todosEq",
+      "todosFornecedores",
+      "todosOS",
+      "todosOrc",
+      "todosReceb",
+      "todosUsuarios",
+      "visAmbienteObs",
+      "visCheckinInterval",
+      "visCheckinTime",
+      "visCheckoutTime",
+      "visEditId",
+      "visEmpresaTecnico",
+      "visEquipDados",
+      "visEquipSelecionados",
+      "visHistStatusFilt"
+    ]
+  },
+  "maiores_funcoes": [
+    {
+      "nome": "preencherRelatorioVistoria",
+      "linha": 10753,
+      "linhas": 187
+    },
+    {
+      "nome": "renderEstoque",
+      "linha": 11997,
+      "linhas": 181
+    },
+    {
+      "nome": "renderLocaisTab",
+      "linha": 9102,
+      "linhas": 153
+    },
+    {
+      "nome": "renderVisHistorico",
+      "linha": 10225,
+      "linhas": 135
+    },
+    {
+      "nome": "go",
+      "linha": 1466,
+      "linhas": 125
+    },
+    {
+      "nome": "aplicarPermissoesPerfil",
+      "linha": 94,
+      "linhas": 122
+    },
+    {
+      "nome": "renderPortal",
+      "linha": 6133,
+      "linhas": 114
+    },
+    {
+      "nome": "emitirNota",
+      "linha": 8221,
+      "linhas": 108
+    },
+    {
+      "nome": "gerarDossieAssembleia",
+      "linha": 10445,
+      "linhas": 99
+    },
+    {
+      "nome": "verHistoricoCliente",
+      "linha": 5356,
+      "linhas": 96
+    },
+    {
+      "nome": "renderDRE",
+      "linha": 6661,
+      "linhas": 94
+    },
+    {
+      "nome": "fazerLogin",
+      "linha": 611,
+      "linhas": 92
+    },
+    {
+      "nome": "salvarConcluirVis",
+      "linha": 9009,
+      "linhas": 90
+    },
+    {
+      "nome": "iniciarVistoriaPlena",
+      "linha": 8922,
+      "linhas": 87
+    },
+    {
+      "nome": "preencherDocOrc",
+      "linha": 3174,
+      "linhas": 82
+    },
+    {
+      "nome": "salvarApenas",
+      "linha": 2920,
+      "linhas": 80
+    },
+    {
+      "nome": "renderTabela",
+      "linha": 4472,
+      "linhas": 79
+    },
+    {
+      "nome": "renderGraficoDash",
+      "linha": 4297,
+      "linhas": 78
+    },
+    {
+      "nome": "renderVisEquipGrid",
+      "linha": 9384,
+      "linhas": 78
+    },
+    {
+      "nome": "loadVistoriasRemoto",
+      "linha": 11184,
+      "linhas": 78
+    }
+  ],
+  "erros_silenciados": {
+    "catch_vazio": [
+      {
+        "linha": 481,
+        "trecho": "catch(e){}"
+      },
+      {
+        "linha": 507,
+        "trecho": "catch(e){}"
+      },
+      {
+        "linha": 1032,
+        "trecho": "catch(e){}"
+      },
+      {
+        "linha": 4341,
+        "trecho": "catch(e){}"
+      },
+      {
+        "linha": 5738,
+        "trecho": "catch(e){}"
+      },
+      {
+        "linha": 5792,
+        "trecho": "catch(e){}"
+      },
+      {
+        "linha": 5866,
+        "trecho": "catch(e){}"
+      },
+      {
+        "linha": 5925,
+        "trecho": "catch(e){}"
+      },
+      {
+        "linha": 5933,
+        "trecho": "catch(e){}"
+      },
+      {
+        "linha": 8186,
+        "trecho": "catch(e){}"
+      },
+      {
+        "linha": 8291,
+        "trecho": "catch(e){}"
+      },
+      {
+        "linha": 11041,
+        "trecho": "catch(e){}"
+      }
+    ],
+    "catch_mudo": [
+      {
+        "linha": 4102
+      },
+      {
+        "linha": 4707
+      },
+      {
+        "linha": 4862
+      },
+      {
+        "linha": 4915
+      },
+      {
+        "linha": 5098
+      },
+      {
+        "linha": 6347
+      },
+      {
+        "linha": 7022
+      },
+      {
+        "linha": 7027
+      },
+      {
+        "linha": 7328
+      },
+      {
+        "linha": 7329
+      },
+      {
+        "linha": 7698
+      },
+      {
+        "linha": 7720
+      },
+      {
+        "linha": 8306
+      },
+      {
+        "linha": 8308
+      },
+      {
+        "linha": 8317
+      },
+      {
+        "linha": 8342
+      },
+      {
+        "linha": 8348
+      },
+      {
+        "linha": 8561
+      },
+      {
+        "linha": 8867
+      },
+      {
+        "linha": 8868
+      },
+      {
+        "linha": 8891
+      },
+      {
+        "linha": 8893
+      },
+      {
+        "linha": 9085
+      },
+      {
+        "linha": 13551
+      }
+    ]
+  }
+}

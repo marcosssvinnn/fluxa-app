@@ -281,6 +281,16 @@ CREATE TABLE IF NOT EXISTS produtos (
 );
 ALTER TABLE produtos ADD COLUMN IF NOT EXISTS lote text;      -- lote/código de lote do estoque
 ALTER TABLE produtos ADD COLUMN IF NOT EXISTS validade date;  -- validade do produto
+-- OBRIGATÓRIA no formulário (salvarProduto bloqueia o save sem ela) e enviada no payload.
+-- Existia só em produção, nunca no schema: instalação nova nascia sem a coluna e o
+-- wrapper resiliente descartava `categoria` de TODO produto, em silêncio.
+ALTER TABLE produtos ADD COLUMN IF NOT EXISTS categoria text;
+-- Vestigiais: existem em produção, nenhum código lê ou grava. Declaradas aqui só para
+-- que instalação nova fique idêntica à produção (evita divergir de novo na próxima auditoria).
+ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS checkin_lat  numeric;
+ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS checkin_lng  numeric;
+ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS checkout_lat numeric;
+ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS checkout_lng numeric;
 ALTER TABLE usuarios       ADD COLUMN IF NOT EXISTS acessos jsonb DEFAULT '[]';  -- empresas separadas que o usuário acessa (ex.: ["aquamotor"]) — gerenciado na tela Usuários
 ALTER TABLE usuarios       ADD COLUMN IF NOT EXISTS custo_hora numeric;  -- salário+encargos+veículo / horas produtivas — entra no DRE como mão de obra
 COMMENT ON COLUMN usuarios.custo_hora IS 'Custo por hora do tecnico (salario + encargos + veiculo) / horas produtivas. Entra no DRE como mao de obra.';
