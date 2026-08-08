@@ -157,7 +157,6 @@
     <button class="snb" id="snb-clientes" onclick="go('clientes')"><span class="sicon">👥</span><span class="slabel">Clientes</span></button>
     <button class="snb" id="snb-equipamentos" onclick="go('equipamentos')"><span class="sicon">🔧</span><span class="slabel">Equipamentos</span></button>
     <button class="snb" id="snb-estoque" onclick="go('estoque')"><span class="sicon">📦</span><span class="slabel">Estoque</span></button>
-    <button class="snb" id="snb-identidade" onclick="go('identidade')"><span class="sicon">🪪</span><span class="slabel">Identidade</span></button>
     <button class="snb" id="snb-recebiveis" onclick="go('recebiveis')"><span class="sicon">💰</span><span class="slabel">A Receber</span></button>
     <button class="snb" id="snb-despesas" onclick="go('despesas')"><span class="sicon">💸</span><span class="slabel">Despesas</span></button>
     <button class="snb" id="snb-produtividade" onclick="go('produtividade')"><span class="sicon">📈</span><span class="slabel">Produtividade</span></button>
@@ -495,11 +494,13 @@
 
 <div class="page" id="page-identidade">
   <div class="wrap">
-    <button class="tb" onclick="voltar()" style="margin-bottom:12px">← Voltar</button>
-    <h2 style="margin:0 0 4px;font-size:22px;font-weight:800">🪪 Identidade dos clientes</h2>
+    <button class="tb" onclick="go('clientes')" style="margin-bottom:12px">← Voltar para Clientes</button>
+    <h2 style="margin:0 0 4px;font-size:22px;font-weight:800">🪪 Ligar orçamentos às fichas</h2>
     <p style="margin:0 0 6px;font-size:13px;color:var(--gray);max-width:62ch">
-      O nome do cliente no orçamento é texto livre — o mesmo condomínio aparece escrito
-      de vários jeitos e o sistema não soma a história dele. Aqui você confirma quem é quem.</p>
+      <strong>Cadastro de clientes</strong> é a tela anterior — é onde ficam as fichas.
+      Esta aqui é uma faxina: o nome do cliente no orçamento é texto livre, então o mesmo
+      condomínio aparece escrito de vários jeitos e o sistema não soma a história dele.
+      Aqui você diz qual ficha corresponde a cada nome. Quando acabar, esta tela some.</p>
     <p style="margin:0 0 16px;font-size:12.5px;color:#b45309;max-width:62ch">
       Nada é ligado automaticamente. <strong>CNPJ e telefone não servem como chave</strong> —
       o CNPJ costuma ser da administradora e o telefone do síndico, então condomínios
@@ -956,7 +957,50 @@
         </div>
       </div>
     </div>
+
+    <!-- Financeiro do gestor: veio de Produtividade, que passou a ser só de
+         técnico. Quem abre Insights quer saber como a empresa está — e não
+         faz sentido procurar DRE dentro de "produtividade da equipe". -->
+    <!-- ── Resultado financeiro ── -->
+    <div class="fin-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+        <div class="ct" style="margin:0">💰 Resultado Financeiro</div>
+        <select id="fin-periodo" onchange="renderRelatorioFinanceiro()" style="padding:7px 12px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Inter',sans-serif;outline:none;cursor:pointer">
+          <option value="6m">Últimos 6 meses</option>
+          <option value="12m">Últimos 12 meses</option>
+          <option value="ano">Este ano</option>
+        </select>
+      </div>
+      <div class="fin-tabela-wrap">
+        <table class="fin-tabela">
+          <thead><tr>
+            <th>Mês</th>
+            <th>Receita (Aprovados)</th>
+            <th>Despesas</th>
+            <th>Resultado</th>
+          </tr></thead>
+          <tbody id="fin-tabela-body"><tr><td colspan="4" style="text-align:center;color:var(--gray);padding:20px">Carregando…</td></tr></tbody>
+        </table>
+      </div>
+
+    <!-- DRE gerencial: receita reconhecida − custo direto − despesa, com as duas
+         unidades lado a lado. O baseline mostrou que comparar Camboriú com
+         Itapema revela problema de processo mais rápido que qualquer média. -->
+    <!-- Camada trimestral: ABC de cliente, LTV e recompra. -->
+    <div class="card">
+      <div class="ct">👥 Análise de clientes <span style="font-size:11px;font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0">quem sustenta o faturamento</span></div>
+      <div id="cli-analise"></div>
+    </div>
+
+    <div class="card">
+      <div class="ct">📊 DRE por unidade
+        <select id="dre-mes" onchange="renderDRE()" style="margin-left:auto;padding:6px 11px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Inter',sans-serif;outline:none;cursor:pointer"></select>
+      </div>
+      <div id="dre-corpo"></div>
+      <div id="dre-nota" style="font-size:11.5px;color:var(--gray);margin-top:10px;line-height:1.5"></div>
+    </div>
   </div>
+</div>
 </div>
 
 <!-- ══ PAGE: HISTÓRICO ══ -->
@@ -1569,6 +1613,10 @@
       <button class="btn-voltar" onclick="voltar()" style="margin-bottom:0">← Voltar</button>
       <span style="font-size:18px;font-weight:800;color:var(--c2)">👥 Clientes</span>
     </div>
+    <!-- A tela de Identidade e uma TAREFA de limpeza, nao uma secao do app: ela
+         so faz sentido enquanto houver orcamento sem ficha. Por isso sai do menu
+         e aparece aqui, some sozinha quando acabar. -->
+    <div id="cli-identidade-aviso" style="display:none"></div>
     <div id="cli-form-wrap" style="display:none">
       <div class="cli-form-inline">
         <div style="font-size:14px;font-weight:700;color:var(--c2);margin-bottom:14px">＋ Novo Cliente</div>
@@ -1672,44 +1720,6 @@
       </div>
     </div>
 
-    <!-- ── Relatório Financeiro ── -->
-    <div class="fin-card">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
-        <div class="ct" style="margin:0">💰 Resultado Financeiro</div>
-        <select id="fin-periodo" onchange="renderRelatorioFinanceiro()" style="padding:7px 12px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Inter',sans-serif;outline:none;cursor:pointer">
-          <option value="6m">Últimos 6 meses</option>
-          <option value="12m">Últimos 12 meses</option>
-          <option value="ano">Este ano</option>
-        </select>
-      </div>
-      <div class="fin-tabela-wrap">
-        <table class="fin-tabela">
-          <thead><tr>
-            <th>Mês</th>
-            <th>Receita (Aprovados)</th>
-            <th>Despesas</th>
-            <th>Resultado</th>
-          </tr></thead>
-          <tbody id="fin-tabela-body"><tr><td colspan="4" style="text-align:center;color:var(--gray);padding:20px">Carregando…</td></tr></tbody>
-        </table>
-      </div>
-
-    <!-- DRE gerencial: receita reconhecida − custo direto − despesa, com as duas
-         unidades lado a lado. O baseline mostrou que comparar Camboriú com
-         Itapema revela problema de processo mais rápido que qualquer média. -->
-    <!-- Camada trimestral: ABC de cliente, LTV e recompra. -->
-    <div class="card">
-      <div class="ct">👥 Análise de clientes <span style="font-size:11px;font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0">quem sustenta o faturamento</span></div>
-      <div id="cli-analise"></div>
-    </div>
-
-    <div class="card">
-      <div class="ct">📊 DRE por unidade
-        <select id="dre-mes" onchange="renderDRE()" style="margin-left:auto;padding:6px 11px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Inter',sans-serif;outline:none;cursor:pointer"></select>
-      </div>
-      <div id="dre-corpo"></div>
-      <div id="dre-nota" style="font-size:11.5px;color:var(--gray);margin-top:10px;line-height:1.5"></div>
-    </div>
     </div>
 
     <!-- ── Contas a Receber ── -->
@@ -1726,7 +1736,6 @@
       </div>
     </div>
   </div>
-</div>
 
 <!-- ══ PAGE: DESPESAS ══ -->
 <div class="page" id="page-despesas">

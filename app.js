@@ -128,7 +128,6 @@ function aplicarPermissoesPerfil(){
     'snb-minhas-os'    : tecnico,
     'snb-equipamentos' : gestor,
     'snb-visitas'      : gestor||tecnico,
-    'snb-identidade'   : gestor,
     'snb-recebiveis'   : gestor,
     'snb-despesas'     : gestor,
     'snb-estoque'      : gestor,
@@ -1535,8 +1534,15 @@ function go(p){
     Promise.all([
       (typeof loadRecebimentos==='function'? loadRecebimentos() : null),
       (typeof loadEstoque==='function' && !(todosProdutos||[]).length ? loadEstoque() : null),
-      (typeof loadDespesas==='function' && !(todasDesp||[]).length ? loadDespesas() : null)
-    ]).then(()=>{ try{ renderPainelHoje(); }catch(e){ console.warn('[painelHoje]', e?.message||e); } });
+      (typeof loadDespesas==='function' && !(todasDesp||[]).length ? loadDespesas() : null),
+      (typeof loadOSHist==='function' && !(todosOS||[]).length ? loadOSHist() : null)
+    ]).then(()=>{
+      try{
+        renderPainelHoje();
+        // financeiro migrou de Produtividade para cá
+        renderRelatorioFinanceiro(); renderDRE(); renderAnaliseClientes();
+      }catch(e){ console.warn('[painelInsights]', e?.message||e); }
+    });
   }
   if(p==='history'){ initOrcMes(); loadHist(); setTimeout(renderGraficoDash,200); }
   if(p==='form'){
@@ -1551,7 +1557,12 @@ function go(p){
     carregarClientesRemoto();
   }
   if(p==='os-history') loadOSHist();
-  if(p==='clientes'){ renderClientes(); carregarClientesRemoto(); }
+  if(p==='clientes'){
+    renderClientes(); carregarClientesRemoto();
+    // o aviso depende dos orçamentos: carrega antes de decidir se mostra
+    (async()=>{ if(!(todosOrc||[]).length && typeof loadHist==='function') await loadHist();
+      try{ renderAvisoIdentidade(); }catch(e){ console.warn('[avisoIdentidade]',e?.message||e); } })();
+  }
   if(p==='empresa') preencherFormEmpresa();
   if(p==='equipamentos'){ loadEquipamentos(); setTimeout(renderEqImport,400); }
   if(p==='agendamentos'){ loadAgendamentos(); populaTecSelects(); initCal(); renderCal(); }
@@ -1559,7 +1570,7 @@ function go(p){
   if(p==='recebiveis') loadRecebiveisPage();
   if(p==='despesas'){ loadDespesas(); setTimeout(renderAvisoRecorrentes,300); }
   if(p==='estoque'){ loadEstoque(); setTimeout(renderIndicadoresEstoque,400); }
-  if(p==='produtividade'){ loadProdutividade(); setTimeout(()=>{ renderRelatorioFinanceiro(); renderDRE(); renderAnaliseClientes(); },300); }
+  if(p==='produtividade') loadProdutividade();   // financeiro migrou para Insights
   if(p==='usuarios') loadUsuarios();
   if(p==='auditoria') loadAuditoria();
   if(p==='minhas-os') loadMinhasOS();
@@ -2133,6 +2144,28 @@ function _identFiltrar(gs){
   return gs.filter(g=>g.estado==='ok');
 }
 
+// Aviso de identidade dentro de Clientes. A tela de Identidade é uma TAREFA de
+// limpeza, não uma seção — ter "Clientes" e "Identidade" lado a lado no menu
+// fazia parecer que eram dois cadastros diferentes. Agora ela aparece aqui
+// enquanto houver o que ligar, e some sozinha quando acabar.
+function renderAvisoIdentidade(){
+  const el=document.getElementById('cli-identidade-aviso'); if(!el) return;
+  const orcs=filtrarPorLoja(todosOrc||[]).filter(o=>(o.cliente||'').trim());
+  const semFicha=orcs.filter(o=>!o.cliente_id);
+  if(!semFicha.length){ el.style.display='none'; return; }
+  const valor=semFicha.reduce((a,o)=>a+(parseFloat(o.total)||0),0);
+  const nomes=new Set(semFicha.map(o=>_identNorm(o.cliente))).size;
+  el.style.display='';
+  el.innerHTML=`<div class="card" style="border-left:3px solid var(--yellow);background:#fffbeb;margin-bottom:14px">
+    <div style="font-size:13px;font-weight:700;color:#b45309;margin-bottom:4px">
+      ${semFicha.length} orçamento${semFicha.length!==1?'s':''} sem ficha de cliente</div>
+    <div style="font-size:12px;color:var(--gray);margin-bottom:9px">
+      ${nomes} nome${nomes!==1?'s':''} diferente${nomes!==1?'s':''} · ${brl(valor)} que não entra no histórico do cliente.
+      O nome vem digitado no orçamento e não está ligado a nenhuma ficha daqui.</div>
+    <button class="tb g" style="font-weight:700" onclick="go('identidade')">🪪 Ligar às fichas</button>
+  </div>`;
+}
+
 function renderIdentidade(){
   const gs=_identGrupos();
   const pend=gs.filter(g=>g.estado!=='ok');
@@ -2211,6 +2244,7 @@ async function identLigar(chave, clienteId){
   }
   logAcao('cliente_identidade', `${alvo.length} orç. + ${extras} reg. → ${cli.nome}`);
   renderIdentidade();
+  try{ renderAvisoIdentidade(); }catch(e){ console.warn('[avisoIdentidade]',e?.message||e); }
   toast(`✅ ${alvo.length} orçamento${alvo.length!==1?'s':''} ligado${alvo.length!==1?'s':''} a ${cli.nome}`);
 }
 
