@@ -1381,7 +1381,7 @@ async function carregarClientesRemoto(){
     if(document.getElementById('page-clientes').classList.contains('on')) renderClientes();
     // Sobe ao Supabase clientes criados offline
     soLocal.forEach(c=>{
-      dbInsert('clientes',{id:c.id,nome:c.nome,telefone:c.tel||null,endereco:c.end||null,cnpj:c.cnpj||null,email_responsavel:c.email_responsavel||null,loja_id:c.loja_id||null}).catch(()=>{});
+      salvarClienteRemoto(c);   // sem id: uuid vem do banco (ver salvarClienteRemoto)
     });
   }catch(e){ console.warn('[carregarClientesRemoto]', e?.message||e); }
 }
@@ -2366,6 +2366,39 @@ async function loadIdentidade(){
   if(!(todosOS||[]).length && typeof loadOSHist==='function') await loadOSHist();
   if(typeof carregarClientesRemoto==='function') await carregarClientesRemoto();
   renderIdentidade();
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  SALVAR CLIENTE NO BANCO — o id tem que vir de LÁ
+//  `clientes.id` é uuid com default. O app gera 'cli_<timestamp>' localmente e
+//  mandava esse id no insert: o Postgres devolve 22P02 e o insert falha INTEIRO.
+//  Não é coluna faltando, então o dbInsert resiliente não salva. Resultado: todo
+//  cliente cadastrado pelo app ficava só no aparelho e nunca subia — é por isso
+//  que existem 216 nomes de cliente para 141 fichas.
+//  Aqui o insert vai SEM id, o uuid devolvido substitui o id local (na lista e
+//  em quem já apontava para ele), e offline o id local permanece.
+// ══════════════════════════════════════════════════════════════════════
+async function salvarClienteRemoto(local){
+  if(!dbOk||!db||!local) return null;
+  try{
+    const {data,error}=await db.from('clientes').insert([{
+      nome:local.nome||'', telefone:local.tel||null, endereco:local.end||null,
+      cnpj:local.cnpj||null, email_responsavel:local.email_responsavel||null,
+      tipo:local.tipo||null, portal_token:local.portal_token||null,
+      loja_id:local.loja_id||null
+    }]).select('*').single();
+    if(error) throw error;
+    if(!data||!data.id) return null;
+    // troca o id local pelo do banco onde ele já foi usado
+    const antigo=local.id, novo=data.id;
+    if(antigo && antigo!==novo){
+      const cl=lsCliLer().map(c=>c.id===antigo?{...c, id:novo}:c);
+      lsCliSalvar(cl);
+      (todosOrc||[]).forEach(o=>{ if(o.cliente_id===antigo) o.cliente_id=novo; });
+      (todosOS||[]).forEach(o=>{ if(o.cliente_id===antigo) o.cliente_id=novo; });
+    }
+    return novo;
+  }catch(e){ console.warn('[salvarClienteRemoto]', e?.message||e); return null; }
 }
 
 // ── Modal: Criar OS a partir da aprovação do orçamento ──
@@ -3578,7 +3611,7 @@ function _migrarClientesDeOrcamentos(){
     if(jaExiste) return;
     const novo={id:'cli_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),nome,tel:o.tel_cliente||'',end:o.local_servico||'',cnpj:o.cnpj||'',email_responsavel:'',tipo:'',portal_token:crypto.randomUUID(),loja_id:lojaId};
     lista.unshift(novo); mudou=true;
-    if(dbOk&&db) dbInsert('clientes',{id:novo.id,nome,telefone:novo.tel||null,endereco:novo.end||null,cnpj:novo.cnpj||null,loja_id:lojaId}).catch(()=>{});
+    if(dbOk&&db) salvarClienteRemoto({...novo, nome, loja_id:lojaId});
   });
   if(mudou){ lsCliSalvar(lista); console.log('[migração] base de clientes atualizada'); }
 }
@@ -5531,7 +5564,7 @@ function _autoSalvarCliente(nome, tel, end, cnpj, lojaId){
   if(idx>=0) return; // já existe neste grupo
   const novo={id:'cli_'+Date.now(),nome,tel:tel||'',end:end||'',cnpj:cnpj||'',email_responsavel:'',tipo:'',portal_token:crypto.randomUUID(),loja_id:lojaId||null};
   lista.unshift(novo); lsCliSalvar(lista);
-  if(dbOk&&db) dbInsert('clientes',{id:novo.id,nome,telefone:tel||null,endereco:end||null,cnpj:cnpj||null,loja_id:novo.loja_id}).catch(()=>{});
+  if(dbOk&&db) salvarClienteRemoto({...novo, nome, tel, end, cnpj});
 }
 
 async function salvarNovoCliente(){
@@ -5554,7 +5587,7 @@ async function salvarNovoCliente(){
   const novo={id:'cli_'+Date.now(), nome, tel:gV('cli-new-tel').trim(), end:gV('cli-new-end').trim(), cnpj:gV('cli-new-cnpj').trim(), email_responsavel:gV('cli-new-email').trim(), tipo:document.getElementById('cli-new-tipo')?.value||'', portal_token:crypto.randomUUID(), loja_id:lojaAtiva||LOJA_PADRAO_ID};
   const lista=lsCliLer(); lista.unshift(novo); lsCliSalvar(lista);
   if(dbOk&&db){
-    dbInsert('clientes',{id:novo.id,nome:novo.nome,telefone:novo.tel,endereco:novo.end,cnpj:novo.cnpj||null,email_responsavel:novo.email_responsavel||null,tipo:novo.tipo||null,loja_id:novo.loja_id}).catch(e=>console.warn('cli sync:',e?.message||e));
+    salvarClienteRemoto(novo);
   }
   document.getElementById('cli-form-wrap').style.display='none';
   renderClientes(); toast('✅ Cliente salvo!');
@@ -5705,7 +5738,7 @@ async function importarClientesDeOrcamentos(){
     } else {
       const novo={id:'cli_'+Date.now()+Math.random(),nome:o.cliente,tel:o.tel_cliente||'',end:o.local_servico||'',cnpj:o.cnpj||'',portal_token:crypto.randomUUID()};
       lista.unshift(novo); lsCliSalvar(lista);
-      if(dbOk&&db){ dbInsert('clientes',{id:novo.id,nome:novo.nome,telefone:novo.tel,endereco:novo.end,cnpj:novo.cnpj||null,loja_id:lojaAtiva||LOJA_PADRAO_ID}).catch(e=>console.warn('[cli:insert]',e?.message||e)); }
+      if(dbOk&&db) salvarClienteRemoto({...novo, loja_id:lojaAtiva||LOJA_PADRAO_ID});
       novos++;
     }
   }
@@ -5728,7 +5761,7 @@ async function autoSalvarClienteDoOrc(dados){
   }
   const novo={id:'cli_'+Date.now(),nome:dados.cli,tel:dados.tel||'',end:dados.loc||'',cnpj:dados.cnpj||'',portal_token:crypto.randomUUID()};
   lista.unshift(novo); lsCliSalvar(lista);
-  if(dbOk&&db){ dbInsert('clientes',{id:novo.id,nome:novo.nome,telefone:novo.tel,endereco:novo.end,cnpj:novo.cnpj||null,loja_id:novo.loja_id||LOJA_PADRAO_ID}).catch(e=>console.warn('[cli:auto-insert]',e?.message||e)); }
+  if(dbOk&&db) salvarClienteRemoto({...novo, loja_id:novo.loja_id||LOJA_PADRAO_ID});
 }
 
 // ──────────────────────────────────────────────────
