@@ -540,6 +540,38 @@ em produção**. Fazer com ele acompanhando e fora do horário de operação.
   (corrigidos nesta sessão) + usuário, local de vistoria, vistoria (já
   corretos). Não fica mais nenhuma tabela sem esse cuidado.
 
+- *(A, 08/08)* **Estratégia de rotina financeira, a pedido do Marcos.**
+  Analisei os números reais (query direta, PAT) pra entender se "financeiro
+  está completo": não é código, é rotina — e desigual entre lojas.
+  Camboriú lança 35,5% dos recebimentos aprovados contra 92,3% da Itapema,
+  com o MESMO app — prova que o gargalo não é a tela. Achado bom: a
+  cobertura de vínculo produto→estoque, que era 24,3%/47,2% no histórico
+  total, já subiu pra 50%/70% nos últimos 14 dias desde que o nudge de
+  sugestão no catálogo (`406c39c`) entrou no ar — o padrão "nudge visível,
+  não bloqueio" funciona, então apliquei o mesmo aqui.
+
+  **`renderPainelHoje()`** (painel diário de ação, tela inicial do gestor)
+  já mostrava recebível **vencido** — mas isso exige que uma parcela já
+  exista pra poder vencer. O buraco real de Camboriú é orçamento aprovado
+  **sem NENHUMA parcela lançada** — esse nunca aparecia ali, por mais velho
+  que fosse, porque não tinha o que vencer. Reusei
+  `_orcAprovadosSemReceb()` (já existia, alimentava só o card da página
+  Recebíveis) e acrescentei um item novo no painel: valor total + contagem
+  + data do mais antigo, com botão "Lançar" indo direto pra Recebíveis.
+  Zero tabela/coluna nova — só deixa visível na tela que o gestor já abre
+  todo dia um problema que antes só aparecia pra quem lembrasse de navegar
+  até Recebíveis. Testado no browser: aparece com número/data corretos
+  quando há gap, some quando todos os aprovados têm recebimento lançado,
+  orçamento não-aprovado corretamente ignorado. Zero erro de console.
+
+  **Resto da estratégia não é código — é para o Marcos:** (1) conversa com
+  Camboriú comparando com Itapema usando esses números; (2) decisão de
+  negócio sobre padronizar a precificação lá (≈42% do valor aprovado é
+  orçamento "Investimento total: R$ X" numa linha só, sem preço por item —
+  isso não tem nudge de app que resolva, é como o serviço é cotado). Não
+  investir em mais DRE/dashboard granular até a cobertura melhorar — feriam
+  número bonito em cima de dado incompleto.
+
 ---
 
 ## 🛡️ PROTOCOLO DE VERIFICAÇÃO — OBRIGATÓRIO ANTES DE ENTREGAR QUALQUER MUDANÇA
