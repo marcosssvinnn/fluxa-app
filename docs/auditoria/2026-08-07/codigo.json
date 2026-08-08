@@ -1,11 +1,11 @@
 {
   "arquivo": {
-    "app_js_linhas": 13574,
-    "index_html_linhas": 2889
+    "app_js_linhas": 13484,
+    "index_html_linhas": 2848
   },
   "funcoes": {
-    "declaradas": 745,
-    "distintas": 745
+    "declaradas": 743,
+    "distintas": 743
   },
   "duplicadas": {},
   "mortas": [],
@@ -84,7 +84,6 @@
     "resvUsarEsperado",
     "salvarAgendamento",
     "salvarBD",
-    "salvarConcluirVis",
     "salvarCrmContato",
     "salvarFornecedor",
     "salvarPagamento",
@@ -251,22 +250,22 @@
   "maiores_funcoes": [
     {
       "nome": "preencherRelatorioVistoria",
-      "linha": 10753,
+      "linha": 10663,
       "linhas": 187
     },
     {
       "nome": "renderEstoque",
-      "linha": 11997,
+      "linha": 11907,
       "linhas": 181
     },
     {
       "nome": "renderLocaisTab",
-      "linha": 9102,
+      "linha": 9012,
       "linhas": 153
     },
     {
       "nome": "renderVisHistorico",
-      "linha": 10225,
+      "linha": 10135,
       "linhas": 135
     },
     {
@@ -291,7 +290,7 @@
     },
     {
       "nome": "gerarDossieAssembleia",
-      "linha": 10445,
+      "linha": 10355,
       "linhas": 99
     },
     {
@@ -310,13 +309,8 @@
       "linhas": 92
     },
     {
-      "nome": "salvarConcluirVis",
-      "linha": 9009,
-      "linhas": 90
-    },
-    {
       "nome": "iniciarVistoriaPlena",
-      "linha": 8922,
+      "linha": 8923,
       "linhas": 87
     },
     {
@@ -341,13 +335,18 @@
     },
     {
       "nome": "renderVisEquipGrid",
-      "linha": 9384,
+      "linha": 9294,
       "linhas": 78
     },
     {
       "nome": "loadVistoriasRemoto",
-      "linha": 11184,
+      "linha": 11094,
       "linhas": 78
+    },
+    {
+      "nome": "renderOrigemDash",
+      "linha": 4190,
+      "linhas": 76
     }
   ],
   "erros_silenciados": {
@@ -393,11 +392,7 @@
         "trecho": "catch(e){}"
       },
       {
-        "linha": 8291,
-        "trecho": "catch(e){}"
-      },
-      {
-        "linha": 11041,
+        "linha": 10951,
         "trecho": "catch(e){}"
       }
     ],
@@ -469,10 +464,7 @@
         "linha": 8893
       },
       {
-        "linha": 9085
-      },
-      {
-        "linha": 13551
+        "linha": 13461
       }
     ]
   }

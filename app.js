@@ -492,7 +492,7 @@ async function carregarUsuarios(){
         for(const u of locaisNaoSincronizados){
           try{
             const payload={nome:u.nome,perfil:u.perfil,loja_id:u.loja_id||null,loja_nome:u.loja_nome||null,pin:u.pin||null,ativo:true};
-            const {data:ins}=await db.from('usuarios').insert([payload]).select('*').single();
+            const {data:ins}=await dbInsert('usuarios', payload);
             if(ins) data.push(ins);   // sincronizado → usa registro do banco
             else    data.push(u);     // insert sem retorno → mantém local
           }catch(e2){
@@ -1101,7 +1101,7 @@ async function salvarLojaConfig(lojaId){
   if(dbOk && db){
     try{
       // salva tudo junto no registro global id=1 — mesma estratégia do salvarEmpresa
-      await db.from('empresa_config').upsert([{id:1, dados:CFG, updated_at:new Date().toISOString()}]);
+      await dbUpsert('empresa_config', {id:1, dados:CFG, updated_at:new Date().toISOString()});
       toast('✅ Branding da '+getLojaNome(lojaId)+' salvo!');
     }catch(e){
       console.warn('[salvarLojaConfig]', e?.message||e);
@@ -1350,7 +1350,7 @@ async function salvarEmpresa(){
     lsSet('empresa_cfg',JSON.stringify(CFG));
     lsSet('fluxa_lojas_extra_cfg',JSON.stringify(lojasExtraConfig));
     if(dbOk&&db){
-      try{ await db.from('empresa_config').upsert([{id:1,dados:CFG,updated_at:new Date().toISOString()}]); }
+      try{ await dbUpsert('empresa_config', {id:1,dados:CFG,updated_at:new Date().toISOString()}); }
       catch(e){ console.warn('[salvarEmpresa:loja]',e?.message||e); toast('✅ Configurações salvas localmente (sync falhou)'); atualizarHeaderLoja(); return; }
     }
     atualizarHeaderLoja();
@@ -1388,7 +1388,7 @@ async function salvarEmpresa(){
   lsSet('empresa_cfg',JSON.stringify(CFG));
   if(CFG.emailjs_pubkey) initEmailJS();
   if(dbOk&&db){
-    try{ await db.from('empresa_config').upsert([{id:1,dados:CFG,updated_at:new Date().toISOString()}]); }catch(e){ console.warn('cfg sync:',e.message); toast('✅ Configurações salvas localmente (sync falhou)'); aplicarCFG(); return; }
+    try{ await dbUpsert('empresa_config', {id:1,dados:CFG,updated_at:new Date().toISOString()}); }catch(e){ console.warn('cfg sync:',e.message); toast('✅ Configurações salvas localmente (sync falhou)'); aplicarCFG(); return; }
   }
   aplicarCFG();
   toast('✅ Configurações salvas!');
@@ -2232,10 +2232,10 @@ async function identCriarFicha(chave){
     try{
       // tel/end são nomes LOCAIS; a tabela usa telefone/endereco — todo o resto
       // do app traduz antes de gravar, e sem isso o dbInsert descartaria os dois.
-      const {data:ins,error}=await db.from('clientes').insert([{
+      const {data:ins,error}=await dbInsert('clientes', {
         nome:local.nome, telefone:local.tel||null, endereco:local.end||null,
         cnpj:local.cnpj||null, portal_token:local.portal_token, loja_id:local.loja_id
-      }]).select('*').single();
+      });
       if(error) throw error;
       if(ins&&ins.id) rec={...local, id:ins.id};
     }catch(e){
@@ -2267,12 +2267,12 @@ async function loadIdentidade(){
 async function salvarClienteRemoto(local){
   if(!dbOk||!db||!local) return null;
   try{
-    const {data,error}=await db.from('clientes').insert([{
+    const {data,error}=await dbInsert('clientes', {
       nome:local.nome||'', telefone:local.tel||null, endereco:local.end||null,
       cnpj:local.cnpj||null, email_responsavel:local.email_responsavel||null,
       tipo:local.tipo||null, portal_token:local.portal_token||null,
       loja_id:local.loja_id||null
-    }]).select('*').single();
+    });
     if(error) throw error;
     if(!data||!data.id) return null;
     // troca o id local pelo do banco onde ele já foi usado
@@ -3340,7 +3340,7 @@ async function gerarOSPDF(modo='os'){
       if(osEditId && !String(osEditId).startsWith('local_')){
         // EDIÇÃO: atualiza a OS existente (mantém número e status)
         const existente=todosOS.find(x=>x.id===osEditId);
-        await db.from('ordens_servico').update(payload).eq('id',osEditId);
+        await dbUpdate('ordens_servico', payload, 'id', osEditId);
         numStr=String(existente?.numero||'').padStart(3,'0')||'???';
         toast('✅ OS atualizada');
       } else {
@@ -4099,7 +4099,7 @@ function verificarVencidos(){
       o.status='vencido'; mudou=true;
       lsOrcAtualizar(o.id,{status:'vencido'});
       if(dbOk&&db&&!String(o.id).startsWith('local_'))
-        db.from('orcamentos').update({status:'vencido'}).eq('id',o.id).then(()=>{}).catch(()=>{});
+        dbUpdate('orcamentos', {status:'vencido'}, 'id', o.id).then(()=>{}).catch(()=>{});
       // Vencido não pode segurar estoque: libera reservas deste orçamento
       if(typeof sincronizarReservaOrcamento==='function') sincronizarReservaOrcamento(o);
     }
@@ -4859,7 +4859,7 @@ async function salvarPagamento(){
   const o=todosOrc.find(x=>x.id===modalOrcId); if(o){ o.valor_recebido=v; }
   lsOrcAtualizar(modalOrcId,{valor_recebido:v}); // persiste local
   if(dbOk&&db&&!String(modalOrcId||'').startsWith('local_'))
-    db.from('orcamentos').update({valor_recebido:v}).eq('id',modalOrcId).then(()=>{}).catch(()=>{});
+    dbUpdate('orcamentos', {valor_recebido:v}, 'id', modalOrcId).then(()=>{}).catch(()=>{});
   fecharModal(); atualizarDash(); renderTabela();
   if(document.getElementById('page-produtividade')?.classList.contains('on')) renderContasReceber();
   toast('💰 Pagamento registrado: '+brl(v));
@@ -4912,7 +4912,7 @@ function autoVencerOrc(lista){
       o.status='vencido'; mudou=true;
       lsOrcAtualizar(o.id,{status:'vencido'});
       if(dbOk&&db&&!String(o.id).startsWith('local_'))
-        db.from('orcamentos').update({status:'vencido'}).eq('id',o.id).then(()=>{}).catch(()=>{});
+        dbUpdate('orcamentos', {status:'vencido'}, 'id', o.id).then(()=>{}).catch(()=>{});
       // Vencido não pode segurar estoque: libera reservas deste orçamento
       if(typeof sincronizarReservaOrcamento==='function') sincronizarReservaOrcamento(o);
     }
@@ -5684,7 +5684,7 @@ async function autoSalvarClienteDoOrc(dados){
     if(!existe.tel&&dados.tel){ existe.tel=dados.tel; mudou=true; }
     if(!existe.end&&dados.loc){ existe.end=dados.loc; mudou=true; }
     if(!existe.cnpj&&dados.cnpj){ existe.cnpj=dados.cnpj; mudou=true; }
-    if(mudou){ lsCliSalvar(lista); if(dbOk&&db&&!String(existe.id).startsWith('cli_')) { try{ await db.from('clientes').update({telefone:existe.tel,endereco:existe.end,cnpj:existe.cnpj||null}).eq('id',existe.id); }catch(e){ console.warn('[cli:update]', e?.message||e); } } }
+    if(mudou){ lsCliSalvar(lista); if(dbOk&&db&&!String(existe.id).startsWith('cli_')) { try{ await dbUpdate('clientes', {telefone:existe.tel,endereco:existe.end,cnpj:existe.cnpj||null}, 'id', existe.id); }catch(e){ console.warn('[cli:update]', e?.message||e); } } }
     return;
   }
   const novo={id:'cli_'+Date.now(),nome:dados.cli,tel:dados.tel||'',end:dados.loc||'',cnpj:dados.cnpj||'',portal_token:crypto.randomUUID()};
@@ -6344,7 +6344,7 @@ async function _recusarOrcPortalConfirmado(id){
   lsOrcAtualizar(id,{status:'recusado'});
   sincronizarBaixaOrcamento(todosOrc.find(o=>o.id===id)); // estorna se já tinha sido baixado
   await _limparRecebDoOrc(id, 'recusado no portal');
-  if(dbOk&&db) db.from('orcamentos').update({status:'recusado'}).eq('id',id).then(()=>{}).catch(()=>{});
+  if(dbOk&&db) dbUpdate('orcamentos', {status:'recusado'}, 'id', id).then(()=>{}).catch(()=>{});
   if(portalCliente) await renderPortal(portalCliente);
   toast('❌ Orçamento recusado');
 }
@@ -7019,7 +7019,7 @@ async function salvarDespesa(){
 async function reembolsarDesp(id){
   todasDesp=todasDesp.map(d=>d.id===id?{...d,status:'reembolsado'}:d);
   lsDespSalvar(todasDesp);
-  if(dbOk&&db) db.from('despesas').update({status:'reembolsado'}).eq('id',id).then(()=>{}).catch(()=>{});
+  if(dbOk&&db) dbUpdate('despesas', {status:'reembolsado'}, 'id', id).then(()=>{}).catch(()=>{});
   renderDespesas(); toast('✅ Marcado como reembolsado');
 }
 
@@ -7183,7 +7183,7 @@ async function salvarAgendamento(){
   if(dbOk&&db){
     (async()=>{
       try{
-        const {data:ins}=await db.from('agendamentos').insert([dados]).select('*').single();
+        const {data:ins}=await dbInsert('agendamentos', dados);
         if(ins){ todosAg=todosAg.filter(x=>x.id!==rec.id); todosAg.unshift(ins); lsAgSalvar(todosAg); }
       }catch(e){ console.warn('ag sync:',e.message); }
     })();
@@ -7353,7 +7353,7 @@ async function loadAgendamentos(){
         for(const a of soLocalAg){
           try{
             const {id,data_criacao,..._dados}=a;
-            const {data:ins}=await _dbRace(db.from('agendamentos').insert([_dados]).select('*').single());
+            const {data:ins}=await dbInsert('agendamentos', _dados);
             if(ins){ todosAg=todosAg.filter(x=>x.id!==a.id); todosAg.unshift(ins); lsAgSalvar(todosAg); }
           }catch(e){ console.warn('[reenvioAg]', e?.message||e); }
         }
@@ -7695,7 +7695,7 @@ async function salvarEquipamento(){
     const idx=todosEq.findIndex(x=>x.id===eqEditId);
     if(idx>=0) todosEq[idx]={...todosEq[idx],...dados};
     lsEqSalvar(todosEq);
-    if(dbOk&&db) db.from('equipamentos').update(dados).eq('id',eqEditId).then(()=>{}).catch(()=>{});
+    if(dbOk&&db) dbUpdate('equipamentos', dados, 'id', eqEditId).then(()=>{}).catch(()=>{});
     toast('✅ Equipamento atualizado!');
   } else {
     const tempId='eq_'+Date.now();
@@ -7705,7 +7705,7 @@ async function salvarEquipamento(){
     if(dbOk&&db){
       (async()=>{
         try{
-          const {data:ins}=await db.from('equipamentos').insert([dados]).select('*').single();
+          const {data:ins}=await dbInsert('equipamentos', dados);
           if(ins){ todosEq=todosEq.filter(x=>x.id!==tempId); todosEq.unshift(ins); lsEqSalvar(todosEq); renderEqGrid(); }
         }catch(e){ console.warn('eq sync falhou:',e.message); }
       })();
@@ -8093,7 +8093,7 @@ async function salvarUsuario(){
   lsSet('fluxa_usuarios',JSON.stringify(todosUsuarios));
   if(dbOk&&db){
     try{
-      const {data:ins}=await db.from('usuarios').insert([dados]).select('*').single();
+      const {data:ins}=await dbInsert('usuarios', dados);
       if(ins){
         todosUsuarios=todosUsuarios.filter(x=>x.id!==tempId);
         todosUsuarios.push(ins);
@@ -8115,7 +8115,7 @@ async function _excluirUsuarioConfirmado(id){
   todosUsuarios=todosUsuarios.filter(x=>x.id!==id);
   lsSet('fluxa_usuarios',JSON.stringify(todosUsuarios));
   if(dbOk&&db){
-    try{ await db.from('usuarios').update({ativo:false}).eq('id',id); }catch(e){ console.warn('usr delete sync:',e.message); }
+    try{ await dbUpdate('usuarios', {ativo:false}, 'id', id); }catch(e){ console.warn('usr delete sync:',e.message); }
   }
   logAcao('usuario_removido', alvo?.nome||id);
   renderUsuarios(); renderLoginUsers();
@@ -8283,12 +8283,12 @@ async function emitirNota(){
     let nfId=null;
     if(dbOk&&db){
       try{
-        const {data:nfRec}=await db.from('notas_fiscais').insert([{
+        const {data:nfRec}=await dbInsert('notas_fiscais', {
           orcamento_id:o.id, tipo:nfeTipoAtual, referencia:ref,
           status:'pendente', dados_envio:payload
-        }]).select('id').single();
+        }, 'id');
         if(nfRec) nfId=nfRec.id;
-      }catch(e){}
+      }catch(e){ console.warn('[emitirNota] falha ao registrar NF pendente:', e?.message||e); }
     }
 
     // Chama a API Focus NFe
@@ -8305,7 +8305,7 @@ async function emitirNota(){
       // nome — legado); pdf_danfe_url nunca existiu no banco e a atualização
       // vinha sendo rejeitada em silêncio (.catch(()=>{}) logo abaixo).
       const nfAtualizada={status:'autorizada',numero:result.numero,serie:result.serie,chave_acesso:result.chave_acesso,pdf_danfe_base64:result.caminho_danfe,xml_autorizado:result.caminho_xml_nota_fiscal,protocolo:result.protocolo_autorizacao};
-      if(dbOk&&db&&nfId) db.from('notas_fiscais').update(nfAtualizada).eq('id',nfId).then(()=>{}).catch(()=>{});
+      if(dbOk&&db&&nfId) dbUpdate('notas_fiscais', nfAtualizada, 'id', nfId).then(()=>{}).catch(()=>{});
       mostrarStatusNF('autorizada',{...nfAtualizada,referencia:ref});
       toast('✅ Nota Fiscal emitida com sucesso!');
     } else if(resp.status===202){
@@ -8314,7 +8314,7 @@ async function emitirNota(){
       iniciarPollingNF(baseUrl, auth, ref, nfId);
     } else {
       const erroMsg=result.mensagem||result.erros?.[0]?.mensagem||JSON.stringify(result);
-      if(dbOk&&db&&nfId) db.from('notas_fiscais').update({status:'rejeitada',motivo_rejeicao:erroMsg}).eq('id',nfId).then(()=>{}).catch(()=>{});
+      if(dbOk&&db&&nfId) dbUpdate('notas_fiscais', {status:'rejeitada',motivo_rejeicao:erroMsg}, 'id', nfId).then(()=>{}).catch(()=>{});
       mostrarStatusNF('rejeitada',{motivo_rejeicao:erroMsg,referencia:ref});
       btn.disabled=false; btn.textContent='⚡ Tentar novamente';
       toast('❌ Nota rejeitada: '+erroMsg);
@@ -8339,13 +8339,13 @@ function iniciarPollingNF(baseUrl, auth, ref, nfId){
       if(r.status==='autorizada'){
         clearInterval(nfePollingTimer); nfePollingTimer=null;
         const nfAtualizada={status:'autorizada',numero:r.numero,serie:r.serie,chave_acesso:r.chave_acesso,pdf_danfe_base64:r.caminho_danfe,xml_autorizado:r.caminho_xml_nota_fiscal,protocolo:r.protocolo_autorizacao};
-        if(dbOk&&db&&nfId) db.from('notas_fiscais').update(nfAtualizada).eq('id',nfId).then(()=>{}).catch(()=>{});
+        if(dbOk&&db&&nfId) dbUpdate('notas_fiscais', nfAtualizada, 'id', nfId).then(()=>{}).catch(()=>{});
         mostrarStatusNF('autorizada',{...nfAtualizada,referencia:ref});
         toast('✅ Nota Fiscal autorizada!');
       } else if(r.status==='rejeitada'||r.status==='cancelada'){
         clearInterval(nfePollingTimer); nfePollingTimer=null;
         const erroMsg=r.mensagem_sefaz||r.status;
-        if(dbOk&&db&&nfId) db.from('notas_fiscais').update({status:r.status,motivo_rejeicao:erroMsg}).eq('id',nfId).then(()=>{}).catch(()=>{});
+        if(dbOk&&db&&nfId) dbUpdate('notas_fiscais', {status:r.status,motivo_rejeicao:erroMsg}, 'id', nfId).then(()=>{}).catch(()=>{});
         mostrarStatusNF(r.status,{motivo_rejeicao:erroMsg,referencia:ref});
         toast('❌ Nota '+r.status+': '+erroMsg);
         const btn=document.getElementById('nfe-btn-emitir'); if(btn){btn.disabled=false;btn.textContent='⚡ Tentar novamente';}
@@ -8538,7 +8538,7 @@ async function _saveLocaisLegado(){
     const mapa=new Map((dados.locais_vistoria||[]).map(l=>[l.id,l]));
     locaisVistoria.forEach(l=>mapa.set(l.id,l));
     dados.locais_vistoria=[...mapa.values()];
-    await db.from('empresa_config').upsert([{id:1, dados, updated_at:new Date().toISOString()}]);
+    await dbUpsert('empresa_config', {id:1, dados, updated_at:new Date().toISOString()});
   }catch(e){ console.warn('saveLocais legado sync falhou:', e?.message||e); }
 }
 
@@ -8913,10 +8913,11 @@ function locVisMesProximo(){
   renderLocaisTab();
 }
 
-function fecharConcluirVis(){
-  document.getElementById('concluir-vis-bg').classList.remove('on');
-  window._concluirVisLocalId=null;
-}
+// fecharConcluirVis/salvarConcluirVis removidas — o modal #concluir-vis-bg
+// que só elas atendiam ficou órfão desde 807672a (nada mais abre esse modal;
+// confirmado via grep antes de remover). window._concluirVisEquips e
+// _cvEquipData continuam declarados em outro ponto do arquivo; não são desta
+// sessão mexer (escopo é index.html/styles.css), então ficaram como estavam.
 
 // Abre o formulário COMPLETO de vistoria pré-preenchido com os dados do plano
 function iniciarVistoriaPlena(locId){
@@ -9006,97 +9007,6 @@ function iniciarVistoriaPlena(locId){
   // Scroll para o topo
   window.scrollTo({top:0,behavior:'smooth'});
 }
-async function salvarConcluirVis(){
-  const id=window._concluirVisLocalId;
-  const loc=locaisVistoria.find(x=>x.id===id);
-  if(!loc){ fecharConcluirVis(); return; }
-  const data=document.getElementById('concluir-vis-data').value||_hojeLocal();
-  const hora=document.getElementById('concluir-vis-hora')?.value||new Date().toTimeString().slice(0,5);
-  const tec=document.getElementById('concluir-vis-tec').value.trim();
-  const obs=document.getElementById('concluir-vis-obs').value.trim();
-  const s=getSessao();
-  const lojaId=_lojaDaVistoria(loc); // herda a empresa do plano (consistente com os demais fluxos)
-  const mes=data.slice(0,7); // usa mês da data informada, não visMesRef
-  // Idempotência: se já há vistoria deste local neste mês, atualiza em vez de duplicar
-  const _jaExiste=_vistoriaExistente(id, mes);
-  // Monta array de equipamentos com status/obs/fotos coletados no modal
-  const equipsBase=window._concluirVisEquips||[];
-  const equipamentos=equipsBase.map((eq,i)=>({
-    id:eq.id,
-    nome:eq.nome,
-    modelo:eq.modelo||'',
-    potencia:eq.potencia||'',
-    emoji:'⚙️',
-    status:(_cvEquipData[i]?.status)||'na',
-    obs:(_cvEquipData[i]?.obs)||'',
-    fotos:(_cvEquipData[i]?.fotos)||[]
-  }));
-  const rec={
-    id:_jaExiste?_jaExiste.id:('vis_'+Date.now()),
-    loja_id:lojaId,
-    local_id:id,
-    cliente:loc.cliente,
-    local:loc.local,
-    data,
-    hora,
-    hora_checkin:hora,
-    hora_checkout:'',
-    tecnico:tec||s?.nome||'',
-    mes_ref:mes,
-    obs_geral:obs,
-    email_responsavel:loc.email_responsavel||null,
-    equipamentos,
-    created_at:_jaExiste?.created_at||new Date().toISOString()
-  };
-  // Atualiza no lugar se já existia (idempotente); senão insere no topo
-  const lista=lsVisLer();
-  const _ix=lista.findIndex(x=>x.id===rec.id);
-  if(_ix>=0) lista[_ix]=rec; else lista.unshift(rec);
-  lsVisSalvar(lista);
-  if(dbOk&&db){
-    // Sincroniza em background (não trava o fechamento do modal)
-    (async()=>{
-      try{
-        // Sobe as fotos para o Storage e troca base64 por URL (igual ao salvarVistoria).
-        const recComUrls = await _uploadFotosVistoria(rec);
-        // Atualiza o local com as URLs que subiram (mantém base64 onde falhou)
-        const l=lsVisLer(); const ix=l.findIndex(x=>x.id===rec.id);
-        if(ix>=0){ l[ix]=recComUrls; lsVisSalvar(l); }
-        // Envia ao banco com fotos como URL (null onde não subiu) — linha leve, sem base64
-        const recParaSupabase = {
-          ...recComUrls,
-          equipamentos:(recComUrls.equipamentos||[]).map(eq=>({...eq, fotos:(eq.fotos||[]).map(f=>f&&f.startsWith('http')?f:null)}))
-        };
-        const r=await _comTimeout(dbUpsert('vistorias', recParaSupabase), 20000, 'vis rápida');
-        if(r&&r.error) console.warn('vis rápida Supabase:', r.error.message);
-      }
-      catch(e){ console.warn('vis rápida Supabase (bg):',e?.message||e); }
-    })();
-  }
-  // Marca a OS do agendamento deste mês como concluída
-  if(loc.agendamento_id){
-    const mesStr=data.slice(0,7); // YYYY-MM
-    const osLocal=JSON.parse(ls('fluxa_os_hist')||'[]');
-    const osIdx=osLocal.findIndex(o=>o.agendamento_id===loc.agendamento_id&&o.data_servico&&o.data_servico.startsWith(mesStr)&&o.status==='agendado');
-    if(osIdx>=0){
-      osLocal[osIdx].status='concluido';
-      osLocal[osIdx].obs_tecnica=(osLocal[osIdx].obs_tecnica?osLocal[osIdx].obs_tecnica+'\n':'')+obs;
-      lsSet('fluxa_os_hist',JSON.stringify(osLocal.slice(0,200)));
-      if(dbOk&&db){ db.from('ordens_servico').update({status:'concluido'}).eq('id',osLocal[osIdx].id).then(()=>{}).catch(()=>{}); }
-      _entregarPelaOS(osLocal[osIdx].id); // baixa do estoque do orçamento vinculado
-    }
-  }
-  fecharConcluirVis();
-  renderLocaisTab();
-  renderVisHistorico();
-  toast('✅ Visita registrada!');
-  // Envia e-mail se houver responsável
-  if(rec.email_responsavel && emailJSConfigurado()){
-    const ok=await enviarEmailVistoria(rec);
-    if(ok) toast('📧 Relatório enviado por e-mail');
-  }
-}
-
 let _tecVerTodos=false;
 function toggleTecVerTodos(){ _tecVerTodos=!_tecVerTodos; renderLocaisTab(); }
 function renderLocaisTab(){
@@ -13329,7 +13239,7 @@ async function receberOC(id){
       registrarMovimento({produto_id:item.produto_id, tipo:'entrada', quantidade:item.qtd, custo_unit:item.custo_unit, motivo:`Recebimento OC #${oc.numero}`, ref:`oc_${oc.id}_${item.produto_id}`});
     });
     const idx=todasOC.findIndex(o=>o.id===id);
-    if(idx>=0){ todasOC[idx]={...oc,status:'recebida',data_recebimento:new Date().toISOString()}; lsOCSalvar(todasOC); if(dbOk&&db){ try{ await db.from('ordens_compra').update({status:'recebida',data_recebimento:new Date().toISOString()}).eq('id',id); }catch(e){ console.warn('[OC receber]',e?.message||e); } } }
+    if(idx>=0){ todasOC[idx]={...oc,status:'recebida',data_recebimento:new Date().toISOString()}; lsOCSalvar(todasOC); if(dbOk&&db){ try{ await dbUpdate('ordens_compra', {status:'recebida',data_recebimento:new Date().toISOString()}, 'id', id); }catch(e){ console.warn('[OC receber]',e?.message||e); } } }
     renderOCList(); renderEstoque(); toast(`✅ OC #${oc.numero} recebida — estoque atualizado`);
   }, 'Confirmar recebimento');
 }
