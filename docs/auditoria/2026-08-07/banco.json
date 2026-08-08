@@ -1,7 +1,7 @@
 {
   "schema": {
     "tabelas": 19,
-    "colunas": 279
+    "colunas": 284
   },
   "tabelas_no_codigo_sem_schema": [],
   "tabelas_no_schema_sem_uso": [
@@ -10,178 +10,43 @@
   "colunas_gravadas_sem_schema": {},
   "escrita_crua_fora_do_wrapper": [
     {
-      "linha": 467,
+      "linha": 466,
       "tabela": "usuarios",
       "op": "insert"
     },
     {
-      "linha": 496,
-      "tabela": "usuarios",
-      "op": "insert"
-    },
-    {
-      "linha": 1141,
-      "tabela": "empresa_config",
-      "op": "upsert"
-    },
-    {
-      "linha": 1390,
-      "tabela": "empresa_config",
-      "op": "upsert"
-    },
-    {
-      "linha": 1428,
-      "tabela": "empresa_config",
-      "op": "upsert"
-    },
-    {
-      "linha": 2272,
-      "tabela": "clientes",
-      "op": "insert"
-    },
-    {
-      "linha": 2307,
-      "tabela": "clientes",
-      "op": "insert"
-    },
-    {
-      "linha": 3391,
+      "linha": 7277,
       "tabela": "ordens_servico",
       "op": "update"
     },
     {
-      "linha": 4150,
-      "tabela": "orcamentos",
-      "op": "update"
-    },
-    {
-      "linha": 4911,
-      "tabela": "orcamentos",
-      "op": "update"
-    },
-    {
-      "linha": 4964,
-      "tabela": "orcamentos",
-      "op": "update"
-    },
-    {
-      "linha": 5736,
-      "tabela": "clientes",
-      "op": "update"
-    },
-    {
-      "linha": 6407,
-      "tabela": "orcamentos",
-      "op": "update"
-    },
-    {
-      "linha": 7089,
-      "tabela": "despesas",
-      "op": "update"
-    },
-    {
-      "linha": 7253,
-      "tabela": "agendamentos",
-      "op": "insert"
-    },
-    {
-      "linha": 7344,
-      "tabela": "ordens_servico",
-      "op": "update"
-    },
-    {
-      "linha": 7395,
+      "linha": 7328,
       "tabela": "agendamentos",
       "op": "update"
     },
     {
-      "linha": 7396,
+      "linha": 7329,
       "tabela": "ordens_servico",
       "op": "update"
     },
     {
-      "linha": 7423,
-      "tabela": "agendamentos",
-      "op": "insert"
-    },
-    {
-      "linha": 7765,
-      "tabela": "equipamentos",
-      "op": "update"
-    },
-    {
-      "linha": 7775,
-      "tabela": "equipamentos",
-      "op": "insert"
-    },
-    {
-      "linha": 8163,
-      "tabela": "usuarios",
-      "op": "insert"
-    },
-    {
-      "linha": 8185,
-      "tabela": "usuarios",
-      "op": "update"
-    },
-    {
-      "linha": 8353,
-      "tabela": "notas_fiscais",
-      "op": "insert"
-    },
-    {
-      "linha": 8375,
-      "tabela": "notas_fiscais",
-      "op": "update"
-    },
-    {
-      "linha": 8384,
-      "tabela": "notas_fiscais",
-      "op": "update"
-    },
-    {
-      "linha": 8409,
-      "tabela": "notas_fiscais",
-      "op": "update"
-    },
-    {
-      "linha": 8415,
-      "tabela": "notas_fiscais",
-      "op": "update"
-    },
-    {
-      "linha": 8608,
-      "tabela": "empresa_config",
-      "op": "upsert"
-    },
-    {
-      "linha": 8998,
+      "linha": 8867,
       "tabela": "agendamentos",
       "op": "update"
     },
     {
-      "linha": 8999,
+      "linha": 8868,
       "tabela": "ordens_servico",
       "op": "update"
     },
     {
-      "linha": 9022,
+      "linha": 8891,
       "tabela": "agendamentos",
       "op": "update"
     },
     {
-      "linha": 9024,
+      "linha": 8893,
       "tabela": "ordens_servico",
-      "op": "update"
-    },
-    {
-      "linha": 9241,
-      "tabela": "ordens_servico",
-      "op": "update"
-    },
-    {
-      "linha": 13554,
-      "tabela": "ordens_compra",
       "op": "update"
     }
   ],
@@ -189,7 +54,7 @@
   "tabelas_mais_usadas": [
     [
       "ordens_servico",
-      14
+      13
     ],
     [
       "orcamentos",
@@ -220,10 +85,6 @@
       6
     ],
     [
-      "vistorias",
-      6
-    ],
-    [
       "produtos",
       6
     ],
@@ -233,6 +94,10 @@
     ],
     [
       "despesas",
+      5
+    ],
+    [
+      "locais_vistoria",
       5
     ]
   ]
