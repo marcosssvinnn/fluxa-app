@@ -3559,10 +3559,18 @@ async function loadHist(){
     try{
       const {data,error}=await db.from('orcamentos').select('*').order('data_criacao',{ascending:false});
       if(error) throw error;
+      let remoto=data;
+      // Respeita tombstones: orçamento apagado não volta. Se o delete anterior
+      // falhou (linha ainda viva no banco), tenta apagar de novo aqui.
+      const _tombOrc=new Set(_tombLer('fluxa_orc_tombstones'));
+      if(_tombOrc.size){
+        remoto.filter(r=>_tombOrc.has(r.id)).forEach(r=>db.from('orcamentos').delete().eq('id',r.id).then(()=>{}).catch(()=>{}));
+        remoto=remoto.filter(r=>!_tombOrc.has(r.id));
+      }
       // Merge: BD é fonte de verdade + mantém registros local-only ainda não sincronizados
-      const dbIds=new Set(data.map(x=>x.id));
+      const dbIds=new Set(remoto.map(x=>x.id));
       const soLocal=todosOrc.filter(x=>String(x.id).startsWith('local_')&&!dbIds.has(x.id));
-      todosOrc=[...data,...soLocal];
+      todosOrc=[...remoto,...soLocal];
       _orcRemotoOk=true; // orçamentos confirmados pelo banco — libera a reconciliação de órfãs
       lsOrcSalvar(todosOrc);
       verificarVencidos();
@@ -4800,8 +4808,10 @@ async function _excluirOrcConfirmado(id){
   if(o) sincronizarBaixaOrcamento({...o, status:'excluido'});
   await _limparRecebDoOrc(id, 'orçamento excluído');
   lsOrcRemover(id);
-  if(dbOk&&db&&!String(id).startsWith('local_'))
-    db.from('orcamentos').delete().eq('id',id).then(()=>{}).catch(()=>{});
+  if(!String(id).startsWith('local_')){
+    _tombAdd('fluxa_orc_tombstones', id); // protege contra o orçamento ressuscitar se o delete abaixo falhar
+    if(dbOk&&db) db.from('orcamentos').delete().eq('id',id).then(()=>{}).catch(()=>{});
+  }
   todosOrc=todosOrc.filter(x=>x.id!==id); atualizarDash(); renderTabela();
   logAcao('orcamento_excluido', `#${o?.numero||'?'} ${o?.cliente||''}`);
   toast('🗑 Excluído');
@@ -7095,12 +7105,22 @@ async function repetirRecorrentes(){
   if(!p.length) return;
   const mes=_hojeLocal().slice(0,7);
   for(const x of p){
-    const rec={ ...x, id:'desp_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
+    // dados SEM id: despesas.id é uuid, gerado pelo banco (mesmo bug do
+    // importarEqDaVistoria — id texto local numa coluna uuid derruba o insert
+    // inteiro, sem aviso, e é indistinguível de "ninguém lançou despesa").
+    const {id:_velhoId, ...xSemId}=x;
+    const dados={ ...xSemId,
       competencia:mes, data:_hojeLocal(), data_pagamento:null, status:'pendente',
       data_criacao:new Date().toISOString() };
-    delete rec.foto_base64; // comprovante é do mês anterior, não vale para este
-    todasDesp.unshift(rec);
-    if(dbOk&&db){ try{ await dbInsert('despesas', rec); }catch(e){ console.warn('[repetirRecorrentes]', e?.message||e); } }
+    delete dados.foto_base64; // comprovante é do mês anterior, não vale para este
+    const tempId='desp_'+Date.now()+'_'+Math.random().toString(36).slice(2,6);
+    todasDesp.unshift({...dados, id:tempId});
+    if(dbOk&&db){
+      try{
+        const {data:ins}=await dbInsert('despesas', dados);
+        if(ins){ todasDesp=todasDesp.filter(x2=>x2.id!==tempId); todasDesp.unshift(ins); }
+      }catch(e){ console.warn('[repetirRecorrentes]', e?.message||e); }
+    }
   }
   lsDespSalvar(todasDesp);
   renderDespesas(); renderAvisoRecorrentes();
@@ -7116,8 +7136,11 @@ async function salvarDespesa(){
   let osNum=null;
   if(!emp){ const m=(gV('desp-os-num')||'').match(/\d+/); if(m) osNum=parseInt(m[0]); }
   const dataInf=gV('desp-data')||_hojeLocal();
-  const rec={
-    id:'desp_'+Date.now(),
+  // dados SEM id: despesas.id é uuid, gerado pelo banco. Mandar o id texto
+  // local (desp_<ts>) no insert derruba a linha inteira (22P02), sem coluna
+  // pra reportar — o dbInsert resiliente não ajuda porque não é coluna
+  // faltando, é tipo errado. Era 100% das despesas, silenciosamente.
+  const dados={
     tecnico: emp?null:tec, data:dataInf, tipo, valor,
     descricao:gV('desp-desc'), os_numero:osNum||null,
     foto_base64:despFotoB64||null, status: emp?'empresa':'pendente',
@@ -7131,10 +7154,15 @@ async function salvarDespesa(){
     data_pagamento: emp?dataInf:null,
     data_criacao:new Date().toISOString()
   };
-  todasDesp.unshift(rec); lsDespSalvar(todasDesp);
+  const tempId='desp_'+Date.now();
+  todasDesp.unshift({...dados, id:tempId}); lsDespSalvar(todasDesp);
   if(dbOk&&db){
-    (async()=>{ try{ await dbInsert('despesas', rec); }
-      catch(e){ console.warn('[salvarDespesa]', e?.message||e); toast('⚠️ Salvo aqui, mas não sincronizou'); } })();
+    (async()=>{
+      try{
+        const {data:ins}=await dbInsert('despesas', dados);
+        if(ins){ todasDesp=todasDesp.filter(x=>x.id!==tempId); todasDesp.unshift(ins); lsDespSalvar(todasDesp); renderDespesas(); }
+      }catch(e){ console.warn('[salvarDespesa]', e?.message||e); toast('⚠️ Salvo aqui, mas não sincronizou'); }
+    })();
   }
   fecharFormDesp(); renderDespesas(); renderAvisoRecorrentes();
   toast('✅ Despesa registrada!');
@@ -7148,7 +7176,14 @@ async function reembolsarDesp(id){
 }
 
 function excluirDesp(id){
-  confirmar('Excluir esta despesa?', ()=>{ todasDesp=todasDesp.filter(x=>x.id!==id); lsDespSalvar(todasDesp); if(dbOk&&db) db.from('despesas').delete().eq('id',id).then(()=>{}).catch(()=>{}); renderDespesas(); toast('🗑 Despesa excluída'); }, 'Excluir Despesa');
+  confirmar('Excluir esta despesa?', ()=>{
+    todasDesp=todasDesp.filter(x=>x.id!==id); lsDespSalvar(todasDesp);
+    if(!String(id).startsWith('desp_')){
+      _tombAdd('fluxa_desp_tombstones', id); // protege contra ressuscitar se o delete abaixo falhar
+      if(dbOk&&db) db.from('despesas').delete().eq('id',id).then(()=>{}).catch(()=>{});
+    }
+    renderDespesas(); toast('🗑 Despesa excluída');
+  }, 'Excluir Despesa');
 }
 
 function lsDespLer(){ try{ return JSON.parse(ls('fluxa_despesas')||'[]'); }catch(e){ return []; } }
@@ -7161,7 +7196,15 @@ async function loadDespesas(){
       let q=db.from('despesas').select('*').order('data_criacao',{ascending:false});
       if(lojaAtiva) q=q.eq('loja_id',lojaAtiva);
       const {data}=await q;
-      if(data){ todasDesp=data; lsDespSalvar(todasDesp); renderDespesas(); }
+      if(data){
+        let remoto=data;
+        const _tombDesp=new Set(_tombLer('fluxa_desp_tombstones'));
+        if(_tombDesp.size){
+          remoto.filter(r=>_tombDesp.has(r.id)).forEach(r=>db.from('despesas').delete().eq('id',r.id).then(()=>{}).catch(()=>{}));
+          remoto=remoto.filter(r=>!_tombDesp.has(r.id));
+        }
+        todasDesp=remoto; lsDespSalvar(todasDesp); renderDespesas();
+      }
     }catch(e){ console.warn('[loadDespesas]', e?.message||e); }
   }
 }
@@ -7841,7 +7884,14 @@ async function salvarEquipamento(){
 }
 
 function excluirEq(id){
-  confirmar('Excluir este equipamento?', ()=>{ todosEq=todosEq.filter(x=>x.id!==id); lsEqSalvar(todosEq); if(dbOk&&db) db.from('equipamentos').delete().eq('id',id).then(()=>{}).catch(()=>{}); renderEqGrid(); toast('🗑 Equipamento excluído'); }, 'Excluir Equipamento');
+  confirmar('Excluir este equipamento?', ()=>{
+    todosEq=todosEq.filter(x=>x.id!==id); lsEqSalvar(todosEq);
+    if(!String(id).startsWith('eq_')){
+      _tombAdd('fluxa_eq_tombstones', id); // protege contra ressuscitar se o delete abaixo falhar
+      if(dbOk&&db) db.from('equipamentos').delete().eq('id',id).then(()=>{}).catch(()=>{});
+    }
+    renderEqGrid(); toast('🗑 Equipamento excluído');
+  }, 'Excluir Equipamento');
 }
 
 // localStorage para equipamentos
@@ -7922,7 +7972,11 @@ async function importarEqDaVistoria(cliente){
   if(!cands.length){ toast('Nada a cadastrar'); return; }
   let n=0;
   for(const c of cands){
-    const rec={ id:'eq_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
+    // dados SEM id: equipamentos.id é uuid, gerado pelo banco. Mandar o id
+    // texto local (eq_<ts>) no insert derruba a linha inteira (22P02) — era
+    // o que fazia TODO import desta tela falhar em silêncio (confirmado:
+    // 0 linhas em produção apesar da feature estar "no ar" há tempo).
+    const dados={
       cliente_nome:c.cliente, cliente_id:c.cliente_id||null,
       tipo:c.tipo, marca:c.marca, modelo:c.modelo, potencia:c.potencia,
       numero_serie:'', data_instalacao:null, garantia_meses:null, garantia_vencimento:null,
@@ -7932,8 +7986,14 @@ async function importarEqDaVistoria(cliente){
       obs:c.obs?('Último laudo: '+c.obs):'',
       foto_base64:c.foto||null, ativo:true, loja_id:c.loja_id||lojaAtiva||LOJA_PADRAO_ID,
       data_criacao:new Date().toISOString() };
-    todosEq.unshift(rec); n++;
-    if(dbOk&&db){ try{ await dbInsert('equipamentos', rec); }catch(e){ console.warn('[importarEq]', e?.message||e); } }
+    const tempId='eq_'+Date.now()+'_'+Math.random().toString(36).slice(2,6);
+    todosEq.unshift({...dados, id:tempId}); n++;
+    if(dbOk&&db){
+      try{
+        const {data:ins}=await dbInsert('equipamentos', dados);
+        if(ins){ todosEq=todosEq.filter(x=>x.id!==tempId); todosEq.unshift(ins); }
+      }catch(e){ console.warn('[importarEq]', e?.message||e); }
+    }
   }
   lsEqSalvar(todosEq);
   logAcao('base_instalada', `${n} equipamento(s) cadastrado(s) a partir de vistoria`);
@@ -7953,7 +8013,13 @@ async function loadEquipamentos(){
       if(lojaAtiva) qEq=qEq.eq('loja_id',lojaAtiva);
       const {data,error}=await qEq;
       if(error) throw error;
-      todosEq=data; lsEqSalvar(todosEq); renderEqGrid(); verificarAlertasGarantia();
+      let remotoEq=data;
+      const _tombEq=new Set(_tombLer('fluxa_eq_tombstones'));
+      if(_tombEq.size){
+        remotoEq.filter(r=>_tombEq.has(r.id)).forEach(r=>db.from('equipamentos').delete().eq('id',r.id).then(()=>{}).catch(()=>{}));
+        remotoEq=remotoEq.filter(r=>!_tombEq.has(r.id));
+      }
+      todosEq=remotoEq; lsEqSalvar(todosEq); renderEqGrid(); verificarAlertasGarantia();
     }catch(e){ console.warn('loadEquipamentos falhou:',e.message); }
   }
 }

@@ -1,6 +1,6 @@
 {
   "arquivo": {
-    "app_js_linhas": 13615,
+    "app_js_linhas": 13681,
     "index_html_linhas": 2848
   },
   "funcoes": {
@@ -250,22 +250,22 @@
   "maiores_funcoes": [
     {
       "nome": "preencherRelatorioVistoria",
-      "linha": 10787,
+      "linha": 10853,
       "linhas": 187
     },
     {
       "nome": "renderEstoque",
-      "linha": 12031,
+      "linha": 12097,
       "linhas": 181
     },
     {
       "nome": "renderLocaisTab",
-      "linha": 9136,
+      "linha": 9202,
       "linhas": 153
     },
     {
       "nome": "renderVisHistorico",
-      "linha": 10259,
+      "linha": 10325,
       "linhas": 135
     },
     {
@@ -280,27 +280,27 @@
     },
     {
       "nome": "renderPortal",
-      "linha": 6257,
+      "linha": 6267,
       "linhas": 114
     },
     {
       "nome": "emitirNota",
-      "linha": 8345,
+      "linha": 8411,
       "linhas": 108
     },
     {
       "nome": "gerarDossieAssembleia",
-      "linha": 10479,
+      "linha": 10545,
       "linhas": 99
     },
     {
       "nome": "verHistoricoCliente",
-      "linha": 5480,
+      "linha": 5490,
       "linhas": 96
     },
     {
       "nome": "renderDRE",
-      "linha": 6785,
+      "linha": 6795,
       "linhas": 94
     },
     {
@@ -310,7 +310,7 @@
     },
     {
       "nome": "iniciarVistoriaPlena",
-      "linha": 9047,
+      "linha": 9113,
       "linhas": 87
     },
     {
@@ -325,22 +325,22 @@
     },
     {
       "nome": "renderTabela",
-      "linha": 4569,
+      "linha": 4577,
       "linhas": 79
     },
     {
       "nome": "renderGraficoDash",
-      "linha": 4394,
+      "linha": 4402,
       "linhas": 78
     },
     {
       "nome": "renderVisEquipGrid",
-      "linha": 9418,
+      "linha": 9484,
       "linhas": 78
     },
     {
       "nome": "loadVistoriasRemoto",
-      "linha": 11218,
+      "linha": 11284,
       "linhas": 78
     },
     {
@@ -352,86 +352,95 @@
   "erros_silenciados": {
     "catch_vazio": [
       {
-        "linha": 4438,
+        "linha": 4446,
         "trecho": "catch(e){}"
       },
       {
-        "linha": 5862,
+        "linha": 5872,
         "trecho": "catch(e){}"
       }
     ],
     "catch_mudo": [
       {
-        "linha": 4199
+        "linha": 3567
       },
       {
-        "linha": 4804
+        "linha": 4207
       },
       {
-        "linha": 4959
+        "linha": 4813
       },
       {
-        "linha": 4988
+        "linha": 4969
       },
       {
-        "linha": 5034
+        "linha": 4998
       },
       {
-        "linha": 5221
+        "linha": 5044
       },
       {
-        "linha": 6471
+        "linha": 5231
       },
       {
-        "linha": 7146
+        "linha": 6481
       },
       {
-        "linha": 7151
+        "linha": 7174
       },
       {
-        "linha": 7452
+        "linha": 7183
       },
       {
-        "linha": 7453
+        "linha": 7203
       },
       {
-        "linha": 7822
+        "linha": 7495
       },
       {
-        "linha": 7844
+        "linha": 7496
       },
       {
-        "linha": 8430
+        "linha": 7865
       },
       {
-        "linha": 8432
+        "linha": 7891
       },
       {
-        "linha": 8441
+        "linha": 8019
       },
       {
-        "linha": 8466
+        "linha": 8496
       },
       {
-        "linha": 8472
+        "linha": 8498
       },
       {
-        "linha": 8685
+        "linha": 8507
       },
       {
-        "linha": 8991
+        "linha": 8532
       },
       {
-        "linha": 8992
+        "linha": 8538
       },
       {
-        "linha": 9015
+        "linha": 8751
       },
       {
-        "linha": 9017
+        "linha": 9057
       },
       {
-        "linha": 13592
+        "linha": 9058
+      },
+      {
+        "linha": 9081
+      },
+      {
+        "linha": 9083
+      },
+      {
+        "linha": 13658
       }
     ]
   }

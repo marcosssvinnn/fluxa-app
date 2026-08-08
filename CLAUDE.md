@@ -378,15 +378,67 @@ em produção**. Fazer com ele acompanhando e fora do horário de operação.
   tinha falhado (mock ainda retorna a linha) → `loadOSHist` filtra e
   reenvia o delete, a OS não ressuscita. Zero erro no console nos 5 passos.
 
-  🟡 **Mesma classe de bug, não corrigida ainda — acho que vale uma rodada
-  própria, não empilhei em cima desta.** `loadHist()` (orçamentos),
-  `loadDespesas()` e `loadEquipamentos()` fazem o mesmo "banco é fonte de
-  verdade, substitui a lista inteira" sem tombstone — um delete de orçamento/
-  despesa/equipamento que falhe silenciosamente (`.catch(()=>{})`) também
-  ressuscita no próximo load. `orcamentos` já tem o mecanismo de
-  local-first pra CRIAÇÃO (`local_` + `_reenviarOrcamentosLocais`), só falta
-  o tombstone do delete. Registrando pra não esquecer — é o mesmo padrão que
-  acabei de aplicar em OS, só replicar.
+  ~~🟡 Mesma classe de bug em orçamentos/despesas/equipamentos~~ →
+  **resolvido nesta mesma sessão, ver recado abaixo** (tombstone nos 3).
+
+- *(A, 08/08)* 🔴 **CRÍTICO, achado no meio do trabalho de tombstone e
+  corrigido — `despesas`/`equipamentos` nunca sincronizavam, NENHUM
+  registro, desde sempre.** Mesmo bug de classe já visto em `clientes`/
+  `usuarios` (id texto local numa coluna `uuid`): `despesas.id` e
+  `equipamentos.id` são `uuid DEFAULT gen_random_uuid()` no schema, mas
+  `salvarDespesa()`, `repetirRecorrentes()` e `importarEqDaVistoria()`
+  mandavam `id:'desp_'+Date.now()`/`id:'eq_'+Date.now()...` **dentro do
+  payload do insert**. Não é "coluna faltando" (que o `dbInsert` resiliente
+  resolve removendo e reenviando) — é tipo errado (`22P02`), o insert falha
+  por inteiro, sem coluna pra reportar, e o `dbInsert` devolve o erro puro
+  pro chamador sem log nenhum tratar isso como especial.
+
+  **Confirmado em produção antes de mexer** (leitura direta, PAT):
+  `select count(*) from despesas` = **0**, `equipamentos` = **0** — as duas
+  tabelas, sempre. A "Base instalada" (`importarEqDaVistoria`, roadmap item
+  4, marcado ✅ há tempo) e o lançamento de despesa de campo nunca
+  persistiram nada, mesmo com uso real — o achado da B ("despesas está
+  vazia... não existe margem calculável") não é só rotina/adoção, é bug
+  de schema que faz QUALQUER tentativa falhar 100% das vezes, silenciosamente.
+
+  `salvarEquipamento()` (cadastro manual, avulso) e a criação de `usuarios`
+  já faziam certo — separam `dados` (sem id, vai pro insert) de `rec` (com
+  id local, só pro cache) — usei o mesmo padrão nos 3 pontos quebrados.
+  **Só corrige daqui pra frente**: não retroage sobre despesa/equipamento já
+  criado ANTES deste commit — esses já foram perdidos na próxima vez que
+  `loadDespesas`/`loadEquipamentos` rodou com sucesso (o "banco é fonte de
+  verdade, substitui a lista inteira" apagou o que nunca sincronizou). Não
+  tem o que recuperar — o dado não existe em lugar nenhum pra recuperar de.
+
+  Testado no browser local (payload capturado por mock de `db`, por tabela
+  — a primeira tentativa deu falso positivo porque `logAcao` também insere,
+  em `auditoria`, e sobrescrevia a captura genérica): `dados` mandado pro
+  insert não tem `id` nos 3 casos, e o id local (`desp_*`/`eq_*`) é trocado
+  pelo uuid real assim que o insert resolve.
+
+- *(A, 08/08)* **Tombstone contra delete que falha em silêncio — 3 tabelas
+  que faltavam** (mesmo padrão aplicado em OS acima, e já provado em
+  `vistorias`/`locais_vistoria`): `orcamentos`, `despesas`, `equipamentos`.
+  Helper genérico `_tombLer(chave)`/`_tombAdd(chave,id)` (parametrizado por
+  chave de localStorage, evita copiar o par de funções a cada tabela nova —
+  usado por OS e por essas 3). Cada delete grava o tombstone antes de tentar
+  apagar remoto; cada `load*` filtra remoto contra o tombstone e reenvia o
+  delete pra quem sobreviveu (delete anterior que falhou).
+
+  Testado no browser local, ciclo completo pras 3 tabelas: excluir → some da
+  view + tombstone gravado → simulei que o delete remoto tinha falhado (mock
+  ainda retorna a linha) → próximo `load*` filtra e reenvia o delete, não
+  ressuscita. Zero erro de console.
+
+  🟡 **Gap conhecido, não crítico:** ao contrário de orçamento/OS
+  (que preservam registro local-only ainda não sincronizado ao fazer merge
+  com o remoto — `soLocal`), despesas/equipamentos só ganharam a proteção de
+  DELETE. Um registro criado agora com sucesso mas que ainda não teve tempo
+  de resolver o insert (janela bem curta — é uma promise, não segundos) e a
+  tela recarrega antes disso: `loadDespesas`/`loadEquipamentos` substituem a
+  lista inteira e esse registro específico (que já ia sincronizar sozinho,
+  não é o mesmo bug do parágrafo anterior) fica de fora até criar de novo.
+  Risco pequeno, ficou registrado em vez de aumentar o escopo desta sessão.
 
 ---
 
