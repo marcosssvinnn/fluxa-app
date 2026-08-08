@@ -470,6 +470,15 @@
 
     <div class="dash" id="receb-kpis"></div>
 
+    <!-- Aprovado sem NENHUMA parcela lançada: aprovação pelo portal e "Pular"
+         no modal não geram parcela — sem este card o buraco é invisível. -->
+    <div class="card" id="receb-gap-card" style="display:none;border-left:3px solid var(--red)">
+      <div class="ct" style="color:var(--red)">⚠️ Aprovados sem cobrança lançada
+        <span id="receb-gap-contagem" style="font-size:11px;font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0"></span>
+      </div>
+      <div id="receb-gap-lista"></div>
+    </div>
+
     <div class="card">
       <div class="ct">Filtrar
         <span style="font-size:11px;font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0">por situação</span>

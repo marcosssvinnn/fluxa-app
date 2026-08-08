@@ -1044,202 +1044,23 @@ function injetarPWA() {
 //  SQL SETUP
 // ──────────────────────────────────────────────────
 function atualizarSQL(){
-  document.getElementById('sql-code').textContent =
-`CREATE TABLE IF NOT EXISTS orcamentos (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  numero integer, cliente text, local_servico text,
-  tel_cliente text, servicos jsonb,
-  subtotal numeric(10,2), desconto numeric(10,2),
-  total numeric(10,2), pagamento text,
-  validade_dias integer, validade_data text,
-  data_servico text, escopo text, obs text,
-  foto_base64 text,
-  valor_recebido numeric(10,2) DEFAULT 0,
-  status text DEFAULT 'pendente',
-  data_criacao timestamptz DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS ordens_servico (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  numero integer, orcamento_id uuid,
-  cliente text, local_servico text,
-  data_servico text, hora text,
-  tecnico text, servicos jsonb,
-  materiais text, obs_tecnica text,
-  total numeric(10,2) DEFAULT 0,
-  valor_recebido numeric(10,2) DEFAULT 0,
-  status text DEFAULT 'agendado',
-  data_criacao timestamptz DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS empresa_config (
-  id integer PRIMARY KEY DEFAULT 1,
-  dados jsonb DEFAULT '{}',
-  updated_at timestamptz DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS clientes (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  nome text, telefone text, endereco text,
-  data_criacao timestamptz DEFAULT now()
-);
-
-ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS nota_interna text;
-ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS fotos jsonb DEFAULT '[]';
-ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS video_link text;
-ALTER PUBLICATION supabase_realtime ADD TABLE clientes;
-
-CREATE TABLE IF NOT EXISTS agendamentos (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  cliente text,
-  local_servico text,
-  tecnico text,
-  tipo_servico text,
-  periodicidade text,
-  dia_semana integer,
-  horario text,
-  data_inicio text,
-  data_fim text,
-  obs text,
-  ativo boolean DEFAULT true,
-  data_criacao timestamptz DEFAULT now()
-);
-ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS agendamento_id uuid;
-ALTER TABLE agendamentos ADD COLUMN IF NOT EXISTS local_id text;
-ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS checkin_time timestamptz;
-ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS checkout_time timestamptz;
-ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS duracao_min integer;
-ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS origem_cliente text;
-ALTER PUBLICATION supabase_realtime ADD TABLE agendamentos;
-
-CREATE TABLE IF NOT EXISTS vistorias (
-  id text PRIMARY KEY,
-  loja_id text,
-  cliente text,
-  local text,
-  data text,
-  hora text,
-  tecnico text,
-  mes_ref text,
-  hora_checkin text,
-  hora_checkout text,
-  obs_geral text,
-  email_responsavel text,
-  equipamentos jsonb DEFAULT '[]',
-  created_at timestamptz DEFAULT now()
-);
-ALTER TABLE vistorias ADD COLUMN IF NOT EXISTS email_responsavel text;
-ALTER TABLE vistorias ADD COLUMN IF NOT EXISTS local_id text;
-ALTER TABLE clientes   ADD COLUMN IF NOT EXISTS email_responsavel text;
-ALTER PUBLICATION supabase_realtime ADD TABLE vistorias;
-
-CREATE TABLE IF NOT EXISTS equipamentos (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  cliente_id uuid,
-  cliente_nome text,
-  tipo text,
-  marca text,
-  modelo text,
-  potencia text,
-  numero_serie text,
-  data_instalacao text,
-  garantia_meses integer DEFAULT 12,
-  garantia_vencimento text,
-  obs text,
-  foto_base64 text,
-  ativo boolean DEFAULT true,
-  data_criacao timestamptz DEFAULT now()
-);
-ALTER PUBLICATION supabase_realtime ADD TABLE equipamentos;
-
-CREATE TABLE IF NOT EXISTS despesas (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  os_id uuid,
-  os_numero integer,
-  tecnico text,
-  data text,
-  tipo text,
-  valor numeric(10,2),
-  descricao text,
-  foto_base64 text,
-  status text DEFAULT 'pendente',
-  data_criacao timestamptz DEFAULT now()
-);
-ALTER PUBLICATION supabase_realtime ADD TABLE despesas;
-ALTER TABLE clientes ADD COLUMN IF NOT EXISTS portal_token uuid DEFAULT gen_random_uuid();
-ALTER TABLE clientes ADD COLUMN IF NOT EXISTS portal_ativo boolean DEFAULT true;
-ALTER TABLE clientes ADD COLUMN IF NOT EXISTS cnpj text;
-ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS cnpj text;
-ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS cnpj text;
-
--- ══ MULTI-LOJA ══
-CREATE TABLE IF NOT EXISTS lojas (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  nome text, cnpj text, razao_social text,
-  inscricao_estadual text, inscricao_municipal text,
-  regime_tributario text,
-  endereco text, tel text, cidade text,
-  logo_base64 text, cor_primaria text,
-  focusnfe_token text,
-  focusnfe_ambiente text DEFAULT 'homologacao',
-  iss_aliquota numeric(5,2) DEFAULT 2.0,
-  codigo_servico_municipal text DEFAULT '7.10',
-  ativo boolean DEFAULT true,
-  data_criacao timestamptz DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS usuarios (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  nome text NOT NULL,
-  pin text,
-  perfil text DEFAULT 'tecnico',
-  loja_id uuid REFERENCES lojas(id),
-  loja_nome text,
-  ativo boolean DEFAULT true,
-  data_criacao timestamptz DEFAULT now()
-);
-
-ALTER TABLE orcamentos     ADD COLUMN IF NOT EXISTS loja_id text; -- fix #B: text, não uuid (valores são strings como 'fortemp-camboriu')
-ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS loja_id text;
-ALTER TABLE clientes       ADD COLUMN IF NOT EXISTS loja_id text;
-ALTER TABLE clientes       ADD COLUMN IF NOT EXISTS lojas jsonb DEFAULT '[]';
-ALTER TABLE agendamentos   ADD COLUMN IF NOT EXISTS loja_id text;
-ALTER TABLE equipamentos   ADD COLUMN IF NOT EXISTS loja_id text;
-ALTER TABLE despesas       ADD COLUMN IF NOT EXISTS loja_id text;
-
--- ══ NOTA FISCAL ══
-CREATE TABLE IF NOT EXISTS notas_fiscais (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  loja_id uuid,
-  orcamento_id uuid,
-  tipo text,
-  referencia text UNIQUE,
-  numero integer, serie text, chave_acesso text,
-  status text DEFAULT 'pendente',
-  xml_autorizado text,
-  pdf_danfe_url text,
-  protocolo text, motivo_rejeicao text,
-  dados_envio jsonb,
-  data_emissao timestamptz DEFAULT now(),
-  data_criacao timestamptz DEFAULT now()
-);
-
--- ══ ESTOQUE ══
-CREATE TABLE IF NOT EXISTS produtos (
-  id text PRIMARY KEY, loja_id text,
-  nome text, codigo text, unidade text DEFAULT 'un',
-  preco_venda numeric(10,2) DEFAULT 0, custo numeric(10,2) DEFAULT 0,
-  estoque_minimo numeric(10,2) DEFAULT 0,
-  ncm text, cest text, cfop_padrao text, origem text, gtin_ean text,
-  ativo boolean DEFAULT true, data_criacao timestamptz DEFAULT now()
-);
-CREATE TABLE IF NOT EXISTS estoque_movimentos (
-  id text PRIMARY KEY, loja_id text, produto_id text,
-  tipo text, quantidade numeric(10,2), custo_unit numeric(10,2),
-  motivo text, ref text, usuario text, data timestamptz DEFAULT now()
-);
-CREATE INDEX IF NOT EXISTS idx_mov_produto ON estoque_movimentos(produto_id);
-CREATE INDEX IF NOT EXISTS idx_mov_ref ON estoque_movimentos(ref);`;
+  // Antes: o SQL de setup vinha duplicado aqui como string — e o arquivo
+  // setup.sql na raiz do repo era uma SEGUNDA cópia. As duas divergiam da
+  // produção (e uma da outra): esta aqui nem tinha `recebimentos`,
+  // `fornecedores` ou `ordens_compra`, e ainda criava `equipamentos.cliente_id`
+  // como uuid — o mesmo bug de tipo que travava a Fase 4 em produção.
+  // Agora só existe UM arquivo. setup.sql é servido estático pelo GitHub
+  // Pages (mesma raiz de index.html/app.js), então esta função só busca e
+  // mostra — impossível divergir de novo, porque não sobrou um segundo lugar
+  // para esquecer de atualizar.
+  const el=document.getElementById('sql-code'); if(!el) return;
+  fetch('setup.sql').then(r=>r.ok?r.text():Promise.reject(r.status))
+    .then(txt=>{ el.textContent=txt; })
+    .catch(()=>{
+      el.textContent='-- Não consegui carregar automaticamente (sem internet?).\n'+
+        '-- Copie o arquivo setup.sql da raiz do repositório:\n'+
+        '-- https://github.com/marcosssvinnn/fluxa-app/blob/main/setup.sql';
+    });
 }
 
 // ──────────────────────────────────────────────────
@@ -1980,6 +1801,7 @@ async function salvarRecebimento(){
   lsRecebSalvar(todosReceb);
   fecharReceb();
   toast('✅ '+linhas.length+' parcela'+(linhas.length>1?'s':'')+' registrada'+(linhas.length>1?'s':''));
+  if(document.getElementById('page-recebiveis')?.classList.contains('on')) renderRecebiveis();
   setTimeout(()=>_perguntarCriarOS(orc), 250);
   if(dbOk&&db){
     for(const l of linhas){
@@ -2047,7 +1869,45 @@ function _recebPMR(lista){
 
 function _orcDoReceb(r){ return (todosOrc||[]).find(o=>String(o.id)===String(r.orcamento_id)); }
 
+// ── Buraco na captura de recebimento ──────────────────────────────────────
+// _perguntarRecebimento só é chamado dentro de mudarSt() (aprovação pela
+// equipe). Aprovação pelo portal (aprovarOrcPortal) e "Pular" no modal
+// (pularRecebimento) deixam o orçamento aprovado sem NENHUMA parcela — e sem
+// isto, o buraco é invisível: o painel só lista parcelas que já existem.
+// Não gero as parcelas sozinho aqui pelo mesmo motivo do resto do módulo
+// (comentário acima de gerarParcelas): pag_cod não é confiável na maioria dos
+// casos. Em vez disso, ABRE a lacuna para alguém decidir — o mesmo modal que
+// a aprovação manual já usa.
+function _orcAprovadosSemReceb(){
+  const comReceb=new Set((todosReceb||[]).map(r=>String(r.orcamento_id)));
+  return filtrarPorLoja(todosOrc||[])
+    .filter(o=>o.status==='aprovado' && (parseFloat(o.total)||0)>0 && !comReceb.has(String(o.id)))
+    .sort((a,b)=>String(b.data_aprovacao||b.data_criacao||'').localeCompare(String(a.data_aprovacao||a.data_criacao||'')));
+}
+function _renderRecebGap(){
+  const card=document.getElementById('receb-gap-card'); if(!card) return;
+  const lista=_orcAprovadosSemReceb();
+  if(!lista.length){ card.style.display='none'; return; }
+  card.style.display='';
+  const total=lista.reduce((a,o)=>a+(parseFloat(o.total)||0),0);
+  const cnt=document.getElementById('receb-gap-contagem');
+  if(cnt) cnt.textContent=`${lista.length} orçamento${lista.length!==1?'s':''} · ${brl(total)}`;
+  const el=document.getElementById('receb-gap-lista'); if(!el) return;
+  el.innerHTML=lista.map(o=>`
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--gray-light);flex-wrap:wrap">
+      <div style="flex:1;min-width:150px">
+        <div style="font-size:13px;font-weight:600;color:var(--c2)">${esc(o.cliente||'—')}</div>
+        <div style="font-size:11px;color:var(--gray)">#${String(o.numero||'?').padStart(3,'0')} · aprovado em ${_dataBR(String(o.data_aprovacao||o.data_criacao||'').slice(0,10))}</div>
+      </div>
+      <div style="text-align:right;white-space:nowrap">
+        <div style="font-size:14px;font-weight:700;color:var(--c2)">${brl(parseFloat(o.total)||0)}</div>
+        <button class="tb g" style="font-size:11px;margin-top:3px;font-weight:700" onclick="_perguntarRecebimento(todosOrc.find(x=>String(x.id)==='${o.id}'))">💰 Lançar</button>
+      </div>
+    </div>`).join('');
+}
+
 function renderRecebiveis(){
+  _renderRecebGap();
   const todas=_recebVisiveis();
   const abertas=todas.filter(r=>!r.data_pagamento);
   const venc=abertas.filter(r=>_recebDiasAtraso(r)>0);
@@ -4785,7 +4645,17 @@ async function _excluirOrcConfirmado(id){
   lsOrcRemover(id);
   if(dbOk&&db&&!String(id).startsWith('local_'))
     db.from('orcamentos').delete().eq('id',id).then(()=>{}).catch(()=>{});
+  // As parcelas de recebimento não têm FK/cascade — ficam órfãs, contando
+  // "a receber" de um orçamento que não existe mais, se não forem removidas
+  // junto (achado no roadmap: nenhum delete de recebimentos existia no app).
+  const orfas=(todosReceb||[]).filter(r=>String(r.orcamento_id)===String(id));
+  if(orfas.length){
+    todosReceb=(todosReceb||[]).filter(r=>String(r.orcamento_id)!==String(id));
+    lsRecebSalvar(todosReceb);
+    if(dbOk&&db) db.from('recebimentos').delete().eq('orcamento_id',id).then(()=>{}).catch(()=>{});
+  }
   todosOrc=todosOrc.filter(x=>x.id!==id); atualizarDash(); renderTabela();
+  if(typeof renderRecebiveis==='function' && document.getElementById('page-recebiveis')?.classList.contains('on')) renderRecebiveis();
   logAcao('orcamento_excluido', `#${o?.numero||'?'} ${o?.cliente||''}`);
   toast('🗑 Excluído');
 }
@@ -8231,7 +8101,7 @@ function mostrarStatusNF(status, nf){
     if(status==='autorizada'&&nf){
       dlWrap.style.display='flex';
       dlWrap.innerHTML='';
-      if(nf.pdf_danfe_url) dlWrap.innerHTML+=`<a href="${esc(nf.pdf_danfe_url)}" target="_blank" class="btn-primary" style="text-decoration:none;font-size:12px;padding:8px 14px">📄 PDF DANFE</a>`;
+      if(nf.pdf_danfe_base64) dlWrap.innerHTML+=`<a href="${esc(nf.pdf_danfe_base64)}" target="_blank" class="btn-primary" style="text-decoration:none;font-size:12px;padding:8px 14px">📄 PDF DANFE</a>`;
       if(nf.xml_autorizado) {
         const blob=new Blob([nf.xml_autorizado],{type:'text/xml'});
         const url=URL.createObjectURL(blob);
@@ -8329,7 +8199,10 @@ async function emitirNota(){
 
     if(resp.status===201||resp.status===200){
       // Síncrono: nota já autorizada
-      const nfAtualizada={status:'autorizada',numero:result.numero,serie:result.serie,chave_acesso:result.chave_acesso,pdf_danfe_url:result.caminho_danfe,xml_autorizado:result.caminho_xml_nota_fiscal,protocolo:result.protocolo_autorizacao};
+      // pdf_danfe_base64 é o nome real da coluna (guarda uma URL, apesar do
+      // nome — legado); pdf_danfe_url nunca existiu no banco e a atualização
+      // vinha sendo rejeitada em silêncio (.catch(()=>{}) logo abaixo).
+      const nfAtualizada={status:'autorizada',numero:result.numero,serie:result.serie,chave_acesso:result.chave_acesso,pdf_danfe_base64:result.caminho_danfe,xml_autorizado:result.caminho_xml_nota_fiscal,protocolo:result.protocolo_autorizacao};
       if(dbOk&&db&&nfId) db.from('notas_fiscais').update(nfAtualizada).eq('id',nfId).then(()=>{}).catch(()=>{});
       mostrarStatusNF('autorizada',{...nfAtualizada,referencia:ref});
       toast('✅ Nota Fiscal emitida com sucesso!');
@@ -8363,7 +8236,7 @@ function iniciarPollingNF(baseUrl, auth, ref, nfId){
       const r=await resp.json();
       if(r.status==='autorizada'){
         clearInterval(nfePollingTimer); nfePollingTimer=null;
-        const nfAtualizada={status:'autorizada',numero:r.numero,serie:r.serie,chave_acesso:r.chave_acesso,pdf_danfe_url:r.caminho_danfe,xml_autorizado:r.caminho_xml_nota_fiscal,protocolo:r.protocolo_autorizacao};
+        const nfAtualizada={status:'autorizada',numero:r.numero,serie:r.serie,chave_acesso:r.chave_acesso,pdf_danfe_base64:r.caminho_danfe,xml_autorizado:r.caminho_xml_nota_fiscal,protocolo:r.protocolo_autorizacao};
         if(dbOk&&db&&nfId) db.from('notas_fiscais').update(nfAtualizada).eq('id',nfId).then(()=>{}).catch(()=>{});
         mostrarStatusNF('autorizada',{...nfAtualizada,referencia:ref});
         toast('✅ Nota Fiscal autorizada!');
