@@ -1794,6 +1794,7 @@ async function salvarRecebimento(){
   const ps=_recebPreviewParcelas();
   if(!ps.length){ toast('⚠️ Confira os valores'); return; }
   const forma=(gV('receb-forma')||'').trim();
+  if(!forma){ avisarCampoObrigatorio('receb-forma','Informe a forma de pagamento — sem ela o financeiro não separa boleto de pix de cartão, e nenhuma reconciliação bancária é possível depois.'); return; }
   const lj=orc.loja_id||lojaAtiva||LOJA_PADRAO_ID;
   const linhas=ps.map((p,i)=>({
     id:'rec_'+Date.now()+'_'+i+'_'+Math.random().toString(36).slice(2,6),
@@ -2481,7 +2482,12 @@ function renderSvcs(){
     const prod = s.produto_id ? produtoById(s.produto_id) : null;
     const prodBadge = s.produto_id
       ? `<span title="Vinculado ao estoque — dá baixa quando aprovado" style="display:inline-flex;align-items:center;gap:4px;background:var(--c1-light);color:var(--c1);border:1px solid var(--c1);border-radius:50px;padding:2px 8px;font-size:11px;font-weight:600">📦 ${esc(prod?prod.nome:'produto')}<span onclick="desvincularProdutoSvc(${s.id})" style="cursor:pointer;font-weight:700" title="Desvincular">✕</span></span>`
-      : `<button type="button" onclick="abrirPickerProduto(${s.id})" style="background:none;border:1px dashed var(--gray-mid);border-radius:50px;padding:3px 10px;font-size:11px;color:var(--gray);cursor:pointer;font-family:'Inter',sans-serif">📦 Vincular produto do estoque</button>`;
+      : s.avulso
+        ? `<span style="display:inline-flex;align-items:center;gap:4px;color:var(--gray);font-size:11px"><label style="display:flex;align-items:center;gap:3px;cursor:pointer"><input type="checkbox" checked onchange="toggleSvcAvulso(${s.id})" style="margin:0"> não é produto de estoque</label></span>`
+        : `<span style="display:inline-flex;align-items:center;gap:8px">
+            <button type="button" onclick="abrirPickerProduto(${s.id})" style="background:none;border:1px dashed var(--gray-mid);border-radius:50px;padding:3px 10px;font-size:11px;color:var(--gray);cursor:pointer;font-family:'Inter',sans-serif">📦 Vincular produto do estoque</button>
+            <label style="display:flex;align-items:center;gap:3px;font-size:11px;color:var(--gray);cursor:pointer" title="Mão de obra, serviço ou material que não tem SKU no estoque"><input type="checkbox" onchange="toggleSvcAvulso(${s.id})" style="margin:0"> não é produto</label>
+          </span>`;
     r.innerHTML=`<div class="srow-t">
       <input type="number" class="qty-f" placeholder="1" min="1" value="${qty}" data-id="${s.id}" data-f="qty" oninput="updSvcQty(this)" title="Quantidade">
       <input type="text" list="svc-prod-list" placeholder="Descrição — comece a digitar para buscar no estoque" value="${esc(s.d)}" data-id="${s.id}" data-f="d" oninput="updSvc(this)" style="flex:1">
@@ -2637,8 +2643,15 @@ function _svcAutoVincular(s){
   if(!s.p || parseFloat(s.p)===0) s.p=String(p.preco_venda||0);
   return true;
 }
-// Quantos itens ficaram sem vínculo — mostrado no rodapé da lista, sem bloquear.
-function _svcSemVinculo(){ return (svcs||[]).filter(x=>!x.produto_id && (x.d||'').trim()).length; }
+// Quantos itens ficaram sem vínculo — mostrado no rodapé da lista, sem bloquear
+// aqui (o bloqueio é na aprovação, em mudarSt). "avulso" tira o item da conta:
+// mão de obra e material sem SKU não têm produto para vincular, e forçar um
+// vínculo forjado seria pior que não ter vínculo nenhum.
+function _svcSemVinculo(){ return (svcs||[]).filter(x=>!x.produto_id && !x.avulso && (x.d||'').trim()).length; }
+function toggleSvcAvulso(svcId){
+  const s=svcs.find(x=>x.id===svcId); if(s) s.avulso=!s.avulso;
+  renderSvcs(); upd();
+}
 
 function vincularProdutoSvc(produtoId){
   const p=produtoById(produtoId); if(!p) return;
@@ -2946,6 +2959,7 @@ async function salvarApenas(){
   const dados=coletarForm();
   if(!dados.cli||dados.cli==='—'){ toast('⚠️ Informe o nome do cliente'); return; }
   if(!dados.origem){ toast('⚠️ Informe de onde veio o cliente'); document.getElementById('origem-cli')?.focus(); document.getElementById('origem-cli')?.scrollIntoView({behavior:'smooth',block:'center'}); return; }
+  if(!dados.loc){ avisarCampoObrigatorio('loc','Informe o local do serviço — sem ele a rota do técnico e a OS gerada ficam incompletas.'); return; }
   btn.disabled=true; btn.textContent='Salvando…';
   let savedNum=null;
   try{
@@ -3040,6 +3054,7 @@ async function gerarPDF(){
   const btn=document.getElementById('btn-pdf');
   const dadosPre=coletarForm();
   if(!dadosPre.origem){ toast('⚠️ Informe de onde veio o cliente'); document.getElementById('origem-cli')?.focus(); document.getElementById('origem-cli')?.scrollIntoView({behavior:'smooth',block:'center'}); return; }
+  if(!dadosPre.loc){ avisarCampoObrigatorio('loc','Informe o local do serviço — sem ele a rota do técnico e a OS gerada ficam incompletas.'); return; }
   btn.disabled=true; btn.textContent='Gerando…';
   const dados=dadosPre;
   const now=new Date().toISOString();
@@ -3142,7 +3157,7 @@ function coletarForm(){
     pagEntrada:parseFloat((gV('pag-entrada')||'').replace(',','.'))||null,
     dias, obs:gV('obs'),
     escopo:gV('escopo'), dataSvc:gV('data-svc'), dataStr, vData, sub:sub(), desc:disc(sub()), tot:tot(),
-    svcs:svcs.filter(s=>s.d.trim()).map(s=>({desc:s.d.trim(),preco:gP(s),precoUnit:parseFloat(s.p)||0,qty:parseInt(s.qty)||1,produto_id:s.produto_id||null})) };
+    svcs:svcs.filter(s=>s.d.trim()).map(s=>({desc:s.d.trim(),preco:gP(s),precoUnit:parseFloat(s.p)||0,qty:parseInt(s.qty)||1,produto_id:s.produto_id||null,avulso:s.avulso||false})) };
 }
 
 // ══════════════════════════════════════════════════
@@ -4615,11 +4630,36 @@ function _salvarDataAprovacao(id){
 }
 
 async function mudarSt(id, sel){
-  const st=sel.value; sel.className='ss '+st;
-  const changes={status:st};
-  if(st==='aprovado') changes.data_aprovacao=new Date().toISOString();
+  const st=sel.value;
   const o=todosOrc.find(x=>x.id===id);
   const stAnterior=o&&o.status; // antes do Object.assign — decide se saiu de "aprovado"
+  // Forma de pagamento em branco/"A combinar" é normal enquanto o orçamento é
+  // só uma proposta — mas na aprovação vira o dado que a Fase 1 (contas a
+  // receber) usa para saber como cobrar. Medido: 33 dos 88 aprovados nunca
+  // tiveram isso resolvido. Só trava quem está ENTRANDO em aprovado — reverter
+  // pra pendente/recusado não precisa disso.
+  if(o && st==='aprovado' && stAnterior!=='aprovado'){
+    const pag=(o.pag_cod||'').trim();
+    if(!pag || /^a combinar$/i.test(pag)){
+      sel.value=stAnterior||'pendente';
+      toast('⚠️ Defina a forma de pagamento antes de aprovar — sem isso, a parcela de recebimento não pode ser gerada e o financeiro fica sem saber como cobrar. Edite o orçamento e escolha em "Pagamento".');
+      return;
+    }
+    // Item sem produto_id e sem marcar "avulso" é o motivo raiz do estoque não
+    // bater: a baixa automática na aprovação só enxerga item vinculado (medido
+    // em Camboriú: 24,3% de cobertura). "avulso" existe pra mão de
+    // obra/material sem SKU não travar quem vende serviço.
+    const semVinculo=(o.servicos||[]).filter(s=>!s.produto_id && !s.avulso && (s.desc||'').trim());
+    if(semVinculo.length){
+      sel.value=stAnterior||'pendente';
+      const lista=semVinculo.slice(0,3).map(s=>'"'+s.desc.slice(0,40)+'"').join(', ');
+      toast(`⚠️ ${semVinculo.length} ${semVinculo.length>1?'itens não estão':'item não está'} vinculado ao estoque (${lista}${semVinculo.length>3?'…':''}) — sem isso a baixa automática não acontece e o estoque fica errado em silêncio. Edite o orçamento: vincule ao produto ou marque "não é produto".`);
+      return;
+    }
+  }
+  sel.className='ss '+st;
+  const changes={status:st};
+  if(st==='aprovado') changes.data_aprovacao=new Date().toISOString();
   if(o) Object.assign(o, changes);
   // Congela o custo ANTES da baixa: a baixa pode disparar recomputarCMP numa
   // entrada concorrente, e aí o custo gravado no item já seria outro.
@@ -4736,7 +4776,7 @@ function abrirOrc(id){
   setOrigemCli(o.origem_cliente||'');
   // Restaura desconto salvo (bug: antes o desconto sumia ao editar e salvar)
   setV('disc-v',o.desconto>0?String(o.desconto):''); setV('disc-t','R$');
-  svcs=(o.servicos||[]).map(s=>({id:Date.now()+Math.random(),d:s.desc,p:String(s.precoUnit||s.preco||''),qty:s.qty||1,produto_id:s.produto_id||null}));
+  svcs=(o.servicos||[]).map(s=>({id:Date.now()+Math.random(),d:s.desc,p:String(s.precoUnit||s.preco||''),qty:s.qty||1,produto_id:s.produto_id||null,avulso:s.avulso||false}));
   if(!svcs.length) svcs=[{id:Date.now(),d:'',p:''}];
   // Compatibilidade: antigo=string, novo=JSON array
   try{
@@ -4787,7 +4827,7 @@ function duplicarOrc(id){
   setV('orc-loja',o.loja_id||LOJA_PADRAO_ID);
   document.getElementById('data-orc').value=_hojeLocal();
   setV('disc-v',String(o.desconto||0)); setV('disc-t','R$');
-  svcs=(o.servicos||[]).map(s=>({id:Date.now()+Math.random(),d:s.desc,p:String(s.precoUnit||s.preco||''),qty:s.qty||1,produto_id:s.produto_id||null}));
+  svcs=(o.servicos||[]).map(s=>({id:Date.now()+Math.random(),d:s.desc,p:String(s.precoUnit||s.preco||''),qty:s.qty||1,produto_id:s.produto_id||null,avulso:s.avulso||false}));
   if(!svcs.length) svcs=[{id:Date.now(),d:'',p:''}];
   renderFotosOrcSlots();
   const tog=document.getElementById('toggle-os'); if(tog) tog.checked=false;
@@ -5883,6 +5923,26 @@ function toast(msg){
   _toastTimer=setTimeout(()=>t.classList.remove('on'),dur);
 }
 function hexA(hex,a){ try{ const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16); return `rgba(${r},${g},${b},${a})`; }catch(e){ return hex; } }
+
+// ── Campo obrigatório: um jeito só de avisar ────────────────────────────────
+// O marcador visual (asterisco) já existia — `label.req` no CSS — mas cada
+// checagem de "faltou preencher" reinventava o próprio aviso, sem explicar o
+// PORQUÊ (levantamento em docs/campos-obrigatorios-2026-08-08.md). Esta função
+// não substitui as checagens existentes — é o padrão para as novas: foca,
+// rola até o campo, pinta a borda e explica a consequência de deixar em
+// branco, não só o "preencha isto aqui".
+function avisarCampoObrigatorio(id, msg){
+  const el=document.getElementById(id);
+  if(el){
+    el.classList.add('campo-obrig-erro');
+    el.focus();
+    el.scrollIntoView({behavior:'smooth', block:'center'});
+    const limpa=()=>{ el.classList.remove('campo-obrig-erro'); el.removeEventListener('input',limpa); el.removeEventListener('change',limpa); };
+    el.addEventListener('input', limpa, {once:true});
+    el.addEventListener('change', limpa, {once:true});
+  }
+  toast('⚠️ '+msg);
+}
 
 // C-03 — Draft auto-save (rascunho automático de formulários)
 const DRAFT_KEYS = {
@@ -12734,6 +12794,7 @@ async function _impConfirmar(){
 let _prodEditId=null;
 function abrirProdutoModal(id){
   _prodEditId=id||null;
+  _prodConfirmouSemCusto=false; // cada produto pede a confirmação de novo
   const p=id?produtoById(id):null;
   const cat=p?.categoria||'';
   setV('prod-categoria', cat);
@@ -12775,11 +12836,26 @@ function abrirProdutoModal(id){
   document.getElementById('prod-modal').style.display='flex';
 }
 function fecharProdutoModal(){ document.getElementById('prod-modal').style.display='none'; }
+let _prodConfirmouSemCusto=false;
 async function salvarProduto(){
   const nome=(gV('prod-nome')||'').trim();
   if(!nome){ toast('⚠️ Informe o nome do produto'); return; }
   const _cat=(gV('prod-categoria')==='Outro'?(gV('prod-catoutra')||'').trim():gV('prod-categoria')||'');
   if(!_cat){ toast('⚠️ Selecione a categoria do produto'); document.getElementById('prod-categoria')?.focus(); return; }
+  // Custo em 0 é o dado que mais silenciosamente estraga margem: medido em
+  // ago/2026, 6 dos 7 modelos de trocador Pooltec — o equipamento mais caro
+  // da empresa — estavam com custo zero. Não trava de vez (às vezes o preço
+  // de compra ainda não chegou), mas exige confirmar que é intencional.
+  const _custoInformado=parseFloat((gV('prod-custo')||'').replace(',','.'))||0;
+  if(_custoInformado<=0 && !_prodConfirmouSemCusto){
+    confirmar(
+      'Sem custo cadastrado, este produto não tem margem calculável em nenhum relatório — entra sempre como se desse 100% de lucro. Salvar assim mesmo?',
+      ()=>{ _prodConfirmouSemCusto=true; salvarProduto(); },
+      'Salvar sem custo?'
+    );
+    return;
+  }
+  _prodConfirmouSemCusto=false;
   const s=getSessao();
   const id=_prodEditId||'prod_'+Date.now();
   const existente=_prodEditId?produtoById(_prodEditId):null;
@@ -13443,6 +13519,12 @@ async function salvarOC(status){
   const fornId=(document.getElementById('oc-fornecedor')?.value||'').trim();
   if(!fornId){ toast('⚠️ Selecione o fornecedor'); return; }
   if(!_ocEditItens.length){ toast('⚠️ Adicione pelo menos um item'); return; }
+  // Rascunho pode não ter data combinada ainda — mas enviar ao fornecedor sem
+  // isso significa nunca ter lead time real nem saber se ele atrasou (OTIF).
+  if(status==='enviada' && !gV('oc-data-prevista')){
+    avisarCampoObrigatorio('oc-data-prevista','Informe a data prevista de entrega antes de enviar ao fornecedor — sem ela não dá para saber depois se ele atrasou.');
+    return;
+  }
   const editId=gV('oc-edit-id')||'';
   const id=editId||'oc_'+Date.now();
   const total=_ocEditItens.reduce((a,x)=>a+x.qtd*x.custo_unit,0);

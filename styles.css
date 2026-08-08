@@ -346,6 +346,9 @@
 
     /* ── REQUIRED FIELD INDICATOR ── */
     label.req::after{content:' *';color:var(--red);font-size:12px}
+    /* Contorno temporário quando o campo obrigatório foi deixado em branco —
+       some sozinho assim que a pessoa começa a preencher (avisarCampoObrigatorio, app.js) */
+    .campo-obrig-erro{border-color:var(--red)!important;box-shadow:0 0 0 2px var(--red-bg)}
 
     /* ── CALENDAR MOBILE ── */
     @media(max-width:600px){
