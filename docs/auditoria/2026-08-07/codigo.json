@@ -1,6 +1,6 @@
 {
   "arquivo": {
-    "app_js_linhas": 13726,
+    "app_js_linhas": 13735,
     "index_html_linhas": 2848
   },
   "funcoes": {
@@ -446,7 +446,10 @@
         "linha": 9123
       },
       {
-        "linha": 13703
+        "linha": 13231
+      },
+      {
+        "linha": 13712
       }
     ]
   }

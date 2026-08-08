@@ -500,6 +500,27 @@ em produção**. Fazer com ele acompanhando e fora do horário de operação.
   servidor ainda tinha a linha → `carregarClientesRemoto` filtra e reenvia o
   delete, cliente não ressuscita. Zero erro de console.
 
+- *(A, 08/08)* **Varredura final: TODAS as `excluir*`/`deletar*` do app.js,
+  uma a uma.** Fechando o assunto tombstone de vez.
+  `deletarFornecedor`/`loadFornecedores` tinham o mesmo gap (delete tentado,
+  sem tombstone — resurgia no próximo load) — corrigido, mesmo padrão
+  `_tombLer`/`_tombAdd`, chave `fluxa_fornec_tombstones`. Testado igual às
+  outras: exclui → tombstone → simulei delete remoto falho → não ressuscita.
+  As demais já estavam corretas por desenho, conferidas uma a uma, sem
+  mudança: `_excluirUsuarioConfirmado` é soft-delete (`ativo:false`) e
+  `carregarUsuarios` já filtra `ativo=true` — não é o mesmo bug, é
+  intencional (mantém histórico/auditoria). `excluirLocal`
+  (locais_vistoria) e `excluirVistoria`/`desfazerVistoriaLocal` (vistorias)
+  já tinham tombstone + delete remoto de verdade desde antes desta sessão
+  (`_locTombAdd`/`_visTombAdd`). `produtos`/`ordens_compra` não têm delete
+  nenhum no app (nem função `excluirProduto`/`excluirOC` existe) — nada a
+  proteger.
+
+  **Estado final:** toda tabela com delete no app.js protegida contra
+  ressurreição — orçamento, OS, cliente, despesa, equipamento, fornecedor
+  (corrigidos nesta sessão) + usuário, local de vistoria, vistoria (já
+  corretos). Não fica mais nenhuma tabela sem esse cuidado.
+
 ---
 
 ## 🛡️ PROTOCOLO DE VERIFICAÇÃO — OBRIGATÓRIO ANTES DE ENTREGAR QUALQUER MUDANÇA

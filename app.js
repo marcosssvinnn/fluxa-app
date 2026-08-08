@@ -13224,7 +13224,15 @@ async function loadFornecedores(){
   if(dbOk&&db){
     try{
       const {data}=await db.from('fornecedores').select('*').order('nome',{ascending:true});
-      if(data){ todosFornecedores=data; lsFornecSalvar(data); }
+      if(data){
+        let remotoF=data;
+        const _tombF=new Set(_tombLer('fluxa_fornec_tombstones'));
+        if(_tombF.size){
+          remotoF.filter(r=>_tombF.has(r.id)).forEach(r=>db.from('fornecedores').delete().eq('id',r.id).then(()=>{}).catch(()=>{}));
+          remotoF=remotoF.filter(r=>!_tombF.has(r.id));
+        }
+        todosFornecedores=remotoF; lsFornecSalvar(remotoF);
+      }
     }catch(e){ console.warn('[fornecedores]',e?.message||e); }
   }
 }
@@ -13281,6 +13289,7 @@ async function deletarFornecedor(id){
   confirmar('Remover este fornecedor?', async ()=>{
     todosFornecedores=todosFornecedores.filter(f=>f.id!==id);
     lsFornecSalvar(todosFornecedores);
+    _tombAdd('fluxa_fornec_tombstones', id); // protege contra ressuscitar se o delete abaixo falhar
     if(dbOk&&db){ try{ await db.from('fornecedores').delete().eq('id',id); }catch(e){ console.warn('[fornecDel]',e?.message||e); } }
     renderFornecList(); toast('Fornecedor removido');
   }, 'Remover fornecedor');
