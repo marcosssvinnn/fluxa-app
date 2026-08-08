@@ -144,22 +144,29 @@
 <!-- ══ SIDEBAR ══ -->
 <aside class="sidebar s-hidden" id="sidebar" role="navigation" aria-label="Menu principal">
   <nav class="snav">
+    <!-- Ordem: os 5 primeiros são fixos (pedido do Marcos). Do 6º em diante,
+         por volume real de uso — contagem de registros de cada área em
+         08/08/2026, já que o app não rastreia clique por página:
+         clientes 272 · orçamentos 303 · OS 118 · agendamentos 18 ·
+         vistorias 7 · equipamentos 0 · despesas 0. Reordenar aqui é seguro:
+         aplicarPermissoesPerfil() (app.js) mostra/esconde por id, não por
+         posição no DOM. -->
     <button class="snb" id="snb-insights" onclick="go('insights')"><span class="sicon">📊</span><span class="slabel">Insights</span></button>
     <button class="snb on" id="snb-form" onclick="go('form')"><span class="sicon">＋</span><span class="slabel">Orçamento</span></button>
-    <button class="snb" id="snb-os" onclick="novaOS();go('os')"><span class="sicon">📋</span><span class="slabel">OS</span></button>
     <button class="snb" id="snb-history" onclick="go('history')"><span class="sicon">📊</span><span class="slabel">Histórico</span></button>
+    <button class="snb" id="snb-estoque" onclick="go('estoque')"><span class="sicon">📦</span><span class="slabel">Estoque</span></button>
+    <button class="snb" id="snb-recebiveis" onclick="go('recebiveis')"><span class="sicon">💰</span><span class="slabel">A Receber</span></button>
+    <button class="snb" id="snb-clientes" onclick="go('clientes')"><span class="sicon">👥</span><span class="slabel">Clientes</span></button>
+    <button class="snb" id="snb-os" onclick="novaOS();go('os')"><span class="sicon">📋</span><span class="slabel">OS</span></button>
     <button class="snb" id="snb-minhas-os" onclick="go('minhas-os')" style="display:none"><span class="sicon">📋</span><span class="slabel">Minhas OS</span></button>
-    <button class="snb" id="snb-visitas" onclick="go('visitas')"><span class="sicon">🔍</span><span class="slabel">Vistorias</span></button>
     <button class="snb" id="snb-agendamentos" onclick="go('agendamentos')"><span class="sicon">📅</span><span class="slabel">Agenda</span></button>
+    <button class="snb" id="snb-visitas" onclick="go('visitas')"><span class="sicon">🔍</span><span class="slabel">Vistorias</span></button>
     <div class="snav-div"></div>
     <span class="snav-section-label">Mais opções</span>
     <button class="snb" id="snb-os-history" onclick="go('os-history')"><span class="sicon">📄</span><span class="slabel">Hist. OS</span></button>
-    <button class="snb" id="snb-clientes" onclick="go('clientes')"><span class="sicon">👥</span><span class="slabel">Clientes</span></button>
-    <button class="snb" id="snb-equipamentos" onclick="go('equipamentos')"><span class="sicon">🔧</span><span class="slabel">Equipamentos</span></button>
-    <button class="snb" id="snb-estoque" onclick="go('estoque')"><span class="sicon">📦</span><span class="slabel">Estoque</span></button>
-    <button class="snb" id="snb-recebiveis" onclick="go('recebiveis')"><span class="sicon">💰</span><span class="slabel">A Receber</span></button>
-    <button class="snb" id="snb-despesas" onclick="go('despesas')"><span class="sicon">💸</span><span class="slabel">Despesas</span></button>
     <button class="snb" id="snb-produtividade" onclick="go('produtividade')"><span class="sicon">📈</span><span class="slabel">Produtividade</span></button>
+    <button class="snb" id="snb-equipamentos" onclick="go('equipamentos')"><span class="sicon">🔧</span><span class="slabel">Equipamentos</span></button>
+    <button class="snb" id="snb-despesas" onclick="go('despesas')"><span class="sicon">💸</span><span class="slabel">Despesas</span></button>
     <div class="snav-div"></div>
     <button class="snb" id="snb-logout" onclick="closeSidebar();fazerLogout()" style="color:#ef4444"><span class="sicon">🔓</span><span class="slabel">Trocar usuário</span></button>
   </nav>
