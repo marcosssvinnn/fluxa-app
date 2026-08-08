@@ -431,14 +431,32 @@ em produção**. Fazer com ele acompanhando e fora do horário de operação.
   ressuscita. Zero erro de console.
 
   🟡 **Gap conhecido, não crítico:** ao contrário de orçamento/OS
-  (que preservam registro local-only ainda não sincronizado ao fazer merge
+  ~~(que preservam registro local-only ainda não sincronizado ao fazer merge
   com o remoto — `soLocal`), despesas/equipamentos só ganharam a proteção de
-  DELETE. Um registro criado agora com sucesso mas que ainda não teve tempo
-  de resolver o insert (janela bem curta — é uma promise, não segundos) e a
-  tela recarrega antes disso: `loadDespesas`/`loadEquipamentos` substituem a
-  lista inteira e esse registro específico (que já ia sincronizar sozinho,
-  não é o mesmo bug do parágrafo anterior) fica de fora até criar de novo.
-  Risco pequeno, ficou registrado em vez de aumentar o escopo desta sessão.
+  DELETE~~ → **fechado na sequência, ver recado abaixo.**
+
+- *(A, 08/08)* Fechei o gap que anotei acima: `loadDespesas()`/
+  `loadEquipamentos()` agora preservam registro local-only (`desp_*`/`eq_*`
+  ainda sem sincronizar) ao fazer merge com o remoto — igual `loadAgendamentos`
+  já fazia, que acabou sendo o molde certo (achado ao varrer TODAS as 7
+  tabelas com `id uuid` atrás de mais instância do bug de tipo — `agendamentos`
+  e `notas_fiscais` já estavam corretas, nada mais quebrado). Reenvia o
+  pendente na hora (dentro do próprio `load*`) e a cada 3min/reconexão
+  (`_temPendentes`/`_reenviarPendentes`, mesmo padrão de OS/orçamento/
+  vistoria/agendamento). Testado no browser: registro preso sobrevive ao
+  `load*` com remoto vazio, `dbInsert` é chamado, id local trocado pelo real.
+  Zero erro de console. Fila de tombstone/local-first agora é simétrica nas
+  7 tabelas que criam registro (orçamento, OS, despesa, equipamento,
+  agendamento, vistoria, cliente).
+
+  Achado incidental na varredura, não é bug: `setup.sql` declara
+  `usuarios.id uuid`, mas a produção real já é `text` (confirmado via PAT) —
+  alguém migrou isso antes sem atualizar o arquivo. Não afeta nada hoje (o
+  código já trata usuário local corretamente), só deixa `setup.sql`
+  desatualizado pra uma instalação nova. Não corrigi agora — é troca de tipo
+  de coluna, não é aditivo, e a "REGRA DE OURO" deste arquivo pede pra não
+  misturar isso com uma feature. Registrado pra próxima vez que alguém mexer
+  no `setup.sql` de propósito.
 
 ---
 
