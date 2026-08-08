@@ -1,11 +1,11 @@
 {
   "arquivo": {
-    "app_js_linhas": 13484,
+    "app_js_linhas": 13494,
     "index_html_linhas": 2848
   },
   "funcoes": {
-    "declaradas": 743,
-    "distintas": 743
+    "declaradas": 744,
+    "distintas": 744
   },
   "duplicadas": {},
   "mortas": [],
@@ -250,22 +250,22 @@
   "maiores_funcoes": [
     {
       "nome": "preencherRelatorioVistoria",
-      "linha": 10663,
+      "linha": 10673,
       "linhas": 187
     },
     {
       "nome": "renderEstoque",
-      "linha": 11907,
+      "linha": 11917,
       "linhas": 181
     },
     {
       "nome": "renderLocaisTab",
-      "linha": 9012,
+      "linha": 9022,
       "linhas": 153
     },
     {
       "nome": "renderVisHistorico",
-      "linha": 10135,
+      "linha": 10145,
       "linhas": 135
     },
     {
@@ -280,27 +280,27 @@
     },
     {
       "nome": "renderPortal",
-      "linha": 6133,
+      "linha": 6143,
       "linhas": 114
     },
     {
       "nome": "emitirNota",
-      "linha": 8221,
+      "linha": 8231,
       "linhas": 108
     },
     {
       "nome": "gerarDossieAssembleia",
-      "linha": 10355,
+      "linha": 10365,
       "linhas": 99
     },
     {
       "nome": "verHistoricoCliente",
-      "linha": 5356,
+      "linha": 5366,
       "linhas": 96
     },
     {
       "nome": "renderDRE",
-      "linha": 6661,
+      "linha": 6671,
       "linhas": 94
     },
     {
@@ -310,125 +310,125 @@
     },
     {
       "nome": "iniciarVistoriaPlena",
-      "linha": 8923,
+      "linha": 8933,
       "linhas": 87
     },
     {
       "nome": "preencherDocOrc",
-      "linha": 3174,
+      "linha": 3184,
       "linhas": 82
     },
     {
       "nome": "salvarApenas",
-      "linha": 2920,
+      "linha": 2930,
       "linhas": 80
     },
     {
       "nome": "renderTabela",
-      "linha": 4472,
+      "linha": 4482,
       "linhas": 79
     },
     {
       "nome": "renderGraficoDash",
-      "linha": 4297,
+      "linha": 4307,
       "linhas": 78
     },
     {
       "nome": "renderVisEquipGrid",
-      "linha": 9294,
+      "linha": 9304,
       "linhas": 78
     },
     {
       "nome": "loadVistoriasRemoto",
-      "linha": 11094,
+      "linha": 11104,
       "linhas": 78
     },
     {
       "nome": "renderOrigemDash",
-      "linha": 4190,
+      "linha": 4200,
       "linhas": 76
     }
   ],
   "erros_silenciados": {
     "catch_vazio": [
       {
-        "linha": 4341,
+        "linha": 4351,
         "trecho": "catch(e){}"
       },
       {
-        "linha": 5738,
+        "linha": 5748,
         "trecho": "catch(e){}"
       }
     ],
     "catch_mudo": [
       {
-        "linha": 4102
+        "linha": 4112
       },
       {
-        "linha": 4707
+        "linha": 4717
       },
       {
-        "linha": 4862
+        "linha": 4872
       },
       {
-        "linha": 4915
+        "linha": 4925
       },
       {
-        "linha": 5098
+        "linha": 5108
       },
       {
-        "linha": 6347
+        "linha": 6357
       },
       {
-        "linha": 7022
+        "linha": 7032
       },
       {
-        "linha": 7027
+        "linha": 7037
       },
       {
-        "linha": 7328
+        "linha": 7338
       },
       {
-        "linha": 7329
+        "linha": 7339
       },
       {
-        "linha": 7698
+        "linha": 7708
       },
       {
-        "linha": 7720
+        "linha": 7730
       },
       {
-        "linha": 8306
+        "linha": 8316
       },
       {
-        "linha": 8308
+        "linha": 8318
       },
       {
-        "linha": 8317
+        "linha": 8327
       },
       {
-        "linha": 8342
+        "linha": 8352
       },
       {
-        "linha": 8348
+        "linha": 8358
       },
       {
-        "linha": 8561
+        "linha": 8571
       },
       {
-        "linha": 8867
+        "linha": 8877
       },
       {
-        "linha": 8868
+        "linha": 8878
       },
       {
-        "linha": 8891
+        "linha": 8901
       },
       {
-        "linha": 8893
+        "linha": 8903
       },
       {
-        "linha": 13461
+        "linha": 13471
       }
     ]
   }
