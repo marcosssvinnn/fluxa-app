@@ -352,47 +352,11 @@
   "erros_silenciados": {
     "catch_vazio": [
       {
-        "linha": 481,
-        "trecho": "catch(e){}"
-      },
-      {
-        "linha": 507,
-        "trecho": "catch(e){}"
-      },
-      {
-        "linha": 1032,
-        "trecho": "catch(e){}"
-      },
-      {
         "linha": 4341,
         "trecho": "catch(e){}"
       },
       {
         "linha": 5738,
-        "trecho": "catch(e){}"
-      },
-      {
-        "linha": 5792,
-        "trecho": "catch(e){}"
-      },
-      {
-        "linha": 5866,
-        "trecho": "catch(e){}"
-      },
-      {
-        "linha": 5925,
-        "trecho": "catch(e){}"
-      },
-      {
-        "linha": 5933,
-        "trecho": "catch(e){}"
-      },
-      {
-        "linha": 8186,
-        "trecho": "catch(e){}"
-      },
-      {
-        "linha": 10951,
         "trecho": "catch(e){}"
       }
     ],

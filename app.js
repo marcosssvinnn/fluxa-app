@@ -478,7 +478,7 @@ async function sincronizarSeedUsuarios(){
 async function carregarUsuarios(){
   // Carrega do localStorage primeiro
   let local=[];
-  try{ local=JSON.parse(ls('fluxa_usuarios')||'[]'); }catch(e){}
+  try{ local=JSON.parse(ls('fluxa_usuarios')||'[]'); }catch(e){ console.warn('[carregarUsuarios] cache local corrompido:',e?.message||e); }
   // Tenta carregar do Supabase e faz merge
   try{
     if(dbOk&&db){
@@ -504,7 +504,7 @@ async function carregarUsuarios(){
         return;
       }
     }
-  }catch(e){}
+  }catch(e){ console.warn('[carregarUsuarios] sync falhou, usando cache local:',e?.message||e); }
   todosUsuarios=local;
 }
 
@@ -1029,7 +1029,7 @@ function atualizarSQL(){
 //  CFG — carregar / salvar
 // ──────────────────────────────────────────────────
 function carregarCFGlocal(){
-  try { const s=ls('empresa_cfg'); if(s) CFG={...CFG_DEF,...JSON.parse(s)}; } catch(e){}
+  try { const s=ls('empresa_cfg'); if(s) CFG={...CFG_DEF,...JSON.parse(s)}; } catch(e){ console.warn('[carregarCFGlocal] cache corrompido, usando defaults:',e?.message||e); }
   // Carrega lojasExtraConfig do cache dedicado (mais confiável que depender do CFG.lojas_extra)
   try {
     const cached=ls('fluxa_lojas_extra_cfg');
@@ -5789,7 +5789,7 @@ function imprimirDoc(modo){
 // ──────────────────────────────────────────────────
 let realtimeChannel = null;
 function iniciarRealtimeSync(){
-  if(realtimeChannel){ try{ db.removeChannel(realtimeChannel); }catch(e){} }
+  if(realtimeChannel){ try{ db.removeChannel(realtimeChannel); }catch(e){ console.warn('[realtimeSync] falha ao remover canal anterior:',e?.message||e); } }
   realtimeChannel = db.channel('fluxa-sync')
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'orcamentos'}, p=>{
       const novo=p.new;
@@ -5863,7 +5863,7 @@ function hide(id){ const el=document.getElementById(id); if(el) el.style.display
 function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 function safeKey(s){ return btoa(unescape(encodeURIComponent(s))).replace(/[^a-zA-Z0-9]/g,''); }
 function ls(k){ try{return localStorage.getItem(k);}catch(e){return null;} }
-function lsSet(k,v){ try{localStorage.setItem(k,v);}catch(e){} }
+function lsSet(k,v){ try{localStorage.setItem(k,v);}catch(e){ console.warn('[lsSet] localStorage.setItem falhou (quota cheia ou modo privado?) para',k,':',e?.message||e); } }
 let _toastTimer=null;
 function toast(msg){
   const t=document.getElementById('toast'); if(!t) return;
@@ -5922,7 +5922,7 @@ function salvarRascunho(pagina){
       };
       lsSet(DRAFT_KEYS.os, JSON.stringify(dados));
     }
-  }catch(e){}
+  }catch(e){ console.warn('[salvarRascunho] falhou:',e?.message||e); }
 }
 function restaurarRascunho(pagina){
   try{
@@ -5930,7 +5930,7 @@ function restaurarRascunho(pagina){
     const dados = JSON.parse(raw);
     Object.entries(dados).forEach(([k,v])=>setV(k,v));
     if(pagina==='form') updOrigemCli();
-  }catch(e){}
+  }catch(e){ console.warn('[restaurarRascunho] rascunho corrompido, ignorado:',e?.message||e); }
 }
 function limparRascunho(pagina){
   try{
@@ -8183,7 +8183,7 @@ async function verificarNFExistente(orcId){
       const nf=data[0];
       mostrarStatusNF(nf.status, nf);
     }
-  }catch(e){}
+  }catch(e){ console.warn('[verificarNFExistente]',e?.message||e); }
 }
 
 function mostrarStatusNF(status, nf){
@@ -10948,7 +10948,7 @@ function emailJSConfigurado(){
 
 function initEmailJS(){
   if(CFG.emailjs_pubkey){
-    try{ emailjs.init({ publicKey: CFG.emailjs_pubkey }); }catch(e){}
+    try{ emailjs.init({ publicKey: CFG.emailjs_pubkey }); }catch(e){ console.warn('[initEmailJS] init falhou:',e?.message||e); }
   }
 }
 
