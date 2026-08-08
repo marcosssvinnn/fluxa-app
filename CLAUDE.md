@@ -325,6 +325,69 @@ em produção**. Fazer com ele acompanhando e fora do horário de operação.
   mesmo com a tabela vazia, e não é decisão minha tomar sozinha. Se confirmar
   que não serve pra nada, é um `DROP TABLE lojas;` de uma linha.
 
+- *(A, 08/08)* 🔴 **CRÍTICO, corrigido — criação de OS sem internet perdia a
+  OS inteira, em silêncio.** É o pior achado desta sessão inteira, e afeta
+  exatamente quem mais usa o app em campo sem sinal: o técnico. Encontrado ao
+  investigar um recado antigo desta mesma seção (sessão 2026-07-19) que dizia
+  esse bug já corrigido (`_salvarOSLocal`/`_reenviarOSLocais`) — **não existia
+  mais no código**. Não sei se foi perdido numa reconciliação de sessões
+  concorrentes ou se aquele commit nunca chegou nesta branch; o estado real no
+  disco é o que importa, e ele não tinha a proteção.
+
+  `gerarOSPDF` (tela Nova OS) e `criarOSdeAprovacao` (modal "Orçamento
+  aprovado! Deseja agendar uma OS?"), sem `dbOk&&db`, só incrementavam
+  `fluxa_os_num` (um contador de EXIBIÇÃO) e seguiam pro PDF/toast de sucesso
+  — a OS não ia pra `fluxa_os_hist`, não ia pro banco, não existia em lugar
+  nenhum. O mesmo acontecia se a conexão caísse NO MEIO do salvamento (o
+  `catch` só avisava com toast e desistia). Piorando: `loadOSHist()` fazia
+  `todosOS=[]` toda vez que abria a tela offline — mesmo que
+  `fluxa_os_hist` tivesse a OS gravada por outro caminho, a tela de
+  histórico mostrava vazio.
+
+  **Corrigido, mesmo padrão já provado em `vistorias`/`locais_vistoria`
+  (flag `_pendingSync` + tombstone):**
+  - `_salvarOSLocal(rec)` — grava em `fluxa_os_hist` + `todosOS` na hora,
+    chamado nos DOIS pontos de criação, tanto no ramo offline quanto no catch
+    de falha online. OS nova ganha `id:'local_os_'+Date.now()`; edição
+    offline de uma OS já existente mantém o id real e marca
+    `_pendingSync:true`.
+  - `_reenviarOSLocais(soLocal)` — reenvia ao reconectar: id `local_os_*`
+    vira `dbInsertNumerado` (insere), `_pendingSync` sobre id real vira
+    `dbUpdate` (atualiza). Ligado em `loadOSHist()` (ao abrir a tela) E em
+    `_temPendentes()`/`_reenviarPendentes()` (fila automática a cada 3min e
+    ao voltar a conexão — mesmo mecanismo que já existia pra
+    orçamento/vistoria/agendamento, só nunca soube que OS existia).
+  - `loadOSHist()` reescrita pro padrão local-first (mostra `fluxa_os_hist`
+    na hora, sincroniza depois) — nunca mais zera a tela por estar offline.
+  - **De brinde, fechei a mesma classe de bug no delete de OS**
+    (`_excluirOSConfirmado`): antes o delete no banco era só
+    `.then(()=>{}).catch(()=>{})` — se falhasse, a OS sumia da tela mas
+    voltava (ressuscitada) no próximo `loadOSHist()`, porque a linha
+    continuava viva no Supabase. Agora tem tombstone
+    (`fluxa_os_tombstones`, helper genérico `_tombLer`/`_tombAdd` — mesmo
+    padrão de `_locTombLer`/`_visTombLer`, só parametrizado): a OS some da
+    view mesmo que o delete remoto falhe, e `loadOSHist` tenta apagar de
+    novo a cada carregamento até confirmar.
+
+  **Testado no browser local (`dbOk=false`, `db` mockado), ciclo completo:**
+  criar offline → `fluxa_os_hist` grava com `_pendingSync:true` e toast avisa
+  "sem conexão" → simulei reload (`todosOS=[]` + `loadOSHist()`) → OS
+  continua visível → simulei reconexão com `dbInsertNumerado` mockado →
+  `id local_os_*` trocado pelo uuid real, `_pendingSync` removido → excluí
+  offline → tombstone gravado, suma da view → simulei que o delete remoto
+  tinha falhado (mock ainda retorna a linha) → `loadOSHist` filtra e
+  reenvia o delete, a OS não ressuscita. Zero erro no console nos 5 passos.
+
+  🟡 **Mesma classe de bug, não corrigida ainda — acho que vale uma rodada
+  própria, não empilhei em cima desta.** `loadHist()` (orçamentos),
+  `loadDespesas()` e `loadEquipamentos()` fazem o mesmo "banco é fonte de
+  verdade, substitui a lista inteira" sem tombstone — um delete de orçamento/
+  despesa/equipamento que falhe silenciosamente (`.catch(()=>{})`) também
+  ressuscita no próximo load. `orcamentos` já tem o mecanismo de
+  local-first pra CRIAÇÃO (`local_` + `_reenviarOrcamentosLocais`), só falta
+  o tombstone do delete. Registrando pra não esquecer — é o mesmo padrão que
+  acabei de aplicar em OS, só replicar.
+
 ---
 
 ## 🛡️ PROTOCOLO DE VERIFICAÇÃO — OBRIGATÓRIO ANTES DE ENTREGAR QUALQUER MUDANÇA

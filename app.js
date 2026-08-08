@@ -2331,24 +2331,40 @@ async function criarOSdeAprovacao(){
   if(btn){ btn.disabled=true; btn.textContent='Criando…'; }
   try{
     const osSvcs=(orc.servicos||[]).map(s=>({desc:s.desc||s.d||'',produto_id:s.produto_id||null,qty:s.qty||1,precoUnit:parseFloat(s.p||s.preco||0)||0}));
-    let numStr='???';
+    let numStr='???', salvouOnline=false;
     if(dbOk&&db){
-      const {data:insOS,error}=await dbInsertNumerado('ordens_servico',{
+      try{
+        const {data:insOS,error}=await dbInsertNumerado('ordens_servico',{
+          orcamento_id:String(orcId).startsWith('local_')?null:orcId,
+          cliente:orc.cliente, local_servico:orc.local_servico,
+          data_servico:data, hora, tecnico:tec,
+          servicos:osSvcs, materiais:'', obs_tecnica:'',
+          total:orc.total, status:'agendado', loja_id:orc.loja_id||LOJA_PADRAO_ID
+        });
+        if(error) throw error;
+        numStr=String(insOS?.numero||1).padStart(3,'0');
+        salvouOnline=true;
+      }catch(e){ console.warn('[criarOSdeAprovacao] falha ao salvar no banco:', e?.message||e); }
+    }
+    if(!salvouOnline){
+      // Offline, ou o salvamento online falhou: nunca deixa a OS existir só
+      // no toast — grava local e marca para reenvio automático.
+      const n=(parseInt(ls('fluxa_os_num')||'0'))+1; lsSet('fluxa_os_num',String(n)); numStr=String(n).padStart(3,'0');
+      _salvarOSLocal({
+        id:'local_os_'+Date.now(), numero:n, status:'agendado', data_criacao:new Date().toISOString(),
         orcamento_id:String(orcId).startsWith('local_')?null:orcId,
         cliente:orc.cliente, local_servico:orc.local_servico,
         data_servico:data, hora, tecnico:tec,
         servicos:osSvcs, materiais:'', obs_tecnica:'',
-        total:orc.total, status:'agendado', loja_id:orc.loja_id||LOJA_PADRAO_ID
+        total:orc.total, loja_id:orc.loja_id||LOJA_PADRAO_ID,
+        _pendingSync:true
       });
-      if(error) throw error;
-      const num=insOS?.numero||1;
-      numStr=String(num).padStart(3,'0');
-    }else{
-      const n=(parseInt(ls('fluxa_os_num')||'0'))+1; lsSet('fluxa_os_num',String(n)); numStr=String(n).padStart(3,'0');
     }
     fecharAprovOS();
     const dataFmt=new Date(data+'T12:00:00').toLocaleDateString('pt-BR');
-    toast(`✅ OS #${numStr} criada — agendada para ${dataFmt} às ${hora} · Técnico: ${tec}`);
+    toast(salvouOnline
+      ? `✅ OS #${numStr} criada — agendada para ${dataFmt} às ${hora} · Técnico: ${tec}`
+      : `💾 OS #${numStr} salva neste aparelho (sem conexão) — agendada para ${dataFmt} às ${hora} · Técnico: ${tec}`);
     logAcao('os_criada',`#${numStr} via aprovação do orçamento #${String(orc.numero||'?').padStart(3,'0')}`);
     await loadOSHist();
   }catch(e){
@@ -2908,6 +2924,58 @@ async function orcSyncInsert(payload){ return dbInsert('orcamentos', payload); }
 async function orcSyncUpdate(id, payload){ return dbUpdate('orcamentos', payload, 'id', id); }
 // Reenvia ao banco orçamentos que ficaram presos só no aparelho (id local_*),
 // ex.: criados enquanto o insert falhava pela coluna origem_cliente ausente.
+// Tombstones genéricos por chave de localStorage — mesmo padrão já provado em
+// _locTombLer/_visTombLer (locais_vistoria/vistorias), só parametrizado para
+// não copiar o par de funções a cada tabela nova.
+function _tombLer(chave){ try{ return JSON.parse(ls(chave)||'[]'); }catch(e){ return []; } }
+function _tombAdd(chave,id){ const t=_tombLer(chave); if(!t.includes(id)){ t.push(id); lsSet(chave, JSON.stringify(t.slice(-500))); } }
+
+// ── OS OFFLINE: nunca perder uma OS por falta de conexão ───────────────────
+// gerarOSPDF/criarOSdeAprovacao, sem conexão, só incrementavam um contador de
+// exibição (fluxa_os_num) — a OS não ia pra lugar nenhum, nem local nem
+// remoto. O técnico via "OS #003 criada", imprimia, e a OS não existia em
+// lugar nenhum. Daqui pra frente toda OS que não confirma salvar no banco
+// passa por aqui: id local_os_<ts> (nova) ou o id real com _pendingSync
+// (edição sem conexão sobre OS já existente).
+function _salvarOSLocal(rec){
+  const lista=(()=>{ try{ return JSON.parse(ls('fluxa_os_hist')||'[]'); }catch(e){ return []; } })();
+  const i=lista.findIndex(x=>x.id===rec.id);
+  if(i>=0) lista[i]=rec; else lista.unshift(rec);
+  lsSet('fluxa_os_hist', JSON.stringify(lista.slice(0,200)));
+  todosOS=[rec, ...todosOS.filter(x=>x.id!==rec.id)];
+}
+// Reenvia OS presas no aparelho: criadas offline (id local_os_*, vira insert
+// numerado) ou editadas offline sobre uma OS já existente (_pendingSync sobre
+// id real, vira update). Mesmo padrão de _pendingSync já usado em vistorias.
+async function _reenviarOSLocais(soLocal){
+  if(!dbOk||!db||!soLocal||!soLocal.length) return false;
+  let mudou=false;
+  for(const rec of soLocal){
+    try{
+      const payload={...rec}; delete payload.id; delete payload._pendingSync; delete payload.numero;
+      const ehNova=String(rec.id).startsWith('local_os_');
+      let ins=null, error=null;
+      if(ehNova){ const r=await dbInsertNumerado('ordens_servico', payload); ins=r.data; error=r.error; }
+      else{ const r=await dbUpdate('ordens_servico', payload, 'id', rec.id); error=r.error; }
+      if(error){ console.warn('[reenvioOSLocal] falhou #'+(rec.numero||'?')+':', error.message); continue; }
+      const lista=(()=>{ try{ return JSON.parse(ls('fluxa_os_hist')||'[]'); }catch(e){ return []; } })();
+      const i=lista.findIndex(x=>x.id===rec.id);
+      if(ehNova && ins){
+        if(i>=0) lista.splice(i,1);
+        lista.unshift(ins);
+        todosOS=todosOS.filter(x=>x.id!==rec.id); todosOS.unshift(ins);
+      } else {
+        const atualizado={...rec}; delete atualizado._pendingSync;
+        if(i>=0) lista[i]=atualizado;
+        todosOS=todosOS.map(x=>x.id===rec.id?atualizado:x);
+      }
+      lsSet('fluxa_os_hist', JSON.stringify(lista.slice(0,200)));
+      mudou=true;
+    }catch(e){ console.warn('[reenvioOSLocal] erro:', e?.message||e); }
+  }
+  return mudou;
+}
+
 async function _reenviarOrcamentosLocais(soLocal){
   if(!dbOk||!db||!soLocal||!soLocal.length) return false;
   let mudou=false;
@@ -3341,24 +3409,43 @@ async function gerarOSPDF(modo='os'){
     checklist: osChecklist.filter(x=>x.checked),
     loja_id: gV('os-loja')||LOJA_PADRAO_ID
   };
-  let numStr='???';
+  const orcId=osOrcId||null;
+  const lojaIdOS=gV('os-loja')||LOJA_PADRAO_ID;
+  const payload={orcamento_id:orcId,loja_id:lojaIdOS,cliente:dados.cli,local_servico:dados.loc,cnpj:dados.cnpj||null,data_servico:dados.data,hora:dados.hora,tecnico:dados.tec,servicos:dados.svcs,materiais:dados.mat,obs_tecnica:dados.obs,total:dados.tot,fotos:dados.fotos,video_link:dados.videoLink||null,checklist:dados.checklist.length?JSON.stringify(dados.checklist):null};
+  let numStr='???', salvouOnline=false;
   if(dbOk&&db){
     try{
-      const orcId=osOrcId||null;
-      const lojaIdOS=gV('os-loja')||LOJA_PADRAO_ID;
-      const payload={orcamento_id:orcId,loja_id:lojaIdOS,cliente:dados.cli,local_servico:dados.loc,cnpj:dados.cnpj||null,data_servico:dados.data,hora:dados.hora,tecnico:dados.tec,servicos:dados.svcs,materiais:dados.mat,obs_tecnica:dados.obs,total:dados.tot,fotos:dados.fotos,video_link:dados.videoLink||null,checklist:dados.checklist.length?JSON.stringify(dados.checklist):null};
       if(osEditId && !String(osEditId).startsWith('local_')){
         // EDIÇÃO: atualiza a OS existente (mantém número e status)
         const existente=todosOS.find(x=>x.id===osEditId);
         await dbUpdate('ordens_servico', payload, 'id', osEditId);
         numStr=String(existente?.numero||'').padStart(3,'0')||'???';
+        salvouOnline=true;
         toast('✅ OS atualizada');
       } else {
         const {data:insOS}=await dbInsertNumerado('ordens_servico',{...payload,status:'agendado'});
         numStr=String(insOS?.numero||'').padStart(3,'0')||'???';
+        salvouOnline=true;
       }
-    }catch(e){ numStr='???'; console.warn('[gerarOSPDF] falha ao salvar OS no banco:', e?.message||e); toast('⚠️ OS não foi salva no banco — verifique a conexão'); }
-  } else { const n=(parseInt(ls('fluxa_os_num')||'0'))+1; lsSet('fluxa_os_num',n); numStr=String(n).padStart(3,'0'); }
+    }catch(e){ console.warn('[gerarOSPDF] falha ao salvar OS no banco:', e?.message||e); }
+  }
+  if(!salvouOnline){
+    // Offline, ou o salvamento online falhou: NUNCA deixa a OS existir só no
+    // PDF impresso. Sempre grava local (fluxa_os_hist) e marca para reenvio
+    // automático assim que a conexão voltar (_reenviarOSLocais).
+    if(osEditId){
+      const existente=todosOS.find(x=>x.id===osEditId);
+      const rec={...(existente||{}), ...payload, id:osEditId, numero:existente?.numero, _pendingSync:true};
+      _salvarOSLocal(rec);
+      numStr=String(existente?.numero||'').padStart(3,'0')||'???';
+      toast('💾 OS salva neste aparelho — sem conexão para sincronizar');
+    } else {
+      const n=(parseInt(ls('fluxa_os_num')||'0'))+1; lsSet('fluxa_os_num',String(n)); numStr=String(n).padStart(3,'0');
+      const rec={...payload, id:'local_os_'+Date.now(), numero:n, status:'agendado', data_criacao:new Date().toISOString(), _pendingSync:true};
+      _salvarOSLocal(rec);
+      toast(dbOk&&db ? '⚠️ OS não sincronizou — salva neste aparelho, reenvio automático' : '💾 OS salva neste aparelho — sem conexão, reenvio automático quando voltar');
+    }
+  }
 
   // Se modo 'both', preenche também o orçamento vinculado
   if(modo==='both' && osOrcId){
@@ -4879,15 +4966,37 @@ async function salvarPagamento(){
 //  OS HISTORY
 // ──────────────────────────────────────────────────
 async function loadOSHist(){
-  document.getElementById('osh-body').innerHTML='<div class="load"><div class="spin"></div> Carregando…</div>';
-  if(dbOk&&db){
-    try{
-      const {data,error}=await db.from('ordens_servico').select('*').order('data_criacao',{ascending:false});
-      if(error) throw error;
-      todosOS=data||[];
-    }catch(e){ console.warn('loadOSHist erro:',e.message); todosOS=[]; }
-  } else { todosOS=[]; }
+  // 1. SEMPRE mostra dados locais primeiro — sem depender do banco (mesmo
+  // padrão de loadHist/loadVistoriasRemoto; antes esta função zerava
+  // todosOS sempre que offline, mesmo com fluxa_os_hist cheio no aparelho).
+  const local=(()=>{ try{ return JSON.parse(ls('fluxa_os_hist')||'[]'); }catch(e){ return []; } })();
+  if(local.length>0) todosOS=local;
   renderOSTabela();
+  if(!(dbOk&&db)) return;
+
+  // 2. Sincroniza em background e atualiza a view
+  const body=document.getElementById('osh-body');
+  if(body && !todosOS.length) body.innerHTML='<div class="load"><div class="spin"></div> Carregando…</div>';
+  try{
+    const {data,error}=await db.from('ordens_servico').select('*').order('data_criacao',{ascending:false});
+    if(error) throw error;
+    let remoto=data||[];
+    // Respeita tombstones: OS apagada não volta. Se o delete anterior falhou
+    // (ficou só local), tenta apagar de novo aqui.
+    const _tomb=new Set(_tombLer('fluxa_os_tombstones'));
+    if(_tomb.size){
+      remoto.filter(r=>_tomb.has(r.id)).forEach(r=>db.from('ordens_servico').delete().eq('id',r.id).then(()=>{}).catch(()=>{}));
+      remoto=remoto.filter(r=>!_tomb.has(r.id));
+    }
+    // Merge: BD é fonte de verdade + mantém OS presas só no aparelho
+    // (criadas offline, ou editadas offline sobre uma OS já existente)
+    const remotoIds=new Set(remoto.map(x=>x.id));
+    const soLocal=todosOS.filter(x=>(String(x.id).startsWith('local_os_')||x._pendingSync===true)&&!remotoIds.has(x.id)&&!_tomb.has(x.id));
+    todosOS=[...remoto,...soLocal];
+    lsSet('fluxa_os_hist', JSON.stringify(todosOS.slice(0,200))); // mesmo teto usado nos demais pontos que escrevem fluxa_os_hist
+    renderOSTabela();
+    if(soLocal.length) await _reenviarOSLocais(soLocal);
+  }catch(e){ console.warn('loadOSHist erro:',e?.message||e); }
 }
 
 function filtOS(btn){
@@ -5105,7 +5214,12 @@ function excluirOS(id){
 }
 async function _excluirOSConfirmado(id){
   todosOS=todosOS.filter(x=>x.id!==id);
-  if(dbOk&&db) db.from('ordens_servico').delete().eq('id',id).then(()=>{}).catch(()=>{});
+  const lista=(()=>{ try{ return JSON.parse(ls('fluxa_os_hist')||'[]'); }catch(e){ return []; } })();
+  lsSet('fluxa_os_hist', JSON.stringify(lista.filter(x=>x.id!==id)));
+  if(!String(id).startsWith('local_os_')){
+    _tombAdd('fluxa_os_tombstones', id); // protege contra a OS ressuscitar se o delete abaixo falhar
+    if(dbOk&&db) db.from('ordens_servico').delete().eq('id',id).then(()=>{}).catch(()=>{});
+  }
   renderOSTabela(); toast('🗑 OS excluída');
 }
 
@@ -13431,6 +13545,7 @@ function _temPendentes(){
     if((typeof lsOrcLer==='function'?lsOrcLer():[]).some(o=>String(o.id).startsWith('local_'))) return true;
     if((typeof lsVisLer==='function'?lsVisLer():[]).some(v=>v&&v._pendingSync===true)) return true;
     if((typeof lsAgLer==='function'?lsAgLer():[]).some(a=>String(a.id).startsWith('ag_'))) return true;
+    if((()=>{ try{ return JSON.parse(ls('fluxa_os_hist')||'[]'); }catch(e){ return []; } })().some(o=>String(o.id).startsWith('local_os_')||o._pendingSync===true)) return true;
   }catch(e){ console.warn('[temPendentes]', e?.message||e); }
   return false;
 }
@@ -13450,6 +13565,12 @@ async function _reenviarPendentes(silencioso=true){
     try{ await _retryFotosVisEmAndamento?.(); }catch(e){ console.warn('[reenvio foto vis atual]',e?.message||e); }
     // Agendamentos presos (loadAgendamentos agora faz merge + reenvio)
     try{ await loadAgendamentos?.(); }catch(e){ console.warn('[reenvio ag]',e?.message||e); }
+    // OS presas (criadas offline ou editadas offline sobre OS já existente)
+    try{
+      const soLocalOS=(()=>{ try{ return JSON.parse(ls('fluxa_os_hist')||'[]'); }catch(e){ return []; } })()
+        .filter(o=>String(o.id).startsWith('local_os_')||o._pendingSync===true);
+      if(soLocalOS.length) await _reenviarOSLocais(soLocalOS);
+    }catch(e){ console.warn('[reenvio os]',e?.message||e); }
     if(!silencioso) toast('✅ Dados pendentes sincronizados');
   }finally{ _reenvioEmAndamento=false; }
 }
