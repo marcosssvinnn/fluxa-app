@@ -4697,6 +4697,9 @@ async function mudarSt(id, sel){
   const changes={status:st};
   if(st==='aprovado') changes.data_aprovacao=new Date().toISOString();
   const o=todosOrc.find(x=>x.id===id); if(o) Object.assign(o, changes);
+  // Congela o custo ANTES da baixa: a baixa pode disparar recomputarCMP numa
+  // entrada concorrente, e aí o custo gravado no item já seria outro.
+  if(o && st==='aprovado' && _congelarCustoOrc(o)) changes.servicos=o.servicos;
   lsOrcAtualizar(id, changes);
   if(o) sincronizarBaixaOrcamento(o);
   atualizarDash();
@@ -6758,6 +6761,22 @@ function renderDRE(){
   const avisos=[];
   if(semDesp) avisos.push('Nenhuma despesa lançada neste mês — o resultado abaixo da margem é só a receita, não o lucro.');
   if(semCusto) avisos.push('Nenhum custo de produto neste mês: ou não houve venda de material, ou os itens do orçamento não estavam vinculados ao estoque.');
+  // Margem pelo custo congelado no ITEM — cobre inclusive orçamento cujo
+  // material já foi estornado, que o CMV do razão não pega.
+  const aprovMes=(todosOrc||[]).filter(o=>{
+    if(o.status!=='aprovado') return false;
+    if(!visiveis.some(l=>l.id===(o.loja_id||''))) return false;
+    const ap=o.data_aprovacao?new Date(o.data_aprovacao):null;
+    const d=(ap&&!isNaN(ap))?ap:_orcData(o);
+    return d&&!isNaN(d)&&(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'))===mes;
+  });
+  const margens=aprovMes.map(margemOrcamento).filter(Boolean).filter(m=>m.cobertura>0);
+  if(margens.length){
+    const rec=margens.reduce((a,m)=>a+m.receita,0);
+    const cus=margens.reduce((a,m)=>a+m.custo,0);
+    const cob=margens.reduce((a,m)=>a+m.cobertura,0)/margens.length;
+    avisos.push(`Margem pelo custo congelado no item: <strong>${brl(rec-cus)}</strong> em ${margens.length} orçamento${margens.length!==1?'s':''} (${((rec-cus)/rec*100).toFixed(0)}%) — custo conhecido em ${cob.toFixed(0)}% do valor.`);
+  }
   avisos.push('Receita = orçamento aprovado no mês. Custo do produto vem do valor gravado na baixa, não do custo de hoje. Despesa entra pela competência.');
   document.getElementById('dre-nota').innerHTML=avisos.map(a=>'• '+a).join('<br>');
 }
@@ -11788,6 +11807,56 @@ function entregarOrcamento(orc, origem, qtyMap){
 //  saído com o que JÁ saiu e lança só a diferença. Então reverter um orçamento
 //  aprovado devolve o material sozinho, e rodar duas vezes não duplica nada.
 // ══════════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════
+//  CUSTO CONGELADO NO ITEM (fase 2.1)
+//  `produtos.custo` é o CMP e é REESCRITO a cada entrada (recomputarCMP). Então
+//  calcular a margem de um orçamento de abril com o custo de hoje dá um número
+//  errado — e ninguém percebe, porque ele continua "fazendo sentido".
+//  Na aprovação, cada item vinculado guarda o custo daquele momento.
+//
+//  A saída no razão já carimbava o custo (é de lá que o DRE tira o CMV); isto é
+//  a outra metade: permite margem POR ORÇAMENTO, inclusive depois de o item ser
+//  estornado ou o produto mudar de preço.
+//  Só marca item com produto_id — item de texto livre não tem de onde tirar
+//  custo, e inventar um seria pior do que deixar em branco.
+// ══════════════════════════════════════════════════════════════════════
+function _congelarCustoOrc(orc){
+  if(!orc || !Array.isArray(orc.servicos)) return false;
+  let mudou=false;
+  orc.servicos.forEach(s=>{
+    if(!s || !s.produto_id) return;
+    if(s.custo_unit!=null) return;          // já congelado: não reescreve
+    const p=produtoById(s.produto_id);
+    if(!p || p.custo==null || p.custo==='') return;
+    const cu=parseFloat(p.custo)||0;
+    if(!cu) return;
+    s.custo_unit=cu;
+    s.custo_total=cu*Math.abs(parseInt(s.qty)||1);
+    s.custo_em=_hojeLocal();
+    mudou=true;
+  });
+  return mudou;
+}
+// Margem de um orçamento a partir do custo congelado. Devolve `cobertura` = % do
+// valor cujo custo é conhecido — sem isso a margem parece precisa quando é
+// parcial. É o mesmo cuidado da análise de clientes.
+function margemOrcamento(orc){
+  let svcs=orc&&orc.servicos;
+  if(typeof svcs==='string'){ try{ svcs=JSON.parse(svcs||'[]'); }catch(e){ svcs=[]; } }
+  svcs=Array.isArray(svcs)?svcs:[];
+  let receita=0, custo=0, receitaComCusto=0;
+  svcs.forEach(s=>{
+    const q=Math.abs(parseInt(s.qty)||1);
+    const v=(parseFloat(s.p)||0)*q;
+    receita+=v;
+    if(s.custo_total!=null){ custo+=parseFloat(s.custo_total)||0; receitaComCusto+=v; }
+  });
+  if(!receita) return null;
+  return {receita, custo, margem:receita-custo,
+          pct:(receita-custo)/receita*100,
+          cobertura: receitaComCusto/receita*100};
+}
+
 function sincronizarSaidaOrcamento(orc){
   if(!orc||!orc.id) return;
   const aprovado = orc.status==='aprovado';
