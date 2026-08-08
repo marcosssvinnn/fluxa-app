@@ -4,6 +4,35 @@
 
 ## 🔀 COORDENAÇÃO — reaberta em 08/08
 
+> **QA de runtime feita (08/08, sessão à parte, escopo: index.html/styles.css,
+> sem tocar em app.js).** Testado no localhost:8778, `dbOk=false` antes de
+> qualquer coisa que grava — nenhuma escrita chegou a bater no Supabase real
+> (conferido pela aba de rede). Cobertura: orçamento criar/editar/aprovar
+> (os dois gates novos — pagamento e vínculo — testados end-to-end pelo
+> `<select>` real da tabela, não só chamada isolada), produto (gate de custo
+> clicado de verdade no `confirmar()`), despesa (validação antiga intacta),
+> filtro de OS por técnico (a correção de hoje, `filtTecOS`/`filtStatusMinhasOS`
+> — testei os dois, sem colisão), mobile 375px, perfis gestor e técnico.
+>
+> **1 bug real achado e corrigido:** `#confirmar-modal-bg` tinha `z-index:500`
+> (styles.css), abaixo de `#prod-modal` (`z-index:600`, classe `.qr-modal-bg`).
+> Quando o gate de custo do produto chama `confirmar()`, o diálogo renderizava
+> **atrás** do modal de produto — invisível, inclicável, ninguém percebia que
+> travou. Bug pré-existente de stacking, só nunca tinha sido exercitado porque
+> nada chamava `confirmar()` de dentro de um modal com z-index maior antes de
+> hoje. Corrigido: `#confirmar-modal-bg{z-index:900}`, acima de tudo (o maior
+> outro modal é 800). Reproduzido, corrigido, re-testado com clique real —
+> confirma agora aparece por cima e funciona.
+>
+> **Modal órfão removido:** `#concluir-vis-bg` (index.html) + `fecharConcluirVis`/
+> `salvarConcluirVis` (app.js — única exceção autorizada) — nada mais abria
+> esse modal desde que as funções que o chamavam foram removidas em `807672a`.
+> Confirmado via grep antes de apagar. Coletor (`mortas:0`, `duplicadas:0`)
+> confere depois. Entrou no commit `7958c75` (arquivos compartilhados em tempo
+> real, não deu pra separar num commit à parte sem risco).
+>
+> Nada mais quebrado encontrado nesta rodada.
+
 > Voltamos a ser duas sessões. Mesmo modelo de antes: divisão por ARQUIVO
 > (código × dados), não por assunto — foi o que zerou colisão da última vez.
 >
