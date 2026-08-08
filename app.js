@@ -4,7 +4,6 @@
 function getSessao(){ try{ return JSON.parse(sessionStorage.getItem('fluxa_user')||'null'); }catch(e){ return null; } }
 function setSessao(u){ sessionStorage.setItem('fluxa_user',JSON.stringify(u)); }
 function clearSessao(){ sessionStorage.removeItem('fluxa_user'); }
-function eMaster(){ const s=getSessao(); return s?.perfil==='master'; }
 function eGestor(){ const s=getSessao(); return s?.perfil==='gestor'||s?.perfil==='master'; } // master herda acesso de gestor
 
 // ── Tela inicial do app — PONTO ÚNICO ──
@@ -509,28 +508,12 @@ async function carregarUsuarios(){
   todosUsuarios=local;
 }
 
-// ── Renderiza botão de usuário no login (layout horizontal) ──
-// slim=true → sem badge e sem seta (usado nos técnicos)
-function avBtn(id, perfil, nome, sub, cor, lojaId, slim=false){
-  const lojaParam = lojaId ? `'${lojaId}'` : 'null';
-  const inicial = nome.charAt(0).toUpperCase();
-  const badgeLbl = perfil==='gestor'?'Gestão':perfil==='vendas'?'Vendas':'Técnico';
-  return `<button class="login-av-btn${slim?' slim':''}" onclick="selecionarUserLogin(this,'${id}','${perfil}','${esc(nome)}',${lojaParam})">
-    <div class="login-av-circle" style="background:${cor}">${inicial}</div>
-    <div class="login-av-info">
-      <div class="login-av-nome">${esc(nome)}</div>
-      <div class="login-av-sub">${esc(sub)}</div>
-    </div>
-    ${slim?'':`<span class="login-av-badge ${perfil}">${badgeLbl}</span><span class="login-av-arrow">›</span>`}
-  </button>`;
-}
 
 function atualizarDotsPIN(val){
   // No novo formulário não há dots visuais — apenas foco automático ao completar 4 dígitos
   if(val && val.length === 4) setTimeout(fazerLogin, 80);
 }
 
-function toggleLoginTecs(){ /* removido — novo formulário não tem seções colapsáveis */ }
 
 // Lista interna para autocomplete; preenchida por renderLoginUsers
 let _loginUsersCache = [];
@@ -578,16 +561,6 @@ function loginEscolherSugestao(id){
 
 let loginUserSelecionado = null; // {id, perfil, nome, loja_id}
 
-function selecionarUserLogin(btn, id, perfil, nome, lojaId){
-  // Mantido para compatibilidade — novo fluxo usa loginEscolherSugestao
-  loginUserSelecionado={id,perfil,nome,loja_id:lojaId};
-  const inp=document.getElementById('login-nome-input');
-  if(inp) inp.value=nome;
-  const box=document.getElementById('login-nome-sugestoes');
-  if(box){ box.style.display='none'; box.innerHTML=''; }
-  document.getElementById('login-err').textContent='';
-  setTimeout(()=>document.getElementById('pin-input').focus(),80);
-}
 
 // ── Segurança: hash + lockout ──────────────────────
 const PIN_SALT = 'fluxa2025';
@@ -834,15 +807,6 @@ function voltarParaPin(){
   setTimeout(()=>{ const ni=document.getElementById('login-nome-input'); if(ni) ni.focus(); },100);
 }
 
-function deselecionarUser(){
-  loginUserSelecionado=null;
-  document.getElementById('login-step-loja').classList.remove('show');
-  document.getElementById('login-step-users').style.display='';
-  const ni=document.getElementById('login-nome-input'); if(ni) ni.value='';
-  const pi=document.getElementById('pin-input'); if(pi) pi.value='';
-  const box=document.getElementById('login-nome-sugestoes'); if(box){ box.style.display='none'; box.innerHTML=''; }
-  document.getElementById('login-err').textContent='';
-}
 
 // ══════════════════════════════════════════════════
 //  CFG — configurações da empresa (white-label)
@@ -877,7 +841,6 @@ let histOrdem = 'recente';
 let _orcRemotoOk = false, _estoqueRemotoOk = false;
 let todosOS = [], filtroOSSt = localStorage.getItem('fluxa_filtroOSSt')||'todos', buscaOS = '', filtroOSTec = '';
 let osEditId = null; // id da OS sendo editada (null = nova) — evita duplicar ao salvar
-let filtroPeriodo = ''; // legado — não mais usado na tabela principal
 let orcMesRef = ''; // YYYY-MM ou '' = todos os períodos
 let osFotos = ['','',''];
 let printMode = ''; // 'orc' | 'os' | 'both'
@@ -3035,17 +2998,6 @@ async function salvarApenas(){
   btn.disabled=false; btn.textContent='Salvar Orçamento';
 }
 
-function mostrarBannerNovo(num){
-  const numStr=num?'#'+String(num).padStart(3,'0'):'';
-  const existing=document.getElementById('banner-novo');
-  if(existing) existing.remove();
-  const banner=document.createElement('div');
-  banner.id='banner-novo';
-  banner.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#16a34a;color:white;padding:14px 22px;border-radius:14px;box-shadow:0 6px 24px rgba(0,0,0,.2);display:flex;align-items:center;gap:14px;z-index:999;font-family:Inter,sans-serif;font-size:14px;font-weight:600';
-  banner.innerHTML=`<span>✅ Orçamento ${numStr} salvo!</span><button onclick="novoOrc();this.parentElement.remove()" style="background:rgba(255,255,255,.25);border:none;color:white;padding:6px 14px;border-radius:8px;cursor:pointer;font-family:Inter,sans-serif;font-size:13px;font-weight:700">＋ Novo Orçamento</button><button onclick="this.parentElement.remove()" style="background:none;border:none;color:rgba(255,255,255,.7);cursor:pointer;font-size:18px;line-height:1;padding:0 4px">×</button>`;
-  document.body.appendChild(banner);
-  setTimeout(()=>{ if(banner.parentElement) banner.remove(); },8000);
-}
 
 // ──────────────────────────────────────────────────
 //  GERAR PDF ORÇAMENTO
@@ -4421,7 +4373,6 @@ function renderGraficoDash(){
   });
 }
 
-function filtrarPorPeriodo(val){ filtroPeriodo=val; renderTabela(); } // legado
 
 // ── NAVEGAÇÃO DE MÊS (orçamentos) ──────────────────────────────────────────
 const _MESES_ORC=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
@@ -6130,10 +6081,6 @@ function enviarNotifWA(msg, telCliente){
   window.open(`https://wa.me/${tel}?text=${encodeURIComponent(msg)}`, '_blank');
 }
 
-function btnNotif(msg, tel){
-  return `<button class="tb" title="Copiar mensagem" onclick='copiarNotif(${JSON.stringify(msg)})'>📋 Copiar</button>
-          <button class="tb" style="background:var(--wa);color:white;border-color:var(--wa)" title="Enviar WhatsApp" onclick='enviarNotifWA(${JSON.stringify(msg)}, ${JSON.stringify(tel||'')})'>💬 WA</button>`;
-}
 
 // ══════════════════════════════════════════════════
 //  MÓDULO 5 — PORTAL DO CLIENTE
@@ -6371,13 +6318,6 @@ async function _hashDocumentoOrc(o){
     return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
   }catch(e){ return null; }
 }
-// Verifica se o conteúdo atual do orçamento ainda bate com o hash assinado.
-// Retorna: 'ok' | 'alterado' | 'sem_hash'
-async function verificarAssinaturaOrc(o){
-  if(!o||!o.assinatura_hash) return 'sem_hash';
-  const h=await _hashDocumentoOrc(o);
-  return h===o.assinatura_hash ? 'ok' : 'alterado';
-}
 async function aprovarOrcPortal(id, sigB64){
   const oAtual=todosOrc.find(x=>x.id===id)||{};
   const agora=new Date().toISOString();
@@ -6417,13 +6357,6 @@ function abrirWAPortal(){
   window.open(`https://wa.me/${tel}?text=${encodeURIComponent('Olá! Sou '+nome+' e gostaria de falar com vocês.')}`, '_blank');
 }
 
-function copiarLinkPortal(id){
-  const lista=lsCliLer();
-  const cli=lista.find(x=>x.id===id); if(!cli||!cli.portal_token) return;
-  const url=window.location.origin+window.location.pathname+'#portal/'+cli.portal_token;
-  const msg=`Olá, ${cli.nome}! 👋\n\nAcesse seu portal exclusivo para acompanhar seus agendamentos, histórico de serviços e orçamentos:\n\n${url}\n\nQualquer dúvida estamos à disposição!\n*${CFG.nome}*`;
-  navigator.clipboard.writeText(msg).then(()=>toast('✅ Link do portal copiado!')).catch(()=>toast('✅ Copiado!'));
-}
 
 // ══════════════════════════════════════════════════
 //  MÓDULO 4 — PRODUTIVIDADE POR TÉCNICO
@@ -8798,72 +8731,8 @@ function _locEquipCardTitulo(i, val){
 // ── CONCLUIR VISITA — equipamentos no modal ──────────────────────────────────
 let _cvEquipData={}; // {idx: {status, obs, fotos:[]}}
 
-function renderConcluirVisEquips(equips){
-  _cvEquipData={};
-  const wrap=document.getElementById('concluir-vis-equips-wrap');
-  const list=document.getElementById('concluir-vis-equip-list');
-  if(!wrap||!list) return;
-  if(!equips||!equips.length){ wrap.style.display='none'; return; }
-  wrap.style.display='';
-  equips.forEach((_,i)=>{ _cvEquipData[i]={status:'',obs:'',fotos:[]}; });
-  list.innerHTML=equips.map((eq,i)=>`
-    <div class="cv-eq-row" id="cv-eq-row-${i}">
-      <div class="cv-eq-hdr">
-        <div>
-          <div class="cv-eq-name">⚙️ ${esc(eq.nome||'Equipamento')}</div>
-          ${(eq.modelo||eq.potencia)?`<div class="cv-eq-sub">${[eq.modelo,eq.potencia].filter(Boolean).map(esc).join(' · ')}</div>`:''}
-        </div>
-        <div class="cv-eq-badges">
-          <button class="cv-eq-badge bom" id="cv-eq-b-bom-${i}" onclick="setCvEquipStatus(${i},'bom')">✓ Bom</button>
-          <button class="cv-eq-badge atencao" id="cv-eq-b-atencao-${i}" onclick="setCvEquipStatus(${i},'atencao')">⚠ Atenção</button>
-          <button class="cv-eq-badge critico" id="cv-eq-b-critico-${i}" onclick="setCvEquipStatus(${i},'critico')">✕ Crítico</button>
-          <button class="cv-eq-badge na" id="cv-eq-b-na-${i}" onclick="setCvEquipStatus(${i},'na')">— N/A</button>
-        </div>
-      </div>
-      <textarea class="cv-eq-obs" rows="2" placeholder="Descrição da condição do equipamento…" oninput="_cvEquipData[${i}].obs=this.value" id="cv-eq-obs-${i}"></textarea>
-      <div class="cv-eq-fotos" id="cv-eq-fotos-${i}">
-        <input type="file" accept="image/*" capture="environment" id="cv-eq-file-${i}" style="display:none" onchange="cvCapturarFoto(${i},this)">
-        <input type="file" accept="image/*" id="cv-eq-file-${i}-gal" style="display:none" onchange="cvCapturarFoto(${i},this)">
-        <button type="button" class="cv-eq-foto-btn" onclick="document.getElementById('cv-eq-file-${i}').click()">📷 Tirar foto</button>
-        <button type="button" class="cv-eq-foto-btn" style="opacity:.75" onclick="document.getElementById('cv-eq-file-${i}-gal').click()">🖼️ Galeria</button>
-      </div>
-    </div>
-  `).join('');
-}
 
-function setCvEquipStatus(idx,status){
-  _cvEquipData[idx].status=status;
-  ['bom','atencao','critico','na'].forEach(s=>{
-    const btn=document.getElementById(`cv-eq-b-${s}-${idx}`);
-    if(btn){ btn.classList.toggle('on',s===status); }
-  });
-  const row=document.getElementById(`cv-eq-row-${idx}`);
-  if(row){ row.className='cv-eq-row'+(status&&status!=='na'?' st-'+status:''); }
-}
 
-function cvCapturarFoto(idx,input){
-  const files=input.files; if(!files||!files.length) return;
-  const file=files[0];
-  const reader=new FileReader();
-  reader.onload=async e=>{
-    const compressed=await compressImage(e.target.result); // fix #5: comprime antes de armazenar
-    _cvEquipData[idx].fotos=_cvEquipData[idx].fotos||[];
-    _cvEquipData[idx].fotos.push(compressed);
-    const fotosDiv=document.getElementById(`cv-eq-fotos-${idx}`);
-    if(fotosDiv){
-      const img=document.createElement('img');
-      img.src=compressed; img.className='cv-eq-thumb';
-      img.title='Clique para remover';
-      const fotoIdx=_cvEquipData[idx].fotos.length-1;
-      img.onclick=()=>{ _cvEquipData[idx].fotos.splice(fotoIdx,1); img.remove(); };
-      // insere antes do botão de adicionar
-      const btn=fotosDiv.querySelector('.cv-eq-foto-btn');
-      fotosDiv.insertBefore(img,btn);
-    }
-    input.value=''; // reset para permitir nova foto
-  };
-  reader.readAsDataURL(file);
-}
 
 // Cria ou atualiza o agendamento mensal vinculado ao plano de acompanhamento
 async function criarOuAtualizarAgendamentoPlano(rec, isEdit){
@@ -9044,31 +8913,6 @@ function locVisMesProximo(){
   renderLocaisTab();
 }
 
-// Abre o modal de conclusão de visita com todos os dados do plano pré-preenchidos
-function iniciarVistoriaLocal(id){
-  const loc=locaisVistoria.find(x=>x.id===id);
-  if(!loc) return;
-  window._concluirVisLocalId=id;
-  const s=getSessao();
-  // Cabeçalho
-  document.getElementById('concluir-vis-id').value=id;
-  document.getElementById('concluir-vis-nome').textContent=loc.cliente+' — '+loc.local;
-  // Data = hoje
-  document.getElementById('concluir-vis-data').value=_hojeLocal();
-  // Horário = hora preferencial do plano, ou hora atual
-  const horaEl=document.getElementById('concluir-vis-hora');
-  if(horaEl) horaEl.value=loc.hora_pref||new Date().toTimeString().slice(0,5);
-  // Técnico = responsável do plano, ou técnico logado
-  document.getElementById('concluir-vis-tec').value=loc.tecnico||s?.nome||'';
-  // Observações
-  document.getElementById('concluir-vis-obs').value='';
-  // Equipamentos do plano
-  const equips=normalizeLocEquips(loc.equipamentos||[]);
-  renderConcluirVisEquips(equips);
-  // Guarda lista para salvar depois
-  window._concluirVisEquips=equips;
-  document.getElementById('concluir-vis-bg').classList.add('on');
-}
 function fecharConcluirVis(){
   document.getElementById('concluir-vis-bg').classList.remove('on');
   window._concluirVisLocalId=null;
@@ -9251,36 +9095,6 @@ async function salvarConcluirVis(){
     const ok=await enviarEmailVistoria(rec);
     if(ok) toast('📧 Relatório enviado por e-mail');
   }
-}
-// Abre formulário completo (equipamentos, fotos, checkin/checkout)
-function concluirVisDetalhada(){
-  const id=window._concluirVisLocalId;
-  fecharConcluirVis();
-  const loc=locaisVistoria.find(x=>x.id===id);
-  if(!loc) return;
-  // Converte equipamentos do plano para o formato do formulário completo
-  const equipsPlano=normalizeLocEquips(loc.equipamentos||[]);
-  visEquipSelecionados=equipsPlano.map(e=>e.id);
-  // Pré-carrega dados nos equipamentos do formulário (para mostrar modelo/potência)
-  visEquipDados={};
-  visAmbienteObs={};
-  equipsPlano.forEach(e=>{ visEquipDados[e.id]={status:'na',obs:'',fotos:[],modelo:e.modelo,potencia:e.potencia}; });
-  // Abre formulário completo com dados do local
-  novaVistoria(loc.cliente, loc.local, loc.tecnico||'');
-  setTimeout(()=>{
-    const emailEl=document.getElementById('vis-email-resp');
-    if(emailEl && loc.email_responsavel) emailEl.value=loc.email_responsavel;
-    const mesEl=document.getElementById('vis-mes-ref');
-    const _n=new Date();
-    const mesData=`${_n.getFullYear()}-${String(_n.getMonth()+1).padStart(2,'0')}`;
-    if(mesEl) mesEl.value=mesData;
-    const horaEl=document.getElementById('vis-hora');
-    if(horaEl && loc.hora_pref) horaEl.value=loc.hora_pref;
-    window._visLocalId=id;
-    // Adiciona equipamentos customizados ao grid
-    _visEquipsCustom=equipsPlano;
-    renderVisEquipGrid();
-  }, 80);
 }
 
 let _tecVerTodos=false;
@@ -11576,31 +11390,6 @@ function saldoNaData(pid, loja, iso){
       String(m.data||'').slice(0,10)<=iso)
     .reduce((a,m)=>a+(parseFloat(m.quantidade)||0),0);
 }
-// Consumo médio por dia (só saídas de verdade, não ajuste nem transferência —
-// ajuste é correção de erro e transferência não é consumo).
-function _consumoDia(pid, loja, jan){
-  if(!jan) return 0;
-  const saiu=_movsDaLoja(loja).filter(m=>m.produto_id===pid && m.tipo==='saida')
-    .reduce((a,m)=>a+Math.abs(parseFloat(m.quantidade)||0),0);
-  return saiu/jan.dias;
-}
-// Dias que o saldo atual ainda cobre no ritmo medido. null = não houve consumo.
-function coberturaDias(pid, loja){
-  const jan=_ledgerJanela(loja); const c=_consumoDia(pid,loja,jan);
-  if(!c) return null;
-  return Math.round(_fisicaProdutoNaLoja(pid, loja||lojaAtiva||LOJA_PADRAO_ID)/c);
-}
-// Giro na janela: saídas ÷ saldo médio. Não anualizo — seriam 7 semanas viradas
-// em 12 meses, e o número pareceria muito mais confiável do que é.
-function giroJanela(pid, loja){
-  const jan=_ledgerJanela(loja); if(!jan) return null;
-  const saiu=_movsDaLoja(loja).filter(m=>m.produto_id===pid && m.tipo==='saida')
-    .reduce((a,m)=>a+Math.abs(parseFloat(m.quantidade)||0),0);
-  if(!saiu) return 0;
-  const ini=saldoNaData(pid,loja,jan.ini), fim=saldoNaData(pid,loja,jan.fim);
-  const medio=(ini+fim)/2;
-  return medio>0 ? saiu/medio : null;
-}
 
 // ── Ruptura: relê o razão em ordem e marca quando o saldo cruzou para negativo.
 // Hoje listaEncomendas() mostra só o estado de AGORA; a série é que vira
@@ -11706,7 +11495,6 @@ function _fisicaProdutoNaLoja(produtoId, loja){
 function disponivelProduto(produtoId){ const s=_getSaldoCache()[produtoId]||{}; return (s.fisico||0)-(s.reservado||0); }
 function saldoProduto(produtoId){ return fisicaProduto(produtoId); } // compat
 function produtoById(id){ return todosProdutos.find(p=>p.id===id)||null; }
-function movRefExiste(ref){ return todosMovEstoque.some(m=>m.ref===ref); }
 
 // Registra um movimento (local imediato + sync em background, resiliente).
 function registrarMovimento({produto_id, tipo, quantidade, custo_unit, motivo, motivoCod, ref, lojaId}){
@@ -12894,16 +12682,6 @@ async function salvarProduto(){
 
 // ── Modal de movimento (entrada / saída / ajuste) ──
 let _movProdId=null, _movTipo='entrada';
-function toggleMenuEstoque(id){
-  // Fecha todos os outros menus abertos primeiro
-  document.querySelectorAll('[id^="emenu_"]').forEach(el=>{ if(el.id!==id) el.style.display='none'; });
-  const el=document.getElementById(id); if(el) el.style.display=el.style.display==='none'?'block':'none';
-  // Fecha ao clicar fora
-  setTimeout(()=>{
-    function fora(e){ if(!document.getElementById(id)?.contains(e.target)){ const m=document.getElementById(id); if(m) m.style.display='none'; document.removeEventListener('click',fora); } }
-    document.addEventListener('click',fora);
-  },10);
-}
 
 function abrirMovModal(produtoId, tipo){
   _movProdId=produtoId; _movTipo=tipo;
