@@ -7203,7 +7203,19 @@ async function loadDespesas(){
           remoto.filter(r=>_tombDesp.has(r.id)).forEach(r=>db.from('despesas').delete().eq('id',r.id).then(()=>{}).catch(()=>{}));
           remoto=remoto.filter(r=>!_tombDesp.has(r.id));
         }
-        todasDesp=remoto; lsDespSalvar(todasDesp); renderDespesas();
+        // Preserva despesas presas só no aparelho (criadas offline, id
+        // desp_<ts> ainda não sincronizado) — mesmo padrão de loadAgendamentos,
+        // sem isso o "banco é fonte de verdade" apagava o que nunca sincronizou.
+        const idsDesp=new Set(remoto.map(x=>x.id));
+        const soLocalDesp=todasDesp.filter(x=>String(x.id).startsWith('desp_')&&!idsDesp.has(x.id));
+        todasDesp=[...remoto,...soLocalDesp]; lsDespSalvar(todasDesp); renderDespesas();
+        for(const d of soLocalDesp){
+          try{
+            const {id:_velhoId,...dSemId}=d;
+            const {data:ins}=await dbInsert('despesas', dSemId);
+            if(ins){ todasDesp=todasDesp.filter(x=>x.id!==d.id); todasDesp.unshift(ins); lsDespSalvar(todasDesp); }
+          }catch(e){ console.warn('[reenvioDesp]', e?.message||e); }
+        }
       }
     }catch(e){ console.warn('[loadDespesas]', e?.message||e); }
   }
@@ -8019,7 +8031,19 @@ async function loadEquipamentos(){
         remotoEq.filter(r=>_tombEq.has(r.id)).forEach(r=>db.from('equipamentos').delete().eq('id',r.id).then(()=>{}).catch(()=>{}));
         remotoEq=remotoEq.filter(r=>!_tombEq.has(r.id));
       }
-      todosEq=remotoEq; lsEqSalvar(todosEq); renderEqGrid(); verificarAlertasGarantia();
+      // Preserva equipamentos presos só no aparelho (importados/cadastrados
+      // offline, id eq_<ts> ainda não sincronizado) — mesmo padrão de
+      // loadAgendamentos/loadDespesas.
+      const idsEq=new Set(remotoEq.map(x=>x.id));
+      const soLocalEq=todosEq.filter(x=>String(x.id).startsWith('eq_')&&!idsEq.has(x.id));
+      todosEq=[...remotoEq,...soLocalEq]; lsEqSalvar(todosEq); renderEqGrid(); verificarAlertasGarantia();
+      for(const eq of soLocalEq){
+        try{
+          const {id:_velhoId,...eqSemId}=eq;
+          const {data:ins}=await dbInsert('equipamentos', eqSemId);
+          if(ins){ todosEq=todosEq.filter(x=>x.id!==eq.id); todosEq.unshift(ins); lsEqSalvar(todosEq); renderEqGrid(); }
+        }catch(e){ console.warn('[reenvioEq]', e?.message||e); }
+      }
     }catch(e){ console.warn('loadEquipamentos falhou:',e.message); }
   }
 }
@@ -13612,6 +13636,8 @@ function _temPendentes(){
     if((typeof lsVisLer==='function'?lsVisLer():[]).some(v=>v&&v._pendingSync===true)) return true;
     if((typeof lsAgLer==='function'?lsAgLer():[]).some(a=>String(a.id).startsWith('ag_'))) return true;
     if((()=>{ try{ return JSON.parse(ls('fluxa_os_hist')||'[]'); }catch(e){ return []; } })().some(o=>String(o.id).startsWith('local_os_')||o._pendingSync===true)) return true;
+    if((typeof lsDespLer==='function'?lsDespLer():[]).some(d=>String(d.id).startsWith('desp_'))) return true;
+    if((typeof lsEqLer==='function'?lsEqLer():[]).some(eq=>String(eq.id).startsWith('eq_'))) return true;
   }catch(e){ console.warn('[temPendentes]', e?.message||e); }
   return false;
 }
@@ -13637,6 +13663,9 @@ async function _reenviarPendentes(silencioso=true){
         .filter(o=>String(o.id).startsWith('local_os_')||o._pendingSync===true);
       if(soLocalOS.length) await _reenviarOSLocais(soLocalOS);
     }catch(e){ console.warn('[reenvio os]',e?.message||e); }
+    // Despesas/equipamentos presos (loadDespesas/loadEquipamentos agora fazem merge + reenvio)
+    try{ await loadDespesas?.(); }catch(e){ console.warn('[reenvio desp]',e?.message||e); }
+    try{ await loadEquipamentos?.(); }catch(e){ console.warn('[reenvio eq]',e?.message||e); }
     if(!silencioso) toast('✅ Dados pendentes sincronizados');
   }finally{ _reenvioEmAndamento=false; }
 }
