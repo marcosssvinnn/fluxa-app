@@ -2,18 +2,98 @@
 
 ---
 
-## 🔀 COORDENAÇÃO — encerrada em 07/08 (sessão B sem créditos)
+## 🔀 COORDENAÇÃO — reaberta em 08/08
 
-> A sessão B parou (limite de créditos). **A sessão A assumiu tudo**, inclusive
-> `docs/` e SQL — a divisão de arquivos abaixo não vale mais. Fica registrada
-> porque funcionou: nas ~6 horas em paralelo não houve uma única colisão depois
-> que a divisão passou a ser por ARTEFATO (código × dados) em vez de por assunto.
-> Se um dia voltarem a ser duas, é o modelo a repetir.
+> Voltamos a ser duas sessões. Mesmo modelo de antes: divisão por ARQUIVO
+> (código × dados), não por assunto — foi o que zerou colisão da última vez.
 >
-> **O que a B deixou pronto e continua valendo:** `docs/dedup-clientes*`,
-> `docs/baseline-operacional-2026-08-07.md`, `docs/cobertura-produto-id-*` e as
-> 19 consultas versionadas em `docs/sql/` — é com elas que se mede "antes ×
-> depois" de qualquer fase.
+> **O que a B deixou pronto na rodada anterior e continua valendo:**
+> `docs/dedup-clientes*`, `docs/baseline-operacional-2026-08-07.md`,
+> `docs/cobertura-produto-id-*`, `docs/estoque-giro-2026-08-07.md` e as 22
+> consultas versionadas em `docs/sql/`.
+>
+> ### Rodada de 08/08 — três entregas de uma sessão paralela, reconciliadas
+> Uma sessão (rodando fora deste worktree, a partir do commit `c24c176`)
+> produziu `setup.sql`, `migracao-correcoes-2026-08-08.sql` e
+> `patches-app-js-2026-08-08.md`. Eu (nesta sessão) já tinha subido o
+> `1fcb2b2` em cima do mesmo commit, então havia sobreposição real. Reconciliei
+> item a item, contra o banco de produção, antes de aplicar qualquer coisa:
+>
+> - **`equipamentos.cliente_id` (achado deles, bloco 1 da migração):** já
+>   corrigido em produção desde ontem (commits `07ae9ed`/`0fc9573`, sessão A) —
+>   confirmado agora com `select data_type from information_schema.columns`:
+>   `text`. O achado era real no *código* (`setup.sql` ainda criava `uuid` numa
+>   instalação nova), e isso eu já tinha corrigido no `1fcb2b2`. **Não rodei o
+>   bloco 1** — seria um ALTER sem efeito sobre uma coluna que já é `text`.
+> - **`ordens_compra.data_prevista: text → date`, `usuarios.custo_hora`:**
+>   achados novos e corretos, sem sobreposição com nada meu. **Apliquei os
+>   dois em produção** (verificado antes: `ordens_compra` tem 0 linhas, o
+>   input já é `type="date"` — conversão sem risco) e adicionei ao `setup.sql`.
+> - **`setup.sql` deles:** tinha `notas_fiscais.pdf_danfe_url` e `loja_id uuid`
+>   — os dois **errados** (produção real: `pdf_danfe_base64` e `loja_id text`,
+>   já corrigidos por mim no `1fcb2b2` junto com o app.js que escreve nessas
+>   colunas) — e não tinha o bucket `vistorias-fotos`. Não usei o arquivo
+>   deles; mantive o meu e só incorporei o que era genuinamente novo e certo
+>   (`custo_hora`, `data_prevista date`, dois índices de CRM).
+> - **Patch B (parcelas órfãs) deles é melhor que o meu do `1fcb2b2`** — cobre
+>   reversão de status e recusa no portal (eu só cobria exclusão), e preserva
+>   parcela já **paga** em vez de apagar tudo (o meu apagaria pagamento real
+>   por engano). **Troquei o meu pelo deles.**
+> - **Patch C (mão de obra no DRE):** novo, sem sobreposição. **Apliquei.**
+>   `duracao_min` continua zerado nas 118 OS — a nota de cobertura já avisa
+>   isso, então fica pronto para quando o check-in entrar na rotina.
+> - **Achado extra deles — `_addDias` e `filtTecOS` declaradas duas vezes:**
+>   confirmado, e **`filtTecOS` era bug ativo**: o `<select onchange>` de
+>   filtrar OS por técnico (index.html:1556) chamava a versão errada (a de
+>   botão, que faz `btn.classList.add` — com `btn` sendo uma string, lançava
+>   TypeError e o filtro nunca aplicava). Corrigido: `_addDias` morta removida,
+>   `filtTecOS` de botão renomeada para `filtStatusMinhasOS` + 3 call sites no
+>   index.html.
+> - **Patch A (recebível na aprovação pelo portal) — NÃO apliquei.** É uma
+>   discordância de desenho real com o que já está no ar, não um bug. Ver
+>   seção abaixo — decisão do Marcos.
+>
+> Tudo isso: `app.js`, `index.html`, `setup.sql`. Validado com o check de
+> sintaxe (`osascript -l JavaScript` + `new Function()`) depois de cada bloco.
+> Ainda não commitei — vou fechar num commit só depois de aplicar tudo.
+
+### ⚠️ Decisão pendente do Marcos — Patch A (recebível no portal)
+
+Hoje, quando o cliente aprova pelo portal, **nenhuma parcela nasce** — fica
+visível na fila "Aprovados sem cobrança lançada" (que eu adicionei no
+`1fcb2b2`) para alguém do time lançar manualmente. É deliberado: `pag_cod` não
+é confiável (33 de 88 aprovados sem código, 30 "A combinar", só 2 com código
+real — achado já registrado no `1fcb2b2`), então gerar parcela sozinho a
+partir dele inventaria vencimento em boa parte dos casos.
+
+O Patch A da outra sessão discorda por um motivo válido: perguntar ao
+*cliente* "em quantas vezes?" não faz sentido (é decisão do gestor), então em
+vez de deixar a fila crescer, ele **gera a parcela mesmo assim**, marcada
+`origem:'portal'` e com uma observação de que é estimativa a confirmar — e
+propõe (mas não implementa) um sinal visual na tela pra essa estimativa não
+virar verdade por omissão.
+
+**As duas posições são defensáveis; não é bug, é escolha.** Continuo achando
+que a fila (sem inventar número nenhum) é mais segura dado o histórico de
+`pag_cod`, mas quem decide é o Marcos: prefere manter a fila manual, ou
+prefere ter uma parcela estimada nascendo sozinha (com o sinal visual do A.3
+implementado de verdade, senão vira o problema que o patch queria evitar)?
+
+### Próxima tarefa pra quem pegar isso (dados/análise — não mexe em app.js)
+
+1. **Confirmar que não sobrou nenhuma função duplicada.** Estender
+   `docs/gerar-mapa.py` com o checker que a outra sessão sugeriu:
+   ```python
+   import re, collections
+   nomes = re.findall(r'^\s*(?:async\s+)?function\s+([A-Za-z_$][\w$]*)', src, re.M)
+   dups = [n for n, c in collections.Counter(nomes).items() if c > 1]
+   ```
+   Rodar contra o `app.js` **depois** que o commit desta reconciliação subir
+   (`_addDias`/`filtTecOS` já foram resolvidas nele). Se aparecer mais alguma,
+   documentar em `docs/` antes de mexer — pode ser intencional (ex.: função
+   redefinida por perfil) ou pode ser o mesmo tipo de bug do `filtTecOS`.
+2. Deixar o achado registrado no `mapa-app-js.md` (rodar
+   `python3 docs/gerar-mapa.py` de novo, os números de linha mudaram).
 
 ### Divisão por ARQUIVO (não por assunto) — para não colidirmos
 Hoje já colidimos duas vezes: arquivos mudaram no meio da edição e uma sessão

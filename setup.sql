@@ -176,6 +176,8 @@ CREATE INDEX IF NOT EXISTS idx_orc_cliente_id ON orcamentos(cliente_id);
 CREATE INDEX IF NOT EXISTS idx_os_cliente_id  ON ordens_servico(cliente_id);
 CREATE INDEX IF NOT EXISTS idx_vis_cliente_id ON vistorias(cliente_id);
 CREATE INDEX IF NOT EXISTS idx_produtos_fornecedor ON produtos (fornecedor_id) WHERE fornecedor_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_orc_loja_prox    ON orcamentos (loja_id, proximo_contato)  WHERE proximo_contato IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_orc_loja_decisao ON orcamentos (loja_id, decisao_prevista) WHERE decisao_prevista IS NOT NULL;
 
 -- ─────────────  FORNECEDORES E COMPRAS  ─────────────
 CREATE TABLE IF NOT EXISTS fornecedores (
@@ -200,7 +202,7 @@ CREATE TABLE IF NOT EXISTS ordens_compra (
   total            numeric,
   obs              text,
   data_recebimento timestamptz,
-  data_prevista    text,                 -- data prometida pelo fornecedor (habilita lead time real e OTIF)
+  data_prevista    date,                 -- data prometida pelo fornecedor (habilita lead time real e OTIF)
   data_criacao     timestamptz DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_fornec_loja ON fornecedores (loja_id);
@@ -280,6 +282,8 @@ CREATE TABLE IF NOT EXISTS produtos (
 ALTER TABLE produtos ADD COLUMN IF NOT EXISTS lote text;      -- lote/código de lote do estoque
 ALTER TABLE produtos ADD COLUMN IF NOT EXISTS validade date;  -- validade do produto
 ALTER TABLE usuarios       ADD COLUMN IF NOT EXISTS acessos jsonb DEFAULT '[]';  -- empresas separadas que o usuário acessa (ex.: ["aquamotor"]) — gerenciado na tela Usuários
+ALTER TABLE usuarios       ADD COLUMN IF NOT EXISTS custo_hora numeric;  -- salário+encargos+veículo / horas produtivas — entra no DRE como mão de obra
+COMMENT ON COLUMN usuarios.custo_hora IS 'Custo por hora do tecnico (salario + encargos + veiculo) / horas produtivas. Entra no DRE como mao de obra.';
 CREATE TABLE IF NOT EXISTS estoque_movimentos (
   id text PRIMARY KEY,
   loja_id text,

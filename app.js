@@ -1688,14 +1688,10 @@ let todosReceb = [];
 function lsRecebLer(){ try{ return JSON.parse(ls('fluxa_recebimentos')||'[]'); }catch(e){ return []; } }
 function lsRecebSalvar(l){ lsSet('fluxa_recebimentos', JSON.stringify(l)); }
 
-// Soma dias a uma data YYYY-MM-DD sem cair em fuso (new Date('2026-08-07') vira UTC)
-function _addDias(iso, dias){
-  const p=String(iso||'').split('-').map(Number);
-  if(p.length!==3 || !p[0] || !p[1] || !p[2]) return iso;
-  const dt=new Date(p[0], p[1]-1, p[2]);
-  dt.setDate(dt.getDate()+(parseInt(dias)||0));
-  return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
-}
+// _addDias fica definida mais abaixo (perto de _hojeISO) — havia duas
+// declarações com o mesmo nome; a de baixo sempre venceu por hoisting, e esta
+// aqui era código morto que nunca rodou. Removida para não confundir quem for
+// mexer no bloco de recebíveis achando que está editando a versão em uso.
 function _dataBR(iso){ const p=String(iso||'').split('-'); return p.length===3?(p[2]+'/'+p[1]+'/'+p[0]):(iso||''); }
 
 // PURA — só parâmetros, sem DOM e sem banco (por isso dá para testar isolada).
@@ -1808,6 +1804,38 @@ async function salvarRecebimento(){
       try{ await dbInsert('recebimentos', l); }catch(e){ console.warn('[receb sync]', e?.message||e); }
     }
   }
+}
+
+// ── Limpa as parcelas de um orçamento que deixou de ser uma venda ──────────
+// Excluir o orçamento, tirá-lo de "aprovado" ou recusá-lo no portal invalida
+// o que estava A RECEBER — e não existia nenhum delete de recebimentos no
+// app, então essas parcelas ficavam órfãs contando dinheiro de uma venda que
+// não existe mais (só aparece quando alguém soma o aging).
+// Parcela já PAGA é mantida de propósito: é registro de dinheiro que entrou;
+// se o orçamento sumiu, isso é um problema para uma pessoa olhar, não para o
+// código resolver sozinho apagando em silêncio.
+async function _limparRecebDoOrc(orcId, contexto){
+  const doOrc=(todosReceb||[]).filter(r=>String(r.orcamento_id)===String(orcId));
+  if(!doOrc.length) return;
+  const pagas=doOrc.filter(r=>r.data_pagamento);
+  const aRemover=doOrc.filter(r=>!r.data_pagamento);
+  if(aRemover.length){
+    const ids=new Set(aRemover.map(r=>r.id));
+    todosReceb=(todosReceb||[]).filter(r=>!ids.has(r.id));
+    lsRecebSalvar(todosReceb);
+    if(dbOk&&db){
+      try{ await db.from('recebimentos').delete().in('id', [...ids]); }
+      catch(e){ console.warn('[receb limpar]', e?.message||e); }
+    }
+    logAcao('receb_removido', `orc ${orcId} · ${aRemover.length} parcela(s) · ${contexto||''}`);
+  }
+  if(pagas.length){
+    const soma=pagas.reduce((a,r)=>a+(parseFloat(r.valor)||0),0);
+    toast(`⚠️ ${pagas.length} parcela(s) já paga(s) — ${brl(soma)} — foram mantidas`);
+  } else if(aRemover.length){
+    toast(`↩️ ${aRemover.length} parcela(s) a receber removida(s)`);
+  }
+  if(typeof renderRecebiveis==='function' && document.getElementById('page-recebiveis')?.classList.contains('on')) renderRecebiveis();
 }
 
 async function loadRecebimentos(){
@@ -4556,12 +4584,18 @@ async function mudarSt(id, sel){
   const st=sel.value; sel.className='ss '+st;
   const changes={status:st};
   if(st==='aprovado') changes.data_aprovacao=new Date().toISOString();
-  const o=todosOrc.find(x=>x.id===id); if(o) Object.assign(o, changes);
+  const o=todosOrc.find(x=>x.id===id);
+  const stAnterior=o&&o.status; // antes do Object.assign — decide se saiu de "aprovado"
+  if(o) Object.assign(o, changes);
   // Congela o custo ANTES da baixa: a baixa pode disparar recomputarCMP numa
   // entrada concorrente, e aí o custo gravado no item já seria outro.
   if(o && st==='aprovado' && _congelarCustoOrc(o)) changes.servicos=o.servicos;
   lsOrcAtualizar(id, changes);
   if(o) sincronizarBaixaOrcamento(o);
+  // Reverter um aprovado invalida as parcelas de recebimento que nasceram
+  // dessa aprovação — sem isto o aging mostra dinheiro a receber de uma
+  // venda que voltou a ser proposta.
+  if(stAnterior==='aprovado' && st!=='aprovado') await _limparRecebDoOrc(id, 'saiu de aprovado → '+st);
   atualizarDash();
   if(dbOk&&db&&!String(id).startsWith('local_'))
     orcSyncUpdate(id, changes).catch(e=>console.warn('[mudarSt]', e?.message||e));
@@ -4642,20 +4676,11 @@ async function _excluirOrcConfirmado(id){
   if(naoBtn) naoBtn.style.display = '';
   const o=todosOrc.find(x=>x.id===id);
   if(o) sincronizarBaixaOrcamento({...o, status:'excluido'});
+  await _limparRecebDoOrc(id, 'orçamento excluído');
   lsOrcRemover(id);
   if(dbOk&&db&&!String(id).startsWith('local_'))
     db.from('orcamentos').delete().eq('id',id).then(()=>{}).catch(()=>{});
-  // As parcelas de recebimento não têm FK/cascade — ficam órfãs, contando
-  // "a receber" de um orçamento que não existe mais, se não forem removidas
-  // junto (achado no roadmap: nenhum delete de recebimentos existia no app).
-  const orfas=(todosReceb||[]).filter(r=>String(r.orcamento_id)===String(id));
-  if(orfas.length){
-    todosReceb=(todosReceb||[]).filter(r=>String(r.orcamento_id)!==String(id));
-    lsRecebSalvar(todosReceb);
-    if(dbOk&&db) db.from('recebimentos').delete().eq('orcamento_id',id).then(()=>{}).catch(()=>{});
-  }
   todosOrc=todosOrc.filter(x=>x.id!==id); atualizarDash(); renderTabela();
-  if(typeof renderRecebiveis==='function' && document.getElementById('page-recebiveis')?.classList.contains('on')) renderRecebiveis();
   logAcao('orcamento_excluido', `#${o?.numero||'?'} ${o?.cliente||''}`);
   toast('🗑 Excluído');
 }
@@ -5149,7 +5174,12 @@ function renderMinhasOS(){
     </div>`;
   }).join('');
 }
-function filtTecOS(btn){
+// Renomeada de filtTecOS: colidia com a de cima (mesmo nome, parâmetro
+// diferente — uma recebe string do <select>, esta recebe o botão clicado).
+// A de baixo sempre vencia por hoisting, e o <select onchange="filtTecOS(this.value)">
+// do filtro de OS por técnico quebrava em silêncio: btn.classList.add('on')
+// com btn=string lança TypeError, e o filtro nunca aplicava.
+function filtStatusMinhasOS(btn){
   document.querySelectorAll('[data-tec-st]').forEach(b=>b.classList.remove('on'));
   btn.classList.add('on');
   tecOSFiltro = btn.dataset.tecSt;
@@ -6279,6 +6309,7 @@ async function _recusarOrcPortalConfirmado(id){
   todosOrc=todosOrc.map(o=>o.id===id?{...o,status:'recusado'}:o);
   lsOrcAtualizar(id,{status:'recusado'});
   sincronizarBaixaOrcamento(todosOrc.find(o=>o.id===id)); // estorna se já tinha sido baixado
+  await _limparRecebDoOrc(id, 'recusado no portal');
   if(dbOk&&db) db.from('orcamentos').update({status:'recusado'}).eq('id',id).then(()=>{}).catch(()=>{});
   if(portalCliente) await renderPortal(portalCliente);
   toast('❌ Orçamento recusado');
@@ -6445,6 +6476,39 @@ function _dreMesesDisponiveis(){
 }
 
 // Um bloco de números por unidade. `lojas` permite somar o grupo na coluna Total.
+// Mão de obra do mês: OS concluída × duração × custo/hora do técnico.
+// Sem isto o custo direto do DRE só contava saída de estoque, e o trilho de
+// SERVIÇO — o que converte a 43%, quase sem consumir material — aparecia com
+// margem perto de 100%. Devolve `cobertura` (% dos minutos cujo técnico tem
+// custo_hora cadastrado) pelo mesmo motivo de margemOrcamento: custo parcial
+// não pode ser lido como custo total.
+function _custoMaoDeObra(mes, lojas){
+  const dentro = lj => lojas.includes(lj||'');
+  const _hora = nome => {
+    const n=String(nome||'').trim().toLowerCase();
+    if(!n) return 0;
+    const u=(todosUsuarios||[]).find(x=>String(x&&x.nome||'').trim().toLowerCase()===n);
+    const h=parseFloat(u&&u.custo_hora);
+    return h>0?h:0;
+  };
+  let custo=0, minutos=0, minSemCusto=0;
+  (todosOS||[]).forEach(o=>{
+    if(o.status!=='concluido' || !dentro(o.loja_id)) return;
+    // 'T12:00:00' no meio do dia: sem isso a data vira o mês anterior no fuso −03.
+    const ref = o.checkout_time ? new Date(o.checkout_time)
+              : (o.data_servico ? new Date(o.data_servico+'T12:00:00') : null);
+    if(!ref || isNaN(ref)) return;
+    if((ref.getFullYear()+'-'+String(ref.getMonth()+1).padStart(2,'0'))!==mes) return;
+    const min=parseInt(o.duracao_min)||0;
+    if(min<=0) return;
+    minutos+=min;
+    const h=_hora(o.tecnico);
+    if(h>0) custo+=min/60*h; else minSemCusto+=min;
+  });
+  return { custo, minutos,
+           cobertura: minutos ? (minutos-minSemCusto)/minutos*100 : null };
+}
+
 function _dreCalcular(mes, lojas){
   const dentro = lj => lojas.includes(lj||'');
   // Receita: orçamento aprovado, pelo mês de referência que o app já usa
@@ -6475,9 +6539,11 @@ function _dreCalcular(mes, lojas){
   const campo=porCentro('campo'), variavel=porCentro('variavel');
   const fixo=porCentro('fixo'), admin=porCentro('administrativo');
 
-  const margemContrib = receita - custoDireto - variavel - campo;
+  const mo=_custoMaoDeObra(mes, lojas);
+  const margemContrib = receita - custoDireto - mo.custo - variavel - campo;
   const resultado = margemContrib - fixo - admin;
-  return {receita, custoDireto, campo, variavel, fixo, admin, margemContrib, resultado,
+  return {receita, custoDireto, maoDeObra:mo.custo, moMinutos:mo.minutos, moCobertura:mo.cobertura,
+          campo, variavel, fixo, admin, margemContrib, resultado,
           margemPct: receita? (margemContrib/receita*100) : null,
           resultadoPct: receita? (resultado/receita*100) : null};
 }
@@ -6613,6 +6679,7 @@ function renderDRE(){
     <tbody>
       ${linha('Receita reconhecida','receita')}
       ${linha('Custo do produto vendido','custoDireto',{neg:true,recuo:true})}
+      ${linha('Mão de obra','maoDeObra',{neg:true,recuo:true})}
       ${linha('Despesa de campo','campo',{neg:true,recuo:true})}
       ${linha('Despesa variável','variavel',{neg:true,recuo:true})}
       ${linha('Margem de contribuição','margemContrib',{destaque:true,borda:true})}
@@ -6631,6 +6698,14 @@ function renderDRE(){
   const avisos=[];
   if(semDesp) avisos.push('Nenhuma despesa lançada neste mês — o resultado abaixo da margem é só a receita, não o lucro.');
   if(semCusto) avisos.push('Nenhum custo de produto neste mês: ou não houve venda de material, ou os itens do orçamento não estavam vinculados ao estoque.');
+  // Mão de obra: só fala quando há OS com duração no mês — senão vira ruído
+  // repetido todo mês enquanto duracao_min continuar zerado na base.
+  if(total.d.moMinutos>0){
+    const cob=total.d.moCobertura;
+    avisos.push(cob>=100
+      ? `Mão de obra apurada sobre 100% das horas trabalhadas neste mês.`
+      : `Mão de obra apurada sobre <strong>${cob.toFixed(0)}%</strong> das horas trabalhadas — o restante é de técnico sem custo/hora cadastrado (falta preencher em Usuários).`);
+  }
   // Margem pelo custo congelado no ITEM — cobre inclusive orçamento cujo
   // material já foi estornado, que o CMV do razão não pega.
   const aprovMes=(todosOrc||[]).filter(o=>{
