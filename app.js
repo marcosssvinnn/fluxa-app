@@ -2332,13 +2332,32 @@ async function identCriarFicha(chave){
   const g=_identGrupos().find(x=>x.chave===chave);
   if(!g){ toast('⚠️ Grupo não encontrado'); return; }
   const base=g.orcs.find(o=>o.tel_cliente||o.cnpj)||g.orcs[0]||{};
-  // Campos com os nomes que a tabela usa de verdade (tel/end, não telefone/endereco)
-  const rec={ id:'cli_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
+  // ⚠️ clientes.id é UUID com default no banco. Mandar um id de texto ('cli_…')
+  // faz o insert ser REJEITADO (22P02) e a ficha fica só no aparelho. Por isso o
+  // id é gerado pelo BANCO e só então usado para ligar os orçamentos — se o link
+  // apontasse para o id local, apontaria para uma ficha que não existe lá.
+  // Offline mantém o id local, e a reconciliação acontece no próximo salvamento.
+  const local={ id:'cli_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
     nome:g.nomes[0], tel:base.tel_cliente||'', end:base.local_servico||base.local||'',
     cnpj:base.cnpj||'', email_responsavel:'', tipo:'',
     portal_token:crypto.randomUUID(), loja_id:base.loja_id||lojaAtiva||LOJA_PADRAO_ID };
+  let rec=local;
+  if(dbOk&&db){
+    try{
+      // tel/end são nomes LOCAIS; a tabela usa telefone/endereco — todo o resto
+      // do app traduz antes de gravar, e sem isso o dbInsert descartaria os dois.
+      const {data:ins,error}=await db.from('clientes').insert([{
+        nome:local.nome, telefone:local.tel||null, endereco:local.end||null,
+        cnpj:local.cnpj||null, portal_token:local.portal_token, loja_id:local.loja_id
+      }]).select('*').single();
+      if(error) throw error;
+      if(ins&&ins.id) rec={...local, id:ins.id};
+    }catch(e){
+      console.warn('[identCriarFicha]', e?.message||e);
+      toast('⚠️ Ficha criada aqui, mas não sincronizou');
+    }
+  }
   const _cl=lsCliLer(); _cl.unshift(rec); lsCliSalvar(_cl);
-  if(dbOk&&db){ try{ await dbInsert('clientes', rec); }catch(e){ console.warn('[identCriarFicha]',e?.message||e); } }
   await identLigar(chave, rec.id);
 }
 
