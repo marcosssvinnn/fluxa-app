@@ -1154,11 +1154,17 @@ async function carregarClientesRemoto(){
     // apagando os clientes do outro grupo ao trocar de contexto.
     const {data,error}=await db.from('clientes').select('*').order('nome',{ascending:true});
     if(error) throw error;
+    let remoto=data||[];
+    const _tombCli=new Set(_tombLer('fluxa_cli_tombstones'));
+    if(_tombCli.size){
+      remoto.filter(r=>_tombCli.has(r.id)).forEach(r=>db.from('clientes').delete().eq('id',r.id).then(()=>{}).catch(()=>{}));
+      remoto=remoto.filter(r=>!_tombCli.has(r.id));
+    }
     const local=lsCliLer();
-    const dbIds=new Set((data||[]).map(x=>x.id));
+    const dbIds=new Set(remoto.map(x=>x.id));
     // Merge: BD é fonte de verdade + preserva clientes criados offline
-    const merged=[...(data||[])];
-    const soLocal=local.filter(l=>!dbIds.has(l.id));
+    const merged=[...remoto];
+    const soLocal=local.filter(l=>!dbIds.has(l.id)&&!_tombCli.has(l.id));
     soLocal.forEach(l=>merged.push(l));
     lsCliSalvar(merged);
     if(document.getElementById('page-clientes').classList.contains('on')) renderClientes();
@@ -5585,7 +5591,17 @@ function verHistoricoCliente(cliId){
 }
 
 function excluirCliente(id){
-  confirmar('Excluir este cliente?', ()=>{ const lista=lsCliLer().filter(x=>x.id!==id); lsCliSalvar(lista); renderClientes(); toast('🗑 Cliente removido'); }, 'Excluir Cliente');
+  confirmar('Excluir este cliente?', ()=>{
+    const lista=lsCliLer().filter(x=>x.id!==id); lsCliSalvar(lista);
+    // Antes só removia local — carregarClientesRemoto ("BD é fonte de
+    // verdade") trazia o cliente de volta no próximo sync, sempre, porque
+    // NUNCA existia um delete remoto correspondente.
+    if(!String(id).startsWith('cli_')){
+      _tombAdd('fluxa_cli_tombstones', id);
+      if(dbOk&&db) db.from('clientes').delete().eq('id',id).then(()=>{}).catch(()=>{});
+    }
+    renderClientes(); toast('🗑 Cliente removido');
+  }, 'Excluir Cliente');
 }
 
 let _cliEditId = null;

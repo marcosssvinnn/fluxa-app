@@ -1,6 +1,6 @@
 {
   "arquivo": {
-    "app_js_linhas": 13710,
+    "app_js_linhas": 13726,
     "index_html_linhas": 2848
   },
   "funcoes": {
@@ -250,27 +250,27 @@
   "maiores_funcoes": [
     {
       "nome": "preencherRelatorioVistoria",
-      "linha": 10877,
+      "linha": 10893,
       "linhas": 187
     },
     {
       "nome": "renderEstoque",
-      "linha": 12121,
+      "linha": 12137,
       "linhas": 181
     },
     {
       "nome": "renderLocaisTab",
-      "linha": 9226,
+      "linha": 9242,
       "linhas": 153
     },
     {
       "nome": "renderVisHistorico",
-      "linha": 10349,
+      "linha": 10365,
       "linhas": 135
     },
     {
       "nome": "go",
-      "linha": 1466,
+      "linha": 1472,
       "linhas": 125
     },
     {
@@ -280,27 +280,27 @@
     },
     {
       "nome": "renderPortal",
-      "linha": 6267,
+      "linha": 6283,
       "linhas": 114
     },
     {
       "nome": "emitirNota",
-      "linha": 8435,
+      "linha": 8451,
       "linhas": 108
     },
     {
       "nome": "gerarDossieAssembleia",
-      "linha": 10569,
+      "linha": 10585,
       "linhas": 99
     },
     {
       "nome": "verHistoricoCliente",
-      "linha": 5490,
+      "linha": 5496,
       "linhas": 96
     },
     {
       "nome": "renderDRE",
-      "linha": 6795,
+      "linha": 6811,
       "linhas": 94
     },
     {
@@ -310,137 +310,143 @@
     },
     {
       "nome": "iniciarVistoriaPlena",
-      "linha": 9137,
+      "linha": 9153,
       "linhas": 87
     },
     {
       "nome": "preencherDocOrc",
-      "linha": 3252,
+      "linha": 3258,
       "linhas": 82
     },
     {
       "nome": "salvarApenas",
-      "linha": 2998,
+      "linha": 3004,
       "linhas": 80
     },
     {
       "nome": "renderTabela",
-      "linha": 4577,
+      "linha": 4583,
       "linhas": 79
     },
     {
       "nome": "renderGraficoDash",
-      "linha": 4402,
+      "linha": 4408,
       "linhas": 78
     },
     {
       "nome": "renderVisEquipGrid",
-      "linha": 9508,
+      "linha": 9524,
       "linhas": 78
     },
     {
       "nome": "loadVistoriasRemoto",
-      "linha": 11308,
+      "linha": 11324,
       "linhas": 78
     },
     {
       "nome": "gerarOSPDF",
-      "linha": 3402,
+      "linha": 3408,
       "linhas": 76
     }
   ],
   "erros_silenciados": {
     "catch_vazio": [
       {
-        "linha": 4446,
+        "linha": 4452,
         "trecho": "catch(e){}"
       },
       {
-        "linha": 5872,
+        "linha": 5888,
         "trecho": "catch(e){}"
       }
     ],
     "catch_mudo": [
       {
-        "linha": 3567
+        "linha": 1160
       },
       {
-        "linha": 4207
+        "linha": 3573
       },
       {
-        "linha": 4813
+        "linha": 4213
       },
       {
-        "linha": 4969
+        "linha": 4819
       },
       {
-        "linha": 4998
+        "linha": 4975
       },
       {
-        "linha": 5044
+        "linha": 5004
       },
       {
-        "linha": 5231
+        "linha": 5050
       },
       {
-        "linha": 6481
+        "linha": 5237
       },
       {
-        "linha": 7174
+        "linha": 5601
       },
       {
-        "linha": 7183
+        "linha": 6497
       },
       {
-        "linha": 7203
+        "linha": 7190
       },
       {
-        "linha": 7507
+        "linha": 7199
       },
       {
-        "linha": 7508
+        "linha": 7219
       },
       {
-        "linha": 7877
+        "linha": 7523
       },
       {
-        "linha": 7903
+        "linha": 7524
       },
       {
-        "linha": 8031
+        "linha": 7893
       },
       {
-        "linha": 8520
+        "linha": 7919
       },
       {
-        "linha": 8522
+        "linha": 8047
       },
       {
-        "linha": 8531
+        "linha": 8536
       },
       {
-        "linha": 8556
+        "linha": 8538
       },
       {
-        "linha": 8562
+        "linha": 8547
       },
       {
-        "linha": 8775
+        "linha": 8572
       },
       {
-        "linha": 9081
+        "linha": 8578
       },
       {
-        "linha": 9082
+        "linha": 8791
       },
       {
-        "linha": 9105
+        "linha": 9097
       },
       {
-        "linha": 9107
+        "linha": 9098
       },
       {
-        "linha": 13687
+        "linha": 9121
+      },
+      {
+        "linha": 9123
+      },
+      {
+        "linha": 13703
       }
     ]
   }
