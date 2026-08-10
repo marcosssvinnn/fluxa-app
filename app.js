@@ -1530,7 +1530,8 @@ function go(p){
     renderClientes(); carregarClientesRemoto();
     // o aviso depende dos orçamentos: carrega antes de decidir se mostra
     (async()=>{ if(!(todosOrc||[]).length && typeof loadHist==='function') await loadHist();
-      try{ renderAvisoIdentidade(); }catch(e){ console.warn('[avisoIdentidade]',e?.message||e); } })();
+      try{ renderAvisoIdentidade(); }catch(e){ console.warn('[avisoIdentidade]',e?.message||e); }
+      try{ renderAvisoDuplicatas(); }catch(e){ console.warn('[avisoDuplicatas]',e?.message||e); } })();
   }
   if(p==='empresa') preencherFormEmpresa();
   if(p==='equipamentos'){ loadEquipamentos(); setTimeout(renderEqImport,400); }
@@ -2134,6 +2135,101 @@ function renderAvisoIdentidade(){
       O nome vem digitado no orçamento e não está ligado a nenhuma ficha daqui.</div>
     <button class="tb g" style="font-weight:700" onclick="go('identidade')">🪪 Ligar às fichas</button>
   </div>`;
+}
+
+// Fichas de cliente clonadas por engano — achado real de 08/08–08/10: uma
+// sessão criou ficha nova em vez de reusar a existente, gerando até 13 cópias
+// idênticas do mesmo condomínio. Só entra aqui quem é clone PURO: mesmo nome,
+// mesmo endereço, mesmo telefone/CNPJ, e no máximo 1 das cópias com algum
+// orçamento/OS/vistoria vinculado (essa é sempre a mantida). Nome com dado
+// divergente entre as cópias (ex: dois "Gabriel" com telefones diferentes)
+// fica de fora de propósito — pode ser gente diferente, não é decisão de código.
+function _dupGrupos(){
+  const cli=lsCliLer()||[];
+  const orcs=todosOrc||[], osArr=todosOS||[], vis=(typeof lsVisLer==='function')?lsVisLer():[];
+  const usado=id => orcs.some(o=>String(o.cliente_id)===String(id)) || osArr.some(o=>String(o.cliente_id)===String(id)) || vis.some(v=>String(v.cliente_id)===String(id));
+  const porChave={};
+  cli.forEach(c=>{ const k=_identNorm(c.nome); (porChave[k]=porChave[k]||[]).push(c); });
+  const grupos=[];
+  Object.keys(porChave).forEach(k=>{
+    const fichas=porChave[k];
+    if(fichas.length<2) return;
+    const tel=new Set(fichas.map(f=>(f.telefone||'').trim()).filter(Boolean));
+    const cnpj=new Set(fichas.map(f=>(f.cnpj||'').trim()).filter(Boolean));
+    const end=new Set(fichas.map(f=>(f.endereco||'').trim()).filter(Boolean));
+    if(tel.size>1||cnpj.size>1||end.size>1) return; // divergiu — não mexe
+    const comUso=fichas.filter(f=>usado(f.id));
+    if(comUso.length>1) return; // ambíguo — não mexe
+    const manter=comUso[0] || fichas.slice().sort((a,b)=>new Date(a.data_criacao||0)-new Date(b.data_criacao||0))[0];
+    const remover=fichas.filter(f=>f.id!==manter.id);
+    if(!remover.length) return;
+    grupos.push({ nome:fichas[0].nome, manterId:manter.id, removerIds:remover.map(f=>f.id), qtd:remover.length,
+      endereco:fichas[0].endereco||'', telefone:fichas[0].telefone||'' });
+  });
+  return grupos.sort((a,b)=>b.qtd-a.qtd);
+}
+
+function renderAvisoDuplicatas(){
+  const el=document.getElementById('cli-dup-aviso'); if(!el) return;
+  const grupos=_dupGrupos();
+  if(!grupos.length){ el.style.display='none'; return; }
+  const totalFichas=grupos.reduce((a,g)=>a+g.qtd,0);
+  el.style.display='';
+  el.innerHTML=`<div class="card" style="border-left:3px solid var(--yellow);background:#fffbeb;margin-bottom:14px">
+    <div style="font-size:13px;font-weight:700;color:#b45309;margin-bottom:4px">
+      ${totalFichas} ficha${totalFichas!==1?'s':''} duplicada${totalFichas!==1?'s':''} vazia${totalFichas!==1?'s':''}</div>
+    <div style="font-size:12px;color:var(--gray);margin-bottom:9px">
+      ${grupos.length} nome${grupos.length!==1?'s':''} com cópia idêntica (mesmo nome, endereço e telefone), sem nenhum orçamento vinculado a essas cópias.
+      Nome com dado divergente entre as cópias não entra aqui — fica pra você decidir na tela Identidade.</div>
+    <button class="tb g" style="font-weight:700" onclick="abrirRevisaoDuplicatas()">🧹 Revisar e limpar</button>
+  </div>`;
+}
+
+let _dupGruposAtual=[];
+function abrirRevisaoDuplicatas(){
+  _dupGruposAtual=_dupGrupos();
+  if(!_dupGruposAtual.length){ toast('Nada pra limpar'); return; }
+  const totalFichas=_dupGruposAtual.reduce((a,g)=>a+g.qtd,0);
+  const linhas=_dupGruposAtual.map(g=>`
+    <div style="padding:9px 0;border-bottom:1px solid var(--gray-light)">
+      <div style="font-size:13px;font-weight:700;color:var(--c2)">${esc(g.nome)}</div>
+      <div style="font-size:11.5px;color:var(--gray)">${[g.endereco,g.telefone].filter(Boolean).map(x=>esc(x)).join(' · ')||'sem endereço/telefone cadastrado'}</div>
+      <div style="font-size:11.5px;color:#b45309">mantém 1 ficha · remove ${g.qtd} cópia${g.qtd!==1?'s':''}</div>
+    </div>`).join('');
+  const m=document.createElement('div');
+  m.className='modal-bg'; m.style.display='flex'; m.id='dup-modal-bg';
+  m.innerHTML=`<div class="modal" style="max-width:520px;max-height:80vh;overflow:auto">
+    <div style="font-size:16px;font-weight:800;color:var(--c2);margin-bottom:6px">🧹 Limpar fichas duplicadas</div>
+    <div style="font-size:12.5px;color:var(--gray);margin-bottom:14px">
+      ${_dupGruposAtual.length} nomes, ${totalFichas} fichas vazias no total. Nenhuma tem orçamento, OS ou vistoria vinculado — o histórico real de cada cliente fica intacto, ligado à ficha que sobra.</div>
+    ${linhas}
+    <div style="display:flex;gap:10px;margin-top:16px">
+      <button class="btn-primary" style="flex:1" onclick="confirmarLimpezaDuplicatas()">🗑 Confirmar exclusão de ${totalFichas} fichas</button>
+      <button onclick="document.getElementById('dup-modal-bg').remove()" style="flex:1;padding:12px;border:2px solid var(--gray-mid);border-radius:10px;background:var(--white);font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif">Cancelar</button>
+    </div>
+  </div>`;
+  document.body.appendChild(m);
+}
+
+async function confirmarLimpezaDuplicatas(){
+  const grupos=_dupGruposAtual;
+  document.getElementById('dup-modal-bg')?.remove();
+  let removidas=0;
+  let cli=lsCliLer();
+  for(const g of grupos){
+    for(const id of g.removerIds){
+      cli=cli.filter(c=>c.id!==id);
+      if(!String(id).startsWith('cli_')){
+        _tombAdd('fluxa_cli_tombstones', id);
+        if(dbOk&&db){ try{ await db.from('clientes').delete().eq('id',id); }catch(e){ console.warn('[limpezaDup]',e?.message||e); } }
+      }
+      removidas++;
+    }
+  }
+  lsCliSalvar(cli);
+  logAcao('limpeza_duplicatas', `${removidas} fichas vazias removidas em ${grupos.length} nomes`);
+  renderClientes(); renderAvisoDuplicatas();
+  toast(`✅ ${removidas} fichas duplicadas removidas`);
 }
 
 function renderIdentidade(){
