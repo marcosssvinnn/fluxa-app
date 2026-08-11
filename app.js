@@ -2269,31 +2269,39 @@ async function confirmarLimpezaDuplicatas(){
 
   const todos=grupos.flatMap(g=>g.removerIds);
   let cli=lsCliLer();
-  let removidas=0;
+  let removidas=0, falhas=0;
   const LOTE=15;
   for(let i=0;i<todos.length;i+=LOTE){
     const lote=todos.slice(i,i+LOTE);
     await Promise.all(lote.map(async id=>{
-      cli=cli.filter(c=>c.id!==id);
-      if(!String(id).startsWith('cli_')){
+      // ⚠️ Tombstone só DEPOIS de confirmar o delete no banco — tombar antes
+      // escondia localmente registro que na real não tinha sido apagado (o
+      // delete falhava, o catch engolia o erro, e o registro "sumia" da tela
+      // mas continuava existindo no banco, fazendo o total local não bater
+      // com o banco de verdade).
+      if(String(id).startsWith('cli_')){ cli=cli.filter(c=>c.id!==id); removidas++; return; }
+      if(!(dbOk&&db)){ falhas++; return; }
+      try{
+        const {error}=await db.from('clientes').delete().eq('id',id);
+        if(error) throw error;
         _tombAdd('fluxa_cli_tombstones', id);
-        if(dbOk&&db){ try{ await db.from('clientes').delete().eq('id',id); }catch(e){ console.warn('[limpezaDup]',e?.message||e); } }
-      }
+        cli=cli.filter(c=>c.id!==id);
+        removidas++;
+      }catch(e){ console.warn('[limpezaDup]',e?.message||e); falhas++; }
     }));
-    removidas+=lote.length;
     lsCliSalvar(cli); // grava a cada lote — se a aba fechar no meio, o progresso já feito não se perde
-    const txt=document.getElementById('dup-progresso-txt'); if(txt) txt.textContent=`${removidas} de ${totalFichas}`;
-    const barra=document.getElementById('dup-progresso-barra'); if(barra) barra.style.width=(removidas/totalFichas*100)+'%';
+    const txt=document.getElementById('dup-progresso-txt'); if(txt) txt.textContent=`${removidas+falhas} de ${totalFichas}`;
+    const barra=document.getElementById('dup-progresso-barra'); if(barra) barra.style.width=((removidas+falhas)/totalFichas*100)+'%';
   }
 
-  logAcao('limpeza_duplicatas', `${removidas} fichas vazias removidas em ${grupos.length} nomes`);
+  logAcao('limpeza_duplicatas', `${removidas} fichas vazias removidas em ${grupos.length} nomes${falhas?` · ${falhas} falharam`:''}`);
   renderClientes(); renderAvisoDuplicatas();
   if(m) m.innerHTML=`<div class="modal" style="max-width:420px;text-align:center">
-    <div style="font-size:32px;margin-bottom:8px">✅</div>
-    <div style="font-size:15px;font-weight:800;color:var(--c2);margin-bottom:14px">${removidas} fichas duplicadas removidas</div>
+    <div style="font-size:32px;margin-bottom:8px">${falhas?'⚠️':'✅'}</div>
+    <div style="font-size:15px;font-weight:800;color:var(--c2);margin-bottom:14px">${removidas} fichas duplicadas removidas${falhas?`<br><span style="color:var(--red);font-size:13px">${falhas} falharam — continuam no banco, tente de novo</span>`:''}</div>
     <button class="btn-primary" style="width:100%" onclick="document.getElementById('dup-modal-bg').remove()">Fechar</button>
   </div>`;
-  toast(`✅ ${removidas} fichas duplicadas removidas`);
+  toast(falhas?`⚠️ ${removidas} removidas, ${falhas} falharam`:`✅ ${removidas} fichas duplicadas removidas`);
 }
 
 function renderIdentidade(){
