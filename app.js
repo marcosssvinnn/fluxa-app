@@ -1528,8 +1528,12 @@ function go(p){
   if(p==='os-history') loadOSHist();
   if(p==='clientes'){
     renderClientes(); carregarClientesRemoto();
-    // o aviso depende dos orçamentos: carrega antes de decidir se mostra
+    // o aviso depende de orçamento/OS/vistoria/equipamento/local — carrega antes
+    // de decidir o que é seguro apagar (sem isso, ficha em uso por equipamento
+    // ou local de vistoria passaria batido na checagem de duplicata).
     (async()=>{ if(!(todosOrc||[]).length && typeof loadHist==='function') await loadHist();
+      if(!(lsEqLer()||[]).length && typeof loadEquipamentos==='function') await loadEquipamentos();
+      if(!(locaisVistoria||[]).length && typeof loadLocaisRemoto==='function') await loadLocaisRemoto();
       try{ renderAvisoIdentidade(); }catch(e){ console.warn('[avisoIdentidade]',e?.message||e); }
       try{ renderAvisoDuplicatas(); }catch(e){ console.warn('[avisoDuplicatas]',e?.message||e); } })();
   }
@@ -2147,7 +2151,15 @@ function renderAvisoIdentidade(){
 function _dupGrupos(){
   const cli=lsCliLer()||[];
   const orcs=todosOrc||[], osArr=todosOS||[], vis=(typeof lsVisLer==='function')?lsVisLer():[];
-  const usado=id => orcs.some(o=>String(o.cliente_id)===String(id)) || osArr.some(o=>String(o.cliente_id)===String(id)) || vis.some(v=>String(v.cliente_id)===String(id));
+  // ⚠️ clientes.id é referenciado por MAIS de 3 tabelas — a checagem original só
+  // olhava orçamento/OS/vistoria e deixava passar ficha em uso por equipamento
+  // (base instalada) ou local de vistoria. Achado ao conferir o schema antes de
+  // liberar a exclusão em massa: setup.sql tem `equipamentos.cliente_id` e
+  // `locais_vistoria.cliente_id`, nenhum dos dois cobertos aqui até agora.
+  const eqs=(typeof lsEqLer==='function')?lsEqLer():[];
+  const locs=(typeof locaisVistoria!=='undefined')?locaisVistoria:[];
+  const usado=id => orcs.some(o=>String(o.cliente_id)===String(id)) || osArr.some(o=>String(o.cliente_id)===String(id)) || vis.some(v=>String(v.cliente_id)===String(id))
+    || eqs.some(e=>String(e.cliente_id)===String(id)) || (locs||[]).some(l=>String(l.cliente_id)===String(id));
   const porChave={};
   cli.forEach(c=>{ const k=_identNorm(c.nome); (porChave[k]=porChave[k]||[]).push(c); });
   const grupos=[];
@@ -2320,6 +2332,30 @@ async function identCriarFicha(chave){
   const g=_identGrupos().find(x=>x.chave===chave);
   if(!g){ toast('⚠️ Grupo não encontrado'); return; }
   const base=g.orcs.find(o=>o.tel_cliente||o.cnpj)||g.orcs[0]||{};
+  const telNovo=base.tel_cliente||'', endNovo=base.local_servico||base.local||'';
+  // Trava contra corrida entre sessões: confere no BANCO (não só no cache local,
+  // que pode estar desatualizado) se não surgiu ficha idêntica entre o clique e
+  // agora. Foi exatamente essa corrida — duas sessões vendo "não existe" ao
+  // mesmo tempo — que gerou até 13 cópias do mesmo condomínio em 08/08–08/10.
+  // Não elimina 100% (ainda há uma janela entre este select e o insert) — a
+  // trava definitiva é um índice único em (nome, endereco, telefone), mas isso
+  // só pode entrar DEPOIS que as 629 fichas duplicadas existentes forem
+  // removidas (índice único falha ao criar com duplicata já no banco).
+  if(dbOk&&db){
+    try{
+      const {data:dup}=await db.from('clientes').select('id,nome,telefone,endereco')
+        .ilike('nome', g.nomes[0]).limit(20);
+      const achou=(dup||[]).find(c=>_identNorm(c.nome)===chave
+        && (c.telefone||'')===telNovo && (c.endereco||'')===endNovo);
+      if(achou){
+        const _cl=lsCliLer();
+        if(!_cl.find(x=>x.id===achou.id)) _cl.unshift({id:achou.id, nome:achou.nome, tel:achou.telefone||'', end:achou.endereco||''});
+        lsCliSalvar(_cl);
+        await identLigar(chave, achou.id);
+        return;
+      }
+    }catch(e){ console.warn('[identCriarFicha:checarDup]', e?.message||e); }
+  }
   // ⚠️ clientes.id é UUID com default no banco. Mandar um id de texto ('cli_…')
   // faz o insert ser REJEITADO (22P02) e a ficha fica só no aparelho. Por isso o
   // id é gerado pelo BANCO e só então usado para ligar os orçamentos — se o link
