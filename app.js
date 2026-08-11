@@ -2223,24 +2223,51 @@ function abrirRevisaoDuplicatas(){
   document.body.appendChild(m);
 }
 
+// Corrida com lote pequeno em paralelo: apagar uma por uma (628 chamadas
+// sequenciais) levava tempo demais SEM nenhum feedback na tela — o modal
+// sumia no clique (era removido antes do laço começar) e ficava parecendo
+// travado ou "saindo sozinho" até o usuário fechar a aba no meio do processo.
+// Agora o modal fica aberto mostrando progresso real, e o lote em paralelo
+// reduz o tempo total de ~2min para poucos segundos.
 async function confirmarLimpezaDuplicatas(){
   const grupos=_dupGruposAtual;
-  document.getElementById('dup-modal-bg')?.remove();
-  let removidas=0;
+  const totalFichas=grupos.reduce((a,g)=>a+g.qtd,0);
+  const m=document.getElementById('dup-modal-bg');
+  if(m) m.innerHTML=`<div class="modal" style="max-width:420px">
+    <div style="font-size:16px;font-weight:800;color:var(--c2);margin-bottom:10px">🧹 Apagando fichas duplicadas…</div>
+    <div id="dup-progresso-txt" style="font-size:13px;color:var(--gray);margin-bottom:10px">0 de ${totalFichas}</div>
+    <div style="height:8px;background:var(--gray-light);border-radius:50px;overflow:hidden">
+      <div id="dup-progresso-barra" style="height:100%;width:0%;background:var(--c1);transition:width .2s"></div>
+    </div>
+    <div style="font-size:11.5px;color:var(--gray);margin-top:10px">Não feche esta aba até terminar.</div>
+  </div>`;
+
+  const todos=grupos.flatMap(g=>g.removerIds);
   let cli=lsCliLer();
-  for(const g of grupos){
-    for(const id of g.removerIds){
+  let removidas=0;
+  const LOTE=15;
+  for(let i=0;i<todos.length;i+=LOTE){
+    const lote=todos.slice(i,i+LOTE);
+    await Promise.all(lote.map(async id=>{
       cli=cli.filter(c=>c.id!==id);
       if(!String(id).startsWith('cli_')){
         _tombAdd('fluxa_cli_tombstones', id);
         if(dbOk&&db){ try{ await db.from('clientes').delete().eq('id',id); }catch(e){ console.warn('[limpezaDup]',e?.message||e); } }
       }
-      removidas++;
-    }
+    }));
+    removidas+=lote.length;
+    lsCliSalvar(cli); // grava a cada lote — se a aba fechar no meio, o progresso já feito não se perde
+    const txt=document.getElementById('dup-progresso-txt'); if(txt) txt.textContent=`${removidas} de ${totalFichas}`;
+    const barra=document.getElementById('dup-progresso-barra'); if(barra) barra.style.width=(removidas/totalFichas*100)+'%';
   }
-  lsCliSalvar(cli);
+
   logAcao('limpeza_duplicatas', `${removidas} fichas vazias removidas em ${grupos.length} nomes`);
   renderClientes(); renderAvisoDuplicatas();
+  if(m) m.innerHTML=`<div class="modal" style="max-width:420px;text-align:center">
+    <div style="font-size:32px;margin-bottom:8px">✅</div>
+    <div style="font-size:15px;font-weight:800;color:var(--c2);margin-bottom:14px">${removidas} fichas duplicadas removidas</div>
+    <button class="btn-primary" style="width:100%" onclick="document.getElementById('dup-modal-bg').remove()">Fechar</button>
+  </div>`;
   toast(`✅ ${removidas} fichas duplicadas removidas`);
 }
 
