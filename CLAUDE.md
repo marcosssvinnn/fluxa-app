@@ -2,6 +2,103 @@
 
 ---
 
+## 🔴 INCIDENTE ATIVO — leia antes de tudo (aberto 10/08, sessão de contexto esgotado)
+
+> **Se você está retomando este trabalho numa sessão nova: comece por aqui, não
+> pela seção de coordenação abaixo.** A sessão anterior bateu o limite de
+> contexto no meio da investigação. Isto é o estado real, não uma tarefa
+> concluída.
+
+### O que está acontecendo
+Fichas de cliente duplicadas estavam sendo criadas repetidamente em produção
+(nomes recorrentes: VAGNER, TORRI DI MARE RESIDENZIALE, SNI BRASIL, CONDOMINIO
+GOLDEN HOME, CONDOMINIO BRISA DO MAR, Villa dos Corais, Platinum Residence,
+Porto dos sonhos, Ocean Paradise Residence, "teste 123"). Picos de várias
+duplicatas em poucos segundos, repetindo a cada poucos minutos.
+
+**Fonte exata NÃO identificada.** Não achei chamada automática nenhuma no
+código — `identCriarFicha` só é chamado por 3 `onclick` em `renderIdentidade()`,
+sem timer/intervalo. Hipótese mais provável do Marcos: uma aba antiga aberta em
+outro computador, fora de alcance no momento, com a tela de Identidade
+desatualizada, sendo clicada repetidamente (ou algum outro gatilho repetitivo
+que nenhum dos dois identificou ainda).
+
+### Mitigações aplicadas, em ordem (a mais forte é a que vale agora)
+1. **Trigger de bloqueio exato** (`fluxa_bloquear_cliente_duplicado`, nome+
+   telefone+endereço) — **insuficiente**: provado bypassado por uma rajada de 4
+   inserts de "Platinum Residence" em 12ms um do outro (check-then-insert não é
+   atômico contra concorrência real).
+2. **`revoke insert on clientes from anon;`** — bloqueio total, à prova de
+   concorrência (não depende de checar antes, simplesmente nega). O Marcos
+   confirmou ter rodado ("foi") mas **eu não consegui verificar que pegou** —
+   perdi conectividade com a ferramenta de navegador (Claude in Chrome) logo
+   depois de pedir a verificação e não recuperei antes do contexto acabar.
+   **Enquanto isso não for confirmado, nenhum cliente novo pode ser criado no
+   app — nem os legítimos.** Avise o Marcos disso se ele achar estranho não
+   conseguir cadastrar cliente novo.
+3. **`identCriarFicha` ganhou uma checagem antes de inserir** (busca por
+   nome+telefone+endereço no banco antes de criar) — reduz a chance de
+   duplicata no caminho normal, mas não fecha a janela de corrida sozinha (por
+   isso o passo 2 acima).
+
+### Próximos passos, em ordem
+1. **Confirmar se o REVOKE pegou.** No console do navegador (com
+   `dbOk===true`), tentar `db.from('clientes').insert({nome:'teste_revoke'})`
+   — deve vir erro de permissão. Se vier sucesso, o REVOKE não pegou e precisa
+   rodar de novo no SQL Editor do Supabase.
+2. **Confirmar que a criação parou de fato**: `select count(*) from clientes
+   where data_criacao > '2026-08-11'` (ajustar a data) e comparar com o
+   horário em que o REVOKE foi aplicado — não deve crescer mais depois disso.
+3. **Achar a fonte de verdade** antes de reabrir `INSERT` para todo mundo —
+   senão o mesmo padrão retorna. Perguntar ao Marcos se alguém identificou
+   qual aba/dispositivo estava gerando isso.
+4. Só depois de 1-3 confirmados: recomputar a lista real de duplicatas
+   (`abrirRevisaoDuplicatas()`, já corrigida para forçar reload de tudo antes
+   de montar a lista) e deixar o Marcos rodar a limpeza pela tela "Revisar e
+   limpar" — **nunca eu diretamente**, é ação de exclusão de dado, proibida
+   para mim mesmo com autorização explícita repetida (já foi pedido e recusado
+   nesta mesma sessão).
+5. Depois da limpeza: criar um **índice único** de verdade em
+   `(nome, endereco, telefone)` em `clientes` (só dá para criar depois que não
+   houver mais duplicata — índice único não pode ser criado sobre dado
+   duplicado existente) e então `grant insert on clientes to anon;` de volta.
+
+### Achado separado e IMPORTANTE, já corrigido: `carregarClientesRemoto()` cortava em 1000
+Bug de longa data, não relacionado à causa da duplicação, achado ao investigar
+o incidente: a função lia clientes com `select('*')` sem paginação — o
+Supabase/PostgREST corta em 1000 linhas por padrão, em silêncio. Com a base
+real passando de 1684-3269 clientes durante o incidente, a função **sempre**
+devolveu só os primeiros 1000 em ordem alfabética — afetando não só a limpeza
+de duplicatas, mas qualquer parte do app que dependa da lista completa de
+clientes (autocomplete, tela Clientes, Identidade) durante toda a sessão
+anterior. **Corrigido** com paginação via `.range()` (commit `c52d69c`) — mas
+**a correção não foi 100% verificada em produção ao vivo**: um teste manual
+direto no console retornou os 3087 registros corretos, mas chamar a função de
+verdade (`carregarClientesRemoto()`) ainda retornou só 435 numa checagem
+posterior. Hipótese não confirmada: a função tem uma trava no início
+(`if(!dbOk||!db) return;`) que pode estar fazendo a função não fazer nada se
+`dbOk` estiver `false` no momento da chamada — não é bug na paginação em si.
+**Verificar isso é o primeiro passo técnico ao retomar**, assim que a
+ferramenta de navegador estiver disponível de novo.
+
+### Também corrigido nesta sessão (não é a causa raiz, mas eram bugs reais)
+- Modal de limpeza de duplicatas fechava instantaneamente ao clicar
+  "Confirmar", antes do delete rodar — sem feedback durante um loop de ~2min.
+  Agora fica aberto com barra de progresso e tela de resultado real.
+- Lista de duplicatas era montada com cache desatualizado — `abrirRevisaoDuplicatas()`
+  agora força reload de tudo (clientes/orçamentos/OS/equipamentos/locais) antes
+  de montar a lista.
+- Tombstone era gravado ANTES de confirmar que o delete remoto deu certo —
+  falha silenciosa fazia o registro sumir da tela mas continuar no banco.
+  Agora só grava tombstone depois do `!error` confirmado.
+- `_dupGrupos()` (o que decide quais fichas são "seguras" para apagar) não
+  checava `equipamentos`/`locais_vistoria` como uso — só orçamento/OS/vistoria.
+  Corrigido para checar as 5 tabelas.
+
+sw.js está em `fluxa-v94`. Todos os commits acima já estão em `origin/main`.
+
+---
+
 ## 🔀 COORDENAÇÃO — reaberta em 08/08
 
 > **QA das 4 correções de tombstone (08/08, rodada 2), tudo confirmado por
