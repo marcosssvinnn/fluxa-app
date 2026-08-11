@@ -1152,9 +1152,20 @@ async function carregarClientesRemoto(){
     // A separação Aquamotor/Fortemp é feita em renderClientes().
     // Filtrar no banco causava sobrescrita do localStorage com só um grupo,
     // apagando os clientes do outro grupo ao trocar de contexto.
-    const {data,error}=await db.from('clientes').select('*').order('nome',{ascending:true});
-    if(error) throw error;
-    let remoto=data||[];
+    // ⚠️ PostgREST corta em 1000 linhas por padrão. Sem paginar, qualquer
+    // cliente cujo nome caísse depois do 1000º alfabético ficava invisível
+    // pro app inteiro (Clientes, autocomplete, Identidade, limpeza de
+    // duplicatas — todos leem daqui). Achado com 1.684 clientes reais: só
+    // os 1000 primeiros chegavam. Pagina até esgotar.
+    let remoto=[], from=0;
+    const PAGINA=1000;
+    while(true){
+      const {data,error}=await db.from('clientes').select('*').order('nome',{ascending:true}).range(from, from+PAGINA-1);
+      if(error) throw error;
+      remoto=remoto.concat(data||[]);
+      if(!data || data.length<PAGINA) break;
+      from+=PAGINA;
+    }
     const _tombCli=new Set(_tombLer('fluxa_cli_tombstones'));
     if(_tombCli.size){
       remoto.filter(r=>_tombCli.has(r.id)).forEach(r=>db.from('clientes').delete().eq('id',r.id).then(()=>{}).catch(()=>{}));
