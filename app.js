@@ -1527,13 +1527,18 @@ function go(p){
   }
   if(p==='os-history') loadOSHist();
   if(p==='clientes'){
-    renderClientes(); carregarClientesRemoto();
-    // o aviso depende de orçamento/OS/vistoria/equipamento/local — carrega antes
-    // de decidir o que é seguro apagar (sem isso, ficha em uso por equipamento
-    // ou local de vistoria passaria batido na checagem de duplicata).
-    (async()=>{ if(!(todosOrc||[]).length && typeof loadHist==='function') await loadHist();
-      if(!(lsEqLer()||[]).length && typeof loadEquipamentos==='function') await loadEquipamentos();
-      if(!(locaisVistoria||[]).length && typeof loadLocaisRemoto==='function') await loadLocaisRemoto();
+    renderClientes();
+    // ⚠️ carregarClientesRemoto() e o resto abaixo rodavam em paralelo, sem se
+    // esperar — o aviso de duplicata podia calcular a lista ANTES do cliente
+    // mais recente chegar, e "se x já tinha algo no cache local, pula o reload"
+    // fazia o mesmo com orçamento/equipamento/local se a aba já tinha visitado
+    // outra tela antes. Resultado real: a limpeza "terminava" e sobrava mais.
+    // Agora tudo é esperado, sempre, antes de calcular o que é seguro apagar.
+    (async()=>{
+      await carregarClientesRemoto();
+      if(typeof loadHist==='function') await loadHist();
+      if(typeof loadEquipamentos==='function') await loadEquipamentos();
+      if(typeof loadLocaisRemoto==='function') await loadLocaisRemoto();
       try{ renderAvisoIdentidade(); }catch(e){ console.warn('[avisoIdentidade]',e?.message||e); }
       try{ renderAvisoDuplicatas(); }catch(e){ console.warn('[avisoDuplicatas]',e?.message||e); } })();
   }
@@ -2198,9 +2203,18 @@ function renderAvisoDuplicatas(){
 }
 
 let _dupGruposAtual=[];
-function abrirRevisaoDuplicatas(){
+async function abrirRevisaoDuplicatas(){
+  // Força atualização de TUDO que a checagem de segurança usa, sem depender de
+  // cache que a aba já tinha de uma visita anterior — é o instante mais crítico
+  // (logo antes de uma exclusão em massa), não dá pra confiar em dado velho.
+  toast('Atualizando antes de montar a lista…');
+  await carregarClientesRemoto();
+  if(typeof loadHist==='function') await loadHist();
+  if(typeof loadOSHist==='function') await loadOSHist();
+  if(typeof loadEquipamentos==='function') await loadEquipamentos();
+  if(typeof loadLocaisRemoto==='function') await loadLocaisRemoto();
   _dupGruposAtual=_dupGrupos();
-  if(!_dupGruposAtual.length){ toast('Nada pra limpar'); return; }
+  if(!_dupGruposAtual.length){ toast('Nada pra limpar'); renderAvisoDuplicatas(); return; }
   const totalFichas=_dupGruposAtual.reduce((a,g)=>a+g.qtd,0);
   const linhas=_dupGruposAtual.map(g=>`
     <div style="padding:9px 0;border-bottom:1px solid var(--gray-light)">
