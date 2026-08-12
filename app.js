@@ -1179,8 +1179,21 @@ async function carregarClientesRemoto(){
     soLocal.forEach(l=>merged.push(l));
     lsCliSalvar(merged);
     if(document.getElementById('page-clientes').classList.contains('on')) renderClientes();
-    // Sobe ao Supabase clientes criados offline
-    soLocal.forEach(c=>{
+    // Sobe ao Supabase clientes criados offline — mas só os RECENTES.
+    // Achado real (11/08): _migrarClientesDeOrcamentos (já desligada) deixou
+    // centenas de fichas "só locais" presas no cache de abas que ficaram
+    // muito tempo sem recarregar. Quando essa aba finalmente rodou
+    // carregarClientesRemoto de novo, esse lixo velho foi empurrado pro
+    // banco em massa — recriando o mesmo padrão do incidente, mesmo com a
+    // causa raiz já corrigida. Cliente criado offline de verdade sincroniza
+    // em horas; id 'cli_<timestamp>' com mais de 48h parado é quase certo
+    // lixo travado, não uso legítimo — não empurra pro banco.
+    const DOIS_DIAS_MS=2*24*60*60*1000;
+    const _idadeMs=id=>{ const t=parseInt(String(id).split('_')[1]); return isFinite(t) ? Date.now()-t : 0; };
+    const soLocalRecente=soLocal.filter(c=>_idadeMs(c.id) < DOIS_DIAS_MS);
+    const soLocalAntigo=soLocal.length-soLocalRecente.length;
+    if(soLocalAntigo) console.warn('[carregarClientesRemoto] '+soLocalAntigo+' ficha(s) local(is) com mais de 48h ignorada(s) — provável lixo de bug antigo, não sincronizada.');
+    soLocalRecente.forEach(c=>{
       salvarClienteRemoto(c);   // sem id: uuid vem do banco (ver salvarClienteRemoto)
     });
   }catch(e){ console.warn('[carregarClientesRemoto]', e?.message||e); }
