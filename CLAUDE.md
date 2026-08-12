@@ -2,6 +2,66 @@
 
 ---
 
+## 🔀 COORDENAÇÃO — reaberta em 12/08 (roadmap de CRM, 8 etapas)
+
+> **Se você é uma sessão nova entrando agora: comece por aqui.** O Marcos
+> trouxe um briefing de produto e método (não está neste arquivo — foi colado
+> direto na conversa; se precisar do texto completo, peça a ele) com um
+> roadmap de 8 etapas pra tirar o CRM do "registra venda" pro "ajuda a
+> vender". Está sendo trabalhado por **duas sessões em paralelo, divididas
+> por ARQUIVO** (mesmo modelo que já funcionou em 08/08 — dividir por
+> ASSUNTO já causou colisão de commit antes, não repetir).
+
+### Divisão agora
+| | Sessão A (esta, em andamento) | Sessão B (nova — se o Marcos chamar) |
+|---|---|---|
+| **Pode editar** | `app.js`, `index.html`, `styles.css`, `sw.js`, `migracao-vendas-balcao.sql` | `docs/**` |
+| **NÃO toca** | — | `app.js`, `index.html`, `styles.css`, `sw.js` |
+| **Tarefa agora** | Etapa 1 — venda de balcão como transação própria (em andamento, ver abaixo) | Etapa 8 (parte de atribuição) — capturar a **linha de base** antes da Etapa 1 subir: conversão por trilho (equipamento × serviço) e faixa de valor, tempo até fechar, valor expirado. O próprio briefing do Marcos pede isso explicitamente **antes** da Etapa 1 ir pro ar, pra depois dar pra medir se ela mudou alguma coisa. Documentar em `docs/crm-baseline-atribuicao-2026-08-12.md`, mesmo padrão de `docs/crm-baseline-2026-08-06.md` (leitura via REST com a anon key, sem escrever nada). |
+
+**Antes de todo commit, as duas:** `git fetch origin` + `git diff --stat` e confirmar que só aparecem arquivos seus.
+
+### Etapa 1 — venda de balcão como transação (em andamento pela Sessão A)
+Hoje venda de balcão (químico, peça avulsa) só existe como saída de estoque
+com motivo em texto ("vendido loja") — sem cliente, sem histórico, dado que
+evapora todo dia. **Decisão de arquitetura:** entidade própria
+(`vendas_balcao`), não reaproveita `orcamentos` — misturar distorceria
+conversão/ticket médio do funil de orçamento, que tem ciclo de vida diferente
+(venda de balcão fecha na hora, sem negociação).
+
+- **Schema:** `migracao-vendas-balcao.sql` (raiz do repo) — `vendas_balcao`
+  (id uuid, loja_id, cliente_id uuid nullable, cliente_nome, itens jsonb,
+  valor_total, custo_total, forma_pagamento, vendedor, observacao,
+  data_criacao). **Ainda não rodada em produção** — `curl`/Management API
+  bloqueados pro Claude nesta sessão (classificador de auto-mode, tentado via
+  Bash direto e via browser+dashboard, os dois recusados). O Marcos precisa
+  rodar manualmente no SQL Editor do Supabase. Até lá o app funciona
+  local-first (a venda fica salva no aparelho e sincroniza sozinha quando a
+  tabela existir — mesmo padrão de despesas/equipamentos).
+- **UI:** modal `venda-modal` (index.html) — carrinho multi-item, cliente
+  opcional (reaproveita `abrirBuscaCli`, contexto novo `'venda'`, que agora
+  também carrega o `cliente_id` real — os contextos antigos orc/os/vis nunca
+  precisaram disso). Botão "🛒 Nova Venda" ao lado de "⚡ Dar baixa" em
+  Estoque e Minhas OS.
+- **Lógica:** `confirmarVendaBalcao()` (app.js, logo após
+  `confirmarBaixaRapida()`) — reaproveita `registrarMovimento()` por item
+  (não duplica a baixa de estoque), grava a venda em `vendas_balcao` com o
+  mesmo cuidado de `despesas`/`equipamentos` (payload sem `id` local — a
+  coluna é `uuid`, mandar id texto derruba o insert inteiro em silêncio).
+- **Histórico do cliente:** `verHistoricoCliente()` ganhou seção "Vendas
+  balcão", casando por `cliente_id` (quando veio da busca) ou nome (fallback,
+  venda digitada à mão).
+
+### Pendências desta etapa (pra fechar antes de ir pra Etapa 2)
+- [ ] Marcos rodar `migracao-vendas-balcao.sql` em produção.
+- [ ] QA no browser local (`dbOk=false`) — em andamento.
+- [ ] **Ponto de parada do próprio briefing:** confirmar que a venda de
+  balcão está sendo usada de verdade antes de avançar pra Etapa 2 (Histórico
+  unificado) — se o time não registrar, as etapas 4 e 6 (recorrência, motor
+  de eventos) ficam sem combustível.
+
+---
+
 ## ✅ INCIDENTE ENCERRADO (aberto 10/08, causa achada e tudo fechado 11/08)
 
 > Fica registrado como referência — não precisa retomar nada. Causa raiz

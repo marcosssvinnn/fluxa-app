@@ -158,6 +158,8 @@ function aplicarPermissoesPerfil(){
   // ("Cannot access 'todosProdutos' before initialization"). setTimeout(0) roda
   // após todos os `let` inicializarem. .catch cobre a rejeição do async.
   if(eGestor()){ setTimeout(()=>{ Promise.resolve(loadEstoque()).catch(e=>console.warn('[boot loadEstoque]', e?.message||e)); }, 0); }
+  // Vendas de balcão — mesmo gate de loadEstoque (feature de gestor por ora).
+  setTimeout(()=>{ if(typeof loadVendasBalcao==='function') Promise.resolve(loadVendasBalcao()).catch(e=>console.warn('[boot loadVendasBalcao]', e?.message||e)); }, 0);
 
   // ── Gear menu ──
   // Regras por id
@@ -1563,6 +1565,9 @@ function go(p){
       if(typeof loadLocaisRemoto==='function') await loadLocaisRemoto();
       try{ renderAvisoIdentidade(); }catch(e){ console.warn('[avisoIdentidade]',e?.message||e); }
       try{ renderAvisoDuplicatas(); }catch(e){ console.warn('[avisoDuplicatas]',e?.message||e); } })();
+    // Não faz parte da checagem de duplicata — só precisa estar pronto antes
+    // do gestor abrir "📋 Hist." de algum cliente, então não bloqueia o resto.
+    if(typeof loadVendasBalcao==='function') loadVendasBalcao();
   }
   if(p==='empresa') preencherFormEmpresa();
   if(p==='equipamentos'){ loadEquipamentos(); setTimeout(renderEqImport,400); }
@@ -5813,8 +5818,13 @@ function verHistoricoCliente(cliId){
   const osCli=filtrarPorLoja(todosOS).filter(o=>(o.cliente||'').toLowerCase()===nomeL||o.cliente_id===cliId);
   const visCli=filtrarPorLoja(lsVisLer(),'loja_id').filter(v=>(v.cliente||'').toLowerCase()===nomeL);
   const agCli=filtrarPorLoja(todosAg).filter(a=>(a.cliente||'').toLowerCase()===nomeL);
+  // cliente_id é o primeiro vínculo de verdade que este app tem (Etapa 1 do
+  // roadmap de CRM) — casa por id quando a venda veio da busca de cliente, e
+  // por nome como fallback (venda digitada à mão, sem selecionar da lista).
+  const vendasCli=filtrarPorLoja(todasVendasBalcao||[]).filter(v=>v.cliente_id===cliId||(v.cliente_nome||'').toLowerCase()===nomeL);
   const totalFat=orcCli.filter(o=>o.status==='aprovado').reduce((a,o)=>a+(o.total||0),0);
   const totalOS=osCli.filter(o=>o.status==='concluido').reduce((a,o)=>a+(o.total||0),0);
+  const totalVendas=vendasCli.reduce((a,v)=>a+(v.valor_total||0),0);
   const stC={aprovado:'var(--green)',pendente:'var(--yellow)',recusado:'var(--red)',vencido:'var(--gray)',agendado:'var(--blue)',concluido:'var(--green)',cancelado:'var(--red)'};
   const stBg={aprovado:'var(--green-bg)',pendente:'var(--yellow-bg)',recusado:'var(--red-bg)',vencido:'var(--gray-light)',agendado:'var(--blue-bg)',concluido:'var(--green-bg)',cancelado:'var(--red-bg)'};
   const _dt=(d,safe)=>{ if(!d) return '—'; try{ return new Date(safe?d+'T12:00:00':d).toLocaleDateString('pt-BR'); }catch(e){ return '—'; } };
@@ -5866,7 +5876,18 @@ function verHistoricoCliente(cliId){
       </div>
     </div>`).join('')
     :'<div style="padding:10px 0;font-size:13px;color:var(--gray)">Nenhum agendamento encontrado</div>';
-  const totalGeral=totalFat+totalOS;
+  const vendasHTML=vendasCli.length?[...vendasCli].sort((a,b)=>(b.data_criacao||'').localeCompare(a.data_criacao||'')).map(v=>`
+    <div class="chi">
+      <div>
+        <div class="chi-desc">🛒 Venda balcão</div>
+        <div class="chi-sub">${esc((v.itens||[]).map(i=>i.nome).slice(0,2).join(', '))||'—'} · ${_dt(v.data_criacao)}</div>
+      </div>
+      <div class="chi-right">
+        <div class="chi-val">${brl(v.valor_total||0)}</div>
+      </div>
+    </div>`).join('')
+    :'<div style="padding:10px 0;font-size:13px;color:var(--gray)">Nenhuma venda de balcão encontrada</div>';
+  const totalGeral=totalFat+totalOS+totalVendas;
   m.innerHTML=`<div class="cli-hist-box">
     <div class="cli-hist-hdr">
       <div class="cli-hist-titulo">📋 ${esc(cli.nome)}</div>
@@ -5882,6 +5903,7 @@ function verHistoricoCliente(cliId){
         <div class="chr-item"><span class="chr-val">${orcCli.length}</span><div class="chr-label">Orçamentos</div></div>
         <div class="chr-item"><span class="chr-val">${osCli.length}</span><div class="chr-label">OS</div></div>
         <div class="chr-item"><span class="chr-val">${visCli.length}</span><div class="chr-label">Vistorias</div></div>
+        <div class="chr-item"><span class="chr-val">${vendasCli.length}</span><div class="chr-label">Vendas balcão</div></div>
         <div class="chr-item"><span class="chr-val">${brl(totalGeral)}</span><div class="chr-label">Faturado</div></div>
       </div>
       <div class="cli-hist-secao">
@@ -5895,6 +5917,9 @@ function verHistoricoCliente(cliId){
       </div>
       <div class="cli-hist-secao">
         <div class="cli-hist-sec-titulo">Agendamentos</div>${agHTML}
+      </div>
+      <div class="cli-hist-secao">
+        <div class="cli-hist-sec-titulo">Vendas balcão</div>${vendasHTML}
       </div>
     </div>
   </div>`;
@@ -6079,12 +6104,16 @@ function filtrarListaCli(val){
     return;
   }
   el.innerHTML = lista.slice(0,60).map(c=>`
-    <div class="modal-cli-item" onmousedown="selecionarCliModal('${esc(c.nome)}','${esc(c.end||'')}','${esc(c.tel||'')}','${esc(c.cnpj||'')}')">
+    <div class="modal-cli-item" onmousedown="selecionarCliModal('${esc(c.nome)}','${esc(c.end||'')}','${esc(c.tel||'')}','${esc(c.cnpj||'')}','${esc(c.id||'')}')">
       <div class="mcn">${esc(c.nome)}</div>
       <div class="mcd">${[c.end,c.tel,c.cnpj].filter(Boolean).map(x=>esc(x)).join('  ·  ')}</div>
     </div>`).join('');
 }
-function selecionarCliModal(nome, end, tel, cnpj){
+// `id` é o 5º parâmetro (opcional) — os contextos antigos (orc/os/vis) nunca
+// precisaram do id real do cliente (só texto livre). O contexto 'venda' é o
+// primeiro a precisar de verdade, pra vendas_balcao.cliente_id não ficar
+// sempre nulo quando o cliente já está cadastrado.
+function selecionarCliModal(nome, end, tel, cnpj, id){
   if(_buscaCliCtx === 'os'){
     setV('os-cli', nome);
     if(end) setV('os-loc', end);
@@ -6099,6 +6128,10 @@ function selecionarCliModal(nome, end, tel, cnpj){
       setV('vis-email-resp', cliVis.email_responsavel);
       const st=document.getElementById('vis-email-status'); if(st) st.textContent=`📧 ${cliVis.email_responsavel} (do cadastro)`;
     }
+  } else if(_buscaCliCtx === 'venda'){
+    setV('venda-cli', nome);
+    _vendaClienteSelecionado = id ? {id, nome} : null;
+    _vendaAnonimo = false;
   } else {
     setV('cli', nome);
     if(end) setV('loc', end);
@@ -13340,6 +13373,158 @@ function confirmarBaixaRapida(){
   fecharBaixaRapida();
   if(typeof renderEstoque==='function' && document.getElementById('page-estoque')?.classList.contains('on')) renderEstoque();
   toast(`✅ Baixa de ${fmtQtd(qtd)} ${p.unidade||'un'} — ${cfg.nome.replace(/^\S+\s/,'')}`);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  VENDA DE BALCÃO — Etapa 1 do roadmap de CRM (2026-08-12)
+//  Diferente de "Dar baixa" (que é 1 produto, 1 motivo, sem cliente),
+//  isto é um carrinho: N itens, vira UMA transação em `vendas_balcao` com
+//  cliente (opcional — balcão pode ser anônimo) e alimenta o histórico do
+//  cliente. É a peça que faltava pra venda avulsa não evaporar todo dia
+//  (ver docs/crm-insights-plano-etapa1.md se existir, ou o recado no
+//  CLAUDE.md sobre o roadmap de 8 etapas).
+// ══════════════════════════════════════════════════════════════════════════════
+let _vendaCarrinho=[];          // [{produto_id, nome, unidade, qtd, preco_unit, custo_unit}]
+let _vendaClienteSelecionado=null; // {id, nome} quando veio da busca — null se digitado à mão ou anônimo
+let _vendaAnonimo=false;
+
+function abrirVendaBalcao(){
+  _vendaCarrinho=[]; _vendaClienteSelecionado=null; _vendaAnonimo=false;
+  setV('venda-cli',''); setV('venda-busca',''); setV('venda-forma-pgto','');
+  document.getElementById('venda-sugestoes').innerHTML='';
+  _vendaRenderCarrinho();
+  document.getElementById('venda-modal').style.display='flex';
+  setTimeout(()=>document.getElementById('venda-busca')?.focus(), 80);
+}
+function fecharVendaBalcao(){ document.getElementById('venda-modal').style.display='none'; }
+
+// Qualquer edição manual no campo de cliente invalida o id que veio da busca
+// (não dá pra garantir que o texto editado ainda corresponde ao cadastro) —
+// mas o nome digitado continua sendo salvo como texto, igual orçamento faz.
+function _vendaClienteEditado(){ _vendaClienteSelecionado=null; _vendaAnonimo=false; }
+function _vendaSemCliente(){
+  setV('venda-cli','Balcão (sem cliente identificado)');
+  _vendaClienteSelecionado=null; _vendaAnonimo=true;
+}
+
+function vendaBuscarProduto(termo){
+  const el=document.getElementById('venda-sugestoes'); if(!el) return;
+  const t=(termo||'').trim().toLowerCase();
+  if(t.length<2){ el.innerHTML=''; return; }
+  const achados=produtosVisiveis().filter(p=>
+    (p.nome||'').toLowerCase().includes(t) || (p.codigo||'').toLowerCase().includes(t)
+  ).slice(0,8);
+  if(!achados.length){ el.innerHTML='<div style="font-size:12px;color:var(--gray);padding:8px">Nenhum produto encontrado.</div>'; return; }
+  el.innerHTML=achados.map(p=>{
+    const disp=disponivelProduto(p.id);
+    return `<button class="tb" style="display:block;width:100%;text-align:left;margin-bottom:5px;padding:9px 11px" onclick="_vendaAddItem('${p.id}')">
+      <div style="font-weight:700;color:var(--c2);font-size:12.5px">${esc(p.nome)}</div>
+      <div style="font-size:11px;color:var(--gray)">${p.codigo?esc(p.codigo)+' · ':''}tem ${fmtQtd(disp)} ${esc(p.unidade||'un')}${p.preco_venda?' · '+brl(p.preco_venda):''}</div>
+    </button>`;
+  }).join('');
+}
+function _vendaAddItem(pid){
+  const p=produtoById(pid); if(!p) return;
+  const ja=_vendaCarrinho.find(i=>i.produto_id===pid);
+  if(ja){ ja.qtd=(parseFloat(ja.qtd)||0)+1; }
+  else{
+    _vendaCarrinho.push({
+      produto_id:pid, nome:p.nome, unidade:p.unidade||'un',
+      qtd:1, preco_unit:parseFloat(p.preco_venda)||0, custo_unit:parseFloat(p.custo)||0
+    });
+  }
+  setV('venda-busca',''); document.getElementById('venda-sugestoes').innerHTML='';
+  _vendaRenderCarrinho();
+  document.getElementById('venda-busca')?.focus();
+}
+function vendaRemoverItem(idx){ _vendaCarrinho.splice(idx,1); _vendaRenderCarrinho(); }
+function vendaAtualizarItem(idx, campo, val){
+  const it=_vendaCarrinho[idx]; if(!it) return;
+  it[campo]=parseFloat(String(val).replace(',','.'))||0;
+  _vendaRenderCarrinho(true); // true: não perde o foco do campo que está sendo digitado
+}
+function _vendaTotais(){
+  return _vendaCarrinho.reduce((a,i)=>({
+    total: a.total+(i.qtd*i.preco_unit),
+    custo: a.custo+(i.qtd*i.custo_unit)
+  }), {total:0, custo:0});
+}
+function _vendaRenderCarrinho(soTotais){
+  const totEl=document.getElementById('venda-total');
+  const {total}=_vendaTotais();
+  if(totEl) totEl.textContent = _vendaCarrinho.length ? `Total: ${brl(total)}` : '';
+  if(soTotais) return; // evita re-renderizar as linhas e perder o foco do input enquanto digita
+  const el=document.getElementById('venda-carrinho'); if(!el) return;
+  if(!_vendaCarrinho.length){ el.innerHTML=''; return; }
+  el.innerHTML = _vendaCarrinho.map((i,idx)=>`
+    <div style="display:flex;gap:6px;align-items:center;padding:7px 0;border-bottom:1px solid var(--line,#e5e7eb)">
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;color:var(--c2);font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(i.nome)}</div>
+        <div style="font-size:11px;color:var(--gray)">${brl(i.preco_unit)} / ${esc(i.unidade)}</div>
+      </div>
+      <input type="text" inputmode="decimal" value="${i.qtd}" style="width:52px;text-align:center;padding:6px 4px" onchange="vendaAtualizarItem(${idx},'qtd',this.value)">
+      <div style="width:70px;text-align:right;font-weight:700;font-size:12.5px">${brl(i.qtd*i.preco_unit)}</div>
+      <button onclick="vendaRemoverItem(${idx})" aria-label="Remover" style="background:none;border:none;cursor:pointer;color:var(--red);font-size:16px;font-weight:700;padding:0 4px">×</button>
+    </div>`).join('');
+}
+
+async function confirmarVendaBalcao(){
+  if(!_vendaCarrinho.length){ toast('⚠️ Adicione ao menos um produto'); return; }
+  const loja=_lojaParaMovimento();
+  if(!loja){ toast('⚠️ Selecione a unidade no topo da tela'); return; }
+  const {total, custo}=_vendaTotais();
+  const clienteNome=(gV('venda-cli')||'').trim();
+  const s=getSessao();
+  // dados SEM id: vendas_balcao.id é uuid gerado pelo banco — mesmo cuidado
+  // de despesas/equipamentos (mandar id texto local derruba o insert inteiro,
+  // 22P02, sem coluna pra reportar).
+  const dados={
+    loja_id:loja,
+    cliente_id:_vendaClienteSelecionado?.id||null,
+    cliente_nome:clienteNome||(_vendaAnonimo?'Balcão (sem cliente identificado)':null),
+    itens:_vendaCarrinho.map(i=>({produto_id:i.produto_id,nome:i.nome,qtd:i.qtd,preco_unit:i.preco_unit,custo_unit:i.custo_unit})),
+    valor_total:total, custo_total:custo,
+    forma_pagamento:gV('venda-forma-pgto')||null,
+    vendedor:s?.nome||'',
+    observacao:null,
+    data_criacao:new Date().toISOString()
+  };
+  const btn=document.getElementById('venda-btn');
+  if(btn){ btn.disabled=true; btn.textContent='Registrando…'; }
+  const vendaIdRef='venda_'+Date.now(); // só pra referenciar nos movimentos de estoque — não é o id real da venda
+  _vendaCarrinho.forEach(i=>{
+    registrarMovimento({
+      produto_id:i.produto_id, tipo:'saida', quantidade:-Math.abs(i.qtd),
+      custo_unit:i.custo_unit,
+      motivo:'Venda balcão'+(clienteNome?' — '+clienteNome:''),
+      ref:'venda:'+vendaIdRef+':'+i.produto_id,
+      lojaId:loja
+    });
+  });
+  todasVendasBalcao.unshift({...dados, id:vendaIdRef});
+  lsVendaSalvar(todasVendasBalcao);
+  if(dbOk&&db){
+    try{
+      const {data:ins}=await dbInsert('vendas_balcao', dados);
+      if(ins){ todasVendasBalcao=todasVendasBalcao.filter(x=>x.id!==vendaIdRef); todasVendasBalcao.unshift(ins); lsVendaSalvar(todasVendasBalcao); }
+    }catch(e){ console.warn('[confirmarVendaBalcao]', e?.message||e); toast('⚠️ Venda registrada aqui, mas não sincronizou ainda'); }
+  }
+  if(btn){ btn.disabled=false; btn.textContent='✅ Fechar Venda'; }
+  fecharVendaBalcao();
+  if(typeof renderEstoque==='function' && document.getElementById('page-estoque')?.classList.contains('on')) renderEstoque();
+  toast(`✅ Venda de ${brl(total)} registrada${clienteNome&&!_vendaAnonimo?' — '+clienteNome:''}`);
+}
+
+let todasVendasBalcao=[];
+function lsVendaLer(){ try{ return JSON.parse(ls('fluxa_vendas_balcao')||'[]'); }catch(e){ return []; } }
+function lsVendaSalvar(lista){ lsSet('fluxa_vendas_balcao', JSON.stringify(lista)); }
+async function loadVendasBalcao(){
+  todasVendasBalcao=lsVendaLer();
+  if(!dbOk||!db) return;
+  try{
+    const {data}=await db.from('vendas_balcao').select('*').order('data_criacao',{ascending:false}).limit(3000);
+    if(data){ todasVendasBalcao=data; lsVendaSalvar(todasVendasBalcao); }
+  }catch(e){ console.warn('[loadVendasBalcao]', e?.message||e); }
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
