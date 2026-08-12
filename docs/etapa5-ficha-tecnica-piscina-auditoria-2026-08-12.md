@@ -134,9 +134,9 @@ importante — nem sempre do zero.
   acrescentada depois, `setup.sql:169`).
 - **Dado real, hoje: 14 linhas.** Nenhum cliente tem mais de um `local` na
   amostra completa (14/14 únicos por `cliente`). O campo `local` guarda o
-  **endereço** do condomínio/casa (ex.: `"[endereço de cliente removido]
-  —"`), não um nome de piscina (não há nenhum valor como "Piscina
-  Adulto" ou "Piscina Infantil" na base atual).
+  **endereço** do condomínio/casa (ex.: rua + número + bairro), não um nome
+  de piscina (não há nenhum valor como "Piscina Adulto" ou "Piscina
+  Infantil" na base atual).
 - **Ou seja: `locais_vistoria` hoje modela "endereço/site do cliente onde se
   faz vistoria", não "piscina específica dentro do site".** É o candidato
   mais próximo de virar a entidade "piscina" (é literalmente "1 linha por
