@@ -1,0 +1,3117 @@
+{
+ "gerado_em": "2026-08-07",
+ "fonte": "projeto v1 lbxwclwzeqqtnwvlxsxs — somente leitura",
+ "totais": {
+  "nomes_distintos_em_orcamentos": 216,
+  "fichas_em_clientes": 141,
+  "orcamentos": 303,
+  "valor_total": 2987347.04
+ },
+ "faixas": {
+  "exato": {
+   "nomes": 107,
+   "orcamentos": 161,
+   "valor_total": 1746154.49
+  },
+  "nenhum": {
+   "nomes": 93,
+   "orcamentos": 119,
+   "valor_total": 1185891.75
+  },
+  "revisar": {
+   "nomes": 14,
+   "orcamentos": 21,
+   "valor_total": 52898.05
+  },
+  "provavel": {
+   "nomes": 2,
+   "orcamentos": 2,
+   "valor_total": 2402.75
+  }
+ },
+ "nomes": [
+  {
+   "nome_orc": "Ibiza Towers",
+   "ocorrencias": 5,
+   "valor_total": 324463.9,
+   "aprovados": 1,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "003645ab-f939-482c-8fe9-84a6f8d15321",
+   "sugestao_nome": "Ibiza Towers",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {
+    "os": 1
+   }
+  },
+  {
+   "nome_orc": "Residencial Splendour Of The Sea",
+   "ocorrencias": 4,
+   "valor_total": 158975.69,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "b24033fa-2cc9-4a14-82e3-bde688655386",
+   "sugestao_nome": "Residencial Splendour Of The Sea",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Condomínio Metrópolis",
+   "ocorrencias": 2,
+   "valor_total": 150686.0,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Platinum Residence",
+   "ocorrencias": 2,
+   "valor_total": 148532.2,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Condominio Ocean Wind",
+   "ocorrencias": 2,
+   "valor_total": 138931.0,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "9826b253-2173-4a50-b7ec-7efaf33b24c4",
+   "sugestao_nome": "Condominio Ocean Wind",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Edifício Manhattan",
+   "ocorrencias": 1,
+   "valor_total": 70690.2,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "16d6c49e-37c1-4647-8ce0-28b2989cc6f7",
+   "sugestao_nome": "Edifício Manhattan",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Condominio Maria Valentina",
+   "ocorrencias": 2,
+   "valor_total": 62451.68,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Infinity Flat",
+   "ocorrencias": 1,
+   "valor_total": 59825.7,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {
+    "vistorias": 1
+   }
+  },
+  {
+   "nome_orc": "Recanto dos Girassóis",
+   "ocorrencias": 2,
+   "valor_total": 58808.2,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "0b2d1b82-ed7a-4bae-8ff9-c594ee1d85d1",
+   "sugestao_nome": "Recanto dos Girassóis",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Italo Silva  -  Arquiteta Marina Moraes",
+   "ocorrencias": 1,
+   "valor_total": 56553.17,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "4ba19dd4-e119-4cf5-8564-9bf4e3ce169d",
+   "sugestao_nome": "Italo Silva  -  Arquiteta Marina Moraes",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Axplenium Residence",
+   "ocorrencias": 2,
+   "valor_total": 52018.07,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "0ac4ccf8-fe51-43de-8ef7-7d6d2b089eb7",
+   "sugestao_nome": "Axplenium Residence",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Pousada Casa do Mar",
+   "ocorrencias": 2,
+   "valor_total": 50343.2,
+   "aprovados": 2,
+   "lojas": "fortemp-camboriu,fortemp-itapema",
+   "sugestao_cliente_id": "dc22fed0-d550-481d-96d8-676cdf73b437",
+   "sugestao_nome": "Pousada Casa do Mar",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {
+    "os": 1
+   }
+  },
+  {
+   "nome_orc": "Rodrigo",
+   "ocorrencias": 2,
+   "valor_total": 49998.88,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "c7fad078-b609-47ce-ba77-05a931b1ad38",
+   "sugestao_nome": "Rodrigo",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Residencial Dalcelis",
+   "ocorrencias": 1,
+   "valor_total": 49200.35,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "CONDOMINIO BRISA DO MAR",
+   "ocorrencias": 2,
+   "valor_total": 44843.4,
+   "aprovados": 0,
+   "lojas": "aquamotor",
+   "sugestao_cliente_id": "c3d3fe6f-fc3c-4d30-a8c3-ed6298f1e776",
+   "sugestao_nome": "CONDOMINIO BRISA DO MAR",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Edifício Torre de Esmeralda",
+   "ocorrencias": 3,
+   "valor_total": 43776.85,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Francisco e Tânia",
+   "ocorrencias": 2,
+   "valor_total": 42378.8,
+   "aprovados": 1,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "CONDOMINIO GOLDEN HOME",
+   "ocorrencias": 6,
+   "valor_total": 42083.18,
+   "aprovados": 0,
+   "lojas": "aquamotor,fortemp-itapema",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Kleber",
+   "ocorrencias": 3,
+   "valor_total": 39953.8,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Diamond Hill",
+   "ocorrencias": 1,
+   "valor_total": 39100.0,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "dbf9f06d-1685-4b7f-8b6a-31d93dd6dbea",
+   "sugestao_nome": "Diamond Hill",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Valdemir de Souza Miranda",
+   "ocorrencias": 2,
+   "valor_total": 38967.0,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "667c3b0e-9373-40ec-8bee-42270ee1c785",
+   "sugestao_nome": "Valdemir de Souza Miranda",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Felipe",
+   "ocorrencias": 2,
+   "valor_total": 37096.25,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "838eea86-27cc-457a-836e-84086930ff38",
+   "sugestao_nome": "Felipe",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Marina Palace Residence",
+   "ocorrencias": 1,
+   "valor_total": 35176.25,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Eduardo Ribeiro",
+   "ocorrencias": 2,
+   "valor_total": 35149.95,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Condomínio Briza do Mar",
+   "ocorrencias": 1,
+   "valor_total": 30505.0,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "d3b84b5d-f19d-4a4d-bc81-6d53cbfcd569",
+   "sugestao_nome": "Condomínio Briza do Mar",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Claudio",
+   "ocorrencias": 1,
+   "valor_total": 30305.0,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Oswaldo Scheer",
+   "ocorrencias": 2,
+   "valor_total": 29005.0,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "3c5b6b23-52d0-4efc-9b21-fe47eb50bea1",
+   "sugestao_nome": "Oswaldo Scheer",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "MARIO",
+   "ocorrencias": 1,
+   "valor_total": 28692.3,
+   "aprovados": 0,
+   "lojas": "fortemp-itapema",
+   "sugestao_cliente_id": "72ed8577-fd8d-4999-a28f-1c22cade5502",
+   "sugestao_nome": "MARIO",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Residencial Carrara",
+   "ocorrencias": 2,
+   "valor_total": 28680.0,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "9a2e12ea-ff21-4af5-89f9-5e3c20470d1c",
+   "sugestao_nome": "Residencial Carrara",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {
+    "os": 1
+   }
+  },
+  {
+   "nome_orc": "Maison Lafayette",
+   "ocorrencias": 1,
+   "valor_total": 27724.0,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Marcelo",
+   "ocorrencias": 1,
+   "valor_total": 26371.8,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Danilo",
+   "ocorrencias": 1,
+   "valor_total": 26208.3,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "ALS Administradora de Bens",
+   "ocorrencias": 2,
+   "valor_total": 26130.0,
+   "aprovados": 0,
+   "lojas": "?,fortemp-camboriu",
+   "sugestao_cliente_id": "28a5062e-394a-4b20-aa74-d11783595c66",
+   "sugestao_nome": "ALS Administradora de Bens",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Fabiano",
+   "ocorrencias": 1,
+   "valor_total": 25501.15,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "48eb1840-465d-4f5c-931f-4c9dded34cc3",
+   "sugestao_nome": "Fabiano",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Edifício Breeze Palace",
+   "ocorrencias": 2,
+   "valor_total": 24901.65,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "ec3f25cd-42ce-4316-9a4b-39efdf87606d",
+   "sugestao_nome": "Edifício Breeze Palace",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Villa dos Corais",
+   "ocorrencias": 3,
+   "valor_total": 24891.66,
+   "aprovados": 0,
+   "lojas": "aquamotor,fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Raphael Ribeiro",
+   "ocorrencias": 1,
+   "valor_total": 24624.86,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Blue Sea Hotel",
+   "ocorrencias": 4,
+   "valor_total": 24547.6,
+   "aprovados": 2,
+   "lojas": "fortemp-camboriu,fortemp-itapema",
+   "sugestao_cliente_id": "df3ed85d-ffe8-484f-894c-6b31c5a7a72a",
+   "sugestao_nome": "Blue Sea Hotel",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {
+    "os": 1
+   }
+  },
+  {
+   "nome_orc": "Condomínio Lisboa",
+   "ocorrencias": 2,
+   "valor_total": 21800.95,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "ITALO SILVA",
+   "ocorrencias": 2,
+   "valor_total": 21770.44,
+   "aprovados": 0,
+   "lojas": "fortemp-itapema",
+   "sugestao_cliente_id": "579b5b46-3cc6-4bff-b8bf-1202a010e8a2",
+   "sugestao_nome": "ITALO SILVA",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Eduardo",
+   "ocorrencias": 4,
+   "valor_total": 21105.8,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "0c6e9295-ef52-4e34-8e35-581844eb885b",
+   "sugestao_nome": "Eduardo",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {
+    "os": 2
+   }
+  },
+  {
+   "nome_orc": "Luna del Mare Residenziale",
+   "ocorrencias": 1,
+   "valor_total": 20284.0,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "55f127e0-2772-4acc-bbf6-328fe3f9e957",
+   "sugestao_nome": "Luna del Mare Residenziale",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Rafael",
+   "ocorrencias": 1,
+   "valor_total": 20181.25,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Rharie",
+   "ocorrencias": 1,
+   "valor_total": 20100.0,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "9086ad31-2567-46ad-bedc-f8309d2a0ddd",
+   "sugestao_nome": "Rharie",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Residencial Phoenix",
+   "ocorrencias": 2,
+   "valor_total": 19815.0,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Juliano",
+   "ocorrencias": 2,
+   "valor_total": 18899.6,
+   "aprovados": 1,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Condominio Champs Elysees Residence",
+   "ocorrencias": 1,
+   "valor_total": 18584.75,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "7adc9b0c-0ff6-47a9-be49-c2017108b3b1",
+   "sugestao_nome": "Condominio Champs Elysees Residence",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "VAGNER",
+   "ocorrencias": 2,
+   "valor_total": 18380.0,
+   "aprovados": 0,
+   "lojas": "aquamotor,fortemp-itapema",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Condominio Edificio Don Alvarez",
+   "ocorrencias": 1,
+   "valor_total": 18370.0,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "ADRIANO",
+   "ocorrencias": 1,
+   "valor_total": 18269.54,
+   "aprovados": 0,
+   "lojas": "fortemp-itapema",
+   "sugestao_cliente_id": "eab75a5a-c2d6-4278-a517-f0ad6294e703",
+   "sugestao_nome": "ADRIANO",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Rose  Santos",
+   "ocorrencias": 1,
+   "valor_total": 17538.6,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "c88a03df-6664-426b-9c6d-e2898fdc6373",
+   "sugestao_nome": "Rose  Santos",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "José Luiz",
+   "ocorrencias": 1,
+   "valor_total": 17045.75,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "GABRIEL",
+   "ocorrencias": 1,
+   "valor_total": 16231.0,
+   "aprovados": 0,
+   "lojas": "fortemp-itapema",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": "Gabriel / GABRIEL",
+   "confianca": "revisar",
+   "motivo": "2 fichas com esse mesmo nome — duplicidade dentro de clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Renato Ammann",
+   "ocorrencias": 1,
+   "valor_total": 15945.3,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "André",
+   "ocorrencias": 1,
+   "valor_total": 15790.65,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "64920165-61bc-4e82-ade3-160c8462ff9b",
+   "sugestao_nome": "ANDRE",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Patricia",
+   "ocorrencias": 2,
+   "valor_total": 15245.19,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "11916726-1140-4cfc-9311-f593a5286e30",
+   "sugestao_nome": "Patricia",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Michelle",
+   "ocorrencias": 1,
+   "valor_total": 14805.75,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "2a620987-d071-4646-a427-66638a30c83e",
+   "sugestao_nome": "Michelle",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Edifício Green Valey",
+   "ocorrencias": 1,
+   "valor_total": 14464.77,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Verônica",
+   "ocorrencias": 1,
+   "valor_total": 14395.0,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "BRISA DO MAR",
+   "ocorrencias": 1,
+   "valor_total": 14338.4,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "e55664ec-8e90-4a11-a66a-cdd0b7890d15",
+   "sugestao_nome": "BRISA DO MAR",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Sérgio Salles",
+   "ocorrencias": 1,
+   "valor_total": 14195.0,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Julio Cesar",
+   "ocorrencias": 1,
+   "valor_total": 13126.77,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Andressa/ Michel",
+   "ocorrencias": 1,
+   "valor_total": 12578.0,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "8a91b65c-462c-4031-8237-1b2074a08e70",
+   "sugestao_nome": "Andressa/ Michel",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Mariana e Vinicius",
+   "ocorrencias": 2,
+   "valor_total": 11931.1,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "e862e8ce-85d3-47e0-9884-1a1a7e8e8875",
+   "sugestao_nome": "Mariana e Vinicius",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Villa Di Mare",
+   "ocorrencias": 1,
+   "valor_total": 11886.0,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": "VILLA DO MAR",
+   "confianca": "revisar",
+   "motivo": "parecido com \"VILLA DO MAR\" (85%), mas \"villa\" nomeia varios imoveis diferentes — conferir com a equipe",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "INVICTUS RESIDENCE",
+   "ocorrencias": 1,
+   "valor_total": 11857.45,
+   "aprovados": 0,
+   "lojas": "aquamotor",
+   "sugestao_cliente_id": "4be6727c-991d-422d-8030-2514962a43de",
+   "sugestao_nome": "INVICTUS RESIDENCE",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {
+    "os": 6,
+    "locais": 1
+   }
+  },
+  {
+   "nome_orc": "Fabio",
+   "ocorrencias": 2,
+   "valor_total": 11361.8,
+   "aprovados": 1,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "a5c99dcd-bd7a-4810-9395-1449dfa17c41",
+   "sugestao_nome": "Fabio",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Four Seasons Residence",
+   "ocorrencias": 1,
+   "valor_total": 10965.0,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "5f635420-453f-4634-a707-e079006ed90a",
+   "sugestao_nome": "Four Seasons Residence",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Rodrigo Guerra",
+   "ocorrencias": 3,
+   "valor_total": 10542.0,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "6b38524d-b3f7-4b43-8c6c-e0d3a9ca993d",
+   "sugestao_nome": "Rodrigo Guerra",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "VALDIR",
+   "ocorrencias": 1,
+   "valor_total": 10313.0,
+   "aprovados": 0,
+   "lojas": "fortemp-itapema",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Jackson",
+   "ocorrencias": 1,
+   "valor_total": 9985.0,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "d11ca098-a573-4aac-a3b9-6521f6a48cb8",
+   "sugestao_nome": "Jackson",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Andresa",
+   "ocorrencias": 1,
+   "valor_total": 9871.44,
+   "aprovados": 1,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "DPOOL",
+   "ocorrencias": 1,
+   "valor_total": 8460.0,
+   "aprovados": 0,
+   "lojas": "fortemp-itapema",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "MUNIZ",
+   "ocorrencias": 2,
+   "valor_total": 8057.6,
+   "aprovados": 1,
+   "lojas": "fortemp-camboriu,fortemp-itapema",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": "MUNIZ / MUNIZ",
+   "confianca": "revisar",
+   "motivo": "2 fichas com esse mesmo nome — duplicidade dentro de clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "--",
+   "ocorrencias": 1,
+   "valor_total": 7957.55,
+   "aprovados": 0,
+   "lojas": "fortemp-itapema",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "revisar",
+   "motivo": "orcamento sem nome de cliente preenchido",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Cadillac Tower Residence",
+   "ocorrencias": 1,
+   "valor_total": 7493.0,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "7e0e6f68-2e4d-45ff-bcbe-fd6e2a4376cf",
+   "sugestao_nome": "Cadillac Tower Residence",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "RESIDENCIAL MAJESTIC",
+   "ocorrencias": 1,
+   "valor_total": 7358.1,
+   "aprovados": 0,
+   "lojas": "aquamotor",
+   "sugestao_cliente_id": "58f33ee4-4d39-4e6f-886a-fd28ce66c858",
+   "sugestao_nome": "RESIDENCIAL MAJESTIC",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {
+    "os": 12,
+    "locais": 1
+   }
+  },
+  {
+   "nome_orc": "SNI BRASIL",
+   "ocorrencias": 2,
+   "valor_total": 7357.6,
+   "aprovados": 1,
+   "lojas": "aquamotor,fortemp-itapema",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {
+    "os": 1
+   }
+  },
+  {
+   "nome_orc": "SUNPRIME",
+   "ocorrencias": 1,
+   "valor_total": 6990.8,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "fbc0ea02-e209-423c-a957-32d35d87ed61",
+   "sugestao_nome": "SUNPRIME",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Condominio Sir Antoni",
+   "ocorrencias": 1,
+   "valor_total": 6580.0,
+   "aprovados": 1,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "81f73fe0-ac03-4d12-863b-c8937b07ad6e",
+   "sugestao_nome": "Condominio Sir Antoni",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Condomínio Edificio Ville Blanche Residence - Loft",
+   "ocorrencias": 1,
+   "valor_total": 6530.0,
+   "aprovados": 1,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Alameda Jardins Residence",
+   "ocorrencias": 1,
+   "valor_total": 6196.9,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "4332f6fd-8888-46c9-8bff-f373ab4977a0",
+   "sugestao_nome": "Alameda Jardins Residence",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "ISAAC",
+   "ocorrencias": 1,
+   "valor_total": 6192.75,
+   "aprovados": 0,
+   "lojas": "fortemp-itapema",
+   "sugestao_cliente_id": "253c1caf-c95d-4c0c-b42c-6c34842529f7",
+   "sugestao_nome": "ISAAC",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Times Square",
+   "ocorrencias": 3,
+   "valor_total": 5697.75,
+   "aprovados": 1,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "4bf04fe8-5799-4e6d-9dc9-2588300ef2c7",
+   "sugestao_nome": "Times Square",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Porto Belo Golf- All Resort",
+   "ocorrencias": 3,
+   "valor_total": 5525.79,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "a7c7a6f4-80ef-4e0c-95a8-19837aecbfb9",
+   "sugestao_nome": "Porto Belo Golf- All Resort",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Patricia Delatorre Vanzin",
+   "ocorrencias": 1,
+   "valor_total": 5207.0,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "f9670cdf-f12c-465f-b2b0-00186f347ead",
+   "sugestao_nome": "Patricia Delatorre Vanzin",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Jeferson - ZM S.A.",
+   "ocorrencias": 1,
+   "valor_total": 5155.5,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "13834caa-4c47-450a-b6d2-18f4787e6ffc",
+   "sugestao_nome": "Jeferson - ZM S.A.",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Condomínio Bellagio",
+   "ocorrencias": 1,
+   "valor_total": 4452.0,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "VILLA DO MAR",
+   "ocorrencias": 4,
+   "valor_total": 4129.74,
+   "aprovados": 3,
+   "lojas": "fortemp-camboriu,fortemp-itapema",
+   "sugestao_cliente_id": "544dcd45-ea56-44bb-84a6-b93cd7ca1a10",
+   "sugestao_nome": "VILLA DO MAR",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Elves",
+   "ocorrencias": 1,
+   "valor_total": 3848.6,
+   "aprovados": 1,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "22d7f8fc-89e4-4c81-8f40-d58a9e2e257e",
+   "sugestao_nome": "Elves",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "RESIDENCIAL LE HAVRE PALACE",
+   "ocorrencias": 2,
+   "valor_total": 3768.99,
+   "aprovados": 0,
+   "lojas": "fortemp-itapema",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "CONDOMINIO LA SPEZIA",
+   "ocorrencias": 2,
+   "valor_total": 3701.15,
+   "aprovados": 1,
+   "lojas": "fortemp-itapema",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {
+    "os": 1
+   }
+  },
+  {
+   "nome_orc": "Hotel Sibara Spa & Convenções",
+   "ocorrencias": 2,
+   "valor_total": 3169.7,
+   "aprovados": 1,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "f58739fa-8555-43c6-89d3-cf7112f2952a",
+   "sugestao_nome": "Hotel Sibara Spa & Convenções",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Renato",
+   "ocorrencias": 1,
+   "valor_total": 2975.0,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": "RENATA",
+   "confianca": "revisar",
+   "motivo": "parecido com \"RENATA\" (83%), mas \"renato\" nomeia varios imoveis diferentes — conferir com a equipe",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "CONDOMINIO YACHTHOUSE",
+   "ocorrencias": 1,
+   "valor_total": 2801.85,
+   "aprovados": 0,
+   "lojas": "fortemp-itapema",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Home Pool",
+   "ocorrencias": 1,
+   "valor_total": 2756.73,
+   "aprovados": 1,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Daniele",
+   "ocorrencias": 1,
+   "valor_total": 2717.6,
+   "aprovados": 0,
+   "lojas": "?",
+   "sugestao_cliente_id": "4b67dc81-edae-4f1c-b361-b8b6aef7d3d0",
+   "sugestao_nome": "Daniele",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Gabriel",
+   "ocorrencias": 3,
+   "valor_total": 2709.17,
+   "aprovados": 2,
+   "lojas": "?,fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": "Gabriel / GABRIEL",
+   "confianca": "revisar",
+   "motivo": "2 fichas com esse mesmo nome — duplicidade dentro de clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Infinity Coast",
+   "ocorrencias": 1,
+   "valor_total": 2482.4,
+   "aprovados": 1,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {
+    "os": 6,
+    "vistorias": 1,
+    "locais": 1
+   }
+  },
+  {
+   "nome_orc": "Bali Beach",
+   "ocorrencias": 1,
+   "valor_total": 2470.0,
+   "aprovados": 1,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Condominio Four Seasons Residence",
+   "ocorrencias": 2,
+   "valor_total": 2325.0,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "0f66daf0-d00e-4e91-9f9e-02d5cfbc30be",
+   "sugestao_nome": "Condominio Four Seasons Residence",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Cleusa",
+   "ocorrencias": 1,
+   "valor_total": 2275.0,
+   "aprovados": 0,
+   "lojas": "?",
+   "sugestao_cliente_id": "301f4308-2ef0-41ef-8520-f985f202ab72",
+   "sugestao_nome": "Cleusa",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Siena Towers",
+   "ocorrencias": 3,
+   "valor_total": 2221.54,
+   "aprovados": 1,
+   "lojas": "fortemp-camboriu,fortemp-itapema",
+   "sugestao_cliente_id": "a5c19d1a-67d1-4dd8-8399-ec1ee3feef89",
+   "sugestao_nome": "Siena Towers",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Marcos vinicius",
+   "ocorrencias": 2,
+   "valor_total": 2214.16,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "fce8d8f2-77dc-4376-aba9-cf8259ae6704",
+   "sugestao_nome": "Marcos vinicius",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "FREED PB ADMINISTRADORA",
+   "ocorrencias": 1,
+   "valor_total": 2180.0,
+   "aprovados": 0,
+   "lojas": "fortemp-itapema",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "HIRAN GANDIN",
+   "ocorrencias": 1,
+   "valor_total": 2153.3,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "3dbd30d8-9dae-442d-9b72-77987584fee6",
+   "sugestao_nome": "HIRAN GANDIN",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "GEOVANA",
+   "ocorrencias": 1,
+   "valor_total": 2145.0,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "22b3bf11-7855-4376-9505-d9552999c41e",
+   "sugestao_nome": "GEOVANA",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "PAULO ADVANCE",
+   "ocorrencias": 1,
+   "valor_total": 2081.49,
+   "aprovados": 0,
+   "lojas": "aquamotor",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Gilberto de Oliveira",
+   "ocorrencias": 1,
+   "valor_total": 2065.6,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Villa Siena",
+   "ocorrencias": 1,
+   "valor_total": 2063.8,
+   "aprovados": 1,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "efc5ef78-97b6-425a-8ad7-09b33a1f6adf",
+   "sugestao_nome": "Villa Siena",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Isabelle",
+   "ocorrencias": 1,
+   "valor_total": 2015.0,
+   "aprovados": 1,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "42b224d7-5ac1-4def-9976-efbfa24cfd6d",
+   "sugestao_nome": "Isabele",
+   "confianca": "provavel",
+   "motivo": "1 caractere(s) de diferenca para \"Isabele\"",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "RUDI",
+   "ocorrencias": 1,
+   "valor_total": 1934.45,
+   "aprovados": 0,
+   "lojas": "fortemp-itapema",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Jean",
+   "ocorrencias": 2,
+   "valor_total": 1898.48,
+   "aprovados": 1,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "5b4bf8bb-0dce-4f76-b602-c7fc5817cfb6",
+   "sugestao_nome": "Jean",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "CONDOMINIO VILA DAS AROEIRAS",
+   "ocorrencias": 2,
+   "valor_total": 1890.15,
+   "aprovados": 2,
+   "lojas": "fortemp-itapema",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "VILLA TOSCANA -DAVID",
+   "ocorrencias": 1,
+   "valor_total": 1835.0,
+   "aprovados": 0,
+   "lojas": "fortemp-itapema",
+   "sugestao_cliente_id": "c2b77d61-1053-4d55-aa1e-3333a627ad95",
+   "sugestao_nome": "VILLA TOSCANA -DAVID",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Guilhermo",
+   "ocorrencias": 1,
+   "valor_total": 1787.59,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "d85b3622-53d2-41ba-9ab2-2239f74d7c97",
+   "sugestao_nome": "Guilhermo",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "CONDOMINIO UP STREET",
+   "ocorrencias": 2,
+   "valor_total": 1786.0,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu,fortemp-itapema",
+   "sugestao_cliente_id": "b185b477-8af4-4634-9813-ab125bf89a5b",
+   "sugestao_nome": "CONDOMINIO UP STREET",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Edifício Atlantic Paradise",
+   "ocorrencias": 1,
+   "valor_total": 1785.0,
+   "aprovados": 1,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "1f8318a8-57f0-4a95-8e31-e0e5fcbc0a0c",
+   "sugestao_nome": "Edifício Atlantic Paradise",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {
+    "os": 1
+   }
+  },
+  {
+   "nome_orc": "Condomínio Acqua blue",
+   "ocorrencias": 2,
+   "valor_total": 1750.0,
+   "aprovados": 0,
+   "lojas": "aquamotor",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "VILLA CORA",
+   "ocorrencias": 1,
+   "valor_total": 1724.1,
+   "aprovados": 0,
+   "lojas": "fortemp-itapema",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "ARNOU TEIXEIRA DE MELO",
+   "ocorrencias": 1,
+   "valor_total": 1722.3,
+   "aprovados": 0,
+   "lojas": "fortemp-itapema",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "CONDOMINIO EL ELYON",
+   "ocorrencias": 1,
+   "valor_total": 1715.6,
+   "aprovados": 0,
+   "lojas": "aquamotor",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "EDIFICIO BRAVO",
+   "ocorrencias": 2,
+   "valor_total": 1686.57,
+   "aprovados": 1,
+   "lojas": "fortemp-itapema",
+   "sugestao_cliente_id": "c6a27a54-8e76-48c3-8d39-34bb87276928",
+   "sugestao_nome": "EDIFICIO BRAVO",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Condomínio Willimar",
+   "ocorrencias": 1,
+   "valor_total": 1675.0,
+   "aprovados": 1,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "874eb79e-f314-4ff5-90aa-5d1251d43207",
+   "sugestao_nome": "Condomínio Willimar",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "CASA ZIMMERMANN CANTO DA PRAIA",
+   "ocorrencias": 1,
+   "valor_total": 1601.9,
+   "aprovados": 0,
+   "lojas": "fortemp-itapema",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "INFINITY PARADISE",
+   "ocorrencias": 1,
+   "valor_total": 1582.2,
+   "aprovados": 0,
+   "lojas": "aquamotor",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Amauri",
+   "ocorrencias": 1,
+   "valor_total": 1500.0,
+   "aprovados": 1,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "GEAN BRITO",
+   "ocorrencias": 1,
+   "valor_total": 1475.4,
+   "aprovados": 0,
+   "lojas": "fortemp-itapema",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "ITALO",
+   "ocorrencias": 1,
+   "valor_total": 1456.6,
+   "aprovados": 1,
+   "lojas": "fortemp-itapema",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Residencial Green Valey",
+   "ocorrencias": 1,
+   "valor_total": 1412.5,
+   "aprovados": 1,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Edifício Peniche",
+   "ocorrencias": 1,
+   "valor_total": 1407.45,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "MK PIscinas",
+   "ocorrencias": 2,
+   "valor_total": 1285.9,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "63b2dbe6-bc6a-4b3a-b741-e888c441342a",
+   "sugestao_nome": "MK PISCINAS",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Condominio Dom Carlos",
+   "ocorrencias": 1,
+   "valor_total": 1285.2,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Condomínio Arraial do Cabo",
+   "ocorrencias": 1,
+   "valor_total": 1285.0,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "16ef8208-d955-44ed-97df-8835c9e5c198",
+   "sugestao_nome": "Condomínio Arraial do Cabo",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Anderson Leite",
+   "ocorrencias": 1,
+   "valor_total": 1269.2,
+   "aprovados": 1,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "CONDOMINIO FONTANA DI TREVI",
+   "ocorrencias": 1,
+   "valor_total": 1242.0,
+   "aprovados": 0,
+   "lojas": "aquamotor",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "UNIQUE",
+   "ocorrencias": 2,
+   "valor_total": 1225.56,
+   "aprovados": 1,
+   "lojas": "fortemp-camboriu,fortemp-itapema",
+   "sugestao_cliente_id": "313cc2b3-d5c3-447e-a098-7aa43888ba51",
+   "sugestao_nome": "UNIQUE",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Bella Vista Residencial",
+   "ocorrencias": 2,
+   "valor_total": 1198.6,
+   "aprovados": 2,
+   "lojas": "fortemp-camboriu,fortemp-itapema",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": "RESIDENCIAL BELLA CITTA",
+   "confianca": "revisar",
+   "motivo": "parecido com \"RESIDENCIAL BELLA CITTA\" (82%), mas \"bella\" nomeia varios imoveis diferentes — conferir com a equipe",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Thiago Lucatelli",
+   "ocorrencias": 1,
+   "valor_total": 1172.9,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "fda694e4-d387-4d65-868d-12c31f32e5ce",
+   "sugestao_nome": "Thiago Lucatelli",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "CONDOMÍNIO ADDA",
+   "ocorrencias": 2,
+   "valor_total": 1159.65,
+   "aprovados": 2,
+   "lojas": "fortemp-camboriu,fortemp-itapema",
+   "sugestao_cliente_id": "1446a4c5-b0fc-45b6-8f72-11eb478989c8",
+   "sugestao_nome": "CONDOMÍNIO ADDA",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "IURY",
+   "ocorrencias": 1,
+   "valor_total": 1156.5,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "087727c5-d57d-432c-a05c-42b54adeb269",
+   "sugestao_nome": "IURY",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "CONDOMINIO RIO SENA",
+   "ocorrencias": 1,
+   "valor_total": 1130.25,
+   "aprovados": 0,
+   "lojas": "aquamotor",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Condomínio 143 Mayfer",
+   "ocorrencias": 1,
+   "valor_total": 1126.1,
+   "aprovados": 1,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "47eda492-fa4e-4fc2-b1b6-cde1922399b1",
+   "sugestao_nome": "Condomínio 143 Mayfer",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {
+    "os": 2
+   }
+  },
+  {
+   "nome_orc": "Brooklyn Tower",
+   "ocorrencias": 2,
+   "valor_total": 1104.15,
+   "aprovados": 1,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "b95ea2e7-be37-43ce-b64a-6d438a0d1dd2",
+   "sugestao_nome": "Brooklyn Tower",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Hotel Palmas",
+   "ocorrencias": 1,
+   "valor_total": 1089.0,
+   "aprovados": 1,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "7a799e91-0cb7-4cfd-b204-2dc224b5ebc2",
+   "sugestao_nome": "Hotel Palmas",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "DENILSON SERTÃO",
+   "ocorrencias": 2,
+   "valor_total": 1060.0,
+   "aprovados": 0,
+   "lojas": "aquamotor",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Majestic Residencial",
+   "ocorrencias": 1,
+   "valor_total": 1060.0,
+   "aprovados": 1,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "2022788b-2d72-4259-8fe8-f43de4d2e978",
+   "sugestao_nome": "Majestic Residencial",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {
+    "os": 12,
+    "locais": 1
+   }
+  },
+  {
+   "nome_orc": "LIPE",
+   "ocorrencias": 1,
+   "valor_total": 983.55,
+   "aprovados": 0,
+   "lojas": "aquamotor",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Arnaldo",
+   "ocorrencias": 1,
+   "valor_total": 975.07,
+   "aprovados": 1,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Champagne",
+   "ocorrencias": 1,
+   "valor_total": 969.75,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "fe70f270-1d8a-49a7-8c24-6655de768399",
+   "sugestao_nome": "Champagne",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Edifício Terrara",
+   "ocorrencias": 1,
+   "valor_total": 909.0,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "0488b23c-9896-4656-9bcc-8f955f2798a1",
+   "sugestao_nome": "Edifício Terrara",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Condominio Edificio Aruba Residence",
+   "ocorrencias": 1,
+   "valor_total": 850.5,
+   "aprovados": 1,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "c5f5256e-48bc-4867-b70f-ba17b9e9e344",
+   "sugestao_nome": "Condominio Edificio Aruba Residence",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "SABRINA SIMIONI",
+   "ocorrencias": 1,
+   "valor_total": 824.3,
+   "aprovados": 0,
+   "lojas": "fortemp-itapema",
+   "sugestao_cliente_id": "6c4884c4-0813-4289-96bb-886b168d39dd",
+   "sugestao_nome": "SABRINA SIMIONI",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "GT Home La Citta Incorporadora LTDA",
+   "ocorrencias": 1,
+   "valor_total": 810.3,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "CONDOMINIO EL DOURADO",
+   "ocorrencias": 1,
+   "valor_total": 798.71,
+   "aprovados": 0,
+   "lojas": "fortemp-itapema",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "ISIS DELLAGNELO KWIATKOWSKI",
+   "ocorrencias": 1,
+   "valor_total": 789.8,
+   "aprovados": 1,
+   "lojas": "fortemp-itapema",
+   "sugestao_cliente_id": "12ca2603-8437-4bf9-8c4c-d8623dc8c008",
+   "sugestao_nome": "ISIS DELLAGNELO KWIATKOWSKI",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Condominio Aquarela Brasil",
+   "ocorrencias": 1,
+   "valor_total": 750.0,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Notre Dame",
+   "ocorrencias": 1,
+   "valor_total": 747.7,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "ddd20149-c632-4088-ae6c-5e5a8b1ef9c0",
+   "sugestao_nome": "Notre Dame",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "IMPERIO DAS AGUAS",
+   "ocorrencias": 1,
+   "valor_total": 747.6,
+   "aprovados": 1,
+   "lojas": "fortemp-itapema",
+   "sugestao_cliente_id": "63f00515-db85-46c2-b0c7-431075c54e95",
+   "sugestao_nome": "IMPERIO DAS AGUAS",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "MK PISCINAS",
+   "ocorrencias": 3,
+   "valor_total": 718.7,
+   "aprovados": 1,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "63b2dbe6-bc6a-4b3a-b741-e888c441342a",
+   "sugestao_nome": "MK PISCINAS",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Marli",
+   "ocorrencias": 2,
+   "valor_total": 693.48,
+   "aprovados": 0,
+   "lojas": "?,fortemp-camboriu",
+   "sugestao_cliente_id": "ee74a00e-4311-4fbc-8562-a8666286fb1b",
+   "sugestao_nome": "Marli",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "RESIDENCIAL DOM LUCCA",
+   "ocorrencias": 1,
+   "valor_total": 691.45,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "d2885046-9f6d-48d9-bc6b-33044d3644aa",
+   "sugestao_nome": "RESIDENCIAL DOM LUCCA",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "CONDOMINIO INFINITY TOWER FLAT",
+   "ocorrencias": 1,
+   "valor_total": 661.65,
+   "aprovados": 0,
+   "lojas": "fortemp-itapema",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {
+    "vistorias": 1
+   }
+  },
+  {
+   "nome_orc": "LUAN",
+   "ocorrencias": 1,
+   "valor_total": 602.75,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "96f0ad33-c443-4286-b05e-94573df90656",
+   "sugestao_nome": "LUAN",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Samuel",
+   "ocorrencias": 1,
+   "valor_total": 580.0,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "03a8b308-362a-40b6-b81f-747b975e1067",
+   "sugestao_nome": "Samuel",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Giovane",
+   "ocorrencias": 1,
+   "valor_total": 546.37,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "65c9e22a-a60e-46fd-87f1-88b8b670caa2",
+   "sugestao_nome": "Giovane",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "PREMIUM RESIDENCE",
+   "ocorrencias": 1,
+   "valor_total": 543.75,
+   "aprovados": 0,
+   "lojas": "fortemp-itapema",
+   "sugestao_cliente_id": "8578aa7b-87f2-4cf6-823d-ae761713a00b",
+   "sugestao_nome": "PREMIUM RESIDENCE",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Edifício Vitra By Pinninfarina",
+   "ocorrencias": 1,
+   "valor_total": 540.0,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Nice",
+   "ocorrencias": 1,
+   "valor_total": 532.17,
+   "aprovados": 1,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "EDIFICIO EMPIRE RESIDENCE",
+   "ocorrencias": 1,
+   "valor_total": 504.0,
+   "aprovados": 1,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Sofistic Hoteis CNA LTDA",
+   "ocorrencias": 1,
+   "valor_total": 500.0,
+   "aprovados": 1,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "HEITOR",
+   "ocorrencias": 1,
+   "valor_total": 495.0,
+   "aprovados": 1,
+   "lojas": "fortemp-itapema",
+   "sugestao_cliente_id": "21a2d5f1-4303-49f8-8a11-57665e673e0a",
+   "sugestao_nome": "HEITOR",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "CONDOMINIO NEW YORK TOWER FLAT",
+   "ocorrencias": 1,
+   "valor_total": 465.5,
+   "aprovados": 0,
+   "lojas": "fortemp-itapema",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Sérgio",
+   "ocorrencias": 2,
+   "valor_total": 461.85,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "fe2d77a0-47e0-4d17-8f47-e570f51e1ea6",
+   "sugestao_nome": "Sérgio",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Porto dos sonhos",
+   "ocorrencias": 1,
+   "valor_total": 450.0,
+   "aprovados": 1,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Airton",
+   "ocorrencias": 1,
+   "valor_total": 419.78,
+   "aprovados": 1,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Residencial Mandarim",
+   "ocorrencias": 1,
+   "valor_total": 407.54,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Condominio Atlântico",
+   "ocorrencias": 1,
+   "valor_total": 404.15,
+   "aprovados": 1,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": "CONDOMINIO ATLANTICO / Condominio Atlântico",
+   "confianca": "revisar",
+   "motivo": "2 fichas com esse mesmo nome — duplicidade dentro de clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "CONDOMINIO VILLAGIO DEL MARE",
+   "ocorrencias": 1,
+   "valor_total": 401.95,
+   "aprovados": 0,
+   "lojas": "fortemp-itapema",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "GLAUBER",
+   "ocorrencias": 1,
+   "valor_total": 400.4,
+   "aprovados": 1,
+   "lojas": "fortemp-itapema",
+   "sugestao_cliente_id": "a6a5cf9d-0c7b-4370-ae1a-8a63b9e87a64",
+   "sugestao_nome": "GLAUBER",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "RESIDENCIAL DI MARIA",
+   "ocorrencias": 4,
+   "valor_total": 392.7,
+   "aprovados": 2,
+   "lojas": "aquamotor,fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": "RESIDENCIAL DI MARIA / RESIDENCIAL DI MARIA",
+   "confianca": "revisar",
+   "motivo": "2 fichas com esse mesmo nome — duplicidade dentro de clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "ANDERSON BECKER",
+   "ocorrencias": 1,
+   "valor_total": 392.19,
+   "aprovados": 0,
+   "lojas": "fortemp-itapema",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {
+    "os": 1
+   }
+  },
+  {
+   "nome_orc": "Notre Dame Residencial",
+   "ocorrencias": 1,
+   "valor_total": 387.75,
+   "aprovados": 1,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "ddd20149-c632-4088-ae6c-5e5a8b1ef9c0",
+   "sugestao_nome": "Notre Dame",
+   "confianca": "provavel",
+   "motivo": "mesmo nome sem a palavra de tipo (Notre Dame)",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "CONDOMINIO LE GRAND PARC",
+   "ocorrencias": 1,
+   "valor_total": 372.16,
+   "aprovados": 1,
+   "lojas": "fortemp-itapema",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "FABIANO RAFAEL",
+   "ocorrencias": 1,
+   "valor_total": 370.85,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "960d26e6-4f92-4adb-b717-eeb9eaf0527d",
+   "sugestao_nome": "FABIANO RAFAEL",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Fabiano Rafael",
+   "ocorrencias": 1,
+   "valor_total": 370.6,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "960d26e6-4f92-4adb-b717-eeb9eaf0527d",
+   "sugestao_nome": "FABIANO RAFAEL",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Magnifique Imperiale",
+   "ocorrencias": 1,
+   "valor_total": 286.0,
+   "aprovados": 0,
+   "lojas": "?",
+   "sugestao_cliente_id": "4853dfe5-6d21-4e2d-9381-455e33dfdf0b",
+   "sugestao_nome": "Magnifique Imperiale",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "CONDOMINIO DI MARIA",
+   "ocorrencias": 1,
+   "valor_total": 275.0,
+   "aprovados": 1,
+   "lojas": "fortemp-itapema",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": "DI MARIA / RESIDENCIAL DI MARIA / RESIDENCIAL DI MARIA",
+   "confianca": "revisar",
+   "motivo": "3 fichas equivalentes apos tirar a palavra de tipo",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "CONDOMINIO ATLANTICO",
+   "ocorrencias": 1,
+   "valor_total": 275.0,
+   "aprovados": 1,
+   "lojas": "fortemp-itapema",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": "CONDOMINIO ATLANTICO / Condominio Atlântico",
+   "confianca": "revisar",
+   "motivo": "2 fichas com esse mesmo nome — duplicidade dentro de clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "RENATA",
+   "ocorrencias": 1,
+   "valor_total": 265.3,
+   "aprovados": 1,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "90c86e64-db67-4e2b-af2e-e8e7dd593aa9",
+   "sugestao_nome": "RENATA",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Paulo",
+   "ocorrencias": 1,
+   "valor_total": 257.8,
+   "aprovados": 1,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "58178b8b-86c8-4306-b429-ff61dd4b7291",
+   "sugestao_nome": "Paulo",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "TORRI DI MARE RESIDENZIALE",
+   "ocorrencias": 1,
+   "valor_total": 255.0,
+   "aprovados": 1,
+   "lojas": "fortemp-itapema",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": "TORRI DI MARE RESIDENZIALE / TORRI DI MARE RESIDENZIALE",
+   "confianca": "revisar",
+   "motivo": "2 fichas com esse mesmo nome — duplicidade dentro de clientes",
+   "tambem_em": {
+    "os": 6,
+    "locais": 1
+   }
+  },
+  {
+   "nome_orc": "Condominio Boreal Tower",
+   "ocorrencias": 1,
+   "valor_total": 250.0,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "ee14136a-5407-4e63-be2b-3d8562326d1e",
+   "sugestao_nome": "Condominio Boreal Tower",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Henrique",
+   "ocorrencias": 1,
+   "valor_total": 236.1,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "0f3efb04-e9c7-434d-a6ca-9ef190c4a03f",
+   "sugestao_nome": "Henrique",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "DAIANE CANDIDO",
+   "ocorrencias": 1,
+   "valor_total": 215.0,
+   "aprovados": 1,
+   "lojas": "fortemp-itapema",
+   "sugestao_cliente_id": "46c5fce4-0b1d-40b6-9ac5-9ef19fa722a9",
+   "sugestao_nome": "DAIANE CANDIDO",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "JAQUELINE",
+   "ocorrencias": 1,
+   "valor_total": 210.58,
+   "aprovados": 1,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "c8f9b13d-6f1b-4d7b-a6e0-21adef450c19",
+   "sugestao_nome": "JAQUELINE",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Cliente Novo",
+   "ocorrencias": 1,
+   "valor_total": 200.0,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Ocean Paradise Residence",
+   "ocorrencias": 1,
+   "valor_total": 187.25,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "JANE PEREIRA SHIBÃO",
+   "ocorrencias": 1,
+   "valor_total": 184.0,
+   "aprovados": 0,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": "f8e190cb-3eeb-486f-bd09-600559748e56",
+   "sugestao_nome": "JANE PEREIRA SHIBÃO",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Renatta Terra Treptow",
+   "ocorrencias": 1,
+   "valor_total": 176.0,
+   "aprovados": 1,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": "RENATA",
+   "confianca": "revisar",
+   "motivo": "mesmo telefone de \"RENATA\", mas os nomes nao se parecem — provavel contato em comum, nao o mesmo cliente",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Ricardo Cruz",
+   "ocorrencias": 1,
+   "valor_total": 167.27,
+   "aprovados": 1,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Guest House",
+   "ocorrencias": 1,
+   "valor_total": 160.0,
+   "aprovados": 1,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "CONDOMINIO FRATERNITÁ",
+   "ocorrencias": 1,
+   "valor_total": 156.7,
+   "aprovados": 1,
+   "lojas": "fortemp-itapema",
+   "sugestao_cliente_id": "c3c5c197-668b-486e-b594-ceeea5c6f350",
+   "sugestao_nome": "CONDOMINIO FRATERNITÁ",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Condomínio Matheus Felipe.",
+   "ocorrencias": 1,
+   "valor_total": 156.6,
+   "aprovados": 1,
+   "lojas": "fortemp-itapema",
+   "sugestao_cliente_id": "daec9098-a792-4879-9570-2230bc2331fa",
+   "sugestao_nome": "Condomínio Matheus Felipe.",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Juliana Rosa Engel",
+   "ocorrencias": 1,
+   "valor_total": 135.5,
+   "aprovados": 1,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Condomínio Edificío Mirage Residence",
+   "ocorrencias": 1,
+   "valor_total": 108.0,
+   "aprovados": 1,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Paulo P&B Eletro e Hidráulica",
+   "ocorrencias": 1,
+   "valor_total": 107.0,
+   "aprovados": 1,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Sr. Fonseca",
+   "ocorrencias": 1,
+   "valor_total": 105.77,
+   "aprovados": 1,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Condominio Arruba",
+   "ocorrencias": 1,
+   "valor_total": 105.28,
+   "aprovados": 1,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": "Condominio Edificio Aruba Residence",
+   "confianca": "revisar",
+   "motivo": "parecido com \"Condominio Edificio Aruba Residence\" (83%), abaixo do limite para decidir automaticamente",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "FG Serviços",
+   "ocorrencias": 1,
+   "valor_total": 104.82,
+   "aprovados": 1,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Matheus",
+   "ocorrencias": 1,
+   "valor_total": 80.25,
+   "aprovados": 1,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Anselmo",
+   "ocorrencias": 1,
+   "valor_total": 60.0,
+   "aprovados": 1,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Summer Manutenção de Piscinas",
+   "ocorrencias": 1,
+   "valor_total": 40.0,
+   "aprovados": 1,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "CONDOMINIO EDIFICIO RESIDENCIAL FRATERNITA",
+   "ocorrencias": 1,
+   "valor_total": 38.0,
+   "aprovados": 1,
+   "lojas": "fortemp-itapema",
+   "sugestao_cliente_id": "2c665ed6-78ff-4996-8f0b-42cd7332293a",
+   "sugestao_nome": "CONDOMINIO EDIFICIO RESIDENCIAL FRATERNITA",
+   "confianca": "exato",
+   "motivo": "nome identico apos normalizar",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Evandro",
+   "ocorrencias": 1,
+   "valor_total": 35.0,
+   "aprovados": 1,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  },
+  {
+   "nome_orc": "Cliente externo",
+   "ocorrencias": 1,
+   "valor_total": 25.0,
+   "aprovados": 1,
+   "lojas": "fortemp-camboriu",
+   "sugestao_cliente_id": null,
+   "sugestao_nome": null,
+   "confianca": "nenhum",
+   "motivo": "nenhuma ficha parecida em clientes",
+   "tambem_em": {}
+  }
+ ],
+ "grupos_dentro_de_orcamentos": [
+  {
+   "nucleo": "brisa do mar",
+   "nomes": [
+    "CONDOMINIO BRISA DO MAR",
+    "Condomínio Briza do Mar",
+    "BRISA DO MAR"
+   ],
+   "orcamentos": 4,
+   "valor_total": 89686.8,
+   "ja_tem_ficha": [
+    "CONDOMINIO BRISA DO MAR",
+    "Condomínio Briza do Mar",
+    "BRISA DO MAR"
+   ]
+  },
+  {
+   "nucleo": "infinity flat",
+   "nomes": [
+    "Infinity Flat",
+    "CONDOMINIO INFINITY TOWER FLAT"
+   ],
+   "orcamentos": 2,
+   "valor_total": 60487.35,
+   "ja_tem_ficha": []
+  },
+  {
+   "nucleo": "gabriel",
+   "nomes": [
+    "GABRIEL",
+    "Gabriel"
+   ],
+   "orcamentos": 4,
+   "valor_total": 18940.17,
+   "ja_tem_ficha": []
+  },
+  {
+   "nucleo": "villa di mare",
+   "nomes": [
+    "Villa Di Mare",
+    "VILLA DO MAR"
+   ],
+   "orcamentos": 5,
+   "valor_total": 16015.74,
+   "ja_tem_ficha": [
+    "VILLA DO MAR"
+   ]
+  },
+  {
+   "nucleo": "green valey",
+   "nomes": [
+    "Edifício Green Valey",
+    "Residencial Green Valey"
+   ],
+   "orcamentos": 2,
+   "valor_total": 15877.27,
+   "ja_tem_ficha": []
+  },
+  {
+   "nucleo": "four seasons",
+   "nomes": [
+    "Four Seasons Residence",
+    "Condominio Four Seasons Residence"
+   ],
+   "orcamentos": 3,
+   "valor_total": 13290.0,
+   "ja_tem_ficha": [
+    "Four Seasons Residence",
+    "Condominio Four Seasons Residence"
+   ]
+  },
+  {
+   "nucleo": "majestic",
+   "nomes": [
+    "RESIDENCIAL MAJESTIC",
+    "Majestic Residencial"
+   ],
+   "orcamentos": 2,
+   "valor_total": 8418.1,
+   "ja_tem_ficha": [
+    "RESIDENCIAL MAJESTIC",
+    "Majestic Residencial"
+   ]
+  },
+  {
+   "nucleo": "mk piscinas",
+   "nomes": [
+    "MK PIscinas",
+    "MK PISCINAS"
+   ],
+   "orcamentos": 5,
+   "valor_total": 2004.6,
+   "ja_tem_ficha": [
+    "MK PISCINAS",
+    "MK PISCINAS"
+   ]
+  },
+  {
+   "nucleo": "notre dame",
+   "nomes": [
+    "Notre Dame",
+    "Notre Dame Residencial"
+   ],
+   "orcamentos": 2,
+   "valor_total": 1135.45,
+   "ja_tem_ficha": [
+    "Notre Dame"
+   ]
+  },
+  {
+   "nucleo": "fabiano rafael",
+   "nomes": [
+    "FABIANO RAFAEL",
+    "Fabiano Rafael"
+   ],
+   "orcamentos": 2,
+   "valor_total": 741.45,
+   "ja_tem_ficha": [
+    "FABIANO RAFAEL",
+    "FABIANO RAFAEL"
+   ]
+  },
+  {
+   "nucleo": "atlantico",
+   "nomes": [
+    "Condominio Atlântico",
+    "CONDOMINIO ATLANTICO"
+   ],
+   "orcamentos": 2,
+   "valor_total": 679.15,
+   "ja_tem_ficha": []
+  },
+  {
+   "nucleo": "di maria",
+   "nomes": [
+    "RESIDENCIAL DI MARIA",
+    "CONDOMINIO DI MARIA"
+   ],
+   "orcamentos": 5,
+   "valor_total": 667.7,
+   "ja_tem_ficha": []
+  },
+  {
+   "nucleo": "fraternita",
+   "nomes": [
+    "CONDOMINIO FRATERNITÁ",
+    "CONDOMINIO EDIFICIO RESIDENCIAL FRATERNITA"
+   ],
+   "orcamentos": 2,
+   "valor_total": 194.7,
+   "ja_tem_ficha": [
+    "CONDOMINIO FRATERNITÁ",
+    "CONDOMINIO EDIFICIO RESIDENCIAL FRATERNITA"
+   ]
+  }
+ ],
+ "fichas_duplicadas_em_clientes": [
+  {
+   "nucleo": "atlantico",
+   "fichas": [
+    {
+     "id": "dd4fd989-2026-4a8a-8281-f8f17d94444f",
+     "nome": "CONDOMINIO ATLANTICO"
+    },
+    {
+     "id": "8bbb274e-993e-4d0a-8c64-2ed70e9f9acc",
+     "nome": "Condominio Atlântico"
+    }
+   ]
+  },
+  {
+   "nucleo": "brisa do mar",
+   "fichas": [
+    {
+     "id": "e55664ec-8e90-4a11-a66a-cdd0b7890d15",
+     "nome": "BRISA DO MAR"
+    },
+    {
+     "id": "c3d3fe6f-fc3c-4d30-a8c3-ed6298f1e776",
+     "nome": "CONDOMINIO BRISA DO MAR"
+    }
+   ]
+  },
+  {
+   "nucleo": "carrara",
+   "fichas": [
+    {
+     "id": "326c3c4a-e08f-438e-a553-8074ad9967d3",
+     "nome": "Condominio Carrara"
+    },
+    {
+     "id": "9a2e12ea-ff21-4af5-89f9-5e3c20470d1c",
+     "nome": "Residencial Carrara"
+    }
+   ]
+  },
+  {
+   "nucleo": "di maria",
+   "fichas": [
+    {
+     "id": "778c8728-7fd6-4807-9dc0-6ca08aab39cd",
+     "nome": "DI MARIA"
+    },
+    {
+     "id": "72e0988e-cc25-4f4e-b7ad-8c2eaf9da171",
+     "nome": "RESIDENCIAL DI MARIA"
+    },
+    {
+     "id": "6216d00f-9b4b-4b68-814f-6dc518f5a703",
+     "nome": "RESIDENCIAL DI MARIA"
+    }
+   ]
+  },
+  {
+   "nucleo": "four seasons",
+   "fichas": [
+    {
+     "id": "0f66daf0-d00e-4e91-9f9e-02d5cfbc30be",
+     "nome": "Condominio Four Seasons Residence"
+    },
+    {
+     "id": "5a6be522-b9a5-4bc6-86ca-ea045eeae41d",
+     "nome": "Four Seasons"
+    },
+    {
+     "id": "5f635420-453f-4634-a707-e079006ed90a",
+     "nome": "Four Seasons Residence"
+    }
+   ]
+  },
+  {
+   "nucleo": "fraternita",
+   "fichas": [
+    {
+     "id": "2c665ed6-78ff-4996-8f0b-42cd7332293a",
+     "nome": "CONDOMINIO EDIFICIO RESIDENCIAL FRATERNITA"
+    },
+    {
+     "id": "c3c5c197-668b-486e-b594-ceeea5c6f350",
+     "nome": "CONDOMINIO FRATERNITÁ"
+    }
+   ]
+  },
+  {
+   "nucleo": "gabriel",
+   "fichas": [
+    {
+     "id": "f89d1ef1-9d32-4d2c-9db0-f66c444aeacf",
+     "nome": "Gabriel"
+    },
+    {
+     "id": "1dea2e12-cfda-4c83-824f-97f4b70ba11b",
+     "nome": "GABRIEL"
+    }
+   ]
+  },
+  {
+   "nucleo": "luan",
+   "fichas": [
+    {
+     "id": "96f0ad33-c443-4286-b05e-94573df90656",
+     "nome": "LUAN"
+    },
+    {
+     "id": "f092e7c1-6da5-48fc-818d-ded41a73bcb9",
+     "nome": "Luan (CONDOMINIO)"
+    }
+   ]
+  },
+  {
+   "nucleo": "majestic",
+   "fichas": [
+    {
+     "id": "2022788b-2d72-4259-8fe8-f43de4d2e978",
+     "nome": "Majestic Residencial"
+    },
+    {
+     "id": "58f33ee4-4d39-4e6f-886a-fd28ce66c858",
+     "nome": "RESIDENCIAL MAJESTIC"
+    }
+   ]
+  },
+  {
+   "nucleo": "muniz",
+   "fichas": [
+    {
+     "id": "55fc1ae7-f692-44fb-b85e-f6d352b3adc6",
+     "nome": "MUNIZ"
+    },
+    {
+     "id": "7ee7e79e-b3fc-44bb-b20d-3b5acc1b4dc0",
+     "nome": "MUNIZ"
+    }
+   ]
+  },
+  {
+   "nucleo": "torri di mare",
+   "fichas": [
+    {
+     "id": "b642d8a9-58dd-4ed8-a696-923db8522f54",
+     "nome": "TORRI DI MARE RESIDENZIALE"
+    },
+    {
+     "id": "e6c1da4e-3b04-463d-9de3-19f0d68982fd",
+     "nome": "TORRI DI MARE RESIDENZIALE"
+    }
+   ]
+  }
+ ],
+ "fichas_sem_nenhum_orcamento": [
+  {
+   "id": "f2ad3eb8-20cf-4116-aadf-26f936789742",
+   "nome": "--"
+  },
+  {
+   "id": "3757ff7d-18ce-4415-a570-222bc56649b1",
+   "nome": "ANDERSON"
+  },
+  {
+   "id": "283aa25a-43be-4d2f-b400-7a6f6912dcff",
+   "nome": "Barbara"
+  },
+  {
+   "id": "ef7f785b-05ad-4851-bd34-8faae82a9b5f",
+   "nome": "Bruno"
+  },
+  {
+   "id": "06626b9a-1290-4ed3-9a9c-a94dc1fd634b",
+   "nome": "Cliente Teste Fluxo"
+  },
+  {
+   "id": "dd4fd989-2026-4a8a-8281-f8f17d94444f",
+   "nome": "CONDOMINIO ATLANTICO"
+  },
+  {
+   "id": "8bbb274e-993e-4d0a-8c64-2ed70e9f9acc",
+   "nome": "Condominio Atlântico"
+  },
+  {
+   "id": "326c3c4a-e08f-438e-a553-8074ad9967d3",
+   "nome": "Condominio Carrara"
+  },
+  {
+   "id": "cd0684b4-6948-460e-b910-9b9f04046396",
+   "nome": "CONDOMINIO EDIFICIO INFINITY RESIDENCE CLUB"
+  },
+  {
+   "id": "0494582d-a624-4b78-8fa4-9e974ded16e1",
+   "nome": "CONDOMINIO GREEN COAST"
+  },
+  {
+   "id": "de59150c-161d-48f9-9c42-24dcd00d4683",
+   "nome": "CONDOMINIO SELENT SUNRIZE"
+  },
+  {
+   "id": "f3d89572-ef95-4ebe-bae4-c5e67fdd5f33",
+   "nome": "CONDOMINIO TORRES DE IBIZA RESIDENCE"
+  },
+  {
+   "id": "778c8728-7fd6-4807-9dc0-6ca08aab39cd",
+   "nome": "DI MARIA"
+  },
+  {
+   "id": "e30af124-9dac-4e91-b521-2c44f0d17fbe",
+   "nome": "DOHA TOWER"
+  },
+  {
+   "id": "d4bf120b-b21a-445b-841e-0b26dbd13746",
+   "nome": "DUMMOND RESIDENCE"
+  },
+  {
+   "id": "0d40c481-4c40-475c-b515-51c0f3091aa1",
+   "nome": "EDIFICIO GREEN BEACH RESIDENCE"
+  },
+  {
+   "id": "05ad251f-a690-4626-9cbc-7e506db42c08",
+   "nome": "EDIFICIO SAINT CLAIR"
+  },
+  {
+   "id": "5a6be522-b9a5-4bc6-86ca-ea045eeae41d",
+   "nome": "Four Seasons"
+  },
+  {
+   "id": "f89d1ef1-9d32-4d2c-9db0-f66c444aeacf",
+   "nome": "Gabriel"
+  },
+  {
+   "id": "1dea2e12-cfda-4c83-824f-97f4b70ba11b",
+   "nome": "GABRIEL"
+  },
+  {
+   "id": "f092e7c1-6da5-48fc-818d-ded41a73bcb9",
+   "nome": "Luan (CONDOMINIO)"
+  },
+  {
+   "id": "5d040d9a-c53f-4cc4-b50c-1c5288aa337e",
+   "nome": "LURY"
+  },
+  {
+   "id": "55fc1ae7-f692-44fb-b85e-f6d352b3adc6",
+   "nome": "MUNIZ"
+  },
+  {
+   "id": "7ee7e79e-b3fc-44bb-b20d-3b5acc1b4dc0",
+   "nome": "MUNIZ"
+  },
+  {
+   "id": "aa690228-07f0-4a63-892b-f57b616455f7",
+   "nome": "RESIDENCIAL BELLA CITTA"
+  },
+  {
+   "id": "72e0988e-cc25-4f4e-b7ad-8c2eaf9da171",
+   "nome": "RESIDENCIAL DI MARIA"
+  },
+  {
+   "id": "6216d00f-9b4b-4b68-814f-6dc518f5a703",
+   "nome": "RESIDENCIAL DI MARIA"
+  },
+  {
+   "id": "cab311b0-e77f-4d82-a546-b7e20be57048",
+   "nome": "RODRIGO- LOTE 13- MIRANTE DE CAMBORIU"
+  },
+  {
+   "id": "6a253110-d0c8-4b01-b805-9b1c2d7e9498",
+   "nome": "teste 123"
+  },
+  {
+   "id": "b642d8a9-58dd-4ed8-a696-923db8522f54",
+   "nome": "TORRI DI MARE RESIDENZIALE"
+  },
+  {
+   "id": "e6c1da4e-3b04-463d-9de3-19f0d68982fd",
+   "nome": "TORRI DI MARE RESIDENZIALE"
+  },
+  {
+   "id": "78351e3b-d6d4-4cb0-89b8-164f2e222ad3",
+   "nome": "TOULON PALACE"
+  },
+  {
+   "id": "c228a2f1-5df2-4d00-9232-26f0973ad08e",
+   "nome": "Villa de Siena"
+  },
+  {
+   "id": "1bb9ee2e-8aab-4039-a226-5e041e443a23",
+   "nome": "Yohan"
+  },
+  {
+   "id": "e3c6809e-95a1-460c-8db1-f7bf32247669",
+   "nome": "ZM S.A."
+  }
+ ]
+}
