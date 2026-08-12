@@ -685,11 +685,11 @@ async function fazerLogin(){
     }
   } else {
     loginAttempts++;
-    localStorage.setItem(LS_ATTEMPTS_KEY, loginAttempts);
+    lsSet(LS_ATTEMPTS_KEY, loginAttempts);
     if(loginAttempts >= 3){
       loginLockedUntil = Date.now() + 30000;
       loginAttempts = 0;
-      localStorage.setItem(LS_LOCKOUT_KEY, loginLockedUntil);
+      lsSet(LS_LOCKOUT_KEY, loginLockedUntil);
       localStorage.removeItem(LS_ATTEMPTS_KEY);
       iniciarCountdownLockout();
     } else {
@@ -1475,7 +1475,7 @@ function toggleSidebar(){
   } else {
     const col=sb.classList.toggle('collapsed');
     document.body.classList.toggle('sbar-col',col);
-    localStorage.setItem('fluxa_sbar_col',col?'1':'0');
+    lsSet('fluxa_sbar_col',col?'1':'0');
   }
 }
 function openSidebar(){
@@ -4523,7 +4523,7 @@ function atualizarDash(){
 function dispensarAlertaEstoque(){
   // Salva timestamp de dismiss — oculta reposição por 7 dias.
   // Encomendas urgentes (estoque negativo) sempre aparecem, ignoram o dismiss.
-  localStorage.setItem('fluxa_estoque_dismiss', String(Date.now()));
+  lsSet('fluxa_estoque_dismiss', String(Date.now()));
   const card=document.getElementById('dash-estoque-card');
   if(card) card.style.display='none';
   toast('🔕 Alertas de reposição ocultados por 7 dias');
@@ -4661,7 +4661,7 @@ function renderOrigemDash(){
 function filt(btn){
   document.querySelectorAll('.hf .fb[data-s]').forEach(b=>b.classList.remove('on'));
   btn.classList.add('on'); filtroSt=btn.dataset.s;
-  localStorage.setItem('fluxa_filtroSt', filtroSt);
+  lsSet('fluxa_filtroSt', filtroSt);
   renderTabela();
 }
 function histToggleOrdem(){
@@ -5304,7 +5304,7 @@ async function loadOSHist(){
 function filtOS(btn){
   document.querySelectorAll('#page-os-history .fb[data-oss]').forEach(b=>b.classList.remove('on'));
   btn.classList.add('on'); filtroOSSt=btn.dataset.oss;
-  localStorage.setItem('fluxa_filtroOSSt', filtroOSSt);
+  lsSet('fluxa_filtroOSSt', filtroOSSt);
   renderOSTabela();
 }
 function buscarOS(v){ buscaOS=v.toLowerCase(); renderOSTabela(); }
@@ -9015,14 +9015,14 @@ function loadLocais(){
     if(kNome) _vistosNome.add(kNome);
     return true;
   });
-  localStorage.setItem(LS_LOCAIS_VIS, JSON.stringify(locaisVistoria));
+  lsSet(LS_LOCAIS_VIS, JSON.stringify(locaisVistoria));
 }
 // null = ainda não sabemos se a tabela dedicada existe; true/false após 1ª tentativa.
 let _locaisTabelaOk=null;
 function _tabelaAusente(msg){ return /relation .* does not exist|could not find the table|schema cache|does not exist/i.test(msg||''); }
 
 async function saveLocais(){
-  localStorage.setItem(LS_LOCAIS_VIS, JSON.stringify(locaisVistoria));
+  lsSet(LS_LOCAIS_VIS, JSON.stringify(locaisVistoria));
   CFG.locais_vistoria=locaisVistoria;
   lsSet('empresa_cfg', JSON.stringify(CFG));
   if(!dbOk||!db) return;
@@ -9089,7 +9089,7 @@ async function loadLocaisRemoto(){
       catch(e){ console.warn('[loadLocaisRemoto:migra]', e?.message||e); }
     }
     locaisVistoria=[...remoto, ...soLocalPend];
-    localStorage.setItem(LS_LOCAIS_VIS, JSON.stringify(locaisVistoria));
+    lsSet(LS_LOCAIS_VIS, JSON.stringify(locaisVistoria));
     CFG.locais_vistoria=locaisVistoria;
     if(document.getElementById('vis-view-locais')?.style.display!=='none') renderLocaisTab();
   }catch(e){ console.warn('[loadLocaisRemoto]', e?.message||e); }
