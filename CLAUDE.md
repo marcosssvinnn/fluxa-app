@@ -2,12 +2,27 @@
 
 ---
 
-## 🟡 INCIDENTE — causa raiz encontrada e corrigida (aberto 10/08, causa achada 11/08)
+## ✅ INCIDENTE ENCERRADO (aberto 10/08, causa achada e tudo fechado 11/08)
 
-> **Se você está retomando este trabalho numa sessão nova: comece por aqui.**
-> Já não é mais "fonte não identificada" — achei e corrigi. Mas `INSERT` em
-> `clientes` continua **revogado** de propósito (ver "O que ainda falta"
-> abaixo) e a limpeza dos dados duplicados que já existem **não foi feita**.
+> Fica registrado como referência — não precisa retomar nada. Causa raiz
+> corrigida, dados duplicados limpos (3.269→944→273 clientes reais),
+> índice único criado, `INSERT` de cliente destravado de novo. Timeline e
+> achados completos abaixo, do mais recente pro mais antigo.
+
+**Fechamento final (11/08):** com zero duplicata restante na base
+(confirmado por query direta — `group by` na tripla normalizada devolveu
+vazio), criado `clientes_nome_end_tel_uniq` — índice único funcional sobre
+`lower(trim(coalesce(nome,''))), lower(trim(coalesce(endereco,''))),
+lower(trim(coalesce(telefone,'')))` (usa `coalesce` porque a base tem
+mistura real de `NULL` e string vazia nesses 3 campos — sem isso, duas
+fichas com os três campos `NULL` não colidiriam no índice). Testado com
+`begin;...rollback;`: insert duplicado é rejeitado (pego pelo trigger
+antigo `fluxa_bloquear_cliente_duplicado`, que segue ativo como primeira
+camada — o índice novo é o backstop à prova de concorrência que o trigger
+sozinho não garantia). Depois disso, `grant insert on clientes to anon;`
+— confirmado via `information_schema` e um insert de teste real (papel
+`anon`, dentro de transação desfeita) que funciona sem bloqueio. Cadastro
+de cliente pelo app está liberado de novo.
 
 ### Causa raiz — confirmada por 3 evidências independentes
 `_migrarClientesDeOrcamentos()` (linha ~3811 do `app.js`, comentário dizia
