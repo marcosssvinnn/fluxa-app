@@ -1,6 +1,6 @@
 {
   "arquivo": {
-    "app_js_linhas": 13962,
+    "app_js_linhas": 13971,
     "index_html_linhas": 2851
   },
   "funcoes": {
@@ -251,17 +251,17 @@
   "maiores_funcoes": [
     {
       "nome": "preencherRelatorioVistoria",
-      "linha": 11120,
+      "linha": 11129,
       "linhas": 187
     },
     {
       "nome": "renderEstoque",
-      "linha": 12364,
+      "linha": 12373,
       "linhas": 181
     },
     {
       "nome": "renderLocaisTab",
-      "linha": 9469,
+      "linha": 9478,
       "linhas": 153
     },
     {
@@ -271,7 +271,7 @@
     },
     {
       "nome": "renderVisHistorico",
-      "linha": 10592,
+      "linha": 10601,
       "linhas": 135
     },
     {
@@ -281,27 +281,27 @@
     },
     {
       "nome": "renderPortal",
-      "linha": 6510,
+      "linha": 6519,
       "linhas": 114
     },
     {
       "nome": "emitirNota",
-      "linha": 8678,
+      "linha": 8687,
       "linhas": 108
     },
     {
       "nome": "gerarDossieAssembleia",
-      "linha": 10812,
+      "linha": 10821,
       "linhas": 99
     },
     {
       "nome": "verHistoricoCliente",
-      "linha": 5723,
+      "linha": 5732,
       "linhas": 96
     },
     {
       "nome": "renderDRE",
-      "linha": 7038,
+      "linha": 7047,
       "linhas": 94
     },
     {
@@ -311,53 +311,53 @@
     },
     {
       "nome": "iniciarVistoriaPlena",
-      "linha": 9380,
+      "linha": 9389,
       "linhas": 87
     },
     {
       "nome": "preencherDocOrc",
-      "linha": 3450,
+      "linha": 3459,
       "linhas": 82
     },
     {
       "nome": "salvarApenas",
-      "linha": 3196,
+      "linha": 3205,
       "linhas": 80
     },
     {
       "nome": "renderTabela",
-      "linha": 4810,
+      "linha": 4819,
       "linhas": 79
     },
     {
       "nome": "renderGraficoDash",
-      "linha": 4635,
+      "linha": 4644,
       "linhas": 78
     },
     {
       "nome": "renderVisEquipGrid",
-      "linha": 9751,
+      "linha": 9760,
       "linhas": 78
     },
     {
       "nome": "loadVistoriasRemoto",
-      "linha": 11551,
+      "linha": 11560,
       "linhas": 78
     },
     {
       "nome": "gerarOSPDF",
-      "linha": 3600,
+      "linha": 3609,
       "linhas": 76
     }
   ],
   "erros_silenciados": {
     "catch_vazio": [
       {
-        "linha": 4679,
+        "linha": 4688,
         "trecho": "catch(e){}"
       },
       {
-        "linha": 6115,
+        "linha": 6124,
         "trecho": "catch(e){}"
       }
     ],
@@ -366,91 +366,91 @@
         "linha": 1171
       },
       {
-        "linha": 3765
+        "linha": 3774
       },
       {
-        "linha": 4440
+        "linha": 4449
       },
       {
-        "linha": 5046
+        "linha": 5055
       },
       {
-        "linha": 5202
+        "linha": 5211
       },
       {
-        "linha": 5231
+        "linha": 5240
       },
       {
-        "linha": 5277
+        "linha": 5286
       },
       {
-        "linha": 5464
+        "linha": 5473
       },
       {
-        "linha": 5828
+        "linha": 5837
       },
       {
-        "linha": 6724
-      },
-      {
-        "linha": 7417
+        "linha": 6733
       },
       {
         "linha": 7426
       },
       {
-        "linha": 7446
+        "linha": 7435
       },
       {
-        "linha": 7750
+        "linha": 7455
       },
       {
-        "linha": 7751
+        "linha": 7759
       },
       {
-        "linha": 8120
+        "linha": 7760
       },
       {
-        "linha": 8146
+        "linha": 8129
       },
       {
-        "linha": 8274
+        "linha": 8155
       },
       {
-        "linha": 8763
+        "linha": 8283
       },
       {
-        "linha": 8765
+        "linha": 8772
       },
       {
         "linha": 8774
       },
       {
-        "linha": 8799
+        "linha": 8783
       },
       {
-        "linha": 8805
+        "linha": 8808
       },
       {
-        "linha": 9018
+        "linha": 8814
       },
       {
-        "linha": 9324
+        "linha": 9027
       },
       {
-        "linha": 9325
+        "linha": 9333
       },
       {
-        "linha": 9348
+        "linha": 9334
       },
       {
-        "linha": 9350
+        "linha": 9357
       },
       {
-        "linha": 13458
+        "linha": 9359
       },
       {
-        "linha": 13939
+        "linha": 13467
+      },
+      {
+        "linha": 13948
       }
     ]
   }

@@ -2188,7 +2188,16 @@ function _dupGrupos(){
     if(tel.size>1||cnpj.size>1||end.size>1) return; // divergiu — não mexe
     const comUso=fichas.filter(f=>usado(f.id));
     if(comUso.length>1) return; // ambíguo — não mexe
-    const manter=comUso[0] || fichas.slice().sort((a,b)=>new Date(a.data_criacao||0)-new Date(b.data_criacao||0))[0];
+    // Sem ficha em uso: mantém a mais COMPLETA (tem tipo/e-mail preenchido),
+    // não só a mais antiga — achado numa conferência antes de liberar a
+    // limpeza: cópia mais nova às vezes tinha "tipo: condomínio" preenchido
+    // e a mais antiga não, e a antiga sempre vencia, perdendo a etiqueta.
+    // Empate de completude cai no desempate antigo (mais antiga primeiro).
+    const completude=f=>(f.tipo?1:0)+(f.email_responsavel?1:0);
+    const manter=comUso[0] || fichas.slice().sort((a,b)=>{
+      const d=completude(b)-completude(a);
+      return d!==0 ? d : new Date(a.data_criacao||0)-new Date(b.data_criacao||0);
+    })[0];
     const remover=fichas.filter(f=>f.id!==manter.id);
     if(!remover.length) return;
     grupos.push({ nome:fichas[0].nome, manterId:manter.id, removerIds:remover.map(f=>f.id), qtd:remover.length,

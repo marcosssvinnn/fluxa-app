@@ -54,6 +54,30 @@ depois). `loadHist()` segue funcionando normal sem ela. Testado no browser:
    agora que a causa parou de recriar duplicata no meio do processo. **Eu não
    faço essa limpeza — é exclusão de dado, recusado mesmo com autorização
    explícita, inclusive nesta mesma investigação.**
+
+   **Verificação extra pedida pelo Marcos antes de autorizar, feita e
+   aprovada (11/08):** ele queria confirmar que nada "importante" seria
+   apagado. Refiz `_dupGrupos()` do zero em Python, direto contra o banco de
+   produção (não contra cache de navegador) — 138 grupos, 2.333 fichas
+   marcadas pra remover de 3.269 clientes totais. Cruzei as 2.333 contra TODO
+   `cliente_id` de `orcamentos`/`ordens_servico`/`vistorias`/`equipamentos`/
+   `locais_vistoria` (confirmado por `information_schema` que são as ÚNICAS 5
+   colunas no banco inteiro que referenciam `clientes.id` — não tem sexta
+   escondida): **zero sobreposição**. Nenhuma ficha marcada pra apagar tem
+   orçamento/OS/vistoria/equipamento/local vinculado.
+
+   Achado menor, corrigido: em 23 fichas a apagar, a cópia removida tinha
+   `tipo='condominio'` preenchido e a que sobrevivia (a mais antiga, regra
+   antiga) estava vazia nesse campo. `_dupGrupos()` agora prefere a ficha
+   mais COMPLETA (`tipo`/`email_responsavel` preenchidos) em vez da mais
+   antiga quando nenhuma das cópias tem uso real — uso real continua
+   ganhando de completude sempre (não dá pra descartar histórico de serviço
+   por uma etiqueta). Resultado após o fix: só 1 dos 23 casos continua
+   perdendo o `tipo` (o caso em que a ficha mantida tem uso real — correto
+   por desenho, recuperável reeditando a ficha depois). Testado no browser:
+   3 cenários (mais completa vence idade; uso real vence completude; grupo
+   sem nenhuma em uso e sem divergência de tipo cai no desempate por idade
+   como antes) — todos corretos, zero erro de console.
 5. **Depois da limpeza:** criar índice único de verdade em
    `(nome, endereco, telefone)` em `clientes` (não dá antes — índice único
    não sobe em cima de duplicata existente), e só então
