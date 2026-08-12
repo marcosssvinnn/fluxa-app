@@ -109,6 +109,56 @@ offline no momento da chamada — não um bug na paginação em si.
 sw.js está em `fluxa-v95` (bumped por este commit). Todos os commits já em
 `origin/main`.
 
+### 🔴 Achado grave à parte (11/08): `localStorage` cheio derrubava a contagem de duplicatas em SILÊNCIO
+Depois de tudo acima, o Marcos rodou a limpeza e a tela mostrou **5 fichas**
+em vez das 138 grupos/2.333 fichas calculadas. Não era bug no `_dupGrupos()`
+— era `localStorage.setItem('fluxa_clientes_full', ...)` **falhando por
+quota cheia**, silenciosamente, no navegador do Marcos. `carregarClientesRemoto()`
+busca os 3.269 clientes certinho (isso é a demora que ele via na tela), mas
+`merged` só existe em memória — a ÚNICA forma de qualquer outra parte do
+app enxergar esse dado é através do `localStorage` gravado por
+`lsCliSalvar()`. Se esse `setItem` falha, o fetch inteiro (rede, tempo,
+paginação) vira pó: `_dupGrupos()` lê de volta o que já estava lá antes
+(pouco), sem nenhum aviso de que os 3.269 recém-buscados nunca chegaram a
+ficar disponíveis. **Só apareceu no console porque o fix desta sessão em
+`lsSet()` (fechar `catch(e){}` vazio) passou a logar — antes disso, essa
+falha era 100% muda.**
+
+**Causa raiz do estouro:** 15 orçamentos antigos com foto embutida em
+`orcamentos.foto_base64` (base64 direto no banco, nunca migrado pro
+Storage — achado NOVO, não é o mesmo bug do `carregarClientesRemoto`)
+somavam 3,2 MB sozinhos; combinado com o resto do cache local do
+navegador (~4,4 MB no total, e o `.length` do JS mede em UTF-16 — o
+consumo real de quota costuma ser o dobro disso), estourava o limite do
+navegador. Diagnosticado ao vivo com o Marcos: `Object.keys(localStorage)`
+por tamanho apontou `fluxa_orc_data` (3,59 MB) como o maior de longe.
+
+**Corrigido, duas partes:**
+1. **Daqui pra frente:** `_uploadFotoStorage` (já existia, só pra vistoria)
+   ganhou parâmetro de bucket; nova `_fotosOrcParaStorage(orcId, fotos)`
+   roda em background depois de QUALQUER salvamento de orçamento (`salvarApenas`
+   e `gerarPDF`, tanto criar quanto editar — 4 pontos), sobe as fotos pro
+   bucket novo `orcamentos-fotos` (criado nesta sessão, mesmas políticas de
+   `vistorias-fotos`: leitura pública, insert por `anon`) e troca o
+   `foto_base64` no banco por URL. Foto que falhar no upload mantém base64
+   — nunca perde a foto. Não toca no fluxo principal de salvar (que já é
+   local-first e crítico) — só um passo extra, opcional, depois.
+2. **Backfill dos 15 já existentes:** migrados na hora (script Python +
+   curl, upload real pro Storage + update do banco). **Confirmado depois:**
+   `0` orçamentos com base64 restante, tamanho total da coluna caiu de
+   3.247 kB pra **3.612 bytes** (~99,9%). URLs testadas publicamente
+   acessíveis (HTTP 200) antes de considerar a migração concluída.
+
+**Resultado final confirmado pelo Marcos:** depois de limpar só a chave
+`fluxa_orc_data` (sem perigo — confirmado zero orçamento local-only ali
+antes de limpar) e recarregar, a tela passou a mostrar os 138 grupos/2.333
+fichas corretos. Ele autorizou e rodou a limpeza.
+
+**Lição pra próxima vez que algo "não bate" entre o que o código calcula e
+o que a tela mostra:** antes de suspeitar da lógica, checar se algum
+`lsSet`/`localStorage.setItem` no meio do caminho está falhando em
+silêncio — é indistinguível de "a lógica está errada" sem olhar o console.
+
 ---
 
 ## 🔀 COORDENAÇÃO — reaberta em 08/08
