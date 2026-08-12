@@ -2176,16 +2176,24 @@ function _dupGrupos(){
   const locs=(typeof locaisVistoria!=='undefined')?locaisVistoria:[];
   const usado=id => orcs.some(o=>String(o.cliente_id)===String(id)) || osArr.some(o=>String(o.cliente_id)===String(id)) || vis.some(v=>String(v.cliente_id)===String(id))
     || eqs.some(e=>String(e.cliente_id)===String(id)) || (locs||[]).some(l=>String(l.cliente_id)===String(id));
-  const porChave={};
-  cli.forEach(c=>{ const k=_identNorm(c.nome); (porChave[k]=porChave[k]||[]).push(c); });
+  // Agrupa pela TRIPLA exata (nome+endereço+telefone normalizados), não só
+  // pelo nome com checagem de divergência depois. Agrupar só por nome fazia
+  // UM endereço diferente em QUALQUER cópia cancelar a limpeza do NOME
+  // INTEIRO — achado real (11/08): "Torri Di Mare" tinha 626 cópias vazias
+  // (endereço/telefone em branco, idênticas entre si) + 4 cópias com
+  // endereço real, e as 4 divergentes travavam a limpeza das 626 idênticas.
+  const porTripla={};
+  cli.forEach(c=>{
+    const k=_identNorm(c.nome)+'|'+_identNorm(c.endereco)+'|'+_identNorm(c.telefone);
+    (porTripla[k]=porTripla[k]||[]).push(c);
+  });
   const grupos=[];
-  Object.keys(porChave).forEach(k=>{
-    const fichas=porChave[k];
+  Object.keys(porTripla).forEach(k=>{
+    const fichas=porTripla[k];
     if(fichas.length<2) return;
-    const tel=new Set(fichas.map(f=>(f.telefone||'').trim()).filter(Boolean));
+    // cnpj não faz parte da chave de agrupamento, mas ainda não pode divergir
     const cnpj=new Set(fichas.map(f=>(f.cnpj||'').trim()).filter(Boolean));
-    const end=new Set(fichas.map(f=>(f.endereco||'').trim()).filter(Boolean));
-    if(tel.size>1||cnpj.size>1||end.size>1) return; // divergiu — não mexe
+    if(cnpj.size>1) return; // cnpj divergente — não mexe
     const comUso=fichas.filter(f=>usado(f.id));
     if(comUso.length>1) return; // ambíguo — não mexe
     // Sem ficha em uso: mantém a mais COMPLETA (tem tipo/e-mail preenchido),

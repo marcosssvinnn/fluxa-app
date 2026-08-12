@@ -159,6 +159,35 @@ o que a tela mostra:** antes de suspeitar da lógica, checar se algum
 `lsSet`/`localStorage.setItem` no meio do caminho está falhando em
 silêncio — é indistinguível de "a lógica está errada" sem olhar o console.
 
+### 🟡 Rodada 2 de limpeza — `_dupGrupos()` agrupava por nome, deixava passar centenas de duplicata idêntica
+Depois da 1ª limpeza (3.269→944 clientes), o índice único ainda não podia
+ser criado: `group by nome/endereco/telefone normalizados` no banco mostrou
+**"Torri Di Mare Residenziale" com 626 cópias idênticas** (endereço e
+telefone em branco nas duas) ainda sobrando, mais outros 13 nomes menores
+(671 fichas no total). Causa: `_dupGrupos()` agrupava só por NOME e, se
+QUALQUER cópia daquele nome tivesse endereço divergente em algum lugar
+(4 cópias de "Torri Di Mare" tinham endereço real, diferente entre si),
+o grupo INTEIRO era descartado como "divergiu, não mexe" — inclusive as
+626 idênticas entre si, que nunca tiveram chance de ser limpas.
+
+**Corrigido:** agrupamento agora é pela TRIPLA exata
+(nome+endereço+telefone normalizados) direto, não por nome com checagem de
+divergência depois — matematicamente mais correto (duplicata = mesma
+tripla, não "mesmo nome E zero divergência em qualquer outra cópia do
+mesmo nome"). CNPJ continua fora da chave de agrupamento mas ainda bloqueia
+o grupo se divergir (não muda). Mesma lógica de segurança de antes
+inalterada: uso real sempre vence, completude desempata, cnpj/tripla
+divergente nunca é tocado.
+
+Testado contra o banco real (aba local, dados reais): **15 grupos, 672
+fichas** — bate com o cálculo independente em Python (14/671, diferença de
+2 por clientes criados no meio do caminho). Zero sobreposição com uso real
+(mesma checagem das 5 tabelas de antes). Zero erro de console.
+
+**Próximo passo:** Marcos roda "Revisar e limpar" mais uma vez agora com o
+código corrigido. Só depois disso — zero duplicata real restante — dá pra
+criar o índice único de verdade e destravar o `INSERT` de cliente.
+
 ---
 
 ## 🔀 COORDENAÇÃO — reaberta em 08/08
