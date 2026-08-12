@@ -2,6 +2,32 @@
 
 ---
 
+## Continuação da Etapa 5 — vistoria também captura cliente_id (12/08)
+
+Fechando a pendência que a própria entrada da Etapa 5 registrou: sem isso,
+`importarEqDaVistoria()` quase nunca herdava `cliente_id` da vistoria de
+origem (achado da auditoria: 1 vistoria em 7 tinha o campo preenchido), o
+que deixava o import em massa (63 equipamentos esperando cadastro, visto ao
+vivo em produção) sem vínculo de cliente nem chance de vir com piscina.
+
+Mesmo padrão de sempre (orçamento/OS/equipamento/venda): o campo `#vis-cli`
+captura `cliente_id` real nos dois caminhos — autocomplete ao digitar
+(`selecionarCliVis`) e busca pela lupa 🔍 (`selecionarCliModal`, contexto
+`'vis'` já existia, só não capturava id). Vistoria criada a partir de um
+plano (`iniciarVistoriaPlena`) herda o `cliente_id` do local, quando
+existir. Editar preserva; digitar por cima invalida — mesma regra de sempre.
+
+**Ainda não fechado:** `importarEqDaVistoria()` não pergunta qual piscina
+do cliente o equipamento importado pertence — só herda `cliente_id`. Ligar
+a piscina no import em massa é mais UI (picker por grupo de cliente na
+tela de import) — fica pra próxima rodada.
+
+Testado no browser local (dbOk=false): autocomplete e busca capturam o id,
+digitar por cima invalida, `_montarRecVistoria()` grava `cliente_id`
+corretamente. Sem erro novo no console.
+
+---
+
 ## Etapa 5 do roadmap de CRM — construída em 12/08 (ficha técnica da piscina)
 
 Seguindo a recomendação da auditoria

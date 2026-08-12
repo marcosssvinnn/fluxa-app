@@ -6142,6 +6142,7 @@ function selecionarCliModal(nome, end, tel, cnpj, id){
   } else if(_buscaCliCtx === 'vis'){
     setV('vis-cli', nome);
     if(end) setV('vis-loc', end);
+    _visClienteSelecionado = id ? {id, nome} : null;
     // auto-fill email from client record
     const clis=JSON.parse(ls('fluxa_clientes_full')||'[]');
     const cliVis=clis.find(c=>(c.nome||'')=== nome);
@@ -8185,6 +8186,9 @@ let eqBusca = '', eqFiltroTipo = '';
 let _eqClienteSelecionado = null;
 let todasPiscinas = [];
 let _eqPiscinaSelecionadaId = null;
+// Mesmo padrão em vistoria — sem isso importarEqDaVistoria() quase nunca
+// tinha cliente_id pra herdar (achado da auditoria: 1 vistoria em 7).
+let _visClienteSelecionado = null;
 
 function abrirFormEq(id){
   eqEditId = id || null;
@@ -9613,6 +9617,7 @@ function iniciarVistoriaPlena(locId){
   visEditId=null;
   _visDraftId=null;
   window._visLocalId=locId;
+  _visClienteSelecionado = loc.cliente_id ? {id:loc.cliente_id, nome:loc.cliente} : null;
 
   // Navega para a aba Nova Vistoria
   visTab('nova');
@@ -10507,12 +10512,14 @@ function mostrarSugestoesCliVis(val){
   const clientes = JSON.parse(ls('fluxa_clientes_full')||'[]');
   const hits = clientes.filter(c=>(c.nome||'').toLowerCase().includes(val.toLowerCase())).slice(0,5);
   if(!hits.length){ sug.style.display='none'; return; }
-  sug.innerHTML = hits.map(c=>`<div class="cli-suggestion-item" onmousedown="selecionarCliVis('${esc(c.nome||'')}','${esc(c.local||c.endereco||'')}')"><div class="cli-sug-name">${esc(c.nome)}</div><div class="cli-sug-tel">${esc(c.local||c.endereco||c.tel||'')}</div></div>`).join('');
+  sug.innerHTML = hits.map(c=>`<div class="cli-suggestion-item" onmousedown="selecionarCliVis('${esc(c.nome||'')}','${esc(c.local||c.endereco||'')}','${esc(c.id||'')}')"><div class="cli-sug-name">${esc(c.nome)}</div><div class="cli-sug-tel">${esc(c.local||c.endereco||c.tel||'')}</div></div>`).join('');
   sug.style.display='block';
 }
 function hideSugCliVis(){ const el=document.getElementById('vis-cli-suggestions'); if(el) el.style.display='none'; }
-function selecionarCliVis(nome, local){
+function _visClienteEditado(){ _visClienteSelecionado=null; }
+function selecionarCliVis(nome, local, id){
   const inp=document.getElementById('vis-cli'); if(inp) inp.value=nome;
+  _visClienteSelecionado = id ? {id, nome} : null;
   const loc=document.getElementById('vis-loc'); if(loc&&local&&!loc.value) loc.value=local;
   // Auto-fill email from client record
   const clientes=JSON.parse(ls('fluxa_clientes_full')||'[]');
@@ -10625,11 +10632,15 @@ function _montarRecVistoria(){
   // (rede de segurança contra salvar com nome errado/em branco).
   let _cli=(document.getElementById('vis-cli')?.value||'').trim();
   if(!_cli && _loc && _loc.cliente){ _cli=_loc.cliente; const _ci=document.getElementById('vis-cli'); if(_ci) _ci.value=_cli; }
+  // Mesma rede de segurança do nome: sem cliente_id escolhido no campo, mas
+  // veio de um plano que já tem cliente_id, herda dali.
+  const _cliId=_visClienteSelecionado?.id || _loc?.cliente_id || null;
   return {
     id,
     loja_id: _lojaRec,
     local_id: window._visLocalId||'',
     cliente:_cli,
+    cliente_id:_cliId,
     local:(document.getElementById('vis-loc')?.value||'').trim(),
     data: document.getElementById('vis-data')?.value||_hojeLocal(),
     hora,
@@ -10787,6 +10798,7 @@ function _limparFormVistoria(){
   visCheckoutTime = null;
   visEditId = null;
   _visDraftId = null;
+  _visClienteSelecionado = null;
   if(visCheckinInterval){ clearInterval(visCheckinInterval); visCheckinInterval = null; }
   _resetCheckinVis();
   window._visLocalId = null;
@@ -11616,6 +11628,7 @@ function editarVistoria(id){
   if(visCheckinInterval){ clearInterval(visCheckinInterval); visCheckinInterval=null; }
   visEditId=id; _visDraftId=id;            // edita o mesmo registro
   window._visLocalId=vis.local_id||null;   // mantém vínculo com o plano (e a empresa)
+  _visClienteSelecionado = vis.cliente_id ? {id:vis.cliente_id, nome:vis.cliente} : null;
   go('visitas'); visTab('nova');
   // Esconde banners de plano/pré-carga (estamos editando algo existente)
   const pb=document.getElementById('vis-plano-banner'); if(pb) pb.style.display='none';
