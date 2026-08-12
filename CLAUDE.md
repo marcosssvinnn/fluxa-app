@@ -57,6 +57,34 @@ de OS (`_pendingSync`, edição offline sobre OS já existente — id real,
 sem timestamp pra medir) passa sempre, não tem como ficar "velho" nesse
 sentido. Zero erro de console.
 
+**Itens 2 e 3 da varredura sistêmica (11/08):**
+- **Item 3 (outra "migração única" que roda sempre):** só existem 2
+  funções `_migrar*` no código inteiro. `_migrarClientesDeOrcamentos`
+  (a causa raiz, já desligada). `_migrarDataAprovacao` — **confirmada
+  segura, sem mudança**: usa `UPDATE` por id real (nunca `INSERT`) e a
+  própria condição (`!o.data_aprovacao`) se autolimita — uma vez migrado,
+  a próxima passada nem olha pro registro de novo. Não tem o defeito que
+  causou o incidente (checar contra cache local possivelmente incompleto).
+- **Item 2 (escrita direta em `localStorage`, fora do `lsSet`):** 14
+  chamadas cruas achadas. A maioria sem NENHUM try/catch — pior que
+  silencioso, uma exceção não pega podia interromper a função no meio
+  (ex.: login com PIN errado em modo privado poderia travar sem limpar o
+  campo). 9 sites migrados pra `lsSet` (tentativas de login/lockout,
+  colapsar sidebar, dispensar alerta de estoque, filtros de
+  orçamento/OS, e os 3 pontos de `locais_vistoria` — plano recorrente de
+  visita, dado real de negócio). **5 NÃO mexidos, de propósito** — já
+  eram mais sofisticados que `lsSet`: `LS_VIS` (`lsVisSalvar`) já tenta
+  de novo sem fotos se a quota estourar, com toast avisando o técnico;
+  `LS_VIS_DRAFT` (rascunho de vistoria em andamento) tem comentário
+  explícito no código dizendo por que NÃO usa `lsSet` (o catch genérico
+  engoliria o erro antes do fallback sem-fotos rodar — achado documentado
+  de uma sessão anterior, "pego em teste"); e um ponto de restauração de
+  rascunho da nuvem já está dentro de um try/catch mais amplo.
+  Testado no browser (forçando `Storage.prototype.setItem` a lançar
+  exceção): `dispensarAlertaEstoque`, `loadLocais` e o fluxo de
+  tentativa/lockout de login sobrevivem sem lançar exceção, aviso
+  correto no console nos dois primeiros.
+
 **Fechamento final (11/08):** com zero duplicata restante na base
 (confirmado por query direta — `group by` na tripla normalizada devolveu
 vazio), criado `clientes_nome_end_tel_uniq` — índice único funcional sobre
