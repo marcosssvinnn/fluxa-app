@@ -35,6 +35,28 @@ pro banco nesta rodada — zero uso real confirmado (mesma checagem das 5
 tabelas) — precisam da mesma limpeza (`_dupGrupos()`/"Revisar e limpar")
 que as rodadas anteriores. Eu não apago.
 
+**Varredura sistêmica (11/08, a pedido do Marcos — "o que mais vemos de
+lacuna pra não passar por isso de novo"):** o mesmo padrão sem guarda de
+idade existia em MAIS 6 lugares — `loadHist` (orçamentos), `loadOSHist` +
+`_reenviarPendentes` (OS, 2 pontos), `loadAgendamentos`, `loadDespesas`,
+`loadEquipamentos`. Todos agora usam o mesmo helper compartilhado
+`_idadeIdMs(id)` (perto de `_tombLer`/`_tombAdd`) com o teto de 48h.
+
+🔴 **Bug achado no próprio teste do fix, corrigido antes de ir pro ar:**
+`_idadeIdMs` original fazia `id.split('_')[1]` — funciona pra
+`local_<ts>`/`ag_<ts>`/`desp_<ts>`/`eq_<ts>`/`cli_<ts>` (2 partes), mas
+`local_os_<ts>` tem 3 partes — `split('_')[1]` pegava `"os"`, não o
+timestamp, `parseInt` virava `NaN`, e a função silenciosamente tratava
+TODO id de OS como "idade zero" (nunca filtrava nada). Corrigido pra usar
+regex (acha o número de 10-13 dígitos em qualquer posição do id) — mais
+robusto contra qualquer prefixo, não só o de hoje.
+
+Testado no browser, os 6 pontos + clientes de novo: registro com <48h
+sincroniza, com 48h+ é ignorado e logado, em cada tabela. Caso especial
+de OS (`_pendingSync`, edição offline sobre OS já existente — id real,
+sem timestamp pra medir) passa sempre, não tem como ficar "velho" nesse
+sentido. Zero erro de console.
+
 **Fechamento final (11/08):** com zero duplicata restante na base
 (confirmado por query direta — `group by` na tripla normalizada devolveu
 vazio), criado `clientes_nome_end_tel_uniq` — índice único funcional sobre

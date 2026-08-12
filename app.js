@@ -1188,9 +1188,7 @@ async function carregarClientesRemoto(){
     // causa raiz já corrigida. Cliente criado offline de verdade sincroniza
     // em horas; id 'cli_<timestamp>' com mais de 48h parado é quase certo
     // lixo travado, não uso legítimo — não empurra pro banco.
-    const DOIS_DIAS_MS=2*24*60*60*1000;
-    const _idadeMs=id=>{ const t=parseInt(String(id).split('_')[1]); return isFinite(t) ? Date.now()-t : 0; };
-    const soLocalRecente=soLocal.filter(c=>_idadeMs(c.id) < DOIS_DIAS_MS);
+    const soLocalRecente=soLocal.filter(c=>_idadeIdMs(c.id) < DOIS_DIAS_MS);
     const soLocalAntigo=soLocal.length-soLocalRecente.length;
     if(soLocalAntigo) console.warn('[carregarClientesRemoto] '+soLocalAntigo+' ficha(s) local(is) com mais de 48h ignorada(s) — provável lixo de bug antigo, não sincronizada.');
     soLocalRecente.forEach(c=>{
@@ -3156,6 +3154,21 @@ async function orcSyncUpdate(id, payload){ return dbUpdate('orcamentos', payload
 // _locTombLer/_visTombLer (locais_vistoria/vistorias), só parametrizado para
 // não copiar o par de funções a cada tabela nova.
 function _tombLer(chave){ try{ return JSON.parse(ls(chave)||'[]'); }catch(e){ return []; } }
+// Extrai a idade (ms) de um id local no padrão 'prefixo_<Date.now()>...' —
+// usado pra não reenviar pro banco registro "só local" travado há dias
+// (achado real 11/08: registro velho preso no cache, de um bug já corrigido,
+// vazava em massa assim que uma sincronização finalmente rodava de novo).
+// id sem número reconhecível (formato diferente) retorna idade 0 — trata
+// como recente, não bloqueia por via das dúvidas.
+const DOIS_DIAS_MS=2*24*60*60*1000;
+function _idadeIdMs(id){
+  // Pega o número de 10-13 dígitos (timestamp Date.now()) em QUALQUER posição do
+  // id — split('_')[1] quebrava pra prefixo de 2 partes como 'local_os_<ts>'
+  // (pegava "os", não o timestamp). Regex acha o timestamp onde quer que esteja.
+  const m=String(id).match(/\d{10,13}/);
+  const t=m?parseInt(m[0]):NaN;
+  return isFinite(t) ? Date.now()-t : 0;
+}
 function _tombAdd(chave,id){ const t=_tombLer(chave); if(!t.includes(id)){ t.push(id); lsSet(chave, JSON.stringify(t.slice(-500))); } }
 
 // ── OS OFFLINE: nunca perder uma OS por falta de conexão ───────────────────
@@ -3807,7 +3820,10 @@ async function loadHist(){
       }
       // Merge: BD é fonte de verdade + mantém registros local-only ainda não sincronizados
       const dbIds=new Set(remoto.map(x=>x.id));
-      const soLocal=todosOrc.filter(x=>String(x.id).startsWith('local_')&&!dbIds.has(x.id));
+      // Só reenvia órfão local recente — mesma guarda de 48h do carregarClientesRemoto,
+      // achado real 11/08: registro preso há dias de um bug já corrigido não deve
+      // ressurgir em massa na primeira sincronização.
+      const soLocal=todosOrc.filter(x=>String(x.id).startsWith('local_')&&!dbIds.has(x.id)&&_idadeIdMs(x.id)<DOIS_DIAS_MS);
       todosOrc=[...remoto,...soLocal];
       _orcRemotoOk=true; // orçamentos confirmados pelo banco — libera a reconciliação de órfãs
       lsOrcSalvar(todosOrc);
@@ -5274,7 +5290,10 @@ async function loadOSHist(){
     // Merge: BD é fonte de verdade + mantém OS presas só no aparelho
     // (criadas offline, ou editadas offline sobre uma OS já existente)
     const remotoIds=new Set(remoto.map(x=>x.id));
-    const soLocal=todosOS.filter(x=>(String(x.id).startsWith('local_os_')||x._pendingSync===true)&&!remotoIds.has(x.id)&&!_tomb.has(x.id));
+    // _pendingSync (edição offline sobre OS já existente) não tem timestamp no
+    // id — não dá pra medir idade, deixa passar. local_os_ (criação nova) tem, e
+    // segue a mesma guarda de 48h das outras tabelas.
+    const soLocal=todosOS.filter(x=>(x._pendingSync===true||(String(x.id).startsWith('local_os_')&&_idadeIdMs(x.id)<DOIS_DIAS_MS))&&!remotoIds.has(x.id)&&!_tomb.has(x.id));
     todosOS=[...remoto,...soLocal];
     lsSet('fluxa_os_hist', JSON.stringify(todosOS.slice(0,200))); // mesmo teto usado nos demais pontos que escrevem fluxa_os_hist
     renderOSTabela();
@@ -7490,7 +7509,7 @@ async function loadDespesas(){
         // desp_<ts> ainda não sincronizado) — mesmo padrão de loadAgendamentos,
         // sem isso o "banco é fonte de verdade" apagava o que nunca sincronizou.
         const idsDesp=new Set(remoto.map(x=>x.id));
-        const soLocalDesp=todasDesp.filter(x=>String(x.id).startsWith('desp_')&&!idsDesp.has(x.id));
+        const soLocalDesp=todasDesp.filter(x=>String(x.id).startsWith('desp_')&&!idsDesp.has(x.id)&&_idadeIdMs(x.id)<DOIS_DIAS_MS);
         todasDesp=[...remoto,...soLocalDesp]; lsDespSalvar(todasDesp); renderDespesas();
         for(const d of soLocalDesp){
           try{
@@ -7808,7 +7827,7 @@ async function loadAgendamentos(){
         // não subiram ao banco (id 'ag_...' ausente no retorno). Antes, esta linha
         // trocava a lista inteira e podia apagar um agendamento feito sem conexão.
         const idAg=new Set(data.map(x=>x.id));
-        const soLocalAg=todosAg.filter(x=>String(x.id).startsWith('ag_')&&!idAg.has(x.id));
+        const soLocalAg=todosAg.filter(x=>String(x.id).startsWith('ag_')&&!idAg.has(x.id)&&_idadeIdMs(x.id)<DOIS_DIAS_MS);
         todosAg=[...data,...soLocalAg];
         lsAgSalvar(todosAg);
         // Reenvia ao banco os que ficaram presos só no aparelho
@@ -8318,7 +8337,7 @@ async function loadEquipamentos(){
       // offline, id eq_<ts> ainda não sincronizado) — mesmo padrão de
       // loadAgendamentos/loadDespesas.
       const idsEq=new Set(remotoEq.map(x=>x.id));
-      const soLocalEq=todosEq.filter(x=>String(x.id).startsWith('eq_')&&!idsEq.has(x.id));
+      const soLocalEq=todosEq.filter(x=>String(x.id).startsWith('eq_')&&!idsEq.has(x.id)&&_idadeIdMs(x.id)<DOIS_DIAS_MS);
       todosEq=[...remotoEq,...soLocalEq]; lsEqSalvar(todosEq); renderEqGrid(); verificarAlertasGarantia();
       for(const eq of soLocalEq){
         try{
@@ -13980,7 +13999,7 @@ async function _reenviarPendentes(silencioso=true){
     // OS presas (criadas offline ou editadas offline sobre OS já existente)
     try{
       const soLocalOS=(()=>{ try{ return JSON.parse(ls('fluxa_os_hist')||'[]'); }catch(e){ return []; } })()
-        .filter(o=>String(o.id).startsWith('local_os_')||o._pendingSync===true);
+        .filter(o=>o._pendingSync===true||(String(o.id).startsWith('local_os_')&&_idadeIdMs(o.id)<DOIS_DIAS_MS));
       if(soLocalOS.length) await _reenviarOSLocais(soLocalOS);
     }catch(e){ console.warn('[reenvio os]',e?.message||e); }
     // Despesas/equipamentos presos (loadDespesas/loadEquipamentos agora fazem merge + reenvio)
