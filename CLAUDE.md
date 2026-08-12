@@ -9,6 +9,32 @@
 > índice único criado, `INSERT` de cliente destravado de novo. Timeline e
 > achados completos abaixo, do mais recente pro mais antigo.
 
+**Ressurgimento pós-fechamento, causa e blindagem (11/08, depois do
+fechamento acima):** ao reverificar tudo a pedido do Marcos, uma aba de
+teste (que tinha rodado `_migrarClientesDeOrcamentos` de verdade, antes
+dela ser desligada) empurrou ~124 fichas "só locais" que ficaram presas no
+cache dela pro banco assim que `carregarClientesRemoto()` rodou de novo —
+mesmo padrão do incidente original (dezenas de nomes diferentes, mesmo
+segundo, uso zero), só que como efeito colateral tardio, não recorrência
+da causa raiz (essa está desligada e confirmada). **Risco real:** qualquer
+aparelho da equipe que tenha ficado com esse mesmo lixo preso no cache
+(criado enquanto o bug ainda estava ativo) faria o mesmo na próxima
+sincronização, mesmo com o código já corrigido.
+
+**Blindado:** `carregarClientesRemoto()` agora só empurra pro banco ficha
+"só local" com **menos de 48h** (idade extraída do próprio `id`,
+`cli_<timestamp>` — todo ponto de criação de cliente local usa esse
+padrão, confirmado por grep). Ficha órfã mais velha que isso é log de
+aviso e ignorada, nunca mais sincronizada — cliente offline de verdade
+sincroniza em horas, não dias, então 48h é folga generosa sem arriscar
+perder criação legítima. Testado no browser: local de 10min atrás
+sincroniza, local de 48h+ não, aviso correto no console.
+
+**Pendente, mesmo processo de sempre:** as ~124 fichas que já vazaram
+pro banco nesta rodada — zero uso real confirmado (mesma checagem das 5
+tabelas) — precisam da mesma limpeza (`_dupGrupos()`/"Revisar e limpar")
+que as rodadas anteriores. Eu não apago.
+
 **Fechamento final (11/08):** com zero duplicata restante na base
 (confirmado por query direta — `group by` na tripla normalizada devolveu
 vazio), criado `clientes_nome_end_tel_uniq` — índice único funcional sobre
