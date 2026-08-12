@@ -119,6 +119,7 @@ function aplicarPermissoesPerfil(){
   const snbRules = {
     'snb-insights'     : gestor,
     'snb-form'         : gestor||vendas,
+    'snb-venda-balcao' : gestor||vendas||tecnico,
     'snb-history'      : gestor||vendas,
     'snb-clientes'     : gestor||vendas,
     'snb-agendamentos' : gestor||vendas,

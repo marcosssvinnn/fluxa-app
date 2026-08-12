@@ -153,6 +153,11 @@
          posição no DOM. -->
     <button class="snb" id="snb-insights" onclick="go('insights')"><span class="sicon">📊</span><span class="slabel">Insights</span></button>
     <button class="snb on" id="snb-form" onclick="go('form')"><span class="sicon">＋</span><span class="slabel">Orçamento</span></button>
+    <!-- Venda de balcão não é um "page-X" — é um carrinho rápido (modal), então
+         não passa por go(). Mora ao lado de Orçamento de propósito: as duas são
+         "o que a pessoa do balcão/vendas abre pra começar uma venda", e Estoque
+         (onde ficava antes) é ferramenta de gestor pra outra coisa. -->
+    <button class="snb" id="snb-venda-balcao" onclick="abrirVendaBalcao();closeSidebar()"><span class="sicon">🛒</span><span class="slabel">Nova Venda</span></button>
     <button class="snb" id="snb-history" onclick="go('history')"><span class="sicon">📊</span><span class="slabel">Histórico</span></button>
     <button class="snb" id="snb-estoque" onclick="go('estoque')"><span class="sicon">📦</span><span class="slabel">Estoque</span></button>
     <button class="snb" id="snb-recebiveis" onclick="go('recebiveis')"><span class="sicon">💰</span><span class="slabel">A Receber</span></button>
@@ -760,7 +765,6 @@
              de Estoque. Sem este atalho não existia caminho nenhum para ele dar
              baixa — era a origem das 303 entradas contra 40 saídas. -->
         <button class="ba" style="background:var(--c1);color:white;padding:8px 12px;font-size:12.5px;font-weight:700" onclick="abrirBaixaRapida()">⚡ Dar baixa</button>
-        <button class="ba" style="background:var(--green);color:white;padding:8px 12px;font-size:12.5px;font-weight:700" onclick="abrirVendaBalcao()">🛒 Nova Venda</button>
         <button class="fb on" data-tec-st="pendente" onclick="filtStatusMinhasOS(this)">⏳ Agendadas</button>
         <button class="fb" data-tec-st="concluido" onclick="filtStatusMinhasOS(this)">✅ Concluídas</button>
         <button class="fb" data-tec-st="todos" onclick="filtStatusMinhasOS(this)">Todas</button>
@@ -1864,7 +1868,6 @@
       <div style="font-size:18px;font-weight:800;color:var(--c2)">📦 Gestão de Estoque</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="ba" style="background:var(--c1);color:white;padding:9px 14px;font-size:13px;font-weight:700" onclick="abrirBaixaRapida()">⚡ Dar baixa</button>
-        <button class="ba" style="background:var(--green);color:white;padding:9px 14px;font-size:13px;font-weight:700" onclick="abrirVendaBalcao()">🛒 Nova Venda</button>
         <button class="ba" style="background:var(--gray-light);color:var(--c2);padding:9px 14px;font-size:13px" onclick="abrirBalancoModal()">📋 Balanço</button>
         <button class="ba" style="background:var(--gray-light);color:var(--c2);padding:9px 14px;font-size:13px" onclick="abrirFornecModal()">👥 Fornecedores</button>
         <button class="ba" style="background:var(--gray-light);color:var(--c2);padding:9px 14px;font-size:13px" onclick="abrirOCListModal()">📄 Ordens de Compra</button>
