@@ -9,6 +9,42 @@
 > índice único criado, `INSERT` de cliente destravado de novo. Timeline e
 > achados completos abaixo, do mais recente pro mais antigo.
 
+**`_dupGrupos()` ganha 2ª passada — 110 grupos que exigiam revisão manual
+viram automáticos (12/08).** Depois do fechamento, sobraram ~125 grupos de
+nome repetido (o Marcos achou pesado demais revisar na mão). Analisando os
+110 que tinham pelo menos 1 ficha em uso: **em TODOS os 110, é sempre
+exatamente 1 ficha usada + o resto 100% vazio** (zero orçamento/OS/
+vistoria/equipamento/local em qualquer uma das outras cópias) — nenhuma
+ambiguidade real. A única razão de `_dupGrupos()` não limpar sozinho era
+exigir endereço/telefone idênticos entre as cópias, e a cópia vazia quase
+sempre tem esses campos em branco (diferente da cópia real).
+
+Adicionada uma **passada por NOME** antes da passada por tripla exata:
+quando exatamente 1 cópia do nome está em uso, remove todas as outras —
+divergência de endereço/telefone entre elas não importa, porque uma ficha
+sem nenhum vínculo não carrega histórico de ninguém pra proteger (só
+protege quando **2+** cópias têm uso — aí sim pode ser gente/lugar
+diferente, cai pra passada 2 sem mudança). A passada por tripla exata
+(0 usadas, ou 2+ usadas) continua exatamente como antes.
+
+Testado: 3 cenários sintéticos (nova regra limpa endereço divergente com 1
+uso; caso "Torri Di Mare" — 0 uso, endereços divergentes — continua só
+juntando as idênticas; caso ambíguo — 2 usadas — nunca mexe) + contra o
+banco real: **112 grupos / 119 fichas** capturados agora (era só 3 antes).
+🔴 **Achado no próprio teste**: dado sintético de um cenário de teste
+("Ambiguo") vazou pro banco real na mesma aba reciclada — o índice único
+bloqueou a 2ª tentativa (409, prova que funciona), mas a 1ª entrou. Achado
+e apagado na hora (registro de teste meu, óbvio, não é julgamento sobre
+dado de cliente real). **Lição:** `localStorage.clear()` sempre antes de
+alternar entre teste sintético e teste contra banco real na mesma aba —
+`carregarClientesRemoto()` empurra pro banco qualquer "local-only" que
+achar, sem saber se é teste ou de verdade.
+
+Relatório `docs/identidade-cliente-lista-priorizada-2026-08-11.md` fica
+como registro histórico do que foi mapeado manualmente antes desta
+automação — não precisa mais ser usado pra revisão, mas documenta a
+análise que levou à correção.
+
 **Ressurgimento pós-fechamento, causa e blindagem (11/08, depois do
 fechamento acima):** ao reverificar tudo a pedido do Marcos, uma aba de
 teste (que tinha rodado `_migrarClientesDeOrcamentos` de verdade, antes

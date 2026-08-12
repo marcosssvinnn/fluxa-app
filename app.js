@@ -2187,18 +2187,44 @@ function _dupGrupos(){
   const locs=(typeof locaisVistoria!=='undefined')?locaisVistoria:[];
   const usado=id => orcs.some(o=>String(o.cliente_id)===String(id)) || osArr.some(o=>String(o.cliente_id)===String(id)) || vis.some(v=>String(v.cliente_id)===String(id))
     || eqs.some(e=>String(e.cliente_id)===String(id)) || (locs||[]).some(l=>String(l.cliente_id)===String(id));
-  // Agrupa pela TRIPLA exata (nome+endereço+telefone normalizados), não só
-  // pelo nome com checagem de divergência depois. Agrupar só por nome fazia
-  // UM endereço diferente em QUALQUER cópia cancelar a limpeza do NOME
-  // INTEIRO — achado real (11/08): "Torri Di Mare" tinha 626 cópias vazias
-  // (endereço/telefone em branco, idênticas entre si) + 4 cópias com
-  // endereço real, e as 4 divergentes travavam a limpeza das 626 idênticas.
+  const grupos=[];
+  const processados=new Set(); // ids já decididos por qualquer uma das 2 passadas
+
+  // PASSADA 1 — por NOME, não pela tripla. Achado real (11/08): 110 grupos
+  // travados na passada 2 (abaixo) só porque a cópia "extra" tem endereço/
+  // telefone diferente (ou em branco) da cópia real — mas essa cópia extra
+  // não tem NENHUM orçamento/OS/vistoria/equipamento/local vinculado. Uma
+  // ficha com zero uso não carrega histórico de ninguém pra proteger, então
+  // divergência de endereço nela é irrelevante — só importa quando as DUAS
+  // cópias têm uso (aí sim pode ser gente/lugar diferente de verdade, decide
+  // a passada 2). Só dispara quando exatamente 1 cópia do nome está em uso;
+  // 0 ou 2+ cai pra passada 2 sem mudança de comportamento.
+  const porNome={};
+  cli.forEach(c=>{ const k=_identNorm(c.nome); (porNome[k]=porNome[k]||[]).push(c); });
+  Object.keys(porNome).forEach(k=>{
+    const fichas=porNome[k];
+    if(fichas.length<2) return;
+    const comUso=fichas.filter(f=>usado(f.id));
+    if(comUso.length!==1) return;
+    const remover=fichas.filter(f=>f.id!==comUso[0].id);
+    if(!remover.length) return;
+    remover.forEach(f=>processados.add(f.id));
+    processados.add(comUso[0].id);
+    grupos.push({ nome:fichas[0].nome, manterId:comUso[0].id, removerIds:remover.map(f=>f.id), qtd:remover.length,
+      endereco:comUso[0].endereco||'', telefone:comUso[0].telefone||'' });
+  });
+
+  // PASSADA 2 — pela TRIPLA exata (nome+endereço+telefone normalizados), como
+  // antes. Cobre o que a passada 1 não resolveu: nenhuma cópia em uso (ex.:
+  // "Torri Di Mare" tinha 626 cópias vazias idênticas + 4 com endereço real,
+  // divergentes entre si — aqui as 626 idênticas ainda se limpam sozinhas) ou
+  // 2+ cópias em uso (ambíguo de verdade, não mexe).
   const porTripla={};
   cli.forEach(c=>{
+    if(processados.has(c.id)) return; // já decidido na passada 1
     const k=_identNorm(c.nome)+'|'+_identNorm(c.endereco)+'|'+_identNorm(c.telefone);
     (porTripla[k]=porTripla[k]||[]).push(c);
   });
-  const grupos=[];
   Object.keys(porTripla).forEach(k=>{
     const fichas=porTripla[k];
     if(fichas.length<2) return;
