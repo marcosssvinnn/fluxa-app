@@ -760,6 +760,7 @@
              de Estoque. Sem este atalho não existia caminho nenhum para ele dar
              baixa — era a origem das 303 entradas contra 40 saídas. -->
         <button class="ba" style="background:var(--c1);color:white;padding:8px 12px;font-size:12.5px;font-weight:700" onclick="abrirBaixaRapida()">⚡ Dar baixa</button>
+        <button class="ba" style="background:var(--green);color:white;padding:8px 12px;font-size:12.5px;font-weight:700" onclick="abrirVendaBalcao()">🛒 Nova Venda</button>
         <button class="fb on" data-tec-st="pendente" onclick="filtStatusMinhasOS(this)">⏳ Agendadas</button>
         <button class="fb" data-tec-st="concluido" onclick="filtStatusMinhasOS(this)">✅ Concluídas</button>
         <button class="fb" data-tec-st="todos" onclick="filtStatusMinhasOS(this)">Todas</button>
@@ -1863,6 +1864,7 @@
       <div style="font-size:18px;font-weight:800;color:var(--c2)">📦 Gestão de Estoque</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="ba" style="background:var(--c1);color:white;padding:9px 14px;font-size:13px;font-weight:700" onclick="abrirBaixaRapida()">⚡ Dar baixa</button>
+        <button class="ba" style="background:var(--green);color:white;padding:9px 14px;font-size:13px;font-weight:700" onclick="abrirVendaBalcao()">🛒 Nova Venda</button>
         <button class="ba" style="background:var(--gray-light);color:var(--c2);padding:9px 14px;font-size:13px" onclick="abrirBalancoModal()">📋 Balanço</button>
         <button class="ba" style="background:var(--gray-light);color:var(--c2);padding:9px 14px;font-size:13px" onclick="abrirFornecModal()">👥 Fornecedores</button>
         <button class="ba" style="background:var(--gray-light);color:var(--c2);padding:9px 14px;font-size:13px" onclick="abrirOCListModal()">📄 Ordens de Compra</button>
@@ -2041,6 +2043,52 @@
       <div id="baixa-resumo" style="font-size:12px;color:var(--gray);margin-bottom:10px;line-height:1.5"></div>
       <button class="btn-primary" id="baixa-btn" onclick="confirmarBaixaRapida()" style="width:100%;padding:14px;font-size:15px">✅ Confirmar baixa</button>
     </div>
+  </div>
+</div>
+
+<!-- VENDA DE BALCÃO — carrinho com cliente opcional, vira transação própria em
+     vendas_balcao (não é orçamento, não é "Dar baixa" avulso). Sem isso a venda
+     de balcão só existia como saída de estoque com motivo em texto — sem
+     cliente, sem histórico, dado que evaporava a cada saco de cloro vendido. -->
+<div class="qr-modal-bg" id="venda-modal" style="display:none" onclick="if(event.target===this)fecharVendaBalcao()">
+  <div class="card" style="max-width:520px;width:94%;max-height:92vh;overflow:auto">
+    <div class="ct">🛒 Nova Venda (Balcão)
+      <button onclick="fecharVendaBalcao()" aria-label="Fechar" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;float:right;line-height:1">×</button>
+    </div>
+
+    <div class="row f1"><div class="fl">
+      <label>Cliente <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--gray)">(opcional)</span></label>
+      <div class="cli-input-wrap">
+        <input type="text" id="venda-cli" placeholder="Buscar ou digitar o nome…" autocomplete="off" oninput="_vendaClienteEditado()">
+        <button type="button" class="cli-search-btn" onclick="abrirBuscaCli('venda')" title="Buscar cliente na base">🔍</button>
+      </div>
+    </div></div>
+    <div style="margin:-6px 0 12px">
+      <button class="tb" id="venda-sem-cliente-btn" onclick="_vendaSemCliente()" style="font-size:11.5px;padding:5px 10px">🚫 Balcão — sem cliente identificado</button>
+    </div>
+
+    <div class="row f1"><div class="fl">
+      <label>Adicionar produto</label>
+      <input type="text" id="venda-busca" placeholder="Digite o nome ou código…" oninput="vendaBuscarProduto(this.value)" autocomplete="off">
+      <div id="venda-sugestoes" style="max-height:180px;overflow:auto;margin-top:6px"></div>
+    </div></div>
+
+    <div id="venda-carrinho" style="margin:10px 0"></div>
+
+    <div class="row"><div class="fl">
+      <label>Forma de pagamento <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--gray)">(opcional)</span></label>
+      <select id="venda-forma-pgto">
+        <option value="">Selecione…</option>
+        <option value="Dinheiro">Dinheiro</option>
+        <option value="Pix">Pix</option>
+        <option value="Cartão">Cartão</option>
+        <option value="A prazo">A prazo</option>
+        <option value="Outro">Outro</option>
+      </select>
+    </div></div>
+
+    <div id="venda-total" style="font-size:16px;font-weight:800;color:var(--c2);text-align:right;margin:10px 0"></div>
+    <button class="btn-primary" id="venda-btn" onclick="confirmarVendaBalcao()" style="width:100%;padding:14px;font-size:15px">✅ Fechar Venda</button>
   </div>
 </div>
 
