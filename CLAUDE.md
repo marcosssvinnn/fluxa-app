@@ -2,6 +2,59 @@
 
 ---
 
+## Etapa 2 do roadmap de CRM — iniciada em 12/08 (cliente_id em orçamento/OS)
+
+O Marcos apontou que ~80% do que a empresa vende (químico, peça) passa por
+**orçamento**, não por venda de balcão avulsa — venda de balcão vai
+continuar sendo esporádica por natureza do negócio. Isso reprioriza a Etapa
+2: em vez de esperar adoção da Etapa 1 pra decidir o próximo passo, ligar
+`cliente_id` de verdade no orçamento (o canal que já é 80% do faturamento)
+é o que rende mais agora.
+
+**O que foi feito (aditivo, sem tocar em dado existente):**
+- `orcamentos.cliente_id`/`ordens_servico.cliente_id` — a coluna já existia
+  (`text`, desde sessão anterior), só não era preenchida por NENHUM caminho
+  de criação. Agora é: as duas formas de escolher cliente no formulário de
+  orçamento e de OS — autocomplete ao digitar (`mostrarSugestoesCli`/`OS`) e
+  a busca pela lupa (`abrirBuscaCli`) — capturam o `id` real quando o
+  cliente é **selecionado de uma lista**, nunca quando é só digitado.
+- Editar um registro existente preserva o `cliente_id` que já tinha
+  (`abrirOrc`/`_abrirOSForm` restauram `_orcClienteSelecionado`/
+  `_osClienteSelecionado` a partir do registro). Digitar por cima do nome
+  invalida o vínculo (não dá pra garantir que ainda é o mesmo cliente).
+- **Sem backfill em massa dos ~303 orçamentos/118 OS existentes** — de
+  propósito. Isso já tem um mecanismo próprio, humano, existente desde antes
+  (`identLigar`/tela de Identidade, task #15/#36 do roadmap anterior) — não
+  duplicar caminho.
+
+**Achado no meio do caminho, NÃO mexido:** `_autoSalvarCliente()`
+(`app.js`, chamada dentro de `gerarPDF`/`salvarApenas`) cria uma ficha nova
+de cliente toda vez que um orçamento é salvo com um nome que não bate com
+nada no cache local (`lsCliLer()`) daquele aparelho. É a mesma classe de
+risco da causa raiz do incidente de duplicação (checagem contra cache local,
+não contra o banco) — mas dispara só numa ação humana explícita (salvar UM
+orçamento), não num loop de sincronização em background sem guarda, que foi
+o que causou a explosão de duplicatas. Não desliguei nem alterei — está
+fora do escopo do que foi pedido, e qualquer mudança aqui merece a mesma
+cautela usada pra decidir desligar `_migrarClientesDeOrcamentos`. Registrado
+pra quem for decidir isso depois.
+
+**Bug achado e corrigido no processo:** `vendas_balcao.cliente_id` tinha
+sido criado como `uuid` (Etapa 1) em vez de `text` — inconsistente com o
+padrão do resto do sistema, e quebra na hora de vincular um cliente ainda
+não sincronizado (id local `cli_<timestamp>`, não é uuid válido). Confirmado
+com um insert de teste real que falhou (`22P02`) antes da correção.
+`migracao-vendas-balcao.sql` já tem o `ALTER COLUMN ... TYPE text` — precisa
+rodar de novo no Supabase, mesmo se a tabela já existir.
+
+**Pendências:**
+- [ ] Rodar `migracao-vendas-balcao.sql` de novo (tem a correção do tipo).
+- [ ] Verificar depois de uma semana: quantos orçamentos novos já nascem com
+  `cliente_id` preenchido (mede se a captura por autocomplete está pegando
+  de verdade, ou se a maioria continua sendo digitada solta).
+
+---
+
 ## 🔴 HISTÓRICO DO GIT FOI REESCRITO em 12/08 — leia antes de fazer qualquer git pull/push
 
 Um agente (auditoria da Etapa 5) citou um **endereço real de cliente** (puxado

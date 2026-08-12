@@ -844,6 +844,13 @@ let histOrdem = 'recente';
 let _orcRemotoOk = false, _estoqueRemotoOk = false;
 let todosOS = [], filtroOSSt = localStorage.getItem('fluxa_filtroOSSt')||'todos', buscaOS = '', filtroOSTec = '';
 let osEditId = null; // id da OS sendo editada (null = nova) — evita duplicar ao salvar
+// Etapa 2 do roadmap de CRM (2026-08-12): cliente_id real em orçamento/OS,
+// mesmo padrão já usado em vendas_balcao. {id,nome} só quando o cliente foi
+// ESCOLHIDO de uma lista (autocomplete ou busca) — nunca criado a partir de
+// texto digitado. Reafirmando a lição do incidente de duplicação: ligar é
+// seguro, criar sozinho não é.
+let _orcClienteSelecionado = null;
+let _osClienteSelecionado = null;
 let orcMesRef = ''; // YYYY-MM ou '' = todos os períodos
 let osFotos = ['','',''];
 let printMode = ''; // 'orc' | 'os' | 'both'
@@ -2637,7 +2644,7 @@ async function criarOSdeAprovacao(){
 // iniciar um novo orçamento e ao terminar de salvar/gerar um — assim o form
 // nunca fica com dados do orçamento anterior (que causava duplicatas).
 function _limparCamposOrc(){
-  editId=null; fotosB64=[];
+  editId=null; fotosB64=[]; _orcClienteSelecionado=null;
   svcs=[{id:Date.now(),d:'',p:''}];
   ['cli','loc','tel-cli','cnpj-cli','obs','escopo','data-svc','data-orc','nota-interna','origem-cli','origem-cli-outro','pag-parcelas','pag-entrada'].forEach(id=>setV(id,''));
   updOrigemCli();
@@ -2663,7 +2670,7 @@ function novoOrc(){
 let fotosB64 = []; // array de até 6 base64 strings
 function initForm(){
   document.getElementById('data-orc').value=_hojeLocal();
-  svcs=[]; editId=null; fotosB64=[];
+  svcs=[]; editId=null; fotosB64=[]; _orcClienteSelecionado=null;
   addSvc('',''); renderPresets(); upd(); renderChips(); renderFotosOrcSlots();
 }
 
@@ -3279,7 +3286,7 @@ async function salvarApenas(){
   try{
     const now=new Date().toISOString();
     const camposBase={
-      cliente:dados.cli, local_servico:dados.loc, tel_cliente:dados.tel, cnpj:dados.cnpj||null,
+      cliente:dados.cli, cliente_id:_orcClienteSelecionado?.id||null, local_servico:dados.loc, tel_cliente:dados.tel, cnpj:dados.cnpj||null,
       loja_id:dados.loja_id||LOJA_PADRAO_ID,
       origem_cliente:dados.origem||null,
       servicos:dados.svcs, subtotal:dados.sub, desconto:dados.desc, total:dados.tot,
@@ -3367,7 +3374,7 @@ async function gerarPDF(){
   const dados=dadosPre;
   const now=new Date().toISOString();
   const camposBase={
-    cliente:dados.cli, local_servico:dados.loc, tel_cliente:dados.tel, cnpj:dados.cnpj||null,
+    cliente:dados.cli, cliente_id:_orcClienteSelecionado?.id||null, local_servico:dados.loc, tel_cliente:dados.tel, cnpj:dados.cnpj||null,
     loja_id:dados.loja_id||LOJA_PADRAO_ID,
     origem_cliente:dados.origem||null,
     servicos:dados.svcs, subtotal:dados.sub, desconto:dados.desc, total:dados.tot,
@@ -3694,7 +3701,7 @@ async function gerarOSPDF(modo='os'){
   };
   const orcId=osOrcId||null;
   const lojaIdOS=gV('os-loja')||LOJA_PADRAO_ID;
-  const payload={orcamento_id:orcId,loja_id:lojaIdOS,cliente:dados.cli,local_servico:dados.loc,cnpj:dados.cnpj||null,data_servico:dados.data,hora:dados.hora,tecnico:dados.tec,servicos:dados.svcs,materiais:dados.mat,obs_tecnica:dados.obs,total:dados.tot,fotos:dados.fotos,video_link:dados.videoLink||null,checklist:dados.checklist.length?JSON.stringify(dados.checklist):null};
+  const payload={orcamento_id:orcId,loja_id:lojaIdOS,cliente:dados.cli,cliente_id:_osClienteSelecionado?.id||null,local_servico:dados.loc,cnpj:dados.cnpj||null,data_servico:dados.data,hora:dados.hora,tecnico:dados.tec,servicos:dados.svcs,materiais:dados.mat,obs_tecnica:dados.obs,total:dados.tot,fotos:dados.fotos,video_link:dados.videoLink||null,checklist:dados.checklist.length?JSON.stringify(dados.checklist):null};
   let numStr='???', salvouOnline=false;
   if(dbOk&&db){
     try{
@@ -5141,6 +5148,9 @@ async function _excluirOrcConfirmado(id){
 function abrirOrc(id){
   const o=todosOrc.find(x=>x.id===id); if(!o) return;
   editId=id;
+  // Preserva o vínculo já existente (não força o usuário a reselecionar o
+  // cliente só porque abriu pra editar outra coisa, tipo o desconto).
+  _orcClienteSelecionado = o.cliente_id ? {id:o.cliente_id, nome:o.cliente} : null;
   setV('cli',o.cliente||''); setV('loc',o.local_servico||''); setV('tel-cli',o.tel_cliente||''); setV('cnpj-cli',o.cnpj||'');
   setV('orc-loja',o.loja_id||lojaAtiva||LOJA_PADRAO_ID); // fix #4: lojaAtiva como fallback para registros antigos
   // Restaura condição de pagamento: pag_cod=código do select; pag_parcelas/pag_entrada=detalhes
@@ -5245,6 +5255,7 @@ function gerarOS_deOrc(id){
 
 function novaOS(){
   osEditId=null; // OS nova
+  _osClienteSelecionado=null;
   checkinAt=null; if(checkinTimer){clearInterval(checkinTimer);checkinTimer=null;}
   const checkinBarEl=document.getElementById('checkin-bar'); if(checkinBarEl) checkinBarEl.style.display='none';
   const checkinFormEl=document.getElementById('checkin-form'); if(checkinFormEl) checkinFormEl.style.display='flex';
@@ -5439,6 +5450,7 @@ function editarOS(id){
 function _abrirOSForm(o){
   osEditId=o.id;
   osOrcId=o.orcamento_id||null;
+  _osClienteSelecionado = o.cliente_id ? {id:o.cliente_id, nome:o.cliente} : null;
   setV('os-cli',o.cliente||''); setV('os-loc',o.local_servico||'');
   setV('os-data',o.data_servico||''); setV('os-hora',o.hora||'08:00');
   // Técnico: auto-preencher com o usuário logado se o campo estiver vazio
@@ -6025,7 +6037,7 @@ function _baseClientesUnificada(){
   const cadastrados=lsCliLer();
   const vistos=new Map(); // nome lowercase → {nome, end, tel, cnpj, _cadastrado}
   // Supabase retorna telefone/endereco; registros locais usam tel/end — aceita ambos
-  cadastrados.forEach(c=>{ if(c.nome) vistos.set(c.nome.toLowerCase(),{nome:c.nome,end:c.end||c.endereco||'',tel:c.tel||c.telefone||'',cnpj:c.cnpj||'',_cadastrado:true}); });
+  cadastrados.forEach(c=>{ if(c.nome) vistos.set(c.nome.toLowerCase(),{nome:c.nome,end:c.end||c.endereco||'',tel:c.tel||c.telefone||'',cnpj:c.cnpj||'',id:c.id,_cadastrado:true}); });
   (todosOrc||[]).forEach(o=>{
     const n=(o.cliente||'').trim(); if(!n) return;
     const k=n.toLowerCase();
@@ -6047,16 +6059,20 @@ function mostrarSugestoesCli(val){
     (c.nome||'').toLowerCase().includes(q)||(qd&&(c.cnpj||'').replace(/\D/g,'').includes(qd))
   ).sort((a,b)=>(b._cadastrado-a._cadastrado)).slice(0,6);
   if(!lista.length){ box.style.display='none'; return; }
-  box.innerHTML=lista.map(c=>`<div class="cli-suggestion-item" onmousedown="selecionarSugestaoCli('${esc(c.nome)}','${esc(c.end||'')}','${esc(c.tel||'')}','${esc(c.cnpj||'')}')"><div class="cli-sug-name">${esc(c.nome)}${c._cadastrado?'':' <span style=\'font-size:10px;color:var(--gray);font-weight:400\'>(sem cadastro)</span>'}</div><div class="cli-sug-tel">${[c.tel,c.cnpj].filter(Boolean).map(x=>esc(x)).join(' · ')}</div></div>`).join('');
+  box.innerHTML=lista.map(c=>`<div class="cli-suggestion-item" onmousedown="selecionarSugestaoCli('${esc(c.nome)}','${esc(c.end||'')}','${esc(c.tel||'')}','${esc(c.cnpj||'')}','${esc(c.id||'')}')"><div class="cli-sug-name">${esc(c.nome)}${c._cadastrado?'':' <span style=\'font-size:10px;color:var(--gray);font-weight:400\'>(sem cadastro)</span>'}</div><div class="cli-sug-tel">${[c.tel,c.cnpj].filter(Boolean).map(x=>esc(x)).join(' · ')}</div></div>`).join('');
   box.style.display='block';
 }
-function selecionarSugestaoCli(nome,end,tel,cnpj){
+function selecionarSugestaoCli(nome,end,tel,cnpj,id){
   setV('cli',nome); if(end) setV('loc',end); if(tel) setV('tel-cli',tel); if(cnpj) setV('cnpj-cli',cnpj);
+  _orcClienteSelecionado = id ? {id,nome} : null;
   // Cliente da base → pré-sugere origem "Já é cliente" (editável)
   if(!gV('origem-cli')) setOrigemCli('Já é cliente');
   document.getElementById('cli-suggestions').style.display='none'; upd();
 }
 function hideSugCli(){ const b=document.getElementById('cli-suggestions'); if(b) b.style.display='none'; }
+// Digitar por cima invalida o id vindo da sugestão — não dá pra garantir que
+// o texto editado ainda é o mesmo cliente (mesma regra da venda de balcão).
+function _orcClienteEditado(){ _orcClienteSelecionado=null; }
 
 function mostrarSugestoesCliOS(val){
   const box=document.getElementById('os-cli-suggestions'); if(!box) return;
@@ -6066,14 +6082,16 @@ function mostrarSugestoesCliOS(val){
     (c.nome||'').toLowerCase().includes(q)||(qd&&(c.cnpj||'').replace(/\D/g,'').includes(qd))
   ).sort((a,b)=>(b._cadastrado-a._cadastrado)).slice(0,6);
   if(!lista.length){ box.style.display='none'; return; }
-  box.innerHTML=lista.map(c=>`<div class="cli-suggestion-item" onmousedown="selecionarSugestaoCliOS('${esc(c.nome)}','${esc(c.end||'')}','${esc(c.cnpj||'')}')"><div class="cli-sug-name">${esc(c.nome)}${c._cadastrado?'':' <span style=\'font-size:10px;color:var(--gray);font-weight:400\'>(sem cadastro)</span>'}</div><div class="cli-sug-tel">${[c.tel,c.cnpj].filter(Boolean).map(x=>esc(x)).join(' · ')}</div></div>`).join('');
+  box.innerHTML=lista.map(c=>`<div class="cli-suggestion-item" onmousedown="selecionarSugestaoCliOS('${esc(c.nome)}','${esc(c.end||'')}','${esc(c.cnpj||'')}','${esc(c.id||'')}')"><div class="cli-sug-name">${esc(c.nome)}${c._cadastrado?'':' <span style=\'font-size:10px;color:var(--gray);font-weight:400\'>(sem cadastro)</span>'}</div><div class="cli-sug-tel">${[c.tel,c.cnpj].filter(Boolean).map(x=>esc(x)).join(' · ')}</div></div>`).join('');
   box.style.display='block';
 }
-function selecionarSugestaoCliOS(nome,end,cnpj){
+function selecionarSugestaoCliOS(nome,end,cnpj,id){
   setV('os-cli',nome); if(end) setV('os-loc',end); if(cnpj) setV('os-cnpj',cnpj);
+  _osClienteSelecionado = id ? {id,nome} : null;
   document.getElementById('os-cli-suggestions').style.display='none';
 }
 function hideSugCliOS(){ const b=document.getElementById('os-cli-suggestions'); if(b) b.style.display='none'; }
+function _osClienteEditado(){ _osClienteSelecionado=null; }
 
 // ──────────────────────────────────────────────────
 //  MODAL BUSCA CLIENTE
@@ -6119,6 +6137,7 @@ function selecionarCliModal(nome, end, tel, cnpj, id){
     setV('os-cli', nome);
     if(end) setV('os-loc', end);
     if(cnpj) setV('os-cnpj', cnpj);
+    _osClienteSelecionado = id ? {id, nome} : null;
   } else if(_buscaCliCtx === 'vis'){
     setV('vis-cli', nome);
     if(end) setV('vis-loc', end);
@@ -6138,6 +6157,7 @@ function selecionarCliModal(nome, end, tel, cnpj, id){
     if(end) setV('loc', end);
     if(tel) setV('tel-cli', tel);
     if(cnpj) setV('cnpj-cli', cnpj);
+    _orcClienteSelecionado = id ? {id, nome} : null;
     // Cliente da base → pré-sugere origem "Já é cliente" (editável)
     if(!gV('origem-cli')) setOrigemCli('Já é cliente');
     upd();
