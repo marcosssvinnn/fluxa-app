@@ -8419,6 +8419,11 @@ function _eqCandidatos(){
   return [...out.values()].sort((a,b)=>String(a.cliente).localeCompare(String(b.cliente)));
 }
 
+// { clienteId: piscinaId } — qual piscina escolher pra cada grupo de cliente
+// no import em massa. Persiste entre re-renders da tela (criar piscina nova
+// re-renderiza a lista inteira, sem isso a escolha se perderia).
+let _eqImportPiscinaEscolhida = {};
+
 function renderEqImport(){
   const card=document.getElementById('eq-import-card'), el=document.getElementById('eq-import-corpo');
   if(!card||!el) return;
@@ -8433,18 +8438,64 @@ function renderEqImport(){
        ${cands.length} equipamento${cands.length!==1?'s':''} em ${Object.keys(porCliente).length} cliente${Object.keys(porCliente).length!==1?'s':''} apareceram em vistoria e não estão na base instalada.
        ${criticos?`<strong style="color:var(--red)">${criticos} com laudo crítico.</strong>`:''}
      </div>`+
-    Object.entries(porCliente).map(([cli,lista])=>
-      `<div style="border-bottom:1px solid var(--gray-light);padding:9px 0">
-        <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center">
+    Object.entries(porCliente).map(([cli,lista])=>{
+      const clienteId=lista[0].cliente_id||null;
+      // Piscina só faz sentido pra grupo com cliente_id resolvido — vistoria
+      // antiga (antes da captura de id) ainda pode não ter.
+      const piscinaPicker = clienteId ? (()=>{
+        const doCliente=(todasPiscinas||[]).filter(p=>p.cliente_id===clienteId && p.ativo!==false);
+        return `<div style="margin-top:6px">
+          <select id="eqimp-pisc-${clienteId}" onchange="_eqImportPiscinaSelect('${clienteId}',this.value)" style="font-size:11.5px;padding:5px 6px;width:auto">
+            <option value="">Sem piscina / não informar</option>
+            ${doCliente.map(p=>`<option value="${esc(p.id)}"${_eqImportPiscinaEscolhida[clienteId]===p.id?' selected':''}>${esc(p.nome||'Piscina')}${p.volume_m3?' — '+p.volume_m3+'m³':''}</option>`).join('')}
+            <option value="__nova__">+ Nova piscina…</option>
+          </select>
+          <div id="eqimp-pisc-novo-${clienteId}" style="display:none;margin-top:4px">
+            <input type="text" id="eqimp-pisc-nome-${clienteId}" placeholder="Nome (ex: Piscina Adulto)" style="width:150px;font-size:11px;padding:4px 6px;margin-right:4px">
+            <input type="text" inputmode="decimal" id="eqimp-pisc-vol-${clienteId}" placeholder="Vol. m³" style="width:60px;font-size:11px;padding:4px 6px;margin-right:4px">
+            <button type="button" class="tb" style="font-size:11px;padding:4px 8px" onclick="_eqImportPiscinaCriar('${clienteId}')">Criar</button>
+          </div>
+        </div>`;
+      })() : `<div style="font-size:10.5px;color:var(--gray);margin-top:4px">Sem cliente vinculado — sem piscina pra escolher (vistoria antiga)</div>`;
+      return `<div style="border-bottom:1px solid var(--gray-light);padding:9px 0">
+        <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:flex-start">
           <div style="min-width:170px">
             <div style="font-size:13px;font-weight:700;color:var(--c2)">${esc(cli||'(sem cliente)')}</div>
             <div style="font-size:11px;color:var(--gray)">${lista.length} equipamento${lista.length!==1?'s':''} · ${esc((lista[0].local||'').slice(0,44))}</div>
             <div style="font-size:11px;color:var(--gray);margin-top:2px">${lista.slice(0,4).map(x=>esc(x.tipo)+(x.status==='critico'?' 🔴':x.status==='atencao'?' ⚠️':'')).join(' · ')}${lista.length>4?` +${lista.length-4}`:''}</div>
+            ${piscinaPicker}
           </div>
           <button class="tb g" style="font-weight:700" onclick="importarEqDaVistoria('${esc(cli).replace(/'/g,"\\\\'")}')">＋ Cadastrar ${lista.length}</button>
         </div>
-      </div>`).join('')+
-    `<button class="btn-primary" style="width:100%;margin-top:12px" onclick="importarEqDaVistoria()">＋ Cadastrar todos os ${cands.length}</button>`;
+      </div>`;
+    }).join('')+
+    `<button class="btn-primary" style="width:100%;margin-top:12px" onclick="importarEqDaVistoria()">＋ Cadastrar todos os ${cands.length}</button>
+     <div style="font-size:10.5px;color:var(--gray);margin-top:4px;text-align:center">"Cadastrar todos" respeita a piscina escolhida em cada cliente acima</div>`;
+}
+function _eqImportPiscinaSelect(clienteId, val){
+  const novoWrap=document.getElementById('eqimp-pisc-novo-'+clienteId);
+  if(val==='__nova__'){ if(novoWrap) novoWrap.style.display='block'; return; }
+  if(novoWrap) novoWrap.style.display='none';
+  _eqImportPiscinaEscolhida[clienteId] = val||null;
+}
+async function _eqImportPiscinaCriar(clienteId){
+  const nome=(gV('eqimp-pisc-nome-'+clienteId)||'').trim()||'Piscina principal';
+  const vol=parseFloat((gV('eqimp-pisc-vol-'+clienteId)||'').replace(',','.'))||null;
+  const dados={cliente_id:clienteId, local_id:null, nome, volume_m3:vol, tipo_tratamento:null, loja_id:lojaAtiva||LOJA_PADRAO_ID, ativo:true};
+  const tempId='pisc_'+Date.now();
+  todasPiscinas.unshift({...dados, id:tempId}); lsPiscinaSalvar(todasPiscinas);
+  _eqImportPiscinaEscolhida[clienteId]=tempId;
+  toast('✅ Piscina cadastrada');
+  renderEqImport();
+  if(dbOk&&db){
+    try{
+      const {data:ins}=await dbInsert('piscinas', dados);
+      if(ins){
+        todasPiscinas=todasPiscinas.filter(x=>x.id!==tempId); todasPiscinas.unshift(ins); lsPiscinaSalvar(todasPiscinas);
+        if(_eqImportPiscinaEscolhida[clienteId]===tempId){ _eqImportPiscinaEscolhida[clienteId]=ins.id; renderEqImport(); }
+      }
+    }catch(e){ console.warn('[_eqImportPiscinaCriar]', e?.message||e); }
+  }
 }
 
 async function importarEqDaVistoria(cliente){
@@ -8456,8 +8507,9 @@ async function importarEqDaVistoria(cliente){
     // texto local (eq_<ts>) no insert derruba a linha inteira (22P02) — era
     // o que fazia TODO import desta tela falhar em silêncio (confirmado:
     // 0 linhas em produção apesar da feature estar "no ar" há tempo).
+    const piscinaId = c.cliente_id ? (_eqImportPiscinaEscolhida[c.cliente_id]||null) : null;
     const dados={
-      cliente_nome:c.cliente, cliente_id:c.cliente_id||null,
+      cliente_nome:c.cliente, cliente_id:c.cliente_id||null, piscina_id:piscinaId,
       tipo:c.tipo, marca:c.marca, modelo:c.modelo, potencia:c.potencia,
       numero_serie:'', data_instalacao:null, garantia_meses:null, garantia_vencimento:null,
       // guarda de onde veio e o último laudo: é o que transforma a ficha em

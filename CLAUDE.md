@@ -2,6 +2,39 @@
 
 ---
 
+## Etapa 5 fechada — import em massa (63 equipamentos) agora escolhe piscina (12/08)
+
+Última pendência da Etapa 5 registrada mais cedo hoje: a tela "Equipamentos
+vistos em vistoria" (`renderEqImport`/`importarEqDaVistoria`, os 63
+equipamentos vistos ao vivo em produção esperando cadastro) agora deixa
+escolher a piscina de cada cliente antes de importar — igual ao formulário
+manual de equipamento, mas por grupo (um seletor por card de cliente, não
+por equipamento individual, já que o grupo inteiro do card veio da mesma
+vistoria/local).
+
+- Cada card de cliente na lista de import ganha um seletor de piscina
+  (existentes daquele `cliente_id` + "+ Nova piscina…" inline) — só aparece
+  quando o grupo já tem `cliente_id` resolvido (vistoria antiga, de antes da
+  correção anterior, pode não ter — aí mostra um aviso em vez do seletor).
+- Escolha fica guardada em `_eqImportPiscinaEscolhida` (por cliente_id),
+  sobrevive a re-render (criar piscina nova re-renderiza a lista inteira).
+- "Cadastrar N" (por cliente) e "Cadastrar todos" os 63 de uma vez **os
+  dois** respeitam a piscina escolhida em cada card — não é preciso usar
+  os botões individuais só para isso.
+
+Testado no browser local (dbOk=false): seletor aparece só com cliente_id
+resolvido, aviso aparece sem ele, criar piscina inline seleciona sozinha,
+import grava `cliente_id`+`piscina_id` juntos no equipamento. Sem escrita
+real ao Supabase durante o teste (confirmado via log de rede). Sem erro
+novo relacionado ao código — dois erros de rede pré-existentes no ambiente
+de teste local (404/400, ruído de infraestrutura do sandbox, não afetam
+produção) continuam aparecendo, como já documentado em testes anteriores.
+
+Com isso a Etapa 5 está fechada de ponta a ponta: cadastro manual e import
+em massa, os dois linkam cliente_id e piscina_id de verdade.
+
+---
+
 ## Continuação da Etapa 5 — vistoria também captura cliente_id (12/08)
 
 Fechando a pendência que a própria entrada da Etapa 5 registrou: sem isso,
