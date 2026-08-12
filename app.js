@@ -3233,8 +3233,12 @@ async function salvarApenas(){
       const idx=todosOrc.findIndex(x=>x.id===editId);
       if(idx>=0) todosOrc[idx]=updated; else todosOrc.unshift(updated);
       // 2. Tenta sincronizar com BD (sem bloquear)
-      if(dbOk&&db&&!String(editId).startsWith('local_'))
-        orcSyncUpdate(editId, camposBase).then(r=>{ if(r.error) console.warn('[salvarApenas] update falhou:', r.error.message); }).catch(e=>console.warn('[salvarApenas] update erro:', e?.message||e));
+      if(dbOk&&db&&!String(editId).startsWith('local_')){
+        orcSyncUpdate(editId, camposBase).then(r=>{
+          if(r.error) console.warn('[salvarApenas] update falhou:', r.error.message);
+          else _fotosOrcParaStorage(editId, fotosB64.filter(Boolean));
+        }).catch(e=>console.warn('[salvarApenas] update erro:', e?.message||e));
+      }
       _autoSalvarCliente(dados.cli, dados.tel, dados.loc, dados.cnpj, dados.loja_id);
       toast('✅ Orçamento atualizado!');
     } else {
@@ -3262,6 +3266,7 @@ async function salvarApenas(){
               if(editId===tempId) editId=ins.id; // só atualiza se AINDA estiver neste orçamento
               savedNum=ins.numero;
               atualizarDash(); renderTabela();
+              _fotosOrcParaStorage(ins.id, fotosB64.filter(Boolean));
             }
           }catch(e){ console.warn('Sync BD falhou — salvo local:', e?.message||e); }
         })();
@@ -3316,8 +3321,12 @@ async function gerarPDF(){
     lsOrcUpsert(updated);
     const idx=todosOrc.findIndex(x=>x.id===editId);
     if(idx>=0) todosOrc[idx]=updated;
-    if(dbOk&&db&&!String(editId).startsWith('local_'))
-      orcSyncUpdate(editId, camposBase).then(r=>{ if(r.error) console.warn('[gerarPDF] update falhou:', r.error.message); }).catch(e=>console.warn('[gerarPDF] update erro:', e?.message||e));
+    if(dbOk&&db&&!String(editId).startsWith('local_')){
+      orcSyncUpdate(editId, camposBase).then(r=>{
+        if(r.error) console.warn('[gerarPDF] update falhou:', r.error.message);
+        else _fotosOrcParaStorage(editId, fotosB64.filter(Boolean));
+      }).catch(e=>console.warn('[gerarPDF] update erro:', e?.message||e));
+    }
   } else {
     // Novo: salva local primeiro, depois sincroniza BD
     num=lsOrcProxNum();
@@ -3340,6 +3349,7 @@ async function gerarPDF(){
             if(editId===tempId) editId=ins.id; // só atualiza se AINDA estiver neste orçamento
             num=ins.numero;
             atualizarDash(); renderTabela();
+            _fotosOrcParaStorage(ins.id, fotosB64.filter(Boolean));
           }
         }catch(e){ console.warn('gerarPDF: sync BD falhou:', e?.message||e); }
       })();
@@ -10162,7 +10172,7 @@ function visRemoverFoto(id, idx){
 // Faz upload de uma foto (base64) para o Supabase Storage e retorna a URL pública.
 // Retorna null se falhar (a foto base64 original fica preservada localmente).
 // Tenta 2x — rede instável dentro de casa de máquinas/subsolo é comum durante a vistoria.
-async function _uploadFotoStorage(base64, path, _tentativa=1){
+async function _uploadFotoStorage(base64, path, _tentativa=1, bucket='vistorias-fotos'){
   if(!base64 || base64.startsWith('http')) return base64; // já é URL ou vazio
   try{
     const [meta, data] = base64.split(',');
@@ -10173,22 +10183,50 @@ async function _uploadFotoStorage(base64, path, _tentativa=1){
     const blob = new Blob([arr], {type:mime});
     const sbUrl = FLUXA_CONFIG.supabaseUrl;
     const sbKey = FLUXA_CONFIG.supabaseKey;
-    const res = await fetch(`${sbUrl}/storage/v1/object/vistorias-fotos/${path}`, {
+    const res = await fetch(`${sbUrl}/storage/v1/object/${bucket}/${path}`, {
       method:'POST',
       headers:{ 'apikey':sbKey, 'Authorization':'Bearer '+sbKey, 'Content-Type':mime, 'x-upsert':'true' },
       body: blob
     });
     if(!res.ok){
       console.warn('[uploadFoto] HTTP', res.status, await res.text());
-      if(_tentativa<2){ await new Promise(r=>setTimeout(r,1500)); return _uploadFotoStorage(base64, path, _tentativa+1); }
+      if(_tentativa<2){ await new Promise(r=>setTimeout(r,1500)); return _uploadFotoStorage(base64, path, _tentativa+1, bucket); }
       return null;
     }
-    return `${sbUrl}/storage/v1/object/public/vistorias-fotos/${path}`;
+    return `${sbUrl}/storage/v1/object/public/${bucket}/${path}`;
   }catch(e){
     console.warn('[uploadFoto]', e?.message||e);
-    if(_tentativa<2){ await new Promise(r=>setTimeout(r,1500)); return _uploadFotoStorage(base64, path, _tentativa+1); }
+    if(_tentativa<2){ await new Promise(r=>setTimeout(r,1500)); return _uploadFotoStorage(base64, path, _tentativa+1, bucket); }
     return null;
   }
+}
+
+// Sobe as fotos de um orçamento (até 6, base64) pro Storage e atualiza o
+// registro remoto trocando base64 por URL — em background, depois do
+// salvamento normal, sem atrasar nem arriscar o fluxo principal de salvar.
+// Motivo: 15 orçamentos antigos com foto embutida chegaram a 3,2 MB no banco
+// sozinhos, e isso lota o localStorage de QUALQUER aparelho que sincronize o
+// histórico completo (achado durante o incidente de duplicação de clientes —
+// o cache de clientes parava de salvar por falta de espaço). Foto que falhar
+// no upload mantém o base64 (nunca perde a foto).
+async function _fotosOrcParaStorage(orcId, fotosArr){
+  if(!orcId || String(orcId).startsWith('local_') || !dbOk || !db) return;
+  const lista=(fotosArr||[]).filter(Boolean);
+  if(!lista.length) return;
+  let mudou=false;
+  const resultado=[];
+  for(let i=0;i<lista.length;i++){
+    const f=lista[i];
+    if(!f || f.startsWith('http')){ resultado.push(f); continue; }
+    const url=await _uploadFotoStorage(f, `${orcId}/${i}.jpg`, 1, 'orcamentos-fotos');
+    if(url && url.startsWith('http')){ resultado.push(url); mudou=true; }
+    else resultado.push(f); // upload falhou — mantém base64, não perde a foto
+  }
+  if(!mudou) return;
+  try{
+    const r=await dbUpdate('orcamentos', {foto_base64: JSON.stringify(resultado.filter(Boolean))}, 'id', orcId);
+    if(r&&r.error) console.warn('[fotosOrcStorage] update falhou:', r.error.message);
+  }catch(e){ console.warn('[fotosOrcStorage]', e?.message||e); }
 }
 
 // Faz upload de todas as fotos base64 de uma vistoria para o Storage.
