@@ -2,6 +2,48 @@
 
 ---
 
+## Etapa 4 do roadmap de CRM — só metade construída, de propósito (13/08)
+
+O briefing original pedia duas fontes de previsão de recompra: **intervalo
+observado** (dado real, cliente com 2+ compras) e **consumo teórico**
+(volume da piscina × dosagem química, prevê recompra na 1ª venda). Só
+construí a primeira.
+
+**Motivo de não ter feito a segunda:** perguntei ao Marcos se ele tinha uma
+regra real de dosagem (kg de cloro por m³ por mês, etc.) e ele não tinha de
+cabeça — pediu um prompt pra levar numa IA de pesquisa e trazer a
+referência pronta. Passei o prompt (não ficou salvo em arquivo, foi direto
+no chat). **Até ele trazer essa referência, a Etapa 4 fica só com a metade
+observada — não inventei número de dosagem.** Quando ele trouxer, a
+próxima sessão pluga em cima do que já está pronto (o campo
+`piscinas.volume_m3`/`tipo_tratamento` da Etapa 5 já existe esperando).
+
+**O que foi construído (intervalo observado):**
+- `analiseClientes()` agora calcula, por cliente com `cliente_id` real
+  (`porId`) e 2+ compras aprovadas: `intervaloMedioDias` (média real entre
+  compras) e `ritmo` (`em_dia`/`reduziu`/`parou` — os multiplicadores 1.3x/
+  2.5x sobre o intervalo observado são heurística de bucket, não fato;
+  ajustável). Coluna "Ritmo" nova na tabela de Análise de Clientes.
+- Nova fila **"🔁 Cadência de recompra"** no painel de Insights, ao lado da
+  fila de follow-up de orçamento — mesmo card visual (`.crm-card`), mesmas
+  ações no espírito ("uma fila só" do briefing): ➕ Novo orçamento (já
+  ligado ao `cliente_id`, corrigido `novoOrcParaCliente` que não fazia
+  isso), 👁 Ver histórico, ✕ Dispensar (oculta por 14 dias — ciclo mais
+  longo que o de orçamento, que usa 3).
+- **Só entra na fila quem já tem `cliente_id` real** — sem isso não dá pra
+  abrir orçamento/histórico ligado a uma ficha. Como a maioria dos 216
+  nomes históricos ainda não tem identidade confirmada, a fila vai começar
+  pequena e crescer conforme a Etapa 2 (cliente_id em orçamento novo) e a
+  tela de Identidade forem confirmando mais clientes.
+
+Testado no browser local (dbOk=false): cliente sintético com 2 compras
+30 dias separadas e a última há 121 dias → classificado `parou` corretamente,
+card aparece na fila, os 3 botões funcionam (novo orçamento liga cliente_id,
+histórico abre, dispensar esconde e respeita os 14 dias). Sem erro novo no
+console.
+
+---
+
 ## Etapa 5 fechada — import em massa (63 equipamentos) agora escolhe piscina (12/08)
 
 Última pendência da Etapa 5 registrada mais cedo hoje: a tela "Equipamentos

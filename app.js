@@ -4174,6 +4174,68 @@ function crmDispensar(orcId){
   if(typeof renderPainelInsights==='function') renderPainelInsights();
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+//  CADÊNCIA DE RECOMPRA — Etapa 4 do roadmap de CRM (2026-08-13), parte 1
+//  Só o INTERVALO OBSERVADO (dado real, cliente com 2+ compras). A parte de
+//  "consumo teórico" por volume de piscina (clientes de 1ª compra) fica pra
+//  quando tivermos uma referência real de dosagem — ver CLAUDE.md.
+//  Só entra na fila quem tem cliente_id de verdade (c.porId) — sem isso não
+//  dá pra abrir "Novo orçamento"/"Ver histórico" ligado a uma ficha real.
+// ══════════════════════════════════════════════════════════════════════════════
+function cadenciaCandidatos(){
+  const {lista}=analiseClientes();
+  return lista
+    .filter(c=>c.porId && (c.ritmo==='reduziu'||c.ritmo==='parou') && !_cadFbOculto(c.chave.slice(3)))
+    .map(c=>({...c, atraso:c.diasDesdeUltima-c.intervaloMedioDias}))
+    .sort((a,b)=>b.atraso-a.atraso);
+}
+const LS_CAD_FB='fluxa_cadencia_feedback';
+function _cadFbLer(){ try{ return JSON.parse(localStorage.getItem(LS_CAD_FB)||'{}'); }catch(e){ return {}; } }
+function _cadFbSalvar(m){ try{ localStorage.setItem(LS_CAD_FB, JSON.stringify(m)); }catch(e){ console.warn('[cadFb]', e?.message||e); } }
+// 14 dias, não 3 como o de orçamento — ciclo de recompra é de semanas/meses,
+// cobrar nesse ritmo de novo em 3 dias seria chatice, não follow-up.
+function _cadFbOculto(cid){
+  const f=_cadFbLer()[cid]; if(!f) return false;
+  return (Date.now()-f.dispensado_em) < 14*86400000;
+}
+function cadenciaDispensar(cid){
+  const m=_cadFbLer(); m[cid]={dispensado_em:Date.now()}; _cadFbSalvar(m);
+  toast('Ok, não aviso de novo por 14 dias');
+  renderCadenciaFila();
+}
+function _cadenciaCardHTML(c){
+  const cid=c.chave.slice(3);
+  const rotulo = c.ritmo==='parou' ? '🔴 Parou de comprar' : '🟡 Reduziu o ritmo';
+  return `<div class="crm-card">
+    <div class="crm-card-top">
+      <div class="crm-cliente">${esc(c.nome)}</div>
+      <div class="crm-valor">${brl(c.valor)}</div>
+    </div>
+    <div class="crm-motivos">
+      <span class="crm-motivo">${rotulo} — costuma comprar a cada ${c.intervaloMedioDias}d, já são ${c.diasDesdeUltima}d</span>
+      <span class="crm-motivo">🛒 ${c.compras} compras até agora</span>
+    </div>
+    <div class="crm-acts">
+      <button class="tb g" onclick="novoOrcParaCliente('${cid}')">➕ Novo orçamento</button>
+      <button class="tb" onclick="verHistoricoCliente('${cid}')">👁 Ver histórico</button>
+      <button class="tb d" onclick="cadenciaDispensar('${cid}')">✕ Dispensar</button>
+    </div>
+  </div>`;
+}
+const CADENCIA_TETO=6;
+function renderCadenciaFila(){
+  const card=document.getElementById('ins-cadencia-card'), el=document.getElementById('ins-cadencia-corpo');
+  if(!card||!el) return;
+  const cands=cadenciaCandidatos();
+  if(!cands.length){ card.style.display='none'; return; }
+  card.style.display='';
+  const visiveis=cands.slice(0,CADENCIA_TETO);
+  el.innerHTML=visiveis.map(_cadenciaCardHTML).join('')
+    + (cands.length>visiveis.length?`<div style="text-align:center;font-size:11px;color:var(--gray);padding:6px 0">+${cands.length-visiveis.length} outro(s)</div>`:'');
+  const sub=document.getElementById('ins-cadencia-sub');
+  if(sub) sub.textContent = `${cands.length} cliente${cands.length!==1?'s':''} atrasado${cands.length!==1?'s':''} pelo próprio ritmo`;
+}
+
 // ── Registrar contato (persiste no banco, não só no aparelho) ───────────────
 // O "Liguei" antigo vivia só no localStorage: trocou de celular, perdeu o
 // histórico, e o gestor nunca via o que o vendedor tinha feito. Agora grava em
@@ -4519,6 +4581,7 @@ function renderPainelInsights(){
   document.getElementById('ins-fila-sub').textContent = totalFila
     ? `${totalFila} orçamento(s) merecem uma ligação${faixaNome?' · filtro: '+faixaNome:''}`
     : (_crmFaixaFiltro?`nada nesta faixa (${faixaNome})`:'tudo em dia — nada parado');
+  try{ renderCadenciaFila(); }catch(e){ console.warn('[renderCadenciaFila]', e?.message||e); }
 }
 
 function verificarVencidos(){
@@ -5805,6 +5868,7 @@ function novoOrcParaCliente(id){
     if(c.end)  setV('loc', c.end);
     if(c.tel)  setV('tel-cli', c.tel);
     if(c.cnpj) setV('cnpj-cli', c.cnpj);
+    _orcClienteSelecionado={id:c.id, nome:c.nome}; // cliente já conhecido — liga cliente_id de verdade
     setOrigemCli('Já é cliente');
     upd();
   }, 50);
@@ -7124,9 +7188,29 @@ function analiseClientes(){
     const datas=g.orcs.map(o=>{ const ap=o.data_aprovacao?new Date(o.data_aprovacao):null;
       return (ap&&!isNaN(ap))?ap:_orcData(o); }).filter(d=>d&&!isNaN(d)).sort((a,b)=>a-b);
     const primeiro=datas[0], ultimo=datas[datas.length-1];
+    // Etapa 4 do roadmap de CRM — intervalo OBSERVADO entre compras reais.
+    // Só existe com 2+ compras (datas.length>=2) — "melhor calar do que
+    // inventar padrão" pra quem comprou uma vez só. A outra metade da Etapa 4
+    // ("consumo teórico" por volume de piscina) fica pra depois — depende de
+    // referência real de dosagem química que ainda não temos, ver CLAUDE.md.
+    let intervaloMedioDias=null;
+    if(datas.length>=2){
+      const intervalos=[];
+      for(let i=1;i<datas.length;i++) intervalos.push((datas[i]-datas[i-1])/86400000);
+      intervaloMedioDias=Math.round(intervalos.reduce((a,b)=>a+b,0)/intervalos.length);
+    }
+    const diasDesdeUltima= ultimo? Math.round((new Date(_hojeLocal()+'T12:00:00')-ultimo)/86400000) : null;
+    // Três estados, igual o briefing pediu. Multiplicadores são heurística
+    // de bucket sobre dado real (não são fato) — 1.3x/2.5x dão folga contra
+    // variação natural de agenda antes de soar alarme. Ajustável se precisar.
+    let ritmo=null;
+    if(intervaloMedioDias && diasDesdeUltima!=null){
+      ritmo = diasDesdeUltima<=intervaloMedioDias*1.3 ? 'em_dia'
+            : diasDesdeUltima<=intervaloMedioDias*2.5 ? 'reduziu' : 'parou';
+    }
     return {...g, compras:g.orcs.length, ticket:g.valor/g.orcs.length,
       primeiro, ultimo, recompra:g.orcs.length>1,
-      diasDesdeUltima: ultimo? Math.round((new Date(_hojeLocal()+'T12:00:00')-ultimo)/86400000) : null};
+      diasDesdeUltima, intervaloMedioDias, ritmo};
   }).sort((a,b)=>b.valor-a.valor);
 
   // Curva ABC por faturamento: A até 80% acumulado, B até 95%, C o resto
@@ -7163,15 +7247,19 @@ function renderAnaliseClientes(){
     </div>
     <table class="fin-tabela" style="width:100%">
       <thead><tr><th style="text-align:left">Cliente</th><th>Classe</th><th style="text-align:right">Compras</th>
-        <th style="text-align:right">Total</th><th style="text-align:right">Ticket</th><th style="text-align:right">Última</th></tr></thead>
-      <tbody>${lista.slice(0,25).map(c=>`<tr>
+        <th style="text-align:right">Total</th><th style="text-align:right">Ticket</th><th style="text-align:right">Última</th><th style="text-align:center">Ritmo</th></tr></thead>
+      <tbody>${lista.slice(0,25).map(c=>{
+        const ritmoTxt = c.ritmo==='em_dia'?'🟢 Em dia' : c.ritmo==='reduziu'?'🟡 Reduziu' : c.ritmo==='parou'?'🔴 Parou' : '—';
+        const ritmoTitle = c.intervaloMedioDias ? `costuma comprar a cada ${c.intervaloMedioDias}d` : 'precisa de 2+ compras pra calcular';
+        return `<tr>
         <td style="font-weight:600">${esc(String(c.nome).slice(0,34))}${c.porId?'':' <span title="agrupado pelo nome — identidade ainda não confirmada" style="color:var(--gray);font-weight:400">~</span>'}</td>
         <td style="text-align:center"><span style="font-weight:800;color:${c.classe==='A'?'var(--green)':c.classe==='B'?'var(--yellow)':'var(--gray)'}">${c.classe}</span></td>
         <td style="text-align:right">${c.compras}</td>
         <td style="text-align:right;font-weight:700">${brl(c.valor)}</td>
         <td style="text-align:right;color:var(--gray)">${brl(c.ticket)}</td>
         <td style="text-align:right;color:${c.diasDesdeUltima>90?'var(--yellow)':'var(--gray)'}">${c.diasDesdeUltima!==null?c.diasDesdeUltima+'d':'—'}</td>
-      </tr>`).join('')}</tbody>
+        <td style="text-align:center;font-size:11.5px" title="${esc(ritmoTitle)}">${ritmoTxt}</td>
+      </tr>`;}).join('')}</tbody>
     </table>
     ${lista.length>25?`<div style="font-size:11px;color:var(--gray);padding:6px 0">Mostrando os 25 maiores de ${lista.length}.</div>`:''}
     <div style="font-size:11.5px;color:var(--gray);margin-top:9px;line-height:1.5">
