@@ -15,6 +15,17 @@
 > ⚠️ **Escopo:** mesmo escopo do baseline anterior (`crm-baseline-2026-08-06.md`)
 > pra ficar comparável — `loja_id LIKE 'fortemp%'` (Camboriú + Itapema).
 > Aquamotor fica de fora dos dois.
+>
+> **Nota de reconciliação (mesma sessão de escrita, segunda passada):** as
+> seções 1-6 abaixo (conversão, velocidade, status, valor expirado,
+> recebimento, sazonalidade) replicam o baseline de 08/06 com números
+> frescos — útil como controle, mas não é ainda **atribuição** no sentido que
+> o briefing pediu ("quanto do faturamento vem de negócio com contato
+> registrado antes de fechar"). As seções **7 e 8**, adicionadas nesta
+> passada, são a parte que mede isso de fato: cobertura de `proximo_contato`
+> e sinal de contato nos aprovados recentes. Conferido contra o mesmo banco,
+> mesma leitura (287 orçamentos/90 aprovados no escopo fortemp — os números
+> batem com os das seções 1-3 acima, cross-validados de forma independente).
 
 ---
 
@@ -94,6 +105,68 @@ só como referência de contexto, a Etapa 1 não mexe nesse fluxo.
 Curva de alta mantida desde o baseline anterior; agosto ainda incompleto,
 não comparar com os meses fechados.
 
+## 7. Cobertura de `proximo_contato` — a Fase 3 do CRM está em uso?
+
+Orçamentos **abertos** = `pendente` + `vencido` (vencido é só o relógio
+correndo, ainda "vivo" pra follow-up; recusado é decisão do cliente,
+respeitada, fora da conta).
+
+- **Fortemp:** 181 abertos (166 vencido + 15 pendente). **0 com
+  `proximo_contato` preenchido — 0,0%.**
+- **Base inteira** (incluindo Aquamotor): 211 abertos, **0 com
+  `proximo_contato` — 0,0%.**
+- Checagem mais ampla, **toda a base, qualquer status** (317 orçamentos,
+  aprovados/recusados/vencidos/pendentes juntos): `proximo_contato`,
+  `decisao_prevista`, `motivo_perda` e `crm_notas` estão **vazios em 100%
+  dos registros**, sem exceção.
+
+O número de referência do briefing era 0/197 em 06/08; agora é **0/181**
+(fortemp) ou 0/211 (base toda) — a base cresceu, o denominador mudou, o
+numerador continua zero. **A Fase 3 do CRM (campos criados em 06/08) segue
+sem nenhum uso real seis dias depois.** Não é um campo pouco usado — é um
+campo que ninguém tocou nenhuma vez, em nenhum orçamento, em nenhum status.
+
+## 8. Atribuição — aprovados recentes com sinal de contato antes de fechar
+
+Dos orçamentos fortemp aprovados nos **últimos 30 dias** (por
+`data_aprovacao`, 2026-07-13 a 2026-08-12): **34 orçamentos**, dos quais
+**0 são artefato de backfill** (todos têm `data_aprovacao ≠ data_criacao` —
+esperado, o backfill só atinge histórico antigo, e toda aprovação feita pela
+tela desde então grava timestamp real no momento da aprovação).
+
+Verifiquei, para cada um dos 34, se havia **qualquer sinal de contato
+registrado**: `proximo_contato` preenchido (em qualquer momento — o banco só
+guarda o valor atual, não histórico) ou `crm_notas` não vazio.
+
+**Resultado: 0 de 34 (0,0%).**
+
+Como consequência direta da seção 7 — os campos que alimentariam esse sinal
+nunca foram preenchidos em NENHUM orçamento da base, aprovado ou não — o
+número de atribuição "com sinal registrado" não pode ser diferente de zero
+hoje. Não é que o CRM mediu pouca atribuição; é que não há dado nenhum para
+atribuir a partir dele.
+
+### ⚠️ Limitações do método (primeiro corte, documentadas, não escondidas)
+
+1. **O banco guarda estado atual, não histórico.** `proximo_contato` é um
+   campo simples (não uma tabela de eventos) — se algum dia for preenchido e
+   depois limpo ou sobrescrito, não há como reconstruir "foi preenchido antes
+   de aprovar" só pela leitura atual. O método aqui (campo preenchido = sinal
+   de contato) é uma aproximação válida **enquanto o campo não é usado para
+   nada além do que foi desenhado** — funciona hoje porque o valor é 100%
+   zero, não porque o método é robusto a reescrita.
+2. **`crm_notas` como sinal de contato é uma suposição do desenho, não uma
+   medição de atividade real de vendas.** Contato por WhatsApp, telefone ou
+   visita presencial não deixa rastro em nenhuma coluna do banco — só entra
+   aqui se alguém digitou uma nota no campo. Zero notas não prova zero
+   contato humano; prova zero **registro** de contato.
+3. **Não existe, no schema atual, nenhuma forma de medir atribuição real**
+   (ex.: "este orçamento fechou porque o vendedor ligou 2x") sem que a
+   equipe comece a preencher `proximo_contato`/`crm_notas` na rotina. Este
+   relatório documenta a ausência de dado — não é possível fabricar um
+   número de atribuição melhor sem mudar o comportamento de uso do app
+   primeiro (fora do escopo desta sessão, que é só leitura).
+
 ---
 
 ## Como comparar depois (a pedido do briefing — medir efeito da Etapa 1)
@@ -114,6 +187,12 @@ padrão da sessão) e observar:
    já disponíveis — a métrica nova em si (quantas vendas de balcão passam a
    ficar com histórico de verdade, que hoje é zero por definição — a tabela
    não existe ainda).
+5. **Cobertura de `proximo_contato` (seção 7)** — se subir de 0%, é o
+   primeiro sinal de que a Fase 3 do CRM entrou na rotina. É o indicador
+   mais barato de monitorar (não depende da Etapa 1 nem de nada novo) e é
+   pré-requisito para a seção 8 (atribuição) sair do zero.
+6. **% de aprovados recentes com sinal de contato (seção 8)** — só pode
+   crescer se a seção 7 crescer primeiro; são a mesma limitação de dado.
 
 Este arquivo cobre só a parte de atribuição pedida para a Etapa 8. Vistorias/
 despesas/equipamentos/identidade de cliente (lacunas de dados) já estão
