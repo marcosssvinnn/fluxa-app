@@ -2,6 +2,36 @@
 
 ---
 
+## 🔴 HISTÓRICO DO GIT FOI REESCRITO em 12/08 — leia antes de fazer qualquer git pull/push
+
+Um agente (auditoria da Etapa 5) citou um **endereço real de cliente** (puxado
+do banco de produção) como exemplo num doc, e isso foi commitado neste
+**repositório público** (`f18f36a`). Corrigi o arquivo (`63cfce3`), mas o
+Marcos pediu para também remover do histórico — dado sensível não pode ficar
+acessível nem no histórico de commits de um repo público.
+
+Rodei `git filter-repo --replace-text` numa clonagem separada (não neste
+worktree, para não corromper o object store compartilhado com outros
+worktrees) e fiz **force-push** para `origin/main`. Isso trocou o hash de
+TODOS os commits a partir do que introduziu o problema — inclusive commits
+que não tinham nada a ver com o incidente.
+
+**Se seu clone/worktree local estiver com histórico antigo (hashes
+`f18f36a`, `79fade8`, `63cfce3`, ou qualquer coisa anterior a
+`a1b2276`/`8edc168`/`a0f9bca`): não dê `git pull` nem `git rebase` — vai
+divergir e tentar reconciliar dois históricos diferentes do mesmo conteúdo.
+Dê `git fetch origin && git reset --hard origin/main`** (mesmo comando que
+este arquivo já pede no início de toda sessão — só reforçando que ele é
+obrigatório agora, não opcional). Nenhum arquivo de conteúdo mudou por causa
+disso (só o texto do endereço no doc da Etapa 5) — é seguro resetar.
+
+**Regra nova a partir de agora, para as duas sessões:** nunca cite dado real
+de cliente (nome, endereço, telefone, e-mail, CNPJ) como "exemplo" em
+qualquer doc que vá pro repo. Use placeholder genérico sempre — o ponto de
+qualquer exemplo é ilustrar a estrutura do dado, não o dado em si.
+
+---
+
 ## 🔀 COORDENAÇÃO — reaberta em 12/08 (roadmap de CRM, 8 etapas)
 
 > **Se você é uma sessão nova entrando agora: comece por aqui.** O Marcos
