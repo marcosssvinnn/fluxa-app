@@ -1,6 +1,6 @@
 // Altere este número a cada novo deploy para forçar atualização em todos os dispositivos
 // (não é mais obrigatório: o index.html detecta novas versões sozinho via ETag/Last-Modified)
-const CACHE = 'fluxa-v96';
+const CACHE = 'fluxa-v97';
 
 const URLS = [
   'libs/supabase.min.js',
@@ -46,9 +46,14 @@ self.addEventListener('fetch', e => {
     e.respondWith(
       fetch(e.request, { cache: 'no-cache' })
         .then(res => {
-          if (res.ok) {
+          // Cache API só aceita request GET — o detector de versão nova
+          // (_verificarVersaoApp, a cada 60s) faz HEAD nesse mesmo caminho
+          // pra checar ETag sem baixar o arquivo inteiro, e caía aqui: c.put
+          // lançava "Request method 'HEAD' is unsupported", sem catch, toda
+          // vez que rodava — silencioso pro usuário, mas martelando o console.
+          if (res.ok && e.request.method === 'GET') {
             const clone = res.clone();
-            caches.open(CACHE).then(c => c.put(e.request, clone));
+            caches.open(CACHE).then(c => c.put(e.request, clone)).catch(() => {});
           }
           return res;
         })
@@ -61,9 +66,9 @@ self.addEventListener('fetch', e => {
   e.respondWith(
     caches.match(e.request).then(cached => {
       const network = fetch(e.request).then(res => {
-        if (res.ok) {
+        if (res.ok && e.request.method === 'GET') {
           const clone = res.clone();
-          caches.open(CACHE).then(c => c.put(e.request, clone));
+          caches.open(CACHE).then(c => c.put(e.request, clone)).catch(() => {});
         }
         return res;
       }).catch(() => cached);
