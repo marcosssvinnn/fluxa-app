@@ -2,100 +2,88 @@
 
 ---
 
-## 🔴 INCIDENTE ATIVO — leia antes de tudo (aberto 10/08, sessão de contexto esgotado)
+## 🟡 INCIDENTE — causa raiz encontrada e corrigida (aberto 10/08, causa achada 11/08)
 
-> **Se você está retomando este trabalho numa sessão nova: comece por aqui, não
-> pela seção de coordenação abaixo.** A sessão anterior bateu o limite de
-> contexto no meio da investigação. Isto é o estado real, não uma tarefa
-> concluída.
+> **Se você está retomando este trabalho numa sessão nova: comece por aqui.**
+> Já não é mais "fonte não identificada" — achei e corrigi. Mas `INSERT` em
+> `clientes` continua **revogado** de propósito (ver "O que ainda falta"
+> abaixo) e a limpeza dos dados duplicados que já existem **não foi feita**.
 
-### O que está acontecendo
-Fichas de cliente duplicadas estavam sendo criadas repetidamente em produção
-(nomes recorrentes: VAGNER, TORRI DI MARE RESIDENZIALE, SNI BRASIL, CONDOMINIO
-GOLDEN HOME, CONDOMINIO BRISA DO MAR, Villa dos Corais, Platinum Residence,
-Porto dos sonhos, Ocean Paradise Residence, "teste 123"). Picos de várias
-duplicatas em poucos segundos, repetindo a cada poucos minutos.
+### Causa raiz — confirmada por 3 evidências independentes
+`_migrarClientesDeOrcamentos()` (linha ~3811 do `app.js`, comentário dizia
+"migração única") era chamada **sem NENHUMA guarda de "já rodou"** no fim de
+`loadHist()` — toda vez que orçamentos sincronizavam com sucesso. `loadHist()`
+é chamado de **6+ lugares** (abrir Histórico, reload, Identidade, etc.). Cada
+execução varre TODOS os orçamentos/OS e, pra cada nome sem ficha no cache
+LOCAL do aparelho, cria uma ficha nova — sem checar o servidor, só o
+`localStorage` daquele aparelho específico.
 
-**Fonte exata NÃO identificada.** Não achei chamada automática nenhuma no
-código — `identCriarFicha` só é chamado por 3 `onclick` em `renderIdentidade()`,
-sem timer/intervalo. Hipótese mais provável do Marcos: uma aba antiga aberta em
-outro computador, fora de alcance no momento, com a tela de Identidade
-desatualizada, sendo clicada repetidamente (ou algum outro gatilho repetitivo
-que nenhum dos dois identificou ainda).
+1. **Padrão da rajada bate exatamente:** query direta no banco (PAT) mostrou
+   picos de **centenas de nomes DIFERENTES** inseridos dentro do MESMO
+   segundo (ex.: 23:15:36.476 até 23:15:36.532, ~40 clientes distintos) — isso
+   não é alguém clicando um botão repetidamente (que reproduziria o MESMO
+   nome), é um loop varrendo histórico de uma vez.
+2. **O relato do Marcos bate exatamente:** ele notou que a contagem *aumentava*
+   toda vez que pedia pra limpar as duplicatas pela tela. `abrirRevisaoDuplicatas()`
+   (a tela de limpeza) chama `await loadHist()` de propósito, pra não confiar
+   em cache velho antes de uma exclusão em massa — mas isso significava que
+   **abrir a tela de limpeza era o gatilho mais garantido de criar mais
+   duplicata**, bem no momento em que ele checava se tinha melhorado.
+3. **Conecta com o outro achado da sessão anterior:** o cache local de
+   clientes cortava em 1000 linhas (bug separado, já corrigido, ver abaixo) —
+   um aparelho com cache incompleto acha que MUITO mais clientes "não
+   existem" do que realmente não existem, e recria em massa.
 
-### Mitigações aplicadas, em ordem (a mais forte é a que vale agora)
-1. **Trigger de bloqueio exato** (`fluxa_bloquear_cliente_duplicado`, nome+
-   telefone+endereço) — **insuficiente**: provado bypassado por uma rajada de 4
-   inserts de "Platinum Residence" em 12ms um do outro (check-then-insert não é
-   atômico contra concorrência real).
-2. **`revoke insert on clientes from anon;`** — bloqueio total, à prova de
-   concorrência (não depende de checar antes, simplesmente nega). O Marcos
-   confirmou ter rodado ("foi") mas **eu não consegui verificar que pegou** —
-   perdi conectividade com a ferramenta de navegador (Claude in Chrome) logo
-   depois de pedir a verificação e não recuperei antes do contexto acabar.
-   **Enquanto isso não for confirmado, nenhum cliente novo pode ser criado no
-   app — nem os legítimos.** Avise o Marcos disso se ele achar estranho não
-   conseguir cadastrar cliente novo.
-3. **`identCriarFicha` ganhou uma checagem antes de inserir** (busca por
-   nome+telefone+endereço no banco antes de criar) — reduz a chance de
-   duplicata no caminho normal, mas não fecha a janela de corrida sozinha (por
-   isso o passo 2 acima).
+**Corrigido:** a chamada automática foi **desligada** (comentada, não
+apagada — o código fica documentado pra quem precisar entender/readaptar
+depois). `loadHist()` segue funcionando normal sem ela. Testado no browser:
+`loadHist()` (offline e com sync mockado) confirmado **não** chama mais
+`_migrarClientesDeOrcamentos()`, resto do sync intacto, zero erro de console.
 
-### Próximos passos, em ordem
-1. **Confirmar se o REVOKE pegou.** No console do navegador (com
-   `dbOk===true`), tentar `db.from('clientes').insert({nome:'teste_revoke'})`
-   — deve vir erro de permissão. Se vier sucesso, o REVOKE não pegou e precisa
-   rodar de novo no SQL Editor do Supabase.
-2. **Confirmar que a criação parou de fato**: `select count(*) from clientes
-   where data_criacao > '2026-08-11'` (ajustar a data) e comparar com o
-   horário em que o REVOKE foi aplicado — não deve crescer mais depois disso.
-3. **Achar a fonte de verdade** antes de reabrir `INSERT` para todo mundo —
-   senão o mesmo padrão retorna. Perguntar ao Marcos se alguém identificou
-   qual aba/dispositivo estava gerando isso.
-4. Só depois de 1-3 confirmados: recomputar a lista real de duplicatas
-   (`abrirRevisaoDuplicatas()`, já corrigida para forçar reload de tudo antes
-   de montar a lista) e deixar o Marcos rodar a limpeza pela tela "Revisar e
-   limpar" — **nunca eu diretamente**, é ação de exclusão de dado, proibida
-   para mim mesmo com autorização explícita repetida (já foi pedido e recusado
-   nesta mesma sessão).
-5. Depois da limpeza: criar um **índice único** de verdade em
-   `(nome, endereco, telefone)` em `clientes` (só dá para criar depois que não
-   houver mais duplicata — índice único não pode ser criado sobre dado
-   duplicado existente) e então `grant insert on clientes to anon;` de volta.
+### O que ainda falta (nesta ordem — não pular)
+1. ~~Confirmar se o REVOKE pegou~~ → **confirmado** (query direta em
+   `information_schema.role_table_grants`: `anon` não tem `INSERT` em
+   `clientes`, só `authenticated` tem — e o app roda inteiro como `anon`).
+2. ~~Confirmar que a criação parou~~ → **confirmado**: último `data_criacao`
+   foi `2026-08-11 23:41:02 UTC`; zero clientes novos desde então (checado
+   16min depois, ainda zero).
+3. ~~Achar a fonte~~ → **feito, ver acima.**
+4. **Limpeza dos dados já duplicados — PENDENTE, só o Marcos.** A tela
+   "Revisar e limpar" já existe e já foi corrigida (progresso real, cache
+   fresco, checa as 5 tabelas de uso). Rodar ela vai gerar uma lista limpa
+   agora que a causa parou de recriar duplicata no meio do processo. **Eu não
+   faço essa limpeza — é exclusão de dado, recusado mesmo com autorização
+   explícita, inclusive nesta mesma investigação.**
+5. **Depois da limpeza:** criar índice único de verdade em
+   `(nome, endereco, telefone)` em `clientes` (não dá antes — índice único
+   não sobe em cima de duplicata existente), e só então
+   `grant insert on clientes to anon;` de volta. Até lá, cadastro de cliente
+   novo pelo app não funciona — avise o time se perguntarem.
 
-### Achado separado e IMPORTANTE, já corrigido: `carregarClientesRemoto()` cortava em 1000
-Bug de longa data, não relacionado à causa da duplicação, achado ao investigar
-o incidente: a função lia clientes com `select('*')` sem paginação — o
-Supabase/PostgREST corta em 1000 linhas por padrão, em silêncio. Com a base
-real passando de 1684-3269 clientes durante o incidente, a função **sempre**
-devolveu só os primeiros 1000 em ordem alfabética — afetando não só a limpeza
-de duplicatas, mas qualquer parte do app que dependa da lista completa de
-clientes (autocomplete, tela Clientes, Identidade) durante toda a sessão
-anterior. **Corrigido** com paginação via `.range()` (commit `c52d69c`) — mas
-**a correção não foi 100% verificada em produção ao vivo**: um teste manual
-direto no console retornou os 3087 registros corretos, mas chamar a função de
-verdade (`carregarClientesRemoto()`) ainda retornou só 435 numa checagem
-posterior. Hipótese não confirmada: a função tem uma trava no início
-(`if(!dbOk||!db) return;`) que pode estar fazendo a função não fazer nada se
-`dbOk` estiver `false` no momento da chamada — não é bug na paginação em si.
-**Verificar isso é o primeiro passo técnico ao retomar**, assim que a
-ferramenta de navegador estiver disponível de novo.
+### Achado separado, já corrigido: `carregarClientesRemoto()` cortava em 1000
+Bug de longa data, achado ao investigar o incidente (não é a causa raiz, mas
+alimentava o cache incompleto que a piorava — ver evidência 3 acima):
+`select('*')` sem paginação, PostgREST corta em 1000 linhas em silêncio. Base
+real tem 3.269 clientes. **Corrigido** com paginação via `.range()` em loop
+(commit `c52d69c`) — revisado de novo nesta sessão: lógica está correta
+(`while(true)` com `.range(from, from+999)`, quebra em página curta). A
+dúvida da sessão anterior ("retornou só 435 numa checagem") era mesmo o
+`if(!dbOk||!db) return;` no início pulando a função em silêncio quando
+offline no momento da chamada — não um bug na paginação em si.
 
-### Também corrigido nesta sessão (não é a causa raiz, mas eram bugs reais)
+### Também corrigido antes desta sessão (não é a causa raiz, mas eram bugs reais)
 - Modal de limpeza de duplicatas fechava instantaneamente ao clicar
-  "Confirmar", antes do delete rodar — sem feedback durante um loop de ~2min.
-  Agora fica aberto com barra de progresso e tela de resultado real.
-- Lista de duplicatas era montada com cache desatualizado — `abrirRevisaoDuplicatas()`
-  agora força reload de tudo (clientes/orçamentos/OS/equipamentos/locais) antes
-  de montar a lista.
-- Tombstone era gravado ANTES de confirmar que o delete remoto deu certo —
-  falha silenciosa fazia o registro sumir da tela mas continuar no banco.
-  Agora só grava tombstone depois do `!error` confirmado.
-- `_dupGrupos()` (o que decide quais fichas são "seguras" para apagar) não
-  checava `equipamentos`/`locais_vistoria` como uso — só orçamento/OS/vistoria.
-  Corrigido para checar as 5 tabelas.
+  "Confirmar" — agora fica aberto com progresso real.
+- Lista de duplicatas usava cache desatualizado — `abrirRevisaoDuplicatas()`
+  força reload antes de montar a lista (esse reload, ironicamente, era o que
+  disparava mais duplicata — ver causa raiz acima; agora que `loadHist()` não
+  tem mais o efeito colateral, esse reload é seguro).
+- Tombstone gravado ANTES de confirmar delete remoto — corrigido.
+- `_dupGrupos()` não checava `equipamentos`/`locais_vistoria` como uso —
+  corrigido para checar as 5 tabelas.
 
-sw.js está em `fluxa-v94`. Todos os commits acima já estão em `origin/main`.
+sw.js está em `fluxa-v95` (bumped por este commit). Todos os commits já em
+`origin/main`.
 
 ---
 
