@@ -3780,11 +3780,31 @@ async function loadHist(){
       }
       // Migração única: aprovados sem data_aprovacao recebem data_criacao como referência
       await _migrarDataAprovacao();
-      _migrarClientesDeOrcamentos();
+      // _migrarClientesDeOrcamentos() DESLIGADA (2026-08-11) — investigação do
+      // incidente de duplicação de clientes em produção aponta ela como causa
+      // raiz mais provável: chamada aqui SEM NENHUMA guarda de "já rodou",
+      // toda vez que loadHist() sincroniza com sucesso (6+ call sites). Cada
+      // execução varre TODOS os orçamentos/OS e, pra cada nome sem ficha no
+      // CACHE LOCAL do aparelho (lsCliLer — que pode estar incompleto, ver
+      // bug separado de corte em 1000 linhas no carregarClientesRemoto,
+      // corrigido), cria uma ficha nova. Em vários aparelhos/abas
+      // reconectando perto um do outro, cada um decide independentemente
+      // "esse cliente não existe" pro mesmo nome e cria duplicata — bate com
+      // o padrão observado (dezenas de nomes DIFERENTES inseridos dentro do
+      // mesmo segundo, não o mesmo nome repetido). Ver seção de incidente no
+      // topo deste arquivo antes de reativar.
+      // _migrarClientesDeOrcamentos();
     }catch(e){ console.warn('Sync do histórico falhou:', e?.message||e); }
   }
 }
 
+// ⚠️ DESATIVADA (2026-08-11) — suspeita forte de ser a causa raiz do incidente
+// de duplicação de clientes em produção. NÃO reativar sem: (1) confirmar que
+// carregarClientesRemoto() nunca devolve lista incompleta (paginação já
+// corrigida, mas verificar de novo), e (2) trocar a chamada automática por um
+// botão explícito, com o gestor decidindo quando rodar — nunca de novo como
+// efeito colateral silencioso de abrir uma tela. Ver seção de incidente no
+// topo do CLAUDE.md.
 // Migração única: aprovados sem data_aprovacao → usa data_criacao como referência contábil
 // Importa clientes de orçamentos/OS históricos para a base (roda uma vez após sync)
 // Regra: loja_id='aquamotor' → grupo Aquamotor. Qualquer outra → grupo Fortemp.
