@@ -1163,7 +1163,19 @@
             <div class="row f3" style="margin-bottom:0">
               <div class="fl"><label>Nome</label><input type="text" id="eq-piscina-nome" placeholder="Ex: Piscina Adulto"></div>
               <div class="fl"><label>Volume (m³)</label><input type="text" inputmode="decimal" id="eq-piscina-vol" placeholder="Ex: 45"></div>
-              <div class="fl"><label>Tratamento</label><input type="text" id="eq-piscina-trat" placeholder="Ex: Cloro"></div>
+              <div class="fl"><label>Tratamento</label>
+                <select id="eq-piscina-trat">
+                  <option value="">Não sei / outro</option>
+                  <option value="dicloro_granulado">Cloro granulado (dicloro)</option>
+                  <option value="hipoclorito_calcio">Hipoclorito de cálcio</option>
+                  <option value="cloro_liquido_10">Cloro líquido</option>
+                  <option value="pastilha_tricloro">Pastilha / multiação (tricloro)</option>
+                  <option value="sal_salino">Gerador de cloro salino</option>
+                  <option value="bromo">Bromo</option>
+                  <option value="peroxido">Peróxido de hidrogênio</option>
+                  <option value="phmb">Biguanida (PHMB)</option>
+                </select>
+              </div>
             </div>
             <button type="button" class="tb" onclick="_eqPiscinaCriar()" style="margin-top:4px">✅ Salvar piscina</button>
           </div>

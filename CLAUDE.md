@@ -2,6 +2,64 @@
 
 ---
 
+## Etapa 4 fechada — consumo teórico implementado (13/08, mesmo dia)
+
+O Marcos trouxe a referência de dosagem química que faltava (pediu pra uma
+IA de pesquisa, documento completo em
+`docs/referencia-consumo-quimico-piscinas-2026-08-12.md`). Isso fecha a
+segunda metade da Etapa 4 que tinha ficado de fora mais cedo hoje.
+
+**Implementado (`app.js`, `CONSUMO_QUIMICO_REF`/`consumoTeoricoDias()`):**
+só os tratamentos de confiança **alta** no documento têm cálculo real —
+dicloro granulado, hipoclorito de cálcio, cloro líquido, pastilha/tricloro,
+sal (gerador salino). `d` fixado em 2,0 g Cl₂/m³/dia (referência "verão/
+externa/uso moderado/estabilizada", seção 2 do documento) — **os
+coeficientes de ajuste por estação, capa térmica e carga de banhistas
+(seção 2.2) NÃO foram aplicados**, porque a ficha da piscina não captura
+esses campos hoje. Validei a fórmula contra os valores de referência do
+próprio documento pra V=1m³ (bateu exato nos 4 clorados).
+
+- `piscinas.tipo_tratamento` deixou de ser texto livre — virou select com
+  os 8 tipos do documento (os 3 sem cálculo — bromo, peróxido, PHMB — ficam
+  cadastrados corretamente mas sem estimativa, documento já os marca como
+  nicho/baixa confiança). Os dois lugares que criam piscina (formulário de
+  Equipamento e o import em massa de vistoria) ganharam o mesmo select.
+- `analiseClientes()` calcula `previsaoTeorica` só pra cliente com
+  **1 compra** e piscina com volume conhecido — some sozinho assim que
+  há 2ª compra, porque o intervalo OBSERVADO sempre vence um número
+  teórico (mesma hierarquia que o documento recomenda na seção 7).
+- Fila de cadência agora mistura os dois: observado (`ritmo`) e teórico
+  (`previsaoTeorica`), cada um com motivo e linguagem diferentes — o card
+  teórico mostra explicitamente "⚠️ estimativa por fórmula, margem de erro
+  grande (±35-50%)" porque é isso mesmo que o documento diz pra cliente sem
+  histórico, e esconder essa incerteza seria enganoso.
+- Só entra na fila teórica quem já **passou** da previsão (`diasAte<0`) —
+  antes disso não vale incomodar com estimativa.
+
+**Não implementado, registrado no documento salvo pra quem quiser
+estender depois:** ajuste por estação/capa/banhistas (precisaria de campos
+novos na ficha da piscina), calibração de `d` a partir do histórico real
+(documento recomenda isso como evolução natural — depois de 2-3 ciclos
+observados, o sistema já tem o `intervaloMedioDias`, dá pra inverter a
+fórmula), corretores de pH/algicida/clarificante/estabilizante (consumo
+secundário, menor sinal de recompra que o sanitizante principal), bromo/
+peróxido/PHMB (nicho ou baixa confiança no próprio documento), acumulação
+de ácido cianúrico (seção 5 — evento de compra oculto, interessante mas
+não é o "quando recompra" central).
+
+Testado no browser local (dbOk=false): fórmula validada contra os 4
+valores de referência do documento pra V=1m³ (bateu exato), cliente
+sintético de 1ª compra com piscina de 20m³/dicloro → previsão de 145 dias,
+161 dias já passados → aparece na fila com o aviso de incerteza, os 3
+seletores de tratamento (form de equipamento, import em massa, e a criação
+de piscina em si) gravam `tipo_tratamento` corretamente. Sem erro novo no
+console.
+
+Com isso a Etapa 4 do roadmap está fechada — as duas fontes de previsão
+que o briefing original pediu (observado + teórico) estão no ar.
+
+---
+
 ## Etapa 4 do roadmap de CRM — só metade construída, de propósito (13/08)
 
 O briefing original pedia duas fontes de previsão de recompra: **intervalo

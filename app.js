@@ -4184,10 +4184,15 @@ function crmDispensar(orcId){
 // ══════════════════════════════════════════════════════════════════════════════
 function cadenciaCandidatos(){
   const {lista}=analiseClientes();
-  return lista
+  const observado=lista
     .filter(c=>c.porId && (c.ritmo==='reduziu'||c.ritmo==='parou') && !_cadFbOculto(c.chave.slice(3)))
-    .map(c=>({...c, atraso:c.diasDesdeUltima-c.intervaloMedioDias}))
-    .sort((a,b)=>b.atraso-a.atraso);
+    .map(c=>({...c, origem:'observado', atraso:c.diasDesdeUltima-c.intervaloMedioDias}));
+  // Teórico: só quem já devia ter recomprado segundo a estimativa (diasAte<0)
+  // — antes disso não vale incomodar com um número que é chute educado.
+  const teorico=lista
+    .filter(c=>c.porId && c.previsaoTeorica && c.previsaoTeorica.diasAte<0 && !_cadFbOculto(c.chave.slice(3)))
+    .map(c=>({...c, origem:'teorico', atraso:-c.previsaoTeorica.diasAte}));
+  return [...observado, ...teorico].sort((a,b)=>b.atraso-a.atraso);
 }
 const LS_CAD_FB='fluxa_cadencia_feedback';
 function _cadFbLer(){ try{ return JSON.parse(localStorage.getItem(LS_CAD_FB)||'{}'); }catch(e){ return {}; } }
@@ -4205,15 +4210,24 @@ function cadenciaDispensar(cid){
 }
 function _cadenciaCardHTML(c){
   const cid=c.chave.slice(3);
-  const rotulo = c.ritmo==='parou' ? '🔴 Parou de comprar' : '🟡 Reduziu o ritmo';
+  let motivo1, avisoTeorico='';
+  if(c.origem==='observado'){
+    const rotulo = c.ritmo==='parou' ? '🔴 Parou de comprar' : '🟡 Reduziu o ritmo';
+    motivo1 = `${rotulo} — costuma comprar a cada ${c.intervaloMedioDias}d, já são ${c.diasDesdeUltima}d`;
+  } else {
+    const pt=c.previsaoTeorica;
+    motivo1 = `🧪 Estimativa (1ª compra, sem histórico ainda) — ${esc(pt.piscinaNome||'a piscina')} deve consumir ${pt.embalagemLabel} em ~${pt.dias}d; já se passaram ${c.diasDesdeUltima}d`;
+    avisoTeorico=`<span class="crm-motivo" style="opacity:.75">⚠️ estimativa por fórmula, margem de erro grande (documento: ±35-50%) — confirme antes de cobrar</span>`;
+  }
   return `<div class="crm-card">
     <div class="crm-card-top">
       <div class="crm-cliente">${esc(c.nome)}</div>
       <div class="crm-valor">${brl(c.valor)}</div>
     </div>
     <div class="crm-motivos">
-      <span class="crm-motivo">${rotulo} — costuma comprar a cada ${c.intervaloMedioDias}d, já são ${c.diasDesdeUltima}d</span>
-      <span class="crm-motivo">🛒 ${c.compras} compras até agora</span>
+      <span class="crm-motivo">${motivo1}</span>
+      <span class="crm-motivo">🛒 ${c.compras} compra${c.compras!==1?'s':''} até agora</span>
+      ${avisoTeorico}
     </div>
     <div class="crm-acts">
       <button class="tb g" onclick="novoOrcParaCliente('${cid}')">➕ Novo orçamento</button>
@@ -7208,9 +7222,21 @@ function analiseClientes(){
       ritmo = diasDesdeUltima<=intervaloMedioDias*1.3 ? 'em_dia'
             : diasDesdeUltima<=intervaloMedioDias*2.5 ? 'reduziu' : 'parou';
     }
+    // Consumo teórico (Etapa 4, parte 2) — só pra quem comprou 1 vez e tem
+    // piscina com volume conhecido. Some sozinho assim que houver 2ª compra:
+    // o intervalo OBSERVADO acima sempre tem prioridade sobre isto.
+    let previsaoTeorica=null;
+    if(g.porId && g.orcs.length===1 && !intervaloMedioDias && diasDesdeUltima!=null){
+      const cid=g.chave.startsWith('id:')?g.chave.slice(3):null;
+      const piscina=cid && (todasPiscinas||[]).find(p=>p.cliente_id===cid && p.ativo!==false && p.volume_m3);
+      if(piscina){
+        const calc=consumoTeoricoDias(piscina.tipo_tratamento, piscina.volume_m3);
+        if(calc) previsaoTeorica={...calc, piscinaNome:piscina.nome, diasAte:calc.dias-diasDesdeUltima};
+      }
+    }
     return {...g, compras:g.orcs.length, ticket:g.valor/g.orcs.length,
       primeiro, ultimo, recompra:g.orcs.length>1,
-      diasDesdeUltima, intervaloMedioDias, ritmo};
+      diasDesdeUltima, intervaloMedioDias, ritmo, previsaoTeorica};
   }).sort((a,b)=>b.valor-a.valor);
 
   // Curva ABC por faturamento: A até 80% acumulado, B até 95%, C o resto
@@ -8318,6 +8344,68 @@ function fecharFormEq(){ document.getElementById('eq-form-card').style.display='
 // Digitar por cima do nome invalida o vínculo — mesma regra de orçamento/OS/venda.
 function _eqClienteEditado(){ _eqClienteSelecionado=null; _eqPiscinaSelecionadaId=null; _eqRenderPiscinas(); }
 
+// ══════════════════════════════════════════════════════════════════════════════
+//  CONSUMO TEÓRICO DE QUÍMICO — Etapa 4 (parte 2) do roadmap de CRM, 2026-08-13
+//  Referência trazida pelo Marcos (pesquisa externa, documento completo em
+//  docs/referencia-consumo-quimico-piscinas-2026-08-12.md). T_dias =
+//  Q_embalagem / (q × V); q = d/A pros clorados. `d` fixado na referência
+//  "verão/externa/uso moderado/estabilizada" (2,0 g Cl₂/m³/dia) — os
+//  coeficientes de ajuste por estação/capa térmica/carga de banhistas do
+//  documento (seção 2.2) NÃO estão aplicados: a ficha da piscina não
+//  captura esses campos hoje. Prior de confiança média-baixa pra cliente
+//  sem histórico (±35-50% de erro, segundo o próprio documento) — some da
+//  fila assim que houver 2+ compras reais, porque o intervalo OBSERVADO
+//  (calculado em analiseClientes) sempre vence um número teórico.
+//  Só os tratamentos de confiança "alta" no documento têm cálculo — o
+//  resto fica no cadastro (registro correto) mas sem estimativa ainda.
+// ══════════════════════════════════════════════════════════════════════════════
+const D_REF_CLORO=2.0; // g Cl2/m3/dia — documento, seção 2
+
+const TIPOS_TRATAMENTO=[
+  {id:'',                   label:'Não sei / outro'},
+  {id:'dicloro_granulado',  label:'Cloro granulado (dicloro)'},
+  {id:'hipoclorito_calcio', label:'Hipoclorito de cálcio'},
+  {id:'cloro_liquido_10',   label:'Cloro líquido'},
+  {id:'pastilha_tricloro',  label:'Pastilha / multiação (tricloro)'},
+  {id:'sal_salino',         label:'Gerador de cloro salino'},
+  {id:'bromo',              label:'Bromo'},
+  {id:'peroxido',           label:'Peróxido de hidrogênio'},
+  {id:'phmb',               label:'Biguanida (PHMB)'}
+];
+function _tratamentoOptionsHTML(){
+  return TIPOS_TRATAMENTO.map(t=>`<option value="${t.id}">${esc(t.label)}</option>`).join('');
+}
+
+// A = teor ativo (fração). Embalagem de referência = a mais comum no
+// documento pra esse tipo — não tenta casar com a embalagem exata que o
+// cliente comprou (isso exigiria rastrear produto_id por venda, fora do
+// escopo desta primeira versão).
+const CONSUMO_QUIMICO_REF={
+  dicloro_granulado:  {A:0.58, embalagemG:10000, embalagemLabel:'um balde de 10kg'},
+  hipoclorito_calcio: {A:0.65, embalagemG:10000, embalagemLabel:'um balde de 10kg'},
+  pastilha_tricloro:  {A:0.90, embalagemG:5000,  embalagemLabel:'um balde de 5kg (25 pastilhas)'}
+};
+// Retorna {dias, embalagemLabel} ou null se não tiver cálculo pro tipo, ou
+// faltar volume.
+function consumoTeoricoDias(tipoTratamento, volumeM3){
+  if(!volumeM3 || volumeM3<=0) return null;
+  if(tipoTratamento==='cloro_liquido_10'){
+    // A = 100 g Cl2 por litro de produto (concentração 10%)
+    const qLm3dia=D_REF_CLORO/100;
+    const dias=20000/(qLm3dia*1000*volumeM3); // bombona 20L = 20.000mL
+    return {dias:Math.round(dias), embalagemLabel:'uma bombona de 20L'};
+  }
+  if(tipoTratamento==='sal_salino'){
+    const r=0.0035; // perda residencial default (documento: 0,2–0,5%/dia)
+    const dias=25/(3.2*volumeM3*r);
+    return {dias:Math.round(dias), embalagemLabel:'um saco de 25kg de sal'};
+  }
+  const ref=CONSUMO_QUIMICO_REF[tipoTratamento]; if(!ref) return null;
+  const q=D_REF_CLORO/ref.A; // g de produto por m3 por dia
+  const dias=ref.embalagemG/(q*volumeM3);
+  return {dias:Math.round(dias), embalagemLabel:ref.embalagemLabel};
+}
+
 function _eqRenderPiscinas(){
   const sel=document.getElementById('eq-piscina'); if(!sel) return;
   document.getElementById('eq-piscina-novo').style.display='none';
@@ -8541,6 +8629,7 @@ function renderEqImport(){
           <div id="eqimp-pisc-novo-${clienteId}" style="display:none;margin-top:4px">
             <input type="text" id="eqimp-pisc-nome-${clienteId}" placeholder="Nome (ex: Piscina Adulto)" style="width:150px;font-size:11px;padding:4px 6px;margin-right:4px">
             <input type="text" inputmode="decimal" id="eqimp-pisc-vol-${clienteId}" placeholder="Vol. m³" style="width:60px;font-size:11px;padding:4px 6px;margin-right:4px">
+            <select id="eqimp-pisc-trat-${clienteId}" style="font-size:11px;padding:4px 6px;margin-right:4px">${_tratamentoOptionsHTML()}</select>
             <button type="button" class="tb" style="font-size:11px;padding:4px 8px" onclick="_eqImportPiscinaCriar('${clienteId}')">Criar</button>
           </div>
         </div>`;
@@ -8569,7 +8658,8 @@ function _eqImportPiscinaSelect(clienteId, val){
 async function _eqImportPiscinaCriar(clienteId){
   const nome=(gV('eqimp-pisc-nome-'+clienteId)||'').trim()||'Piscina principal';
   const vol=parseFloat((gV('eqimp-pisc-vol-'+clienteId)||'').replace(',','.'))||null;
-  const dados={cliente_id:clienteId, local_id:null, nome, volume_m3:vol, tipo_tratamento:null, loja_id:lojaAtiva||LOJA_PADRAO_ID, ativo:true};
+  const trat=gV('eqimp-pisc-trat-'+clienteId)||null;
+  const dados={cliente_id:clienteId, local_id:null, nome, volume_m3:vol, tipo_tratamento:trat, loja_id:lojaAtiva||LOJA_PADRAO_ID, ativo:true};
   const tempId='pisc_'+Date.now();
   todasPiscinas.unshift({...dados, id:tempId}); lsPiscinaSalvar(todasPiscinas);
   _eqImportPiscinaEscolhida[clienteId]=tempId;
