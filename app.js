@@ -161,6 +161,7 @@ function aplicarPermissoesPerfil(){
   if(eGestor()){ setTimeout(()=>{ Promise.resolve(loadEstoque()).catch(e=>console.warn('[boot loadEstoque]', e?.message||e)); }, 0); }
   // Vendas de balcão — mesmo gate de loadEstoque (feature de gestor por ora).
   setTimeout(()=>{ if(typeof loadVendasBalcao==='function') Promise.resolve(loadVendasBalcao()).catch(e=>console.warn('[boot loadVendasBalcao]', e?.message||e)); }, 0);
+  setTimeout(()=>{ if(typeof loadPiscinas==='function') Promise.resolve(loadPiscinas()).catch(e=>console.warn('[boot loadPiscinas]', e?.message||e)); }, 0);
 
   // ── Gear menu ──
   // Regras por id
@@ -1578,7 +1579,7 @@ function go(p){
     if(typeof loadVendasBalcao==='function') loadVendasBalcao();
   }
   if(p==='empresa') preencherFormEmpresa();
-  if(p==='equipamentos'){ loadEquipamentos(); setTimeout(renderEqImport,400); }
+  if(p==='equipamentos'){ loadEquipamentos(); if(typeof loadPiscinas==='function') loadPiscinas(); setTimeout(renderEqImport,400); }
   if(p==='agendamentos'){ loadAgendamentos(); populaTecSelects(); initCal(); renderCal(); }
   if(p==='identidade') loadIdentidade();
   if(p==='recebiveis') loadRecebiveisPage();
@@ -6152,6 +6153,11 @@ function selecionarCliModal(nome, end, tel, cnpj, id){
     setV('venda-cli', nome);
     _vendaClienteSelecionado = id ? {id, nome} : null;
     _vendaAnonimo = false;
+  } else if(_buscaCliCtx === 'eq'){
+    setV('eq-cli-nome', nome);
+    _eqClienteSelecionado = id ? {id, nome} : null;
+    _eqPiscinaSelecionadaId = null;
+    _eqRenderPiscinas();
   } else {
     setV('cli', nome);
     if(end) setV('loc', end);
@@ -8172,6 +8178,13 @@ function _fazerCheckoutConfirmado(){
 // ══════════════════════════════════════════════════
 let todosEq = [], eqFotoB64 = '', eqEditId = null;
 let eqBusca = '', eqFiltroTipo = '';
+// Etapa 5 do roadmap de CRM (2026-08-12): cliente_id real no equipamento
+// (mesmo padrão de orçamento/OS/venda) + piscina específica dentro do
+// cliente. Piscina nunca é criada sozinha a partir de nome digitado — só
+// via "Salvar piscina" explícito, e só depois de um cliente_id real.
+let _eqClienteSelecionado = null;
+let todasPiscinas = [];
+let _eqPiscinaSelecionadaId = null;
 
 function abrirFormEq(id){
   eqEditId = id || null;
@@ -8192,6 +8205,8 @@ function abrirFormEq(id){
     eqFotoB64 = eq.foto_base64||'';
     const prev = document.getElementById('eq-foto-prev');
     if(eqFotoB64){ prev.src=eqFotoB64; prev.style.display='block'; document.getElementById('eq-btn-rm-foto').style.display='block'; }
+    _eqClienteSelecionado = eq.cliente_id ? {id:eq.cliente_id, nome:eq.cliente_nome} : null;
+    _eqPiscinaSelecionadaId = eq.piscina_id || null;
   } else {
     ['eq-cli-nome','eq-tipo','eq-marca','eq-modelo','eq-potencia','eq-serie','eq-instalacao','eq-obs'].forEach(id=>setV(id,''));
     setV('eq-garantia','12'); setV('eq-garantia-venc','');
@@ -8199,10 +8214,76 @@ function abrirFormEq(id){
     const prev=document.getElementById('eq-foto-prev'); prev.style.display='none';
     document.getElementById('eq-btn-rm-foto').style.display='none';
     document.getElementById('eq-foto-lbl').textContent='Tirar foto ou selecionar imagem';
+    _eqClienteSelecionado = null;
+    _eqPiscinaSelecionadaId = null;
   }
+  document.getElementById('eq-piscina-novo').style.display='none';
+  _eqRenderPiscinas();
   card.scrollIntoView({behavior:'smooth'});
 }
 function fecharFormEq(){ document.getElementById('eq-form-card').style.display='none'; eqEditId=null; eqFotoB64=''; }
+
+// Digitar por cima do nome invalida o vínculo — mesma regra de orçamento/OS/venda.
+function _eqClienteEditado(){ _eqClienteSelecionado=null; _eqPiscinaSelecionadaId=null; _eqRenderPiscinas(); }
+
+function _eqRenderPiscinas(){
+  const sel=document.getElementById('eq-piscina'); if(!sel) return;
+  document.getElementById('eq-piscina-novo').style.display='none';
+  if(!_eqClienteSelecionado?.id){
+    sel.innerHTML='<option value="">Selecione o cliente pela lupa 🔍 primeiro</option>';
+    sel.disabled=true;
+    return;
+  }
+  sel.disabled=false;
+  const doCliente=(todasPiscinas||[]).filter(p=>p.cliente_id===_eqClienteSelecionado.id && p.ativo!==false);
+  sel.innerHTML = '<option value="">Nenhuma / não informado</option>'
+    + doCliente.map(p=>`<option value="${esc(p.id)}"${p.id===_eqPiscinaSelecionadaId?' selected':''}>${esc(p.nome||'Piscina')}${p.volume_m3?' — '+p.volume_m3+'m³':''}</option>`).join('')
+    + '<option value="__nova__">+ Cadastrar nova piscina…</option>';
+  if(_eqPiscinaSelecionadaId && doCliente.some(p=>p.id===_eqPiscinaSelecionadaId)) sel.value=_eqPiscinaSelecionadaId;
+}
+function _eqPiscinaSelect(val){
+  const novoForm=document.getElementById('eq-piscina-novo');
+  if(val==='__nova__'){
+    novoForm.style.display='block';
+    ['eq-piscina-nome','eq-piscina-vol','eq-piscina-trat'].forEach(id=>setV(id,''));
+    _eqPiscinaSelecionadaId=null;
+  } else {
+    novoForm.style.display='none';
+    _eqPiscinaSelecionadaId = val||null;
+  }
+}
+async function _eqPiscinaCriar(){
+  if(!_eqClienteSelecionado?.id){ toast('⚠️ Selecione o cliente pela lupa 🔍 antes de cadastrar a piscina'); return; }
+  const nome=(gV('eq-piscina-nome')||'').trim()||'Piscina principal';
+  const vol=parseFloat((gV('eq-piscina-vol')||'').replace(',','.'))||null;
+  const trat=(gV('eq-piscina-trat')||'').trim()||null;
+  const dados={cliente_id:_eqClienteSelecionado.id, local_id:null, nome, volume_m3:vol, tipo_tratamento:trat, loja_id:lojaAtiva||LOJA_PADRAO_ID, ativo:true};
+  const tempId='pisc_'+Date.now();
+  todasPiscinas.unshift({...dados, id:tempId});
+  lsPiscinaSalvar(todasPiscinas);
+  _eqPiscinaSelecionadaId=tempId;
+  _eqRenderPiscinas();
+  toast('✅ Piscina cadastrada');
+  if(dbOk&&db){
+    try{
+      const {data:ins}=await dbInsert('piscinas', dados);
+      if(ins){
+        todasPiscinas=todasPiscinas.filter(x=>x.id!==tempId); todasPiscinas.unshift(ins); lsPiscinaSalvar(todasPiscinas);
+        if(_eqPiscinaSelecionadaId===tempId){ _eqPiscinaSelecionadaId=ins.id; _eqRenderPiscinas(); }
+      }
+    }catch(e){ console.warn('[_eqPiscinaCriar]', e?.message||e); }
+  }
+}
+function lsPiscinaLer(){ try{ return JSON.parse(ls('fluxa_piscinas')||'[]'); }catch(e){ return []; } }
+function lsPiscinaSalvar(lista){ lsSet('fluxa_piscinas', JSON.stringify(lista)); }
+async function loadPiscinas(){
+  todasPiscinas=lsPiscinaLer();
+  if(!dbOk||!db) return;
+  try{
+    const {data}=await db.from('piscinas').select('*').limit(3000);
+    if(data){ todasPiscinas=data; lsPiscinaSalvar(todasPiscinas); }
+  }catch(e){ console.warn('[loadPiscinas]', e?.message||e); }
+}
 
 function calcVencGarantia(){
   const inst=gV('eq-instalacao'), meses=parseInt(gV('eq-garantia'))||12;
@@ -8246,7 +8327,8 @@ async function salvarEquipamento(){
   if(_btnEq){ _btnEq.disabled=true; _btnEq.textContent='Salvando…'; }
   const venc=calcVencGarantia();
   const dados={
-    cliente_nome:nome, tipo, marca:gV('eq-marca'), modelo:gV('eq-modelo'),
+    cliente_nome:nome, cliente_id:_eqClienteSelecionado?.id||null, piscina_id:_eqPiscinaSelecionadaId||null,
+    tipo, marca:gV('eq-marca'), modelo:gV('eq-modelo'),
     potencia:gV('eq-potencia'), numero_serie:gV('eq-serie'),
     data_instalacao:gV('eq-instalacao'), garantia_meses:parseInt(gV('eq-garantia'))||12,
     garantia_vencimento:venc, obs:gV('eq-obs'), foto_base64:eqFotoB64||null, ativo:true,

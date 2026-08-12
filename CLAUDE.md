@@ -2,6 +2,44 @@
 
 ---
 
+## Etapa 5 do roadmap de CRM — construída em 12/08 (ficha técnica da piscina)
+
+Seguindo a recomendação da auditoria
+(`docs/etapa5-ficha-tecnica-piscina-auditoria-2026-08-12.md`, opção b/c2):
+nova entidade `piscinas`, ligada a `cliente_id` (mesmo padrão text de
+cliente_id nas outras tabelas). Não liguei a `locais_vistoria` ainda
+(`local_id` existe na coluna, mas nada preenche por enquanto) — a
+integração com o fluxo de vistoria fica pra próxima rodada, matéria em
+aberto no próprio doc da auditoria.
+
+**O que foi feito (`migracao-piscinas.sql`):**
+- Tabela `piscinas` (cliente_id, local_id opcional, nome, volume_m3,
+  tipo_tratamento, loja_id).
+- `equipamentos.piscina_id` — vínculo opcional com a piscina específica.
+- Formulário de Equipamento ganhou: (1) busca de cliente por lupa 🔍
+  (mesmo padrão de orçamento/OS/venda — captura `cliente_id` real, o
+  datalist antigo continua só pra digitação rápida sem vínculo), (2) select
+  de piscina do cliente selecionado, com "+ Cadastrar nova piscina" inline.
+  Piscina só existe depois de um cliente_id real — nunca criada a partir de
+  texto solto.
+- Editar um equipamento existente restaura cliente e piscina vinculados.
+
+**Testado no browser local (dbOk=false):** sem cliente selecionado o campo
+de piscina fica bloqueado; selecionando cliente libera a lista (vazia +
+"cadastrar nova"); criar piscina salva e seleciona sozinha; salvar
+equipamento grava `cliente_id`+`piscina_id`; reabrir pra editar restaura os
+dois. Sem erro novo no console.
+
+**Pendências:**
+- [ ] Marcos rodar `migracao-piscinas.sql` no Supabase.
+- [ ] Ligar piscina ao fluxo de vistoria (hoje o equipamento é redigitado à
+  mão lá, como o doc da auditoria já registrou) — decisão de UX de onde a
+  piscina é escolhida na tela de vistoria, não implementado ainda.
+- [ ] Consumo teórico (Etapa 4) pode usar `volume_m3` agora que existe —
+  ainda não construído.
+
+---
+
 ## Etapa 2 do roadmap de CRM — iniciada em 12/08 (cliente_id em orçamento/OS)
 
 O Marcos apontou que ~80% do que a empresa vende (químico, peça) passa por

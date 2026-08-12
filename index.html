@@ -1127,7 +1127,10 @@
       <div class="ct">Novo Equipamento <button onclick="fecharFormEq()" aria-label="Fechar" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;line-height:1">×</button></div>
       <div class="row">
         <div class="fl"><label>Cliente</label>
-          <input type="text" id="eq-cli-nome" placeholder="Nome do cliente" list="eq-cli-list" oninput="filtrarClientesEq(this.value)">
+          <div class="cli-input-wrap">
+            <input type="text" id="eq-cli-nome" placeholder="Nome do cliente" list="eq-cli-list" oninput="filtrarClientesEq(this.value);_eqClienteEditado()">
+            <button type="button" class="cli-search-btn" onclick="abrirBuscaCli('eq')" title="Buscar cliente na base">🔍</button>
+          </div>
           <datalist id="eq-cli-list"></datalist>
         </div>
         <div class="fl"><label>Tipo de Equipamento</label>
@@ -1137,6 +1140,25 @@
             <option>Gerador de Cloro</option><option>LED Subaquático</option>
             <option>Spa / Hidro</option><option>Sauna</option><option>Automação</option><option>Outro</option>
           </select>
+        </div>
+      </div>
+      <!-- Piscina — Etapa 5 do roadmap de CRM. Só lista piscinas de verdade
+           quando o cliente foi ESCOLHIDO pela busca (🔍), não só digitado —
+           precisa do cliente_id real pra filtrar. -->
+      <div class="row f1">
+        <div class="fl">
+          <label>Piscina <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--gray)">(opcional — escolha o cliente pela lupa 🔍 pra listar as piscinas dele)</span></label>
+          <select id="eq-piscina" onchange="_eqPiscinaSelect(this.value)">
+            <option value="">Nenhuma / não informado</option>
+          </select>
+          <div id="eq-piscina-novo" style="display:none;margin-top:8px;padding:10px;border:1px solid var(--line,#e5e7eb);border-radius:8px">
+            <div class="row f3" style="margin-bottom:0">
+              <div class="fl"><label>Nome</label><input type="text" id="eq-piscina-nome" placeholder="Ex: Piscina Adulto"></div>
+              <div class="fl"><label>Volume (m³)</label><input type="text" inputmode="decimal" id="eq-piscina-vol" placeholder="Ex: 45"></div>
+              <div class="fl"><label>Tratamento</label><input type="text" id="eq-piscina-trat" placeholder="Ex: Cloro"></div>
+            </div>
+            <button type="button" class="tb" onclick="_eqPiscinaCriar()" style="margin-top:4px">✅ Salvar piscina</button>
+          </div>
         </div>
       </div>
       <div class="row f3">
