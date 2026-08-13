@@ -1,13 +1,13 @@
 // Altere este número a cada novo deploy para forçar atualização em todos os dispositivos
 // (não é mais obrigatório: o index.html detecta novas versões sozinho via ETag/Last-Modified)
-const CACHE = 'fluxa-v124';
+const CACHE = 'fluxa-v126';
 
 const URLS = [
   'libs/supabase.min.js',
   'libs/emailjs.min.js',
   'libs/html2pdf.bundle.min.js',
   'libs/chart.umd.min.js',
-  'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap'
+  'https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap'
 ];
 
 self.addEventListener('install', e => {

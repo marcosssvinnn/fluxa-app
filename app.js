@@ -158,8 +158,10 @@ function aplicarPermissoesPerfil(){
         (typeof loadRecebimentos==='function'? loadRecebimentos() : null),
         (typeof loadDespesas==='function' && !(todasDesp||[]).length ? loadDespesas() : null),
         (typeof loadOSHist==='function' && !(todosOS||[]).length ? loadOSHist() : null)
-      ]).then(()=>{ try{ renderNotificacoes(); }catch(e){ console.warn('[notif boot]', e?.message||e); } })
-        .catch(e=>console.warn('[boot notif deps]', e?.message||e));
+      ]).then(()=>{
+        try{ renderNotificacoes(); }catch(e){ console.warn('[notif boot]', e?.message||e); }
+        try{ atualizarBadgesNav(); }catch(e){ console.warn('[badges boot]', e?.message||e); }
+      }).catch(e=>console.warn('[boot notif deps]', e?.message||e));
     }, 0);
   }
 
@@ -239,6 +241,41 @@ function atualizarBadgeUsuario(){
     if(emp) suf=' · '+(emp==='aquamotor'?'Aquamotor':'Fortemp');
   }
   if(elNome) elNome.textContent=nome+suf;
+  // Rodapé da sidebar (redesign 13/08) — mesmo nome/inicial do header, mais
+  // o papel por extenso (o header só tem espaço pro nome).
+  const PAPEL_LABEL={tecnico:'Técnico', vendas:'Vendas', gestor:'Gestor', master:'Master'};
+  const snAvatar=document.getElementById('snav-avatar');
+  const snNome=document.getElementById('snav-user-nome');
+  const snPapel=document.getElementById('snav-user-papel');
+  if(snAvatar) snAvatar.textContent=s?.perfil==='vendas'?'💼':inicial;
+  if(snNome) snNome.textContent=nome;
+  if(snPapel) snPapel.textContent=PAPEL_LABEL[s?.perfil]||s?.perfil||'—';
+}
+
+// Badges de contador da sidebar (redesign 13/08) — "vêm da API, não
+// hardcoded" (handoff). Reaproveita os mesmos motores já usados no painel
+// "hoje"/sino, sem duplicar cálculo. Fica opcionalmente desatualizado até
+// a tela relevante carregar seus próprios dados (mesma limitação já aceita
+// pelas notificações — os dados às vezes só chegam quando a página é
+// visitada, não no boot).
+function atualizarBadgesNav(){
+  const set=(id,val)=>{ const el=document.getElementById(id); if(el) el.textContent=val||''; };
+  try{
+    const abertos=(filtrarPorLoja(todosOrc||[])).filter(o=>o.status && o.status!=='aprovado' && o.status!=='recusado').length;
+    set('snb-badge-orc', abertos||'');
+  }catch(e){ console.warn('[badge orc]', e?.message||e); }
+  try{
+    const osAbertas=(filtrarPorLoja(todosOS||[])).filter(o=>o.status && o.status!=='concluido').length;
+    set('snb-badge-os', osAbertas||'');
+  }catch(e){ console.warn('[badge os]', e?.message||e); }
+  try{
+    const venc=(filtrarPorLoja(todosReceb||[])).filter(r=>!r.data_pagamento && _recebDiasAtraso(r)>0).length;
+    set('snb-badge-receber', venc||'');
+  }catch(e){ console.warn('[badge receber]', e?.message||e); }
+  try{
+    const neg=(typeof _estoqueNegativos==='function' ? _estoqueNegativos().filter(n=>!n.inativo) : []);
+    set('snb-badge-estoque', neg.length ? '!' : '');
+  }catch(e){ console.warn('[badge estoque]', e?.message||e); }
 }
 
 function fazerLogout(){
@@ -430,6 +467,21 @@ function atualizarHeaderLoja(){
     else { img.classList.remove('has-logo'); }
   }
   document.title=(LC.nome||CFG.nome||'Fluxa')+' — Orçamentos';
+  // Sidebar (redesign 13/08) — mesma info de marca do header, só que também
+  // no bloco fixo do topo da nav (nome do app + nome da empresa) e no
+  // seletor de unidade (loja ativa, ou "Todas" quando o gestor não filtrou).
+  const snNome=document.getElementById('snav-brand-sub');
+  if(snNome) snNome.textContent = LC.nome||CFG.nome||'';
+  const snLogo=document.getElementById('snav-logo');
+  if(snLogo) snLogo.textContent = (LC.nome||CFG.nome||'F').charAt(0).toUpperCase();
+  const snUnitVal=document.getElementById('snav-unit-val');
+  const snUnitWrap=document.getElementById('snav-unit-wrap');
+  if(snUnitVal){
+    snUnitVal.textContent = lojaAtiva ? (getLojaNome(lojaAtiva)||LC.nome||'—') : (CFG.todasLabel||'Todas as unidades');
+  }
+  // Só mostra o seletor pra quem tem mais de 1 unidade pra escolher (mesmo
+  // critério do <select> antigo do header, isMainGestor()).
+  if(snUnitWrap) snUnitWrap.style.display = (typeof isMainGestor==='function' && isMainGestor()) ? '' : 'none';
 }
 
 // Atualiza o select de técnicos de acordo com a loja selecionada no form
@@ -2361,7 +2413,7 @@ async function abrirRevisaoDuplicatas(){
     ${linhas}
     <div style="display:flex;gap:10px;margin-top:16px">
       <button class="btn-primary" style="flex:1" onclick="confirmarLimpezaDuplicatas()">🗑 Confirmar exclusão de ${totalFichas} fichas</button>
-      <button onclick="document.getElementById('dup-modal-bg').remove()" style="flex:1;padding:12px;border:2px solid var(--gray-mid);border-radius:10px;background:var(--white);font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif">Cancelar</button>
+      <button onclick="document.getElementById('dup-modal-bg').remove()" style="flex:1;padding:12px;border:2px solid var(--gray-mid);border-radius:10px;background:var(--white);font-size:14px;font-weight:700;cursor:pointer;font-family:'Instrument Sans',sans-serif">Cancelar</button>
     </div>
   </div>`;
   document.body.appendChild(m);
@@ -2782,7 +2834,7 @@ function renderSvcs(){
       : s.avulso
         ? `<span style="display:inline-flex;align-items:center;gap:4px;color:var(--gray);font-size:11px"><label style="display:flex;align-items:center;gap:3px;cursor:pointer"><input type="checkbox" checked onchange="toggleSvcAvulso(${s.id})" style="margin:0"> não é produto de estoque</label></span>`
         : `<span style="display:inline-flex;align-items:center;gap:8px">
-            <button type="button" onclick="abrirPickerProduto(${s.id})" style="background:none;border:1px dashed var(--gray-mid);border-radius:50px;padding:3px 10px;font-size:11px;color:var(--gray);cursor:pointer;font-family:'Inter',sans-serif">📦 Vincular produto do estoque</button>
+            <button type="button" onclick="abrirPickerProduto(${s.id})" style="background:none;border:1px dashed var(--gray-mid);border-radius:50px;padding:3px 10px;font-size:11px;color:var(--gray);cursor:pointer;font-family:'Instrument Sans',sans-serif">📦 Vincular produto do estoque</button>
             <label style="display:flex;align-items:center;gap:3px;font-size:11px;color:var(--gray);cursor:pointer" title="Mão de obra, serviço ou material que não tem SKU no estoque"><input type="checkbox" onchange="toggleSvcAvulso(${s.id})" style="margin:0"> não é produto</label>
           </span>`;
     r.innerHTML=`<div class="srow-t">
@@ -2801,7 +2853,7 @@ function renderSvcs(){
       return `<div style="padding:5px 0 2px;font-size:11.5px;color:#b45309">
         A quantidade <strong>${pre.qtd}</strong> está no texto, mas o campo diz <strong>${qty}</strong> —
         a baixa usa o campo.
-        <button type="button" onclick="aplicarQtdDoTexto(${s.id})" style="margin-left:6px;background:#fef3c7;border:1px solid #fbbf24;color:#b45309;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif">Usar ${pre.qtd}</button>
+        <button type="button" onclick="aplicarQtdDoTexto(${s.id})" style="margin-left:6px;background:#fef3c7;border:1px solid #fbbf24;color:#b45309;border-radius:50px;padding:2px 9px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Instrument Sans',sans-serif">Usar ${pre.qtd}</button>
       </div>`;
     })()}`;
     el.appendChild(r);
@@ -4880,6 +4932,7 @@ function renderPainelHojePage(){
   if(!document.getElementById('page-hoje')) return;
   try{ renderPainelHoje(); }catch(e){ console.warn('[painelHoje]', e?.message||e); }
   try{ renderNotificacoes(); }catch(e){ console.warn('[notif]', e?.message||e); }
+  try{ atualizarBadgesNav(); }catch(e){ console.warn('[badges]', e?.message||e); }
 
   const s=_crmPipelineStats();
   let {equipamento, servico}=crmCandidatos();
@@ -10207,7 +10260,7 @@ function renderLocEquipList(){
       </div>
       <div style="margin-top:8px">
         <label style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.5px">📋 Ficha / histórico do equipamento <span style="font-weight:400;text-transform:none;letter-spacing:0">(fica salvo e aparece na vistoria)</span></label>
-        <textarea rows="2" oninput="_locEquipCustom[${i}].ficha=this.value" placeholder="Ex: Última manutenção 03/2026 · Última troca de areia 01/2026 · Nº série 12345 · particularidades…" style="width:100%;margin-top:4px;padding:8px 10px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;resize:vertical;outline:none">${esc(eq.ficha||'')}</textarea>
+        <textarea rows="2" oninput="_locEquipCustom[${i}].ficha=this.value" placeholder="Ex: Última manutenção 03/2026 · Última troca de areia 01/2026 · Nº série 12345 · particularidades…" style="width:100%;margin-top:4px;padding:8px 10px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:13px;font-family:'Instrument Sans',sans-serif;resize:vertical;outline:none">${esc(eq.ficha||'')}</textarea>
       </div>
     </div>
   `;
@@ -10849,7 +10902,7 @@ function renderVisEquipGrid(){
         const ambObs=document.createElement('div');
         ambObs.style.cssText='margin:0 0 10px';
         const _nAmb=esc(g.nome).replace(/'/g,"\\'");
-        ambObs.innerHTML=`<textarea rows="2" placeholder="Observação geral deste ambiente (ex.: vazamento na tubulação, algo fora dos equipamentos…)" oninput="visUpdAmbObs('${_nAmb}',this.value)" style="width:100%;padding:8px 10px;border:1.5px dashed var(--c1);border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;resize:vertical;outline:none;background:var(--c1-light)">${esc(visAmbienteObs[g.nome]||'')}</textarea>`;
+        ambObs.innerHTML=`<textarea rows="2" placeholder="Observação geral deste ambiente (ex.: vazamento na tubulação, algo fora dos equipamentos…)" oninput="visUpdAmbObs('${_nAmb}',this.value)" style="width:100%;padding:8px 10px;border:1.5px dashed var(--c1);border-radius:8px;font-size:13px;font-family:'Instrument Sans',sans-serif;resize:vertical;outline:none;background:var(--c1-light)">${esc(visAmbienteObs[g.nome]||'')}</textarea>`;
         el.appendChild(ambObs);
       }
       g.itens.forEach(ceq=>{
@@ -10904,7 +10957,7 @@ function buildEquipBlock(id,emoji,nome,d,modelo,potencia,marca,ficha,aberto){
     </div>
     <div class="vis-equip-body${aberto?' open':''}" id="vis-body-${id}">
       ${_adhoc?`<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
-        <input type="text" value="${esc(nome)}" oninput="visRenomearEquip('${id}',this.value)" placeholder="Nome do equipamento" style="flex:1;padding:8px 10px;border:1.5px solid var(--c1);border-radius:8px;font-size:13px;font-weight:600;font-family:'Inter',sans-serif;outline:none;color:var(--c2)">
+        <input type="text" value="${esc(nome)}" oninput="visRenomearEquip('${id}',this.value)" placeholder="Nome do equipamento" style="flex:1;padding:8px 10px;border:1.5px solid var(--c1);border-radius:8px;font-size:13px;font-weight:600;font-family:'Instrument Sans',sans-serif;outline:none;color:var(--c2)">
         <button type="button" class="tb d" onclick="visRemoverEquipAdhoc('${id}')" title="Remover este equipamento">🗑</button>
       </div>`:''}
       ${fichaHtml}
@@ -10921,7 +10974,7 @@ function buildEquipBlock(id,emoji,nome,d,modelo,potencia,marca,ficha,aberto){
           ${visObsSugestoes(nome).map(t=>`<span class="vis-obs-chip" onclick="visAddObs('${id}','${t.replace(/'/g,'\\x27')}',this)">${t}</span>`).join('')}
         </div>
         <textarea id="vis-obs-${id}" rows="2" placeholder="Condições encontradas, medições, pendências…" oninput="visUpdObs('${id}',this.value)"
-          style="width:100%;padding:8px 10px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;resize:vertical;outline:none">${esc(d.obs||'')}</textarea>
+          style="width:100%;padding:8px 10px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:13px;font-family:'Instrument Sans',sans-serif;resize:vertical;outline:none">${esc(d.obs||'')}</textarea>
       </div>
       <div style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Fotos ${_fotos.length?`<span style="color:var(--c1)">${_fotos.length}/${MAX_FOTOS_EQUIP}</span>`:''}</div>
       <div class="vis-fotos-row">${fotosHtml}</div>
@@ -13833,8 +13886,8 @@ function abrirListaCompras(){
     const nomeGrupo=forn?forn.nome:'Sem fornecedor definido';
     const totalGrupo=grp.reduce((a,x)=>a+(parseFloat(x.p.custo)||0)*x.qtd,0);
     totalGeral+=totalGrupo;
-    const wpp=forn?.whatsapp?`<button onclick="enviarListaComprasWhatsApp('${fid}')" style="font-size:11px;background:var(--green);color:white;border:none;border-radius:6px;padding:3px 8px;cursor:pointer;font-family:'Inter',sans-serif">📲 WhatsApp</button>`:'';
-    const ocBtn=`<button onclick="criarOCDoGrupo('${fid}')" style="font-size:11px;background:var(--c1);color:white;border:none;border-radius:6px;padding:3px 8px;cursor:pointer;font-family:'Inter',sans-serif">📄 Criar OC</button>`;
+    const wpp=forn?.whatsapp?`<button onclick="enviarListaComprasWhatsApp('${fid}')" style="font-size:11px;background:var(--green);color:white;border:none;border-radius:6px;padding:3px 8px;cursor:pointer;font-family:'Instrument Sans',sans-serif">📲 WhatsApp</button>`:'';
+    const ocBtn=`<button onclick="criarOCDoGrupo('${fid}')" style="font-size:11px;background:var(--c1);color:white;border:none;border-radius:6px;padding:3px 8px;cursor:pointer;font-family:'Instrument Sans',sans-serif">📄 Criar OC</button>`;
     html+=`<div style="margin-bottom:14px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:8px"><div style="font-size:12px;font-weight:700;color:var(--c1)">${esc(nomeGrupo)}</div><div style="display:flex;gap:6px">${wpp}${ocBtn}</div></div>`;
     grp.forEach(x=>{ const custo=(parseFloat(x.p.custo)||0)*x.qtd;
       html+=`<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--gray-light)"><div style="min-width:0"><div style="font-size:12.5px;font-weight:600;color:var(--c2)">${esc(x.p.nome)} <span style="font-size:10px;background:${x.motivo==='encomenda'?'var(--red-bg)':'var(--yellow-bg)'};color:${x.motivo==='encomenda'?'var(--red)':'var(--yellow)'};padding:1px 5px;border-radius:50px;font-weight:700">${x.motivo}</span></div><div style="font-size:11px;color:var(--gray)">${esc(x.p.codigo||'')}</div></div><div style="text-align:right;white-space:nowrap"><div style="font-size:13px;font-weight:700;color:var(--c2)">${fmtQtd(x.qtd)} ${esc(x.p.unidade||'')}</div><div style="font-size:11px;color:var(--gray)">~${brl(custo)}</div></div></div>`;
@@ -14070,7 +14123,7 @@ function abrirProdutoModal(id){
     } else {
       // Master no painel geral → precisa escolher a unidade
       const opcs=LOJAS.filter(l=>GRUPO_FORTHEMP.includes(l.id)).map(l=>`<option value="${l.id}">${esc(l.nome)}</option>`).join('');
-      wrap.innerHTML=`<div style="margin-bottom:12px"><label style="font-size:11px;font-weight:700;color:var(--c1);text-transform:uppercase;letter-spacing:.5px">🏪 Em qual unidade cadastrar?</label><select id="prod-loja-select" style="width:100%;margin-top:4px;padding:9px 12px;border:2px solid var(--c1);border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;outline:none;color:var(--c2)">${opcs}</select></div>`;
+      wrap.innerHTML=`<div style="margin-bottom:12px"><label style="font-size:11px;font-weight:700;color:var(--c1);text-transform:uppercase;letter-spacing:.5px">🏪 Em qual unidade cadastrar?</label><select id="prod-loja-select" style="width:100%;margin-top:4px;padding:9px 12px;border:2px solid var(--c1);border-radius:8px;font-size:13px;font-family:'Instrument Sans',sans-serif;outline:none;color:var(--c2)">${opcs}</select></div>`;
     }
   }
   document.getElementById('prod-modal').style.display='flex';
@@ -14897,9 +14950,9 @@ function renderOCItens(){
   el.innerHTML=_ocEditItens.map((x,i)=>`
     <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--gray-light)">
       <div style="flex:1;min-width:0;font-size:12.5px;font-weight:600;color:var(--c2)">${esc(x.nome)}</div>
-      <input type="text" inputmode="decimal" value="${x.qtd}" oninput="_ocEditItens[${i}].qtd=parseFloat(this.value.replace(',','.'))||0;renderOCItens()" style="width:52px;padding:4px 6px;border:1.5px solid var(--gray-mid);border-radius:6px;font-size:12px;text-align:center;font-family:'Inter',sans-serif">
+      <input type="text" inputmode="decimal" value="${x.qtd}" oninput="_ocEditItens[${i}].qtd=parseFloat(this.value.replace(',','.'))||0;renderOCItens()" style="width:52px;padding:4px 6px;border:1.5px solid var(--gray-mid);border-radius:6px;font-size:12px;text-align:center;font-family:'Instrument Sans',sans-serif">
       <span style="font-size:11px;color:var(--gray)">${esc(x.unidade)}</span>
-      <input type="text" inputmode="decimal" value="${x.custo_unit}" oninput="_ocEditItens[${i}].custo_unit=parseFloat(this.value.replace(',','.'))||0;renderOCItens()" style="width:70px;padding:4px 6px;border:1.5px solid var(--gray-mid);border-radius:6px;font-size:12px;text-align:right;font-family:'Inter',sans-serif" placeholder="R$">
+      <input type="text" inputmode="decimal" value="${x.custo_unit}" oninput="_ocEditItens[${i}].custo_unit=parseFloat(this.value.replace(',','.'))||0;renderOCItens()" style="width:70px;padding:4px 6px;border:1.5px solid var(--gray-mid);border-radius:6px;font-size:12px;text-align:right;font-family:'Instrument Sans',sans-serif" placeholder="R$">
       <button onclick="removeItemOC(${i})" style="background:var(--red-bg);color:var(--red);border:none;border-radius:6px;padding:3px 7px;font-size:12px;cursor:pointer">✕</button>
     </div>`).join('');
   const total=_ocEditItens.reduce((a,x)=>a+x.qtd*x.custo_unit,0);
@@ -14990,7 +15043,7 @@ function renderBalancoLista(){
         <div style="font-size:11px;color:var(--gray)">Sistema: ${fmtQtd(fis)} ${esc(p.unidade||'un')}</div>
       </div>
       <div style="display:flex;align-items:center;gap:6px">
-        <input type="text" inputmode="decimal" placeholder="contado" value="${contado}" oninput="(function(v){_balancoContagem['${p.id}']=v===''?undefined:parseFloat(v.replace(',','.'))||0;_atualizarResumoBalanco();document.getElementById('bal-diff-${p.id}').innerHTML=v===''?'':(parseFloat(v.replace(',','.'))||0)-${fis}>=0&&v!==''?'<span style=&quot;color:var(--green);font-weight:700&quot;>+'+(parseFloat(v.replace(',','.'))||0-${fis})+'</span>':'<span style=&quot;color:var(--red);font-weight:700&quot;>'+(parseFloat(v.replace(',','.'))||0-${fis})+'</span>'})(this.value)" style="width:70px;padding:5px 8px;border:1.5px solid var(--gray-mid);border-radius:7px;font-size:12px;text-align:center;font-family:'Inter',sans-serif">
+        <input type="text" inputmode="decimal" placeholder="contado" value="${contado}" oninput="(function(v){_balancoContagem['${p.id}']=v===''?undefined:parseFloat(v.replace(',','.'))||0;_atualizarResumoBalanco();document.getElementById('bal-diff-${p.id}').innerHTML=v===''?'':(parseFloat(v.replace(',','.'))||0)-${fis}>=0&&v!==''?'<span style=&quot;color:var(--green);font-weight:700&quot;>+'+(parseFloat(v.replace(',','.'))||0-${fis})+'</span>':'<span style=&quot;color:var(--red);font-weight:700&quot;>'+(parseFloat(v.replace(',','.'))||0-${fis})+'</span>'})(this.value)" style="width:70px;padding:5px 8px;border:1.5px solid var(--gray-mid);border-radius:7px;font-size:12px;text-align:center;font-family:'Instrument Sans',sans-serif">
         <div id="bal-diff-${p.id}" style="font-size:12px;min-width:30px;text-align:center">${diffStr}</div>
       </div>
     </div>`;

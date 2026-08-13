@@ -2,6 +2,99 @@
 
 ---
 
+## REDESIGN — Fases 1-3 (tokens, sidebar, componentes base) — 13/08
+
+Marcos trouxe um handoff de design completo
+(`~/Downloads/design_handoff_fluxa_redesign/`: README.md + 2 arquivos
+`.dc.html` estáticos de referência visual) para um redesign de navegação,
+densidade e ícones do Fluxa inteiro — não é mais um ajuste pontual, é
+troca de sistema visual em 13 telas + 3 mobile. Antes de escrever
+qualquer código, mapeei os arquivos atuais que correspondem a cada tela
+do handoff e apresentei o plano ao Marcos (ordem sugerida do próprio
+README: tokens → sidebar → componentes base → telas, uma fase por vez
+com aprovação entre elas — não tudo de uma sessão só).
+
+**Três decisões tomadas com o Marcos antes de começar:**
+1. **White-label preservado.** O handoff fixa `#0B62CE` como "a cor da
+   marca" em todo lugar, mas o Fluxa troca `--c1`/`--c2` por empresa em
+   runtime (`CFG.cor`/`LC.cor` — Forthemp é laranja `#C45E0A`, outras
+   lojas têm cor própria). Decisão: `#0B62CE` vira só o DEFAULT estático
+   de `--c1` (o que aparece antes do JS rodar, ou se uma empresa não tiver
+   `cor` configurada) — o mecanismo de override continua intacto.
+   Testado: com `CFG.cor` no valor real da Forthemp, o item ativo da
+   sidebar e os botões primários saem laranja, não azul.
+2. **"Insights" do handoff substitui a decisão de "Hoje"/"Resultado"**
+   que fechamos mais cedo hoje (o handoff é uma tela só, sem item
+   "Resultado" na nav). Ainda não fiz esse merge de conteúdo (é Fase 4) —
+   por ora as duas páginas continuam existindo, `snb-insights`
+   ("Resultado") marcado explicitamente como temporário no HTML: some
+   assim que Financeiro/DRE/Análise de clientes forem remanejados pra
+   dentro de "Hoje" na Fase 4.
+3. **Fase por fase, com aprovação** — não a sessão inteira de uma vez.
+
+### O que foi feito
+
+**Fase 1 — tokens + tipografia.** Google Fonts trocado de Inter pra
+Instrument Sans (`index.html` + cache do `sw.js`); `font-family:'Inter'`
+substituído por `font-family:'Instrument Sans'` nos 3 arquivos (127
+ocorrências — 55 em `index.html`, 59 em `styles.css`, 13 em `app.js`,
+`sed` direto, conferido zero sobra). Tokens novos aditivos no `:root`
+(`--tx2/3/4`, `--bg-app`, `--surface2`, `--line`/`--line2`,
+`--nav-*`, `--ok`/`--warn`/`--bad`/`--info` + fundos, `--r-lg/sm/xs/pill`)
+— **não substituem** os tokens antigos (`--gray`, `--green`, `--red` etc.
+continuam com os hex de sempre, ainda usados pelas telas não migradas).
+`--c1` e `--c2` mudaram só o DEFAULT (ver decisão 1 acima). `body{background}`
+passou a usar `var(--bg-app)`.
+
+**Fase 2 — sidebar.** Reescrita completa (`index.html` + CSS): fundo
+`--nav-bg` fixo (`#0D131B`, não troca por empresa), logo+nome da empresa,
+seletor de unidade (só aparece pra `isMainGestor()`, mesmo critério do
+`<select>` antigo do header), três grupos (Operação/Comercial/Recursos)
+com ícones SVG (`stroke:currentColor`, paths exatamente do README),
+badges reais (`atualizarBadgesNav()` — orçamentos abertos, OS não
+concluídas, parcelas vencidas, alerta de estoque negativo — reaproveita
+os mesmos motores do sino de notificações, não duplica cálculo), rodapé
+com Configurações (chama o `toggleGear()` já existente, não duplicou
+lógica) e usuário (avatar+nome+papel). IDs de todos os `snb-*` mantidos
+idênticos aos de antes — `aplicarPermissoesPerfil()`/`snbRules` não
+precisou mudar. Dois grupos de itens temporários, marcados com comentário
+no HTML: `snb-insights` (Resultado, decisão 2 acima) e os atalhos de
+criar (`+ Orçamento`/`+ OS`/Venda Rápida) — o handoff move a criação pra
+um botão primário na barra superior de cada lista, que só existe a
+partir da Fase 5/6; tirar os atalhos da sidebar agora, antes de esse
+botão existir, deixaria sem como criar nada.
+
+**Fase 3 — componentes base.** Classes novas prefixadas `rd-` (botão
+primário/secundário/ghost/link, campo, badge de status, chip de filtro,
+pílula de atalho, cartão sem sombra — só borda, tabela densa com cabeçalho
+UPPERCASE e números tabulares, estado vazio de 4 partes, skeleton com
+shimmer respeitando `prefers-reduced-motion`) — **nenhuma tela usa ainda**,
+zero risco, entram conforme cada tela for migrada a partir da Fase 4.
+
+### Testado
+
+Browser local (`dbOk=false`, sessão gestor): fonte trocou em toda a tela
+confirmada via `getComputedStyle`; sidebar 240px, cor ativa laranja
+Forthemp (confirmado depois de limpar `empresa_cfg` do localStorage —
+tinha lixo de teste de sessão anterior sobrescrevendo `CFG.cor` pra azul,
+não era bug do redesign); modo colapsado (só ícones) funciona; drawer
+mobile desliza certo (um screenshot no meio da transição CSS de 250ms
+pareceu cortado — não é bug, é timing de captura, confirmado com
+screenshot depois da animação terminar); telas ainda não migradas
+(testei Clientes) continuam renderizando normalmente ao lado da sidebar
+nova, sem quebra. Zero erro de console além do ruído de 400 já
+documentado. `sw.js` v124→v126.
+
+### Próximo passo
+
+Fase 4 — Insights: merge de "Hoje"+"Resultado" numa tela só, no layout
+exato do handoff (KPIs + gráfico + "Precisa de você hoje" + "Em que fase
+está", sem rolagem), com a fila de ações num endpoint/função própria
+(README pede isso explicitamente). Decidir junto com o Marcos onde
+Financeiro/DRE/Análise de clientes vão morar depois do merge.
+
+---
+
 ## Fase B da crítica de design — captura de dado na tela do técnico (13/08)
 
 Continuação da crítica externa: "todo o esforço de design foi pra tela de

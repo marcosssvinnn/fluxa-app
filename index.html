@@ -6,7 +6,7 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="theme-color" content="#C45E0A">
+  <meta name="theme-color" content="#0B62CE">
   <title>Sistema de Orçamentos</title>
   <!-- Configuração da empresa (tenant). Opcional: se ausente, usa os defaults embutidos (Fortemp/Aquamotor). -->
   <script src="config.js"></script>
@@ -16,7 +16,9 @@
   <script src="libs/html2pdf.bundle.min.js"></script>
   <script src="libs/chart.umd.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Instrument Sans (redesign 13/08, handoff design_handoff_fluxa_redesign) —
+       troca a Inter em todo o app de uma vez (token global, não por tela). -->
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body class="no-sbar">
@@ -52,7 +54,7 @@
             <label style="font-size:12px;font-weight:600;color:var(--gray);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:5px">Seu nome</label>
             <input id="login-nome-input" type="text" autocomplete="off" autocapitalize="words"
               placeholder="Digite seu nome…"
-              style="width:100%;box-sizing:border-box;padding:11px 14px;border:1.5px solid var(--gray-mid);border-radius:10px;font-size:15px;font-family:'Inter',sans-serif;outline:none;transition:border .15s"
+              style="width:100%;box-sizing:border-box;padding:11px 14px;border:1.5px solid var(--gray-mid);border-radius:10px;font-size:15px;font-family:'Instrument Sans',sans-serif;outline:none;transition:border .15s"
               oninput="loginNomeInput(this.value)"
               onkeydown="if(event.key==='Enter')document.getElementById('pin-input').focus()">
             <!-- sugestões -->
@@ -65,7 +67,7 @@
               <input id="pin-input" type="password" inputmode="numeric" maxlength="4"
                 placeholder="••••" autocomplete="off"
                 aria-label="Senha PIN de 4 dígitos"
-                style="width:100%;box-sizing:border-box;padding:11px 14px;border:1.5px solid var(--gray-mid);border-radius:10px;font-size:22px;letter-spacing:.25em;font-family:'Inter',sans-serif;outline:none;transition:border .15s"
+                style="width:100%;box-sizing:border-box;padding:11px 14px;border:1.5px solid var(--gray-mid);border-radius:10px;font-size:22px;letter-spacing:.25em;font-family:'Instrument Sans',sans-serif;outline:none;transition:border .15s"
                 oninput="atualizarDotsPIN(this.value)"
                 onkeydown="if(event.key==='Enter')fazerLogin()">
             </div>
@@ -140,45 +142,129 @@
 <!-- ══ SIDEBAR OVERLAY ══ -->
 <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
 
-<!-- ══ SIDEBAR ══ -->
+<!-- ══ SIDEBAR ══ (redesenhada 13/08, handoff design_handoff_fluxa_redesign —
+     fundo escuro fixo, 3 grupos, badges reais, seletor de unidade e rodapé
+     com usuário. IDs mantidos iguais aos de antes de propósito:
+     aplicarPermissoesPerfil() (app.js, snbRules) mostra/esconde por id, não
+     por posição no DOM — não precisou mudar por causa deste redesign.
+     Dois itens temporários ficam marcados abaixo: "Resultado" (Financeiro/
+     DRE/Análise de clientes ainda não têm outro lugar — somem quando a
+     Fase 4 remanejar esse conteúdo pra dentro de "Hoje", igual ao handoff) e
+     os atalhos de criar Orçamento/OS/Venda Rápida (o handoff os move pra um
+     botão primário na barra superior de cada lista — isso só existe a partir
+     da Fase 5/6; até lá, tirar daqui deixaria a pessoa sem como criar nada). -->
 <aside class="sidebar s-hidden" id="sidebar" role="navigation" aria-label="Menu principal">
+  <div class="snav-brand">
+    <div class="snav-logo" id="snav-logo">F</div>
+    <div class="snav-brand-tx">
+      <span class="snav-brand-nome" id="snav-brand-nome">Fluxa</span>
+      <span class="snav-brand-sub" id="snav-brand-sub">Sistema de gestão</span>
+    </div>
+  </div>
+
+  <div class="snav-unit-wrap" id="snav-unit-wrap" style="display:none">
+    <button class="snav-unit" id="snav-unit-btn" onclick="toggleGear()" title="Trocar empresa/unidade">
+      <div class="snav-unit-tx">
+        <span class="snav-unit-lbl">Unidade</span>
+        <span class="snav-unit-val" id="snav-unit-val">—</span>
+      </div>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 10l4 4 4-4"></path></svg>
+    </button>
+  </div>
+
   <nav class="snav">
-    <!-- Ordem: os 5 primeiros são fixos (pedido do Marcos). Do 6º em diante,
-         por volume real de uso — contagem de registros de cada área em
-         08/08/2026, já que o app não rastreia clique por página:
-         clientes 272 · orçamentos 303 · OS 118 · agendamentos 18 ·
-         vistorias 7 · equipamentos 0 · despesas 0. Reordenar aqui é seguro:
-         aplicarPermissoesPerfil() (app.js) mostra/esconde por id, não por
-         posição no DOM. -->
-    <!-- "Hoje" e "Resultado" — desdobrados de um único "Insights" em 13/08
-         (crítica de design: uma tela respondendo três perguntas incompatíveis
-         não atende nenhuma bem). "Hoje" é a landing do gestor agora; nomes
-         são promessa ("o que vou encontrar"), não categoria de conteúdo. -->
-    <button class="snb on" id="snb-hoje" onclick="go('hoje')"><span class="sicon">☀️</span><span class="slabel">Hoje</span></button>
-    <button class="snb" id="snb-insights" onclick="go('insights')"><span class="sicon">📊</span><span class="slabel">Resultado</span></button>
-    <button class="snb" id="snb-form" onclick="go('form')"><span class="sicon">＋</span><span class="slabel">Orçamento</span></button>
-    <!-- Venda de balcão não é um "page-X" — é um carrinho rápido (modal), então
-         não passa por go(). Mora ao lado de Orçamento de propósito: as duas são
-         "o que a pessoa do balcão/vendas abre pra começar uma venda", e Estoque
-         (onde ficava antes) é ferramenta de gestor pra outra coisa. -->
-    <button class="snb" id="snb-venda-balcao" onclick="abrirVendaBalcao();closeSidebar()"><span class="sicon">🛒</span><span class="slabel">Venda Rápida</span></button>
-    <button class="snb" id="snb-history" onclick="go('history')"><span class="sicon">📊</span><span class="slabel">Histórico</span></button>
-    <button class="snb" id="snb-estoque" onclick="go('estoque')"><span class="sicon">📦</span><span class="slabel">Estoque</span></button>
-    <button class="snb" id="snb-recebiveis" onclick="go('recebiveis')"><span class="sicon">💰</span><span class="slabel">A Receber</span></button>
-    <button class="snb" id="snb-clientes" onclick="go('clientes')"><span class="sicon">👥</span><span class="slabel">Clientes</span></button>
-    <button class="snb" id="snb-os" onclick="novaOS();go('os')"><span class="sicon">📋</span><span class="slabel">OS</span></button>
-    <button class="snb" id="snb-minhas-os" onclick="go('minhas-os')" style="display:none"><span class="sicon">📋</span><span class="slabel">Minhas OS</span></button>
-    <button class="snb" id="snb-agendamentos" onclick="go('agendamentos')"><span class="sicon">📅</span><span class="slabel">Agenda</span></button>
-    <button class="snb" id="snb-visitas" onclick="go('visitas')"><span class="sicon">🔍</span><span class="slabel">Vistorias</span></button>
-    <div class="snav-div"></div>
-    <span class="snav-section-label">Mais opções</span>
-    <button class="snb" id="snb-os-history" onclick="go('os-history')"><span class="sicon">📄</span><span class="slabel">Hist. OS</span></button>
-    <button class="snb" id="snb-produtividade" onclick="go('produtividade')"><span class="sicon">📈</span><span class="slabel">Produtividade</span></button>
-    <button class="snb" id="snb-equipamentos" onclick="go('equipamentos')"><span class="sicon">🔧</span><span class="slabel">Equipamentos</span></button>
-    <button class="snb" id="snb-despesas" onclick="go('despesas')"><span class="sicon">💸</span><span class="slabel">Despesas</span></button>
-    <div class="snav-div"></div>
-    <button class="snb" id="snb-logout" onclick="closeSidebar();fazerLogout()" style="color:#ef4444"><span class="sicon">🔓</span><span class="slabel">Trocar usuário</span></button>
+    <span class="snav-group-lbl">Operação</span>
+    <button class="snb on" id="snb-hoje" onclick="go('hoje')">
+      <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13h4l3-7 4 14 3-7h4"></path></svg>
+      <span class="slabel">Hoje</span>
+    </button>
+    <!-- temporário — ver comentário no topo do bloco -->
+    <button class="snb" id="snb-insights" onclick="go('insights')">
+      <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V10M12 20V4M19 20v-7"></path></svg>
+      <span class="slabel">Resultado</span>
+    </button>
+    <button class="snb" id="snb-history" onclick="go('history')">
+      <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6zM15 3v4h4M9 13h6M9 17h4"></path></svg>
+      <span class="slabel">Orçamentos</span>
+      <span class="sbadge" id="snb-badge-orc"></span>
+    </button>
+    <!-- temporário -->
+    <button class="snb snb-sub" id="snb-form" onclick="go('form')">
+      <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg>
+      <span class="slabel">+ Orçamento</span>
+    </button>
+    <button class="snb" id="snb-os-history" onclick="go('os-history')">
+      <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"></path></svg>
+      <span class="slabel">Ordens de Serviço</span>
+      <span class="sbadge" id="snb-badge-os"></span>
+    </button>
+    <!-- temporário -->
+    <button class="snb snb-sub" id="snb-os" onclick="novaOS();go('os')">
+      <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg>
+      <span class="slabel">+ OS</span>
+    </button>
+    <!-- temporário -->
+    <button class="snb snb-sub" id="snb-venda-balcao" onclick="abrirVendaBalcao();closeSidebar()">
+      <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8l8-4 8 4v8l-8 4-8-4zM4 8l8 4 8-4M12 12v8"></path></svg>
+      <span class="slabel">Venda Rápida</span>
+    </button>
+    <button class="snb" id="snb-agendamentos" onclick="go('agendamentos')">
+      <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v15H4zM8 3v4M16 3v4M4 10h16"></path></svg>
+      <span class="slabel">Agenda</span>
+    </button>
+    <button class="snb" id="snb-visitas" onclick="go('visitas')">
+      <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14M16.5 16.5L21 21"></path></svg>
+      <span class="slabel">Vistorias</span>
+    </button>
+    <button class="snb" id="snb-minhas-os" onclick="go('minhas-os')" style="display:none">
+      <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"></path></svg>
+      <span class="slabel">Minhas OS</span>
+    </button>
+
+    <span class="snav-group-lbl">Comercial</span>
+    <button class="snb" id="snb-clientes" onclick="go('clientes')">
+      <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20c0-3.3 3.6-5 8-5s8 1.7 8 5M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8"></path></svg>
+      <span class="slabel">Clientes</span>
+    </button>
+    <button class="snb" id="snb-recebiveis" onclick="go('recebiveis')">
+      <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18v10H3zM3 11h18M7 15h3"></path></svg>
+      <span class="slabel">A Receber</span>
+      <span class="sbadge" id="snb-badge-receber"></span>
+    </button>
+    <button class="snb" id="snb-despesas" onclick="go('despesas')">
+      <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M16.5 7.5C16.5 5.8 14.5 4.7 12 4.7S7.5 5.8 7.5 7.5s2 2.9 4.5 3.4 4.5 1.7 4.5 3.4-2 2.9-4.5 2.9-4.5-1.1-4.5-2.9"></path></svg>
+      <span class="slabel">Despesas</span>
+    </button>
+
+    <span class="snav-group-lbl">Recursos</span>
+    <button class="snb" id="snb-estoque" onclick="go('estoque')">
+      <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8l8-4 8 4v8l-8 4-8-4zM4 8l8 4 8-4M12 12v8"></path></svg>
+      <span class="slabel">Estoque</span>
+      <span class="sbadge" id="snb-badge-estoque"></span>
+    </button>
+    <button class="snb" id="snb-equipamentos" onclick="go('equipamentos')">
+      <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M12 2v3M12 19v3M4 12H2M22 12h-2M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"></path></svg>
+      <span class="slabel">Equipamentos</span>
+    </button>
+    <button class="snb" id="snb-produtividade" onclick="go('produtividade')">
+      <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V10M12 20V4M19 20v-7"></path></svg>
+      <span class="slabel">Produtividade</span>
+    </button>
   </nav>
+
+  <div class="snav-footer">
+    <button class="snb snav-foot-item" onclick="toggleGear()">
+      <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M12 2v3M12 19v3M4 12H2M22 12h-2M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"></path></svg>
+      <span class="slabel">Configurações</span>
+    </button>
+    <button class="snb snav-foot-user" onclick="toggleGear()">
+      <div class="snav-avatar" id="snav-avatar">–</div>
+      <div class="snav-user-tx">
+        <span class="snav-user-nome" id="snav-user-nome">—</span>
+        <span class="snav-user-papel" id="snav-user-papel">—</span>
+      </div>
+    </button>
+  </div>
 </aside>
 
 <!-- ══ BOTTOM NAV (mobile) ══ -->
@@ -218,7 +304,7 @@
 <div class="page" id="page-setup">
   <div class="wrap" style="max-width:620px">
     <div id="setup-back-row" style="display:none;align-items:center;gap:10px;margin-bottom:12px;padding-top:8px">
-      <button onclick="go('form')" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:13px;font-weight:600;font-family:'Inter',sans-serif;display:flex;align-items:center;gap:5px">← Voltar</button>
+      <button onclick="go('form')" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:13px;font-weight:600;font-family:'Instrument Sans',sans-serif;display:flex;align-items:center;gap:5px">← Voltar</button>
       <span style="font-size:18px;font-weight:800;color:var(--c2)">🔌 Banco de Dados</span>
     </div>
     <div class="card" style="margin-top:8px">
@@ -246,7 +332,7 @@
 <div class="page" id="page-empresa">
   <div class="wrap" style="max-width:660px">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;padding-top:8px">
-      <button onclick="go('form')" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:13px;font-weight:600;font-family:'Inter',sans-serif;display:flex;align-items:center;gap:5px">← Voltar</button>
+      <button onclick="go('form')" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:13px;font-weight:600;font-family:'Instrument Sans',sans-serif;display:flex;align-items:center;gap:5px">← Voltar</button>
       <span style="font-size:18px;font-weight:800;color:var(--c2)">⚙️ Configurações da Empresa</span>
     </div>
     <div class="card">
@@ -404,7 +490,7 @@
       </div>
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
         <button class="btn-primary" onclick="salvarEmpresa()" style="padding:9px 18px">💾 Salvar</button>
-        <input type="email" id="ejs-test-email" placeholder="seu@email.com" style="flex:1;min-width:180px;border:1.5px solid var(--gray-mid);border-radius:8px;padding:9px 12px;font-size:13px;font-family:'Inter',sans-serif">
+        <input type="email" id="ejs-test-email" placeholder="seu@email.com" style="flex:1;min-width:180px;border:1.5px solid var(--gray-mid);border-radius:8px;padding:9px 12px;font-size:13px;font-family:'Instrument Sans',sans-serif">
         <button class="ba" style="background:var(--gray-light);color:var(--c2);padding:9px 14px;font-size:13px" onclick="testarEmailJS()">📨 Testar Envio</button>
         <span id="ejs-status" style="font-size:12px;color:var(--gray)"></span>
       </div>
@@ -425,7 +511,7 @@
   <div class="wrap" style="max-width:700px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding-top:8px;flex-wrap:wrap;gap:10px">
       <div>
-        <button onclick="go('empresa')" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:13px;font-weight:600;font-family:'Inter',sans-serif">← Voltar</button>
+        <button onclick="go('empresa')" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:13px;font-weight:600;font-family:'Instrument Sans',sans-serif">← Voltar</button>
         <span style="font-size:18px;font-weight:800;color:var(--c2);margin-left:8px">👥 Usuários do Sistema</span>
       </div>
       <button class="btn-primary" style="padding:8px 16px;font-size:13px" onclick="abrirFormUsuario()">＋ Novo Usuário</button>
@@ -547,7 +633,7 @@
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">
       <div style="font-size:18px;font-weight:800;color:var(--c2)">🔐 Auditoria de Acessos</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-        <select id="audit-filtro-acao" onchange="renderAuditoria()" style="padding:6px 10px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Inter',sans-serif;outline:none;background:white;cursor:pointer;color:var(--c2)">
+        <select id="audit-filtro-acao" onchange="renderAuditoria()" style="padding:6px 10px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Instrument Sans',sans-serif;outline:none;background:white;cursor:pointer;color:var(--c2)">
           <option value="">Todas as ações</option>
           <option value="login">Logins</option>
           <option value="orcamento">Orçamentos</option>
@@ -555,7 +641,7 @@
           <option value="os">OS</option>
           <option value="usuario">Usuários</option>
         </select>
-        <select id="audit-filtro-user" onchange="renderAuditoria()" style="padding:6px 10px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Inter',sans-serif;outline:none;background:white;cursor:pointer;color:var(--c2)"><option value="">Todos os usuários</option></select>
+        <select id="audit-filtro-user" onchange="renderAuditoria()" style="padding:6px 10px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Instrument Sans',sans-serif;outline:none;background:white;cursor:pointer;color:var(--c2)"><option value="">Todos os usuários</option></select>
       </div>
     </div>
     <p style="font-size:12px;color:var(--gray);margin:-6px 0 12px">Registro de quem entrou e fez ações no sistema — para segurança e responsabilidade.</p>
@@ -570,13 +656,13 @@
     <div id="draft-indicator" style="display:none;font-size:11px;color:var(--gray);text-align:right;margin-bottom:4px;padding-top:4px">💾 Rascunho salvo às <span id="draft-time"></span></div>
     <!-- Voltar ao histórico (visível só ao editar) -->
     <div id="form-back-bar" style="display:none;align-items:center;justify-content:space-between;margin-bottom:10px;padding-top:4px;flex-wrap:wrap;gap:8px">
-      <button onclick="go('history')" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:13px;font-weight:600;font-family:'Inter',sans-serif;display:flex;align-items:center;gap:5px">← Voltar ao Histórico</button>
+      <button onclick="go('history')" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:13px;font-weight:600;font-family:'Instrument Sans',sans-serif;display:flex;align-items:center;gap:5px">← Voltar ao Histórico</button>
       <div style="display:flex;align-items:center;gap:10px">
         <!-- Registrar contato direto no orçamento (13/08, crítica de design:
              "enquanto for uma tela separada que exige lembrar de visitar, a
              posição é irrelevante" — a pessoa já está aqui, é o momento em
              que ela sabe o que aconteceu com esse cliente). -->
-        <button id="form-btn-contato" onclick="abrirCrmContato(editId)" style="display:none;background:var(--c1-light);color:var(--c1);border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif">📞 Registrar contato</button>
+        <button id="form-btn-contato" onclick="abrirCrmContato(editId)" style="display:none;background:var(--c1-light);color:var(--c1);border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Instrument Sans',sans-serif">📞 Registrar contato</button>
         <span id="form-back-label" style="font-size:12px;color:var(--gray)"></span>
       </div>
     </div>
@@ -836,7 +922,7 @@
         <button class="ba" style="background:var(--red);color:white;padding:8px 14px;font-size:13px" onclick="fazerCheckout()">✔ Check-out</button>
       </div>
       <div id="checkin-form" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-        <select id="os-tec-checkin" style="padding:9px 12px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:14px;font-family:'Inter',sans-serif;outline:none;flex:1">
+        <select id="os-tec-checkin" style="padding:9px 12px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:14px;font-family:'Instrument Sans',sans-serif;outline:none;flex:1">
           <option value="">Selecione o técnico…</option>
         </select>
         <button class="ba" style="background:var(--green);color:white;padding:10px 18px;font-size:13px" onclick="fazerCheckin()">📍 Check-in</button>
@@ -901,7 +987,7 @@
             <div class="foto-label" id="os-foto-lbl-0">Tirar/selecionar</div>
             <img id="os-foto-prev-0" class="foto-preview" alt="foto 1">
           </div>
-          <button id="os-btn-rm-foto-0" style="display:none;margin-top:4px;font-size:12px;color:var(--red);background:none;border:none;cursor:pointer;font-family:'Inter',sans-serif" onclick="removerOSFoto(0)">✕ Remover</button>
+          <button id="os-btn-rm-foto-0" style="display:none;margin-top:4px;font-size:12px;color:var(--red);background:none;border:none;cursor:pointer;font-family:'Instrument Sans',sans-serif" onclick="removerOSFoto(0)">✕ Remover</button>
         </div>
         <div class="fl">
           <label>Foto 2</label>
@@ -911,7 +997,7 @@
             <div class="foto-label" id="os-foto-lbl-1">Tirar/selecionar</div>
             <img id="os-foto-prev-1" class="foto-preview" alt="foto 2">
           </div>
-          <button id="os-btn-rm-foto-1" style="display:none;margin-top:4px;font-size:12px;color:var(--red);background:none;border:none;cursor:pointer;font-family:'Inter',sans-serif" onclick="removerOSFoto(1)">✕ Remover</button>
+          <button id="os-btn-rm-foto-1" style="display:none;margin-top:4px;font-size:12px;color:var(--red);background:none;border:none;cursor:pointer;font-family:'Instrument Sans',sans-serif" onclick="removerOSFoto(1)">✕ Remover</button>
         </div>
         <div class="fl">
           <label>Foto 3</label>
@@ -921,7 +1007,7 @@
             <div class="foto-label" id="os-foto-lbl-2">Tirar/selecionar</div>
             <img id="os-foto-prev-2" class="foto-preview" alt="foto 3">
           </div>
-          <button id="os-btn-rm-foto-2" style="display:none;margin-top:4px;font-size:12px;color:var(--red);background:none;border:none;cursor:pointer;font-family:'Inter',sans-serif" onclick="removerOSFoto(2)">✕ Remover</button>
+          <button id="os-btn-rm-foto-2" style="display:none;margin-top:4px;font-size:12px;color:var(--red);background:none;border:none;cursor:pointer;font-family:'Instrument Sans',sans-serif" onclick="removerOSFoto(2)">✕ Remover</button>
         </div>
       </div>
       <div class="row f1">
@@ -1053,7 +1139,7 @@
     <div class="fin-card">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
         <div class="ct" style="margin:0"><span class="ct-title"><span class="ct-ico ct-ico-green">💰</span>Resultado Financeiro</span></div>
-        <select id="fin-periodo" onchange="renderRelatorioFinanceiro()" style="padding:7px 12px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Inter',sans-serif;outline:none;cursor:pointer">
+        <select id="fin-periodo" onchange="renderRelatorioFinanceiro()" style="padding:7px 12px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Instrument Sans',sans-serif;outline:none;cursor:pointer">
           <option value="6m">Últimos 6 meses</option>
           <option value="12m">Últimos 12 meses</option>
           <option value="ano">Este ano</option>
@@ -1077,7 +1163,7 @@
          Itapema revela problema de processo mais rápido que qualquer média. -->
     <div class="card">
       <div class="ct"><span class="ct-title"><span class="ct-ico ct-ico-blue">📊</span>DRE por unidade</span>
-        <select id="dre-mes" onchange="renderDRE()" style="margin-left:auto;padding:6px 11px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Inter',sans-serif;outline:none;cursor:pointer"></select>
+        <select id="dre-mes" onchange="renderDRE()" style="margin-left:auto;padding:6px 11px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Instrument Sans',sans-serif;outline:none;cursor:pointer"></select>
       </div>
       <div id="dre-corpo"></div>
       <div id="dre-nota" style="font-size:11.5px;color:var(--gray);margin-top:10px;line-height:1.5"></div>
@@ -1101,7 +1187,7 @@
       <div class="dash-chart-hdr">
         <div class="dash-chart-titulo" id="dash-chart-titulo">📊 Faturamento</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
-          <select id="dash-chart-periodo" onchange="renderGraficoDash()" style="padding:5px 10px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Inter',sans-serif;outline:none;cursor:pointer">
+          <select id="dash-chart-periodo" onchange="renderGraficoDash()" style="padding:5px 10px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Instrument Sans',sans-serif;outline:none;cursor:pointer">
             <option value="3">3 meses</option>
             <option value="6" selected>6 meses</option>
             <option value="12">12 meses</option>
@@ -1109,7 +1195,7 @@
             <option value="ano">Este ano</option>
             <option value="tudo">Tudo</option>
           </select>
-          <select id="dash-chart-tipo" onchange="renderGraficoDash()" style="padding:5px 10px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Inter',sans-serif;outline:none;cursor:pointer">
+          <select id="dash-chart-tipo" onchange="renderGraficoDash()" style="padding:5px 10px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Instrument Sans',sans-serif;outline:none;cursor:pointer">
             <option value="aprovado">Aprovados</option>
             <option value="emitido">Total emitido</option>
           </select>
@@ -1124,7 +1210,7 @@
     <div class="dash-chart-card" id="dash-origem-card" style="display:none">
       <div class="dash-chart-hdr">
         <div class="dash-chart-titulo">📣 Origem dos Clientes</div>
-        <select id="dash-origem-periodo" onchange="renderOrigemDash()" style="padding:5px 10px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Inter',sans-serif;outline:none;cursor:pointer">
+        <select id="dash-origem-periodo" onchange="renderOrigemDash()" style="padding:5px 10px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Instrument Sans',sans-serif;outline:none;cursor:pointer">
           <option value="mes" selected>Este mês</option>
           <option value="3">3 meses</option>
           <option value="12">12 meses</option>
@@ -1168,7 +1254,7 @@
         <button class="fb" data-s="aprovado" onclick="filt(this)">✅ Aprovado</button>
         <button class="fb" data-s="recusado" onclick="filt(this)">❌ Recusado</button>
         <button class="fb" data-s="vencido" onclick="filt(this)">🕐 Vencido</button>
-        <select id="hist-filtro-origem" onchange="filtOrigem(this.value)" title="Filtrar por origem do cliente" style="padding:6px 10px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:12px;font-family:'Inter',sans-serif;outline:none;color:var(--c2);font-weight:600">
+        <select id="hist-filtro-origem" onchange="filtOrigem(this.value)" title="Filtrar por origem do cliente" style="padding:6px 10px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:12px;font-family:'Instrument Sans',sans-serif;outline:none;color:var(--c2);font-weight:600">
           <option value="">🔎 Origem: todas</option>
         </select>
         <label class="sr-only" for="hist-busca-input">Buscar orçamentos por cliente ou número</label>
@@ -1297,7 +1383,7 @@
           <div class="foto-label" id="eq-foto-lbl">Tirar foto ou selecionar imagem</div>
           <img id="eq-foto-prev" class="foto-preview" alt="foto">
         </div>
-        <button id="eq-btn-rm-foto" style="display:none;margin-top:6px;font-size:12px;color:var(--red);background:none;border:none;cursor:pointer;font-family:'Inter',sans-serif" onclick="removerFotoEq()">✕ Remover foto</button>
+        <button id="eq-btn-rm-foto" style="display:none;margin-top:6px;font-size:12px;color:var(--red);background:none;border:none;cursor:pointer;font-family:'Instrument Sans',sans-serif" onclick="removerFotoEq()">✕ Remover foto</button>
       </div>
       <button class="btn-primary" onclick="salvarEquipamento()">💾 Salvar Equipamento</button>
     </div>
@@ -1310,8 +1396,8 @@
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <label class="sr-only" for="eq-busca-input">Buscar equipamentos</label>
-        <input type="text" id="eq-busca-input" placeholder="🔍 Buscar…" oninput="buscarEq(this.value)" style="padding:7px 13px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:13px;font-family:'Inter',sans-serif;outline:none;width:160px">
-        <select onchange="filtrarTipoEq(this.value)" style="padding:7px 12px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Inter',sans-serif;outline:none">
+        <input type="text" id="eq-busca-input" placeholder="🔍 Buscar…" oninput="buscarEq(this.value)" style="padding:7px 13px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:13px;font-family:'Instrument Sans',sans-serif;outline:none;width:160px">
+        <select onchange="filtrarTipoEq(this.value)" style="padding:7px 12px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Instrument Sans',sans-serif;outline:none">
           <option value="">Todos os tipos</option>
           <option>Motobomba</option><option>Filtro</option><option>Trocador de Calor</option>
           <option>Gerador de Cloro</option><option>LED Subaquático</option>
@@ -1743,7 +1829,7 @@
         <button class="fb" data-oss="cancelado" onclick="filtOS(this)">❌ Cancelado</button>
         <label class="sr-only" for="os-busca-input">Buscar ordens de serviço por cliente ou número</label>
         <input class="hsrch" type="text" id="os-busca-input" placeholder="🔍 Buscar cliente ou #…" oninput="buscarOS(this.value)">
-        <select id="os-filt-tec" onchange="filtTecOS(this.value)" style="padding:6px 10px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Inter',sans-serif;outline:none;background:white;cursor:pointer;color:var(--c2)">
+        <select id="os-filt-tec" onchange="filtTecOS(this.value)" style="padding:6px 10px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Instrument Sans',sans-serif;outline:none;background:white;cursor:pointer;color:var(--c2)">
           <option value="">👤 Todos técnicos</option>
         </select>
       </div>
@@ -1780,7 +1866,7 @@
         <div class="row" style="margin-bottom:12px">
           <div class="fl"><label>E-mail do Responsável / Síndico <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--gray)">(para relatórios automáticos)</span></label><input type="email" id="cli-new-email" placeholder="sindico@condominio.com.br"></div>
           <div class="fl"><label>Tipo de Local</label>
-            <select id="cli-new-tipo" style="width:100%;padding:9px 12px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:14px;font-family:'Inter',sans-serif;outline:none">
+            <select id="cli-new-tipo" style="width:100%;padding:9px 12px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:14px;font-family:'Instrument Sans',sans-serif;outline:none">
               <option value="">Residência</option>
               <option value="condominio">Condomínio</option>
               <option value="hotel">Hotel / Pousada</option>
@@ -1791,7 +1877,7 @@
         </div>
         <div style="display:flex;gap:10px">
           <button class="btn-primary" style="flex:1" onclick="salvarNovoCliente()">💾 Salvar Cliente</button>
-          <button onclick="document.getElementById('cli-form-wrap').style.display='none'" style="flex:1;padding:12px;border:2px solid var(--gray-mid);border-radius:10px;background:var(--white);font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif">Cancelar</button>
+          <button onclick="document.getElementById('cli-form-wrap').style.display='none'" style="flex:1;padding:12px;border:2px solid var(--gray-mid);border-radius:10px;background:var(--white);font-size:14px;font-weight:700;cursor:pointer;font-family:'Instrument Sans',sans-serif">Cancelar</button>
         </div>
       </div>
     </div>
@@ -1815,10 +1901,10 @@
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
       <div style="font-size:18px;font-weight:800;color:var(--c2)">📈 Produtividade</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-        <select id="prod-filtro-tec" onchange="renderProd()" style="padding:7px 12px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Inter',sans-serif;outline:none">
+        <select id="prod-filtro-tec" onchange="renderProd()" style="padding:7px 12px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Instrument Sans',sans-serif;outline:none">
           <option value="">Todos os técnicos</option>
         </select>
-        <select id="prod-periodo" onchange="renderProd()" style="padding:7px 12px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Inter',sans-serif;outline:none">
+        <select id="prod-periodo" onchange="renderProd()" style="padding:7px 12px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Instrument Sans',sans-serif;outline:none">
           <option value="mes">Este mês</option>
           <option value="mes-ant">Mês anterior</option>
           <option value="30d">Últimos 30 dias</option>
@@ -1834,12 +1920,12 @@
       <label style="font-size:12px;color:var(--gray);display:flex;align-items:center;gap:6px">
         Comissão (%)
         <input id="prod-comissao-pct" type="number" min="0" max="100" step="0.5" onchange="setComissaoPct(this.value)"
-          style="width:70px;padding:6px 8px;border:1.5px solid var(--gray-mid);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;outline:none">
+          style="width:70px;padding:6px 8px;border:1.5px solid var(--gray-mid);border-radius:8px;font-family:'Instrument Sans',sans-serif;font-size:13px;outline:none">
       </label>
       <label style="font-size:12px;color:var(--gray);display:flex;align-items:center;gap:6px">
         Meta mensal (R$)
         <input id="prod-meta-tec" type="number" min="0" step="100" onchange="setMetaTec(this.value)"
-          style="width:100px;padding:6px 8px;border:1.5px solid var(--gray-mid);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;outline:none">
+          style="width:100px;padding:6px 8px;border:1.5px solid var(--gray-mid);border-radius:8px;font-family:'Instrument Sans',sans-serif;font-size:13px;outline:none">
       </label>
       <div style="font-size:11px;color:var(--gray)">Comissão = faturamento das OS concluídas × %. Meta aplicada por técnico.</div>
     </div>
@@ -1957,7 +2043,7 @@
           <div class="foto-label" id="desp-foto-lbl">Fotografar comprovante</div>
           <img id="desp-foto-prev" class="foto-preview" alt="comprovante">
         </div>
-        <button id="desp-btn-rm-foto" style="display:none;margin-top:6px;font-size:12px;color:var(--red);background:none;border:none;cursor:pointer;font-family:'Inter',sans-serif" onclick="removerFotoDesp()">✕ Remover</button>
+        <button id="desp-btn-rm-foto" style="display:none;margin-top:6px;font-size:12px;color:var(--red);background:none;border:none;cursor:pointer;font-family:'Instrument Sans',sans-serif" onclick="removerFotoDesp()">✕ Remover</button>
       </div>
       <button class="btn-primary" onclick="salvarDespesa()">💾 Registrar Despesa</button>
     </div>
@@ -1967,10 +2053,10 @@
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
       <div style="font-size:18px;font-weight:800;color:var(--c2)">💸 Despesas</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <select id="desp-filtro-tec" onchange="renderDespesas()" style="padding:7px 12px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Inter',sans-serif;outline:none">
+        <select id="desp-filtro-tec" onchange="renderDespesas()" style="padding:7px 12px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Instrument Sans',sans-serif;outline:none">
           <option value="">Todos os técnicos</option>
         </select>
-        <select id="desp-filtro-st" onchange="renderDespesas()" style="padding:7px 12px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Inter',sans-serif;outline:none">
+        <select id="desp-filtro-st" onchange="renderDespesas()" style="padding:7px 12px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Instrument Sans',sans-serif;outline:none">
           <option value="">Todos os status</option>
           <option value="pendente">⏳ Pendente</option>
           <option value="reembolsado">✅ Reembolsado</option>
@@ -2019,7 +2105,7 @@
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
         <div id="estoque-tabs" style="display:flex;gap:6px;flex-wrap:wrap"></div>
         <div style="flex:1;min-width:120px"></div>
-        <select id="estoque-categ-filtro" onchange="filtCategoria(this.value)" style="padding:6px 10px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Inter',sans-serif;outline:none;background:white;cursor:pointer;color:var(--c2)">
+        <select id="estoque-categ-filtro" onchange="filtCategoria(this.value)" style="padding:6px 10px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Instrument Sans',sans-serif;outline:none;background:white;cursor:pointer;color:var(--c2)">
           <option value="">Todas as categorias</option>
           <option value="Tratamento de Água">💧 Tratamento de Água</option>
           <option value="Produto Químico">🧪 Produto Químico</option>
@@ -2033,7 +2119,7 @@
           <option value="Equipamento">🏭 Equipamento</option>
           <option value="Outro">✏️ Outro</option>
         </select>
-        <select id="estoque-sort" onchange="renderEstoque()" style="padding:6px 10px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Inter',sans-serif;outline:none;background:white;cursor:pointer;color:var(--c2)">
+        <select id="estoque-sort" onchange="renderEstoque()" style="padding:6px 10px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Instrument Sans',sans-serif;outline:none;background:white;cursor:pointer;color:var(--c2)">
           <option value="nome">A-Z</option>
           <option value="valor">Maior valor parado</option>
           <option value="disp">Menor disponível</option>
@@ -2078,7 +2164,7 @@
     <div id="prod-loja-wrap"></div>
     <div class="row">
       <div class="fl"><label>Categoria</label>
-        <select id="prod-categoria" onchange="toggleCategOutro()" style="padding:9px 12px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:14px;font-family:'Inter',sans-serif;outline:none;width:100%">
+        <select id="prod-categoria" onchange="toggleCategOutro()" style="padding:9px 12px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:14px;font-family:'Instrument Sans',sans-serif;outline:none;width:100%">
           <option value="">— sem categoria —</option>
           <option value="Tratamento de Água">💧 Tratamento de Água</option>
           <option value="Produto Químico">🧪 Produto Químico</option>
@@ -2129,10 +2215,10 @@
       <div class="row f1" style="margin-top:8px"><div class="fl"><label>Código de barras (EAN / GTIN)</label><input type="text" id="prod-gtin" placeholder="SEM GTIN"></div></div>
     </details>
     <div style="display:flex;gap:8px;margin-top:4px">
-      <button onclick="fecharProdutoModal()" style="flex:1;padding:11px;border:1.5px solid var(--gray-mid);border-radius:10px;background:none;color:var(--gray);font-size:13px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif">Cancelar</button>
+      <button onclick="fecharProdutoModal()" style="flex:1;padding:11px;border:1.5px solid var(--gray-mid);border-radius:10px;background:none;color:var(--gray);font-size:13px;font-weight:600;cursor:pointer;font-family:'Instrument Sans',sans-serif">Cancelar</button>
       <button class="btn-primary" onclick="salvarProduto()" style="flex:2">💾 Salvar produto</button>
     </div>
-    <button id="prod-desativar-btn" onclick="desativarProduto(_prodEditId)" style="display:none;width:100%;margin-top:8px;background:none;border:none;color:var(--red);font-size:12px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;padding:6px">🚫 Desativar produto</button>
+    <button id="prod-desativar-btn" onclick="desativarProduto(_prodEditId)" style="display:none;width:100%;margin-top:8px;background:none;border:none;color:var(--red);font-size:12px;font-weight:600;cursor:pointer;font-family:'Instrument Sans',sans-serif;padding:6px">🚫 Desativar produto</button>
   </div>
 </div>
 
@@ -2390,7 +2476,7 @@
     <div style="margin:10px 0 6px;font-size:12px;font-weight:700;color:var(--c1)">ITENS DA ORDEM</div>
     <div id="oc-itens-body"></div>
     <div style="display:flex;gap:8px;margin-top:6px;align-items:center">
-      <select id="oc-add-prod" style="flex:1;padding:7px 10px;border:1.5px dashed var(--gray-mid);border-radius:8px;font-size:12px;font-family:'Inter',sans-serif;outline:none;color:var(--c2)"><option value="">＋ Adicionar produto…</option></select>
+      <select id="oc-add-prod" style="flex:1;padding:7px 10px;border:1.5px dashed var(--gray-mid);border-radius:8px;font-size:12px;font-family:'Instrument Sans',sans-serif;outline:none;color:var(--c2)"><option value="">＋ Adicionar produto…</option></select>
     </div>
     <div id="oc-total-row" style="text-align:right;font-size:14px;font-weight:700;color:var(--c2);padding-top:10px;border-top:1.5px solid var(--gray-light);margin-top:8px"></div>
     <div style="display:flex;gap:8px;margin-top:10px">
@@ -2424,7 +2510,7 @@
     <!-- Header + tabs -->
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
       <div style="display:flex;align-items:center;gap:10px">
-        <button id="vis-back-os" onclick="go('minhas-os')" style="display:none;background:var(--c1-light);color:var(--c1);border:1.5px solid var(--c1);border-radius:50px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif">← 📋 Minhas OS</button>
+        <button id="vis-back-os" onclick="go('minhas-os')" style="display:none;background:var(--c1-light);color:var(--c1);border:1.5px solid var(--c1);border-radius:50px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Instrument Sans',sans-serif">← 📋 Minhas OS</button>
         <div style="font-size:18px;font-weight:800;color:var(--c2)">🔍 Vistorias de Manutenção</div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -2439,7 +2525,7 @@
 
       <!-- Banner: contexto do plano (aparece quando aberto via "Fazer Vistoria") -->
       <div id="vis-plano-banner" style="display:none;align-items:center;gap:10px;padding:10px 14px;background:var(--c2);border-radius:12px;margin-bottom:12px;color:white">
-        <button onclick="visTab('locais')" style="background:rgba(255,255,255,.15);border:none;cursor:pointer;color:white;font-size:12px;font-weight:700;padding:5px 10px;border-radius:50px;font-family:'Inter',sans-serif;flex-shrink:0">← Planos</button>
+        <button onclick="visTab('locais')" style="background:rgba(255,255,255,.15);border:none;cursor:pointer;color:white;font-size:12px;font-weight:700;padding:5px 10px;border-radius:50px;font-family:'Instrument Sans',sans-serif;flex-shrink:0">← Planos</button>
         <div style="flex:1;min-width:0">
           <div style="font-size:13px;font-weight:700" id="vis-plano-nome"></div>
           <div style="font-size:11px;opacity:.75" id="vis-plano-sub"></div>
@@ -2525,8 +2611,8 @@
         <div style="margin-top:12px;padding-top:12px;border-top:1px dashed var(--gray-mid)">
           <div style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">➕ Adicionar mais de um</div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-            <select id="vis-add-tipo" style="flex:1;min-width:140px;padding:8px 10px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;outline:none;color:var(--c2)"></select>
-            <input type="text" id="vis-add-nome" placeholder="Rótulo (opcional): ex. Casa de bombas" style="flex:1;min-width:140px;padding:8px 10px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;outline:none">
+            <select id="vis-add-tipo" style="flex:1;min-width:140px;padding:8px 10px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:13px;font-family:'Instrument Sans',sans-serif;outline:none;color:var(--c2)"></select>
+            <input type="text" id="vis-add-nome" placeholder="Rótulo (opcional): ex. Casa de bombas" style="flex:1;min-width:140px;padding:8px 10px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:13px;font-family:'Instrument Sans',sans-serif;outline:none">
             <button type="button" class="btn-primary" style="padding:8px 16px;font-size:13px;white-space:nowrap" onclick="visAddEquipManual()">＋ Adicionar</button>
           </div>
           <div style="font-size:11px;color:var(--gray);margin-top:5px">Clique várias vezes para adicionar vários (Motobomba 1, Motobomba 2…). Cada um tem status, observação e fotos próprios.</div>
@@ -2581,11 +2667,11 @@
         <label class="sr-only" for="vis-hist-busca">Buscar vistorias por cliente ou local</label>
         <input type="text" id="vis-hist-busca" placeholder="Buscar cliente ou local…"
           oninput="renderVisHistorico()"
-          style="flex:1;min-width:160px;padding:9px 12px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;outline:none;color:var(--c2)">
+          style="flex:1;min-width:160px;padding:9px 12px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:13px;font-family:'Instrument Sans',sans-serif;outline:none;color:var(--c2)">
         <input type="month" id="vis-hist-mes" onchange="renderVisHistorico()"
-          style="padding:9px 12px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;outline:none;color:var(--c2)">
+          style="padding:9px 12px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:13px;font-family:'Instrument Sans',sans-serif;outline:none;color:var(--c2)">
         <select id="vis-hist-tec" onchange="renderVisHistorico()"
-          style="padding:9px 12px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;outline:none;color:var(--c2)">
+          style="padding:9px 12px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:13px;font-family:'Instrument Sans',sans-serif;outline:none;color:var(--c2)">
           <option value="">Todos os técnicos</option>
         </select>
       </div>
@@ -2639,8 +2725,8 @@
         <div class="ct">➕ Novo Plano de Acompanhamento</div>
         <div class="row"><div class="fl"><label class="req">Cliente / Nome do local</label><input type="text" id="loc-cli" placeholder="Ex: Condomínio Sol Nascente" autocomplete="off"></div><div class="fl"><label class="req">Endereço</label><input type="text" id="loc-end" placeholder="Rua, número, bairro"></div></div>
         <div class="row"><div class="fl"><label>E-mail responsável</label><input type="email" id="loc-email" placeholder="sindico@condominio.com.br"></div><div class="fl"><label>Técnico responsável</label><select id="loc-tec"><option value="">Qualquer técnico</option></select></div></div>
-        <div class="fl" id="loc-loja-row" style="display:none;margin-bottom:12px"><label>Unidade</label><select id="loc-loja" style="width:100%;padding:9px 12px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:13px;font-family:'Inter',sans-serif"></select></div>
-        <div class="row"><div class="fl"><label title="Escolha um dia para a visita aparecer no calendário nesse dia. Sem dia, ela fica só em Meus Locais como pendente.">Dia da visita (aparece no calendário)</label><select id="loc-dia-pref" style="width:100%;padding:9px 12px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;outline:none"><option value="">Sem dia fixo (só em Meus Locais)</option></select></div><div class="fl"><label>Horário preferencial</label><input type="time" id="loc-hora-pref" value="08:00"></div></div>
+        <div class="fl" id="loc-loja-row" style="display:none;margin-bottom:12px"><label>Unidade</label><select id="loc-loja" style="width:100%;padding:9px 12px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:13px;font-family:'Instrument Sans',sans-serif"></select></div>
+        <div class="row"><div class="fl"><label title="Escolha um dia para a visita aparecer no calendário nesse dia. Sem dia, ela fica só em Meus Locais como pendente.">Dia da visita (aparece no calendário)</label><select id="loc-dia-pref" style="width:100%;padding:9px 12px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:13px;font-family:'Instrument Sans',sans-serif;outline:none"><option value="">Sem dia fixo (só em Meus Locais)</option></select></div><div class="fl"><label>Horário preferencial</label><input type="time" id="loc-hora-pref" value="08:00"></div></div>
         <div class="fl" style="margin-bottom:4px">
           <label style="display:flex;align-items:center;justify-content:space-between">
             <span>🔧 Equipamentos do local <span style="font-weight:400;color:var(--gray)">(modelo, potência…)</span></span>
@@ -2659,7 +2745,7 @@
       <div style="margin-bottom:12px">
         <input type="text" id="loc-busca" placeholder="🔍 Filtrar por nome do local ou cliente…"
           oninput="renderLocaisTab()"
-          style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;outline:none;color:var(--c2)">
+          style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:13px;font-family:'Instrument Sans',sans-serif;outline:none;color:var(--c2)">
       </div>
 
       <!-- ── LISTA UNIFICADA: cada cliente com status do mês ── -->
@@ -2722,7 +2808,7 @@
         <button onclick="navCal(-1)">‹</button>
         <span id="cal-titulo"></span>
         <button onclick="navCal(1)">›</button>
-        <select id="cal-filtro-tec" onchange="renderCal()" style="margin-left:auto;padding:6px 10px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:12px;font-family:'Inter',sans-serif;outline:none">
+        <select id="cal-filtro-tec" onchange="renderCal()" style="margin-left:auto;padding:6px 10px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:12px;font-family:'Instrument Sans',sans-serif;outline:none">
           <option value="">Todos os técnicos</option>
         </select>
         <button class="tb" id="btn-reorganizar-cal" onclick="reorganizarCalendarioPlanos(this)" title="Reorganiza as visitas dos planos conforme o dia escolhido em cada um (limpa visitas antigas empilhadas)" style="font-size:11px">🔧 Reorganizar</button>
@@ -2895,11 +2981,11 @@
     <input type="hidden" id="aprov-os-orc-id">
     <div style="background:#f8fafc;border-radius:12px;padding:14px;margin-bottom:16px;display:flex;flex-direction:column;gap:10px">
       <div class="row">
-        <div class="fl"><label>Data do serviço</label><input type="date" id="aprov-os-data" style="padding:9px 12px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:14px;font-family:'Inter',sans-serif;outline:none;width:100%;box-sizing:border-box"></div>
-        <div class="fl"><label>Hora</label><input type="time" id="aprov-os-hora" value="08:00" style="padding:9px 12px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:14px;font-family:'Inter',sans-serif;outline:none;width:100%;box-sizing:border-box"></div>
+        <div class="fl"><label>Data do serviço</label><input type="date" id="aprov-os-data" style="padding:9px 12px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:14px;font-family:'Instrument Sans',sans-serif;outline:none;width:100%;box-sizing:border-box"></div>
+        <div class="fl"><label>Hora</label><input type="time" id="aprov-os-hora" value="08:00" style="padding:9px 12px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:14px;font-family:'Instrument Sans',sans-serif;outline:none;width:100%;box-sizing:border-box"></div>
       </div>
       <div class="fl"><label>Técnico responsável</label>
-        <select id="aprov-os-tec" style="padding:9px 12px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:14px;font-family:'Inter',sans-serif;outline:none;width:100%;box-sizing:border-box;background:white">
+        <select id="aprov-os-tec" style="padding:9px 12px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:14px;font-family:'Instrument Sans',sans-serif;outline:none;width:100%;box-sizing:border-box;background:white">
           <option value="">Selecione…</option>
         </select>
       </div>
@@ -3021,12 +3107,12 @@ window.onerror = function(msg, src, line, col, err){
 };
 </script>
 <!-- Tela de erro amigável (oculta por padrão) -->
-<div id="fluxa-error-screen" style="display:none;position:fixed;inset:0;z-index:99999;background:#f0f2f5;flex-direction:column;align-items:center;justify-content:center;font-family:'Inter',sans-serif;padding:24px;text-align:center">
+<div id="fluxa-error-screen" style="display:none;position:fixed;inset:0;z-index:99999;background:#f0f2f5;flex-direction:column;align-items:center;justify-content:center;font-family:'Instrument Sans',sans-serif;padding:24px;text-align:center">
   <div style="font-size:48px;margin-bottom:16px">⚠️</div>
   <div style="font-size:20px;font-weight:800;color:#2B3244;margin-bottom:8px">Algo deu errado</div>
   <div style="font-size:14px;color:#6b7280;margin-bottom:6px">O app encontrou um erro inesperado.</div>
   <div id="fluxa-error-detail" style="font-size:11px;color:#9ca3af;background:#e5e7eb;border-radius:8px;padding:8px 14px;margin-bottom:24px;max-width:480px;word-break:break-word"></div>
-  <button onclick="window.location.reload()" style="background:#C45E0A;color:white;border:none;border-radius:10px;padding:12px 28px;font-size:15px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif">🔄 Recarregar o app</button>
+  <button onclick="window.location.reload()" style="background:#C45E0A;color:white;border:none;border-radius:10px;padding:12px 28px;font-size:15px;font-weight:700;cursor:pointer;font-family:'Instrument Sans',sans-serif">🔄 Recarregar o app</button>
   <div style="margin-top:12px;font-size:12px;color:#9ca3af">Seus dados estão salvos — nada foi perdido.</div>
 </div>
 
