@@ -648,8 +648,6 @@
 <!-- ══ PAGE: FORM ══ -->
 <div class="page" id="page-form">
   <div class="wrap">
-    <!-- Indicador de rascunho salvo -->
-    <div id="draft-indicator" style="display:none;font-size:11px;color:var(--gray);text-align:right;margin-bottom:4px;padding-top:4px">💾 Rascunho salvo às <span id="draft-time"></span></div>
     <!-- Voltar ao histórico (visível só ao editar) -->
     <div id="form-back-bar" style="display:none;align-items:center;justify-content:space-between;margin-bottom:10px;padding-top:4px;flex-wrap:wrap;gap:8px">
       <button onclick="go('history')" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:13px;font-weight:600;font-family:'Instrument Sans',sans-serif;display:flex;align-items:center;gap:5px">← Voltar aos Orçamentos</button>
@@ -659,7 +657,6 @@
              posição é irrelevante" — a pessoa já está aqui, é o momento em
              que ela sabe o que aconteceu com esse cliente). -->
         <button id="form-btn-contato" onclick="abrirCrmContato(editId)" style="display:none;background:var(--c1-light);color:var(--c1);border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Instrument Sans',sans-serif">📞 Registrar contato</button>
-        <span id="form-back-label" style="font-size:12px;color:var(--gray)"></span>
       </div>
     </div>
     <!-- Barra de ações do orçamento aberto (Fase 5, 13/08) — a lista de
@@ -669,6 +666,25 @@
          _renderFormAcoesEdit(o) em abrirOrc(). Vazio/oculto em "Novo
          orçamento" (sem editId). -->
     <div id="form-acoes-edit" class="rd-card rd-card-dense" style="display:none;margin-bottom:14px;flex-wrap:wrap;gap:10px;align-items:center"></div>
+
+    <!-- Barra superior (Fase 6, 13/08) — título do orçamento + indicador de
+         rascunho automático (draft-indicator já existia, só mudou de lugar)
+         à esquerda; "Salvar rascunho" (= salvarApenas, sem gerar PDF) e
+         "Gerar PDF e enviar" (= gerarPDF, salva E gera o documento) à
+         direita — os dois botões que ficavam soltos no rodapé da tela. -->
+    <div class="novo-orc-topbar">
+      <div>
+        <div class="novo-orc-titulo" id="novo-orc-titulo">Novo orçamento</div>
+        <div class="novo-orc-sub" id="draft-indicator" style="display:none">💾 Rascunho salvo às <span id="draft-time"></span></div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
+        <button type="button" class="rd-btn rd-btn-secondary" id="btn-salvar" onclick="salvarApenas()">Salvar rascunho</button>
+        <button type="button" class="rd-btn rd-btn-primary" id="btn-pdf" onclick="gerarPDF()">Gerar PDF e enviar</button>
+      </div>
+    </div>
+
+    <div class="novo-orc-body">
+    <div class="novo-orc-left">
     <!-- CLIENTE -->
     <div class="card">
       <div class="ct">Dados do Cliente</div>
@@ -809,12 +825,6 @@
       </div>
     </div>
 
-    <!-- PRÉVIA -->
-    <div class="card">
-      <div class="ct">Prévia — WhatsApp</div>
-      <div class="preview-wa" id="prev-wa"></div>
-    </div>
-
     <!-- ORC+OS TOGGLE -->
     <div class="card" id="card-os-toggle">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
@@ -835,28 +845,60 @@
         </div>
       </div>
     </div>
+    </div><!-- /novo-orc-left -->
 
-    <!-- AÇÕES -->
-    <div class="acts" style="grid-template-columns:1fr 1fr;margin-bottom:8px">
-      <button class="ba ba-save-only" id="btn-salvar" onclick="salvarApenas()" style="grid-column:1/-1">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-        Salvar Orçamento
-      </button>
-    </div>
-    <div class="acts" style="grid-template-columns:1fr 1fr 1fr">
-      <button class="ba ba-copy" onclick="copiarWA()">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.123.553 4.116 1.524 5.847L.057 23.547a.5.5 0 00.609.61l5.76-1.457A11.952 11.952 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.785 9.785 0 01-5.022-1.383l-.36-.214-3.733.945.976-3.638-.235-.374A9.784 9.784 0 012.182 12C2.182 6.57 6.57 2.182 12 2.182S21.818 6.57 21.818 12 17.43 21.818 12 21.818z"/></svg>
-        Copiar WA
-      </button>
-      <button class="ba ba-send" onclick="enviarWA()">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.123.553 4.116 1.524 5.847L.057 23.547a.5.5 0 00.609.61l5.76-1.457A11.952 11.952 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.785 9.785 0 01-5.022-1.383l-.36-.214-3.733.945.976-3.638-.235-.374A9.784 9.784 0 012.182 12C2.182 6.57 6.57 2.182 12 2.182S21.818 6.57 21.818 12 17.43 21.818 12 21.818z"/></svg>
-        Enviar WA
-      </button>
-      <button class="ba ba-pdf" id="btn-pdf" onclick="gerarPDF()">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h9l5 5v15a2 2 0 01-2 2H6a2 2 0 01-2-2V4a2 2 0 012-2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-        Gerar PDF
-      </button>
-    </div>
+    <!-- Prévia do PDF (Fase 6, 13/08) — folha em miniatura que atualiza a
+         cada tecla (chamada por renderPrevSheet(), dentro de upd()). O
+         alternador troca pra prévia do WhatsApp, que reaproveita o motor
+         de texto que já existia (txtWA()/gerarPrev()) — só mudou de
+         endereço, saiu do fim da coluna esquerda pra cá. -->
+    <div class="novo-orc-right">
+      <div class="novo-orc-prev-hdr">
+        <span class="novo-orc-prev-lbl">Prévia do PDF</span>
+        <div class="ins-period">
+          <button type="button" class="on" id="prev-toggle-pdf" onclick="_prevSetModo('pdf')">PDF</button>
+          <button type="button" id="prev-toggle-wa" onclick="_prevSetModo('wa')">WhatsApp</button>
+        </div>
+      </div>
+      <div class="novo-orc-sheet" id="prev-sheet">
+        <div class="prev-top">
+          <div>
+            <div class="prev-empresa" id="prev-empresa">—</div>
+            <div class="prev-contato" id="prev-contato"></div>
+          </div>
+          <div class="prev-doc">
+            <div class="prev-doc-lbl">Orçamento</div>
+            <div class="prev-doc-num" id="prev-num">#—</div>
+          </div>
+        </div>
+        <div class="prev-cli">
+          <div class="prev-lbl-xs">Cliente</div>
+          <div class="prev-cli-nome" id="prev-cli-nome">—</div>
+          <div class="prev-cli-info" id="prev-cli-info"></div>
+        </div>
+        <div class="prev-tabela">
+          <div class="prev-thead"><span>Descrição</span><span>Qtd</span><span>Valor</span></div>
+          <div id="prev-itens"></div>
+        </div>
+        <div class="prev-total"><span>Total</span><span id="prev-total">R$ 0,00</span></div>
+        <div class="prev-cond">
+          <div><div class="prev-lbl-xs">Pagamento</div><div id="prev-pagamento">—</div></div>
+          <div><div class="prev-lbl-xs">Validade</div><div id="prev-validade">—</div></div>
+        </div>
+        <div class="prev-assin">
+          <div><div class="prev-assin-linha"></div><div class="prev-assin-leg">Assinatura do cliente</div></div>
+          <div><div class="prev-assin-linha"></div><div class="prev-assin-leg" id="prev-assinatura-resp">—</div></div>
+        </div>
+      </div>
+      <div class="novo-orc-sheet" id="prev-wa-wrap" style="display:none">
+        <div class="preview-wa" id="prev-wa"></div>
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <button type="button" class="rd-btn rd-btn-secondary" style="flex:1" onclick="copiarWA()">Copiar</button>
+          <button type="button" class="rd-btn rd-btn-primary" style="flex:1" onclick="enviarWA()">Enviar WhatsApp</button>
+        </div>
+      </div>
+    </div><!-- /novo-orc-right -->
+    </div><!-- /novo-orc-body -->
   </div>
 </div>
 

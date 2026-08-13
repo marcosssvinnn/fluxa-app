@@ -339,6 +339,49 @@
     .rd-q-tx .rd-q-nome{font-size:13px}
     .rd-q-sub{font-size:12px;color:var(--tx2)}
 
+    /* ══════════════════════════════════════════════════════════════════
+       REDESIGN — NOVO ORÇAMENTO (Fase 6, 13/08). Formulário + prévia do
+       PDF lado a lado. O formulário em si (cliente/serviços/observações)
+       continua nos componentes antigos (.card/.row/.fl) — são muitos
+       campos e a interação de vincular item ao estoque é real demais pra
+       reescrever sem risco; só o container geral e a prévia são novos.
+       ══════════════════════════════════════════════════════════════════ */
+    .novo-orc-topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:14px}
+    .novo-orc-titulo{font-size:16px;font-weight:600;color:var(--c2);letter-spacing:-.01em}
+    .novo-orc-sub{font-size:11px;color:var(--tx3);margin-top:2px}
+
+    .novo-orc-body{display:grid;grid-template-columns:1fr 420px;gap:20px;align-items:start}
+    @media(max-width:1280px){ .novo-orc-body{grid-template-columns:1fr} }
+    .novo-orc-left{display:flex;flex-direction:column;gap:14px;min-width:0}
+    .novo-orc-left .card{margin-bottom:0}
+
+    .novo-orc-right{background:var(--surface2);border:1px solid var(--line);border-radius:var(--r);padding:18px;display:flex;flex-direction:column;gap:12px;min-width:0;position:sticky;top:70px}
+    @media(max-width:1280px){ .novo-orc-right{position:static} }
+    .novo-orc-prev-hdr{display:flex;align-items:center;justify-content:space-between}
+    .novo-orc-prev-lbl{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--tx2)}
+    .novo-orc-sheet{flex:1;background:#fff;border:1px solid var(--frame-line);border-radius:6px;padding:22px;display:flex;flex-direction:column;gap:14px;box-shadow:var(--sh-pdf)}
+
+    .prev-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;border-bottom:2px solid var(--c2);padding-bottom:10px}
+    .prev-empresa{font-size:14px;font-weight:700;color:var(--c2);letter-spacing:-.01em}
+    .prev-contato{font-size:9px;color:var(--tx2);margin-top:2px}
+    .prev-doc{text-align:right;flex-shrink:0}
+    .prev-doc-lbl{font-size:9px;font-weight:600;letter-spacing:.10em;text-transform:uppercase;color:var(--tx3)}
+    .prev-doc-num{font-size:14px;font-weight:700;color:var(--c1);font-variant-numeric:tabular-nums}
+    .prev-lbl-xs{font-size:9px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--tx3)}
+    .prev-cli-nome{font-size:12px;font-weight:600;color:var(--c2);margin-top:2px}
+    .prev-cli-info{font-size:10px;color:var(--tx2)}
+    .prev-thead{display:grid;grid-template-columns:1fr 40px 64px;gap:8px;font-size:9px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--tx2);border-bottom:1px solid var(--c2);padding-bottom:5px}
+    .prev-item-row{display:grid;grid-template-columns:1fr 40px 64px;gap:8px;font-size:10px;color:var(--c2);padding:7px 0;border-bottom:1px solid var(--line2);font-variant-numeric:tabular-nums}
+    .prev-item-row span:nth-child(2),.prev-item-row span:nth-child(3){text-align:right}
+    .prev-total{background:var(--bg-app);border-radius:4px;padding:9px 12px;display:flex;align-items:center;justify-content:space-between}
+    .prev-total span:first-child{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--tx2)}
+    .prev-total span:last-child{font-size:17px;font-weight:700;letter-spacing:-.02em;color:var(--c2);font-variant-numeric:tabular-nums}
+    .prev-cond{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .prev-cond div>div:last-child{font-size:10px;color:var(--c2);margin-top:2px}
+    .prev-assin{margin-top:auto;display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    .prev-assin-linha{border-top:1px solid #B9C4D3;padding-top:5px}
+    .prev-assin-leg{font-size:9px;color:var(--tx3)}
+
     /* ── FORM ── */
     .row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
     .row.f1{grid-template-columns:1fr}

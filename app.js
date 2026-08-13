@@ -410,7 +410,12 @@ function populaLojaSelect(){
 // partir das lojas configuradas — antes eram options chumbadas no HTML.
 function popularSelectsLojaForm(){
   const opts=LOJAS.map(l=>`<option value="${l.id}">${esc(l.nome)}</option>`).join('');
-  const orc=document.getElementById('orc-loja'); if(orc){ const v=orc.value; orc.innerHTML=opts; orc.value=v||LOJA_PADRAO_ID; }
+  // A prévia do PDF (Fase 6) resolve a empresa pelo valor deste select — se
+  // ele populou DEPOIS do primeiro upd() (comum no boot, antes do LOJAS
+  // carregar), a prévia ficava presa mostrando o nome genérico do CFG
+  // global até a próxima tecla. Reforça aqui, na hora que o valor certo
+  // finalmente existe.
+  const orc=document.getElementById('orc-loja'); if(orc){ const v=orc.value; orc.innerHTML=opts; orc.value=v||LOJA_PADRAO_ID; if(typeof renderPrevSheet==='function') renderPrevSheet(); }
   const os=document.getElementById('os-loja');  if(os){ const v=os.value;  os.innerHTML=opts;  os.value=v||LOJA_PADRAO_ID; }
   const usr=document.getElementById('usr-loja-id'); if(usr){ const v=usr.value; usr.innerHTML='<option value="">— Selecione —</option>'+opts; usr.value=v; }
 }
@@ -1612,6 +1617,7 @@ function go(p){
     if(!editId && lojaAtiva) setV('orc-loja', lojaAtiva);
     // Garante base de clientes atualizada para o autocomplete
     carregarClientesRemoto();
+    if(typeof renderPrevSheet==='function') renderPrevSheet();
   }
   if(p==='os-history') loadOSHist();
   if(p==='clientes'){
@@ -2754,6 +2760,7 @@ function _limparCamposOrc(){
   const bb=document.getElementById('form-back-bar'); if(bb) bb.style.display='none';
   const btnContato=document.getElementById('form-btn-contato'); if(btnContato) btnContato.style.display='none';
   _renderFormAcoesEdit(null);
+  setV_el('novo-orc-titulo','Novo orçamento','textContent');
 }
 function novoOrc(){
   limparRascunho('form'); window._skipDraftForm=true; // novo orçamento = começar do zero, sem rascunho antigo
@@ -3129,6 +3136,7 @@ function upd(){
   const dias=parseInt(gV('val'))||5, base=gV('data-orc');
   if(base){ const dv=new Date(base+'T12:00:00'); dv.setDate(dv.getDate()+dias); document.getElementById('vdate').textContent='Válido até '+dv.toLocaleDateString('pt-BR'); }
   gerarPrev();
+  if(typeof renderPrevSheet==='function') renderPrevSheet();
 }
 
 // ──────────────────────────────────────────────────
@@ -3184,6 +3192,53 @@ function txtWA(){
   return tx;
 }
 function gerarPrev(){ document.getElementById('prev-wa').textContent=txtWA(); }
+
+// ── Prévia do PDF ao vivo (Fase 6 do redesign, 13/08) — folha em miniatura
+// que espelha preencherDocOrc()/o PDF real, mas é sua própria renderização
+// (não usa o template escondido de impressão, que é dimensionado pra
+// página inteira, não pra um painel de 420px). Chamada de dentro de upd(),
+// então atualiza a cada tecla — a mesma fonte de dados que já alimenta
+// coletarForm()/txtWA(), só apresentada como a folha do documento.
+let _prevModo='pdf';
+function _prevSetModo(m){
+  _prevModo=m;
+  const bPdf=document.getElementById('prev-toggle-pdf'), bWa=document.getElementById('prev-toggle-wa');
+  if(bPdf) bPdf.classList.toggle('on', m==='pdf');
+  if(bWa) bWa.classList.toggle('on', m==='wa');
+  const sheet=document.getElementById('prev-sheet'), wa=document.getElementById('prev-wa-wrap');
+  if(sheet) sheet.style.display = m==='pdf' ? 'flex' : 'none';
+  if(wa) wa.style.display = m==='wa' ? 'flex' : 'none';
+}
+function renderPrevSheet(){
+  const el=document.getElementById('prev-sheet'); if(!el) return;
+  const LC=getLojaConfig(gV('orc-loja')||lojaAtiva||LOJA_PADRAO_ID);
+  const cli=gV('cli')||'Cliente', loc=gV('loc'), tel=gV('tel-cli');
+  const dias=parseInt(gV('val'))||5, base=gV('data-orc');
+  let vData='';
+  if(base){ const dv=new Date(base+'T12:00:00'); dv.setDate(dv.getDate()+dias); vData=dv.toLocaleDateString('pt-BR'); }
+  const s=sub(), d=disc(s), t=Math.max(0,s-d);
+  const vals=svcs.filter(x=>x.d.trim());
+  const existente=editId?todosOrc.find(o=>o.id===editId):null;
+  const num=existente?String(existente.numero||'—').padStart(3,'0'):String(lsOrcProxNum()).padStart(3,'0');
+
+  setV_el('prev-empresa',LC.nome||'—','textContent');
+  setV_el('prev-contato',[LC.tel,LC.cidades].filter(Boolean).join(' · '),'textContent');
+  setV_el('prev-num','#'+num,'textContent');
+  setV_el('prev-cli-nome',cli,'textContent');
+  setV_el('prev-cli-info',[loc,tel].filter(Boolean).join(' · '),'textContent');
+
+  const itensEl=document.getElementById('prev-itens');
+  if(itensEl){
+    itensEl.innerHTML = vals.length ? vals.map(sv=>{
+      const qty=parseInt(sv.qty)||1, pt=gP(sv);
+      return `<div class="prev-item-row"><span>${esc(sv.d)}</span><span>${qty}</span><span>${pt>0?brl(pt):'—'}</span></div>`;
+    }).join('') : `<div class="prev-item-row" style="color:var(--tx3)"><span>Nenhum item ainda</span><span></span><span></span></div>`;
+  }
+  setV_el('prev-total',brl(t),'textContent');
+  setV_el('prev-pagamento',formatPagamento(gV('pag'),t)||'—','textContent');
+  setV_el('prev-validade',dias+' dias'+(vData?' · até '+vData:''),'textContent');
+  setV_el('prev-assinatura-resp',(LC.nome||'')+' — responsável técnico','textContent');
+}
 function copiarWA(){ navigator.clipboard.writeText(txtWA()).then(()=>toast('✅ Copiado!')).catch(()=>toast('✅ Copiado!')); }
 function enviarWA(){
   let tel=(gV('tel-cli')||'').replace(/\D/g,'');
@@ -3455,7 +3510,7 @@ async function salvarApenas(){
     _limparCamposOrc();
     go('history');
   }catch(e){ console.error(e); toast('⚠️ Erro ao salvar: '+e.message); }
-  btn.disabled=false; btn.textContent='Salvar Orçamento';
+  btn.disabled=false; btn.textContent='Salvar rascunho';
 }
 
 
@@ -3531,7 +3586,7 @@ async function gerarPDF(){
   salvarChip();
   { const _o=todosOrc.find(x=>x.id===editId); if(_o&&_o.status==='aprovado') sincronizarBaixaOrcamento(_o); }
   limparRascunho('form'); // orçamento salvo → rascunho não deve vazar para o próximo
-  btn.disabled=false; btn.textContent='Gerar PDF';
+  btn.disabled=false; btn.textContent='Gerar PDF e enviar';
   if(document.getElementById('toggle-os')?.checked){
     await criarOSjunto(dados, num);
   } else {
@@ -5766,9 +5821,8 @@ function abrirOrc(id){
   renderFotosOrcSlots();
   renderSvcs(); upd(); go('form');
   const bb=document.getElementById('form-back-bar');
-  const bl=document.getElementById('form-back-label');
   if(bb){ bb.style.display='flex'; }
-  if(bl){ bl.textContent='Editando ORC #'+String(o.numero).padStart(3,'0'); }
+  setV_el('novo-orc-titulo','Orçamento #'+String(o.numero).padStart(3,'0'),'textContent');
   const btnContato=document.getElementById('form-btn-contato');
   if(btnContato) btnContato.style.display='';
   _renderFormAcoesEdit(o);
@@ -5823,6 +5877,7 @@ function duplicarOrc(id){
   const bb=document.getElementById('form-back-bar'); if(bb) bb.style.display='none';
   const btnContato=document.getElementById('form-btn-contato'); if(btnContato) btnContato.style.display='none';
   _renderFormAcoesEdit(null);
+  setV_el('novo-orc-titulo','Novo orçamento','textContent');
   toast('📋 Orçamento duplicado — edite e salve como novo');
 }
 

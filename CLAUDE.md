@@ -237,11 +237,60 @@ de página.
 upserts repetidos em `/clientes` continuam lá (task `task_a27cf171` já
 aberta na Fase 4).
 
+### Próximo passo (histórico — Fase 6 já feita, ver entrada abaixo)
+
+---
+
+## REDESIGN — Fase 6: Novo Orçamento, formulário + prévia lado a lado — 13/08
+
+A que o próprio README chama de "a parte mais longa". Layout `1fr 420px`
+(`.novo-orc-body`) — coluna esquerda com o formulário que já existia
+(cliente/serviços/observações — **não reescrevi os componentes internos**:
+vincular item ao estoque, checkbox "não é produto", aviso de quantidade no
+texto, preset com preço editável são interações reais demais pra arriscar
+sem necessidade; só o container geral virou `.novo-orc-*`/`.rd-card`),
+coluna direita nova: prévia do PDF que atualiza a cada tecla.
+
+**Barra superior nova** (`.novo-orc-topbar`) — título ("Novo orçamento" ou
+"Orçamento #350", trocado em `abrirOrc`/`_limparCamposOrc`/`duplicarOrc`)
++ indicador de rascunho automático (já existia, só mudou de lugar) à
+esquerda; "Salvar rascunho" (= `salvarApenas()`, renomeado) e "Gerar PDF e
+enviar" (= `gerarPDF()`, renomeado) à direita — os botões que viviam soltos
+no rodapé da tela. "Copiar"/"Enviar WhatsApp" se mudaram pra dentro da
+aba WhatsApp da prévia (mesmo `copiarWA()`/`enviarWA()` de sempre).
+
+**Prévia do PDF é renderização própria, não o template de impressão** —
+`renderPrevSheet()`, chamada de dentro de `upd()` (então atualiza a cada
+tecla, junto com o preview de WhatsApp que já existia). O template
+escondido que `preencherDocOrc()` preenche pra imprimir é dimensionado
+pra página inteira, não cabe num painel de 420px — a prévia é uma segunda
+renderização, miniatura, alimentada pelos mesmos campos (`sub()`/`disc()`/
+`tot()`/`svcs`/`getLojaConfig()`). Alternador PDF/WhatsApp troca qual dos
+dois aparece; o WhatsApp reaproveita o `#prev-wa` que já existia (só
+mudou de painel).
+
+**Bug real pego em teste, corrigido antes do commit:** a prévia resolve o
+nome da empresa pelo select `#orc-loja` (`getLojaConfig`), mas esse select
+só recebe as opções reais depois que `LOJAS` carrega do banco — se
+`upd()` rodasse antes disso (comum ao abrir "Novo orçamento" logo no
+boot), a prévia ficava presa mostrando o nome genérico do `CFG` global
+("Fluxa") até a pessoa digitar alguma coisa. Corrigido chamando
+`renderPrevSheet()` de novo em `popularSelectsLojaForm()` (assim que o
+valor certo existe) e em `go('form')`.
+
+Testado com dado real: orçamento novo (nome/item/preço aparecendo ao
+vivo na prévia) e orçamento existente de 2 itens (#350, André,
+R$1.114,80) — a barra de ações da Fase 5 e a barra nova convivem sem
+conflito. Responsivo: 1440px lado a lado, abaixo de 1280px empilha
+(simplificação — o handoff sugere a prévia virar um painel acionado por
+botão "Prévia" abaixo de 1280px; empilhar é mais simples e não perde
+informação, só não é idêntico ao mock), 375px sem overflow de página.
+
 ### Próximo passo
 
-Fase 6 — Novo Orçamento: formulário + prévia do PDF lado a lado (README
-chama de "a parte mais longa"). Fase 7 — Estoque (reaproveitar o fix de
-`gap` desta fase).
+Fase 7 — Estoque: indicadores, tabela densa (`.rd-table-*` — reaproveita
+o fix de `gap` da Fase 5), "Comprar agora", estado vazio, movimentações
+recentes.
 
 ---
 
