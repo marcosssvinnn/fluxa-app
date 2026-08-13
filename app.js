@@ -2709,6 +2709,7 @@ function _limparCamposOrc(){
   const osf=document.getElementById('os-inline-fields'); if(osf) osf.style.display='none';
   ['os-inline-data','os-inline-hora','os-inline-tec'].forEach(id=>{const el=document.getElementById(id);if(el){el.value=id==='os-inline-hora'?'08:00':'';}});
   const bb=document.getElementById('form-back-bar'); if(bb) bb.style.display='none';
+  const btnContato=document.getElementById('form-btn-contato'); if(btnContato) btnContato.style.display='none';
 }
 function novoOrc(){
   limparRascunho('form'); window._skipDraftForm=true; // novo orçamento = começar do zero, sem rascunho antigo
@@ -3745,7 +3746,7 @@ async function gerarOSPDF(modo='os'){
   const dados={
     cli:gV('os-cli')||'—', loc:gV('os-loc'), cnpj:gV('os-cnpj')||null, data:gV('os-data'), hora:gV('os-hora'),
     tec:gV('os-tec'), tot:parseFloat(gV('os-total'))||0,
-    mat:gV('os-mat'), obs:gV('os-obs'),
+    mat:_osMatTextoFinal(), obs:gV('os-obs'),
     svcs:osSvcs.filter(s=>s.d.trim()).map(s=>s.d.trim()),
     fotos:osFotos.filter(Boolean), videoLink:gV('os-video-link'),
     checklist: osChecklist.filter(x=>x.checked),
@@ -5603,6 +5604,8 @@ function abrirOrc(id){
   const bl=document.getElementById('form-back-label');
   if(bb){ bb.style.display='flex'; }
   if(bl){ bl.textContent='Editando ORC #'+String(o.numero).padStart(3,'0'); }
+  const btnContato=document.getElementById('form-btn-contato');
+  if(btnContato) btnContato.style.display='';
   toast('✏️ Editando Orçamento #'+String(o.numero).padStart(3,'0'));
 }
 
@@ -5713,6 +5716,7 @@ function novaOS(){
   setV('os-data', _hojeLocal());
   setV('os-hora','08:00');
   osSvcs=[{id:Date.now(),d:''}]; renderOSSvcs();
+  osMateriais=[]; _osMatRenderLista();
 }
 
 // ── MODAL PAGAMENTO ──
@@ -5872,6 +5876,7 @@ function editarOS(id){
   const o=_acharOS(id); if(!o||!o.id){ toast('OS não encontrada'); return; }
   _abrirOSForm(o);
 }
+let _autoCheckinFeitoPara=new Set();
 function _abrirOSForm(o){
   osEditId=o.id;
   osOrcId=o.orcamento_id||null;
@@ -5881,6 +5886,12 @@ function _abrirOSForm(o){
   // Técnico: auto-preencher com o usuário logado se o campo estiver vazio
   const nomeSessao=getSessao()?.nome||'';
   setV('os-tec',o.tecnico||nomeSessao); setV('os-total',String(o.total||0));
+  // Materiais estruturados (baixa por produto) não persistem entre sessões
+  // de edição — cada abertura de OS começa com a lista zerada; o texto
+  // salvo anteriormente (que já inclui o resumo dos materiais baixados +
+  // observações livres) continua visível no campo abaixo, só não volta a
+  // virar chips editáveis.
+  osMateriais=[]; _osMatRenderLista();
   setV('os-mat',o.materiais||''); setV('os-obs',o.obs_tecnica||'');
   setV('os-video-link',o.video_link||'');
   setV('os-loja',o.loja_id||lojaAtiva||LOJA_PADRAO_ID);
@@ -5931,6 +5942,17 @@ function _abrirOSForm(o){
   const btnAddSvc=document.querySelector('#page-os .btn-add');
   if(btnAddSvc) btnAddSvc.style.display=_tecMode?'none':'';
   atualizarPainelItensOS();
+  // Check-in automático (13/08, crítica de design): antes exigia lembrar de
+  // selecionar o técnico e apertar "Check-in" — 118 OS ficaram com
+  // duracao_min zerado porque o botão existia e ninguém apertava. Abrir a OS
+  // pra trabalhar JÁ é a intenção de começar; o check-in acontece sozinho,
+  // sem exigir um toque a mais. Guardado por OS nesta sessão do navegador
+  // (_autoCheckinFeitoPara) pra não re-disparar — e resetar checkinAt — toda
+  // vez que o técnico só volta a olhar a mesma OS que já tinha aberto antes.
+  if(_tecMode && o.status!=='concluido' && !checkinAt && !_autoCheckinFeitoPara.has(o.id) && checkinSel?.value){
+    fazerCheckin();
+    _autoCheckinFeitoPara.add(o.id);
+  }
 }
 
 // ── Painel de itens (produtos do orçamento) para validar/baixar na OS ──
@@ -5978,6 +6000,79 @@ function confirmarItensOS(){
   });
   entregarOrcamento(orc, 'validar', qtyMap);
   atualizarPainelItensOS();
+}
+
+// ── Materiais utilizados na OS — seletor de produto (13/08, crítica de
+// design: "duracao_min e materiais zerados nas 118 OS... o problema não é
+// onde o campo está, é que o registro não cabe na rotina de quem executa").
+// Mesmo padrão de busca+carrinho da Venda Rápida: escolher da lista dá
+// baixa no estoque NA HORA — o momento "usei isso" já é o lançamento, sem
+// depender de alguém depois interpretar texto livre e lançar manualmente.
+// Reversível: remover o item devolve o estoque (entrada de estorno).
+let osMateriais=[];
+function osMatBuscarProduto(termo){
+  const el=document.getElementById('os-mat-sugestoes'); if(!el) return;
+  const t=(termo||'').trim().toLowerCase();
+  if(t.length<2){ el.innerHTML=''; return; }
+  const achados=produtosVisiveis().filter(p=>
+    (p.nome||'').toLowerCase().includes(t) || (p.codigo||'').toLowerCase().includes(t)
+  ).slice(0,8);
+  if(!achados.length){ el.innerHTML='<div style="font-size:12px;color:var(--gray);padding:8px">Nenhum produto encontrado.</div>'; return; }
+  el.innerHTML=achados.map(p=>{
+    const disp=disponivelProduto(p.id);
+    return `<button class="tb" style="display:block;width:100%;text-align:left;margin-bottom:5px;padding:9px 11px" onclick="osMatAddItem('${p.id}')">
+      <div style="font-weight:700;color:var(--c2);font-size:12.5px">${esc(p.nome)}</div>
+      <div style="font-size:11px;color:var(--gray)">${p.codigo?esc(p.codigo)+' · ':''}tem ${fmtQtd(disp)} ${esc(p.unidade||'un')}</div>
+    </button>`;
+  }).join('');
+}
+function osMatAddItem(pid){
+  const p=produtoById(pid); if(!p) return;
+  const loja=gV('os-loja')||_lojaParaMovimento()||LOJA_PADRAO_ID;
+  const ja=osMateriais.find(i=>i.produto_id===pid);
+  if(ja){ ja.qtd=(parseFloat(ja.qtd)||0)+1; }
+  else{ osMateriais.push({produto_id:pid, nome:p.nome, unidade:p.unidade||'un', qtd:1, custo_unit:parseFloat(p.custo)||0}); }
+  const numOS=(todosOS.find(x=>x.id===osEditId)||{}).numero;
+  registrarMovimento({
+    produto_id:pid, tipo:'saida', quantidade:-1, custo_unit:parseFloat(p.custo)||0,
+    motivo:'Material usado em OS'+(numOS?' #'+numOS:''),
+    ref:'os_mat:'+(osEditId||'nova')+':'+pid+':'+Date.now(), lojaId:loja
+  });
+  setV('os-mat-busca',''); document.getElementById('os-mat-sugestoes').innerHTML='';
+  _osMatRenderLista();
+  document.getElementById('os-mat-busca')?.focus();
+}
+function osMatRemoverItem(idx){
+  const it=osMateriais[idx]; if(!it) return;
+  const loja=gV('os-loja')||_lojaParaMovimento()||LOJA_PADRAO_ID;
+  registrarMovimento({
+    produto_id:it.produto_id, tipo:'entrada', quantidade:Math.abs(parseFloat(it.qtd)||0), custo_unit:it.custo_unit,
+    motivo:'Estorno — item removido da OS', ref:'os_mat_estorno:'+(osEditId||'nova')+':'+it.produto_id+':'+Date.now(), lojaId:loja
+  });
+  osMateriais.splice(idx,1);
+  _osMatRenderLista();
+}
+function _osMatRenderLista(){
+  const el=document.getElementById('os-mat-lista'); if(!el) return;
+  if(!osMateriais.length){ el.innerHTML=''; return; }
+  el.innerHTML=osMateriais.map((i,idx)=>`
+    <div style="display:flex;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid var(--gray-light)">
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;color:var(--c2);font-size:12.5px">${esc(i.nome)}</div>
+        <div style="font-size:11px;color:var(--gray)">${fmtQtd(i.qtd)} ${esc(i.unidade)} · baixado do estoque</div>
+      </div>
+      <button onclick="osMatRemoverItem(${idx})" aria-label="Remover e devolver ao estoque" style="background:none;border:none;cursor:pointer;color:var(--red);font-size:16px;font-weight:700;padding:0 4px">×</button>
+    </div>`).join('');
+}
+// Junta os materiais estruturados (já baixados do estoque) com o texto
+// livre de "outras observações" — o que é salvo em ordens_servico.materiais
+// continua sendo uma string só, PDF/histórico não mudam de formato.
+function _osMatTextoFinal(){
+  const partes=[];
+  if(osMateriais.length) partes.push(osMateriais.map(i=>`${fmtQtd(i.qtd)}x ${i.nome}`).join(', '));
+  const livre=(gV('os-mat')||'').trim();
+  if(livre) partes.push(livre);
+  return partes.join(' · ');
 }
 
 function excluirOS(id){
@@ -8641,7 +8736,7 @@ function _fazerCheckoutConfirmado(){
   const chkOk = (osChecklist||[]).filter(x=>x.checked);
   const dadosPreenchidos = {
     obs_tecnica: gV('os-obs')||'',
-    materiais: gV('os-mat')||'',
+    materiais: _osMatTextoFinal(),
     fotos: (osFotos||[]).filter(Boolean),
     video_link: gV('os-video-link')||null,
     checklist: chkOk.length?JSON.stringify(chkOk):null,

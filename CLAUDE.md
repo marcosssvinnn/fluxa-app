@@ -2,6 +2,66 @@
 
 ---
 
+## Fase B da crítica de design — captura de dado na tela do técnico (13/08)
+
+Continuação da crítica externa: "todo o esforço de design foi pra tela de
+quem lê o dado, quase nenhum pra tela de quem cria" — `page-os` tinha 15
+linhas contra as 130+ do antigo Insights, e os indicadores quebrados do
+`CLAUDE.md` (24,3% de `produto_id`, `duracao_min` zerado em 118 OS,
+follow-up em 0/214) são todos de captura, não de análise. As três
+recomendações concretas, implementadas:
+
+**1. Check-in automático ao abrir a OS.** Antes exigia selecionar o
+técnico e apertar "Check-in" — 118 OS ficaram com `duracao_min` zerado
+porque o botão existia e ninguém apertava. Agora `_abrirOSForm()` chama
+`fazerCheckin()` sozinho quando: é técnico (`eTecnico()`), a OS não está
+concluída, ainda não há check-in ativo, e essa OS ainda não recebeu
+auto-checkin nesta sessão do navegador (`_autoCheckinFeitoPara`, um
+`Set` — guarda contra resetar o cronômetro toda vez que o técnico só
+volta a olhar a mesma OS já aberta antes). Check-out continua manual
+de propósito — só o técnico sabe quando terminou, abrir a tela não
+implica isso.
+
+**2. "Materiais utilizados" virou seletor de produto.** Card novo
+"🧰 Materiais utilizados" com busca (mesmo padrão de busca+carrinho da
+Venda Rápida — `osMatBuscarProduto`/`osMatAddItem`/`osMatRemoverItem`):
+escolher da lista dá baixa no estoque **na hora** via
+`registrarMovimento()`, não só quando alguém depois interpreta texto
+livre. Remover um item devolve o estoque (entrada de estorno, histórico
+de movimento preservado — nunca edita/apaga o movimento original).
+`os-mat` (textarea) não sumiu — virou "Outras observações de material",
+pra quando o material não está no estoque cadastrado (trazido pelo
+cliente, peça de terceiro). `_osMatTextoFinal()` junta os dois numa
+string só na hora de salvar (`gerarOSPDF`/`_fazerCheckoutConfirmado`) —
+**sem migração de schema**: `ordens_servico.materiais` continua sendo
+uma coluna de texto, PDF e histórico não mudam de formato. Limitação
+aceita conscientemente: a lista estruturada não persiste entre sessões
+de edição (reabrir uma OS já salva mostra o texto final, não os chips
+de novo) — resolver isso exigiria coluna nova, fora do escopo desta
+mudança.
+
+**3. "Registrar contato" entrou no orçamento.** Antes só existia na fila
+de follow-up (tela separada) — achado da Etapa 3 já dizia que Tamara/
+Elis são reativas, não navegam lista pra ligar; o problema não era a
+posição do card, era a ação viver fora do momento em que a pessoa já
+está olhando o cliente. Botão "📞 Registrar contato" novo em
+`form-back-bar` (só aparece editando um orçamento existente — mesma
+condição do "← Voltar ao Histórico"), chama a MESMA
+`abrirCrmContato(editId)` já usada pela fila — zero duplicação de
+lógica, só um segundo ponto de entrada pro mesmo modal.
+
+Testado no browser local (`dbOk=false`, sessão técnico e gestor):
+check-in dispara sozinho ao abrir OS (confirmado em desktop e mobile),
+reabrir a mesma OS não reseta o cronômetro; adicionar material baixa o
+estoque de verdade (`registrarMovimento` com `ref` rastreável
+`os_mat:<os_id>:<produto_id>:<timestamp>`), remover estorna
+corretamente (verificado o histórico completo de movimentos, saída +
+estorno, nenhum apagado); botão de contato aparece só editando orçamento
+existente, abre o modal certo com os dados certos. Zero erro de console
+além do ruído de 400 já documentado. `sw.js` v123→v124.
+
+---
+
 ## Desdobrado "Insights" em "Hoje" + "Resultado" — crítica de design externa (13/08)
 
 O Marcos colou uma crítica de design formal (markup-only, sem ver o app

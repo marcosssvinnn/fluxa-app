@@ -569,9 +569,16 @@
     <!-- Indicador de rascunho salvo -->
     <div id="draft-indicator" style="display:none;font-size:11px;color:var(--gray);text-align:right;margin-bottom:4px;padding-top:4px">💾 Rascunho salvo às <span id="draft-time"></span></div>
     <!-- Voltar ao histórico (visível só ao editar) -->
-    <div id="form-back-bar" style="display:none;align-items:center;justify-content:space-between;margin-bottom:10px;padding-top:4px">
+    <div id="form-back-bar" style="display:none;align-items:center;justify-content:space-between;margin-bottom:10px;padding-top:4px;flex-wrap:wrap;gap:8px">
       <button onclick="go('history')" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:13px;font-weight:600;font-family:'Inter',sans-serif;display:flex;align-items:center;gap:5px">← Voltar ao Histórico</button>
-      <span id="form-back-label" style="font-size:12px;color:var(--gray)"></span>
+      <div style="display:flex;align-items:center;gap:10px">
+        <!-- Registrar contato direto no orçamento (13/08, crítica de design:
+             "enquanto for uma tela separada que exige lembrar de visitar, a
+             posição é irrelevante" — a pessoa já está aqui, é o momento em
+             que ela sabe o que aconteceu com esse cliente). -->
+        <button id="form-btn-contato" onclick="abrirCrmContato(editId)" style="display:none;background:var(--c1-light);color:var(--c1);border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif">📞 Registrar contato</button>
+        <span id="form-back-label" style="font-size:12px;color:var(--gray)"></span>
+      </div>
     </div>
     <!-- CLIENTE -->
     <div class="card">
@@ -845,11 +852,27 @@
       <div id="os-itens-ok" style="display:none;text-align:center;color:var(--green);font-size:13px;font-weight:600;padding:8px">✅ Itens já confirmados e baixados</div>
     </div>
 
+    <!-- Materiais utilizados — seletor de produto, não texto livre (13/08,
+         crítica de design: "duracao_min e materiais zerados nas 118 OS...
+         é o mesmo motivo — o registro não cabe na rotina de quem executa").
+         Mesmo padrão de busca+carrinho da Venda Rápida: escolher da lista dá
+         baixa no estoque na hora, sem exigir que alguém depois interprete
+         texto livre e lance manualmente. -->
+    <div class="card">
+      <div class="ct">🧰 Materiais utilizados</div>
+      <div class="row f1"><div class="fl">
+        <label>Adicionar material do estoque</label>
+        <input type="text" id="os-mat-busca" placeholder="Digite o nome ou código…" oninput="osMatBuscarProduto(this.value)" autocomplete="off">
+        <div id="os-mat-sugestoes" style="max-height:180px;overflow:auto;margin-top:6px"></div>
+      </div></div>
+      <div id="os-mat-lista" style="margin:8px 0"></div>
+      <div class="row f1">
+        <div class="fl"><label>Outras observações de material <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--gray)">(o que não está no estoque cadastrado)</span></label><textarea id="os-mat" placeholder="Ex: material trazido pelo cliente, peça de terceiro..."></textarea></div>
+      </div>
+    </div>
+
     <div class="card">
       <div class="ct">Detalhes Técnicos</div>
-      <div class="row f1" style="margin-bottom:12px">
-        <div class="fl"><label>Materiais utilizados</label><textarea id="os-mat" placeholder="Ex: 1x motobomba Dancor 1/2CV, 2x abraçadeira..."></textarea></div>
-      </div>
       <div class="row f1">
         <div class="fl"><label>Observações técnicas</label><textarea id="os-obs" placeholder="Condições encontradas, recomendações..."></textarea></div>
       </div>
