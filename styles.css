@@ -351,7 +351,19 @@
     .novo-orc-sub{font-size:11px;color:var(--tx3);margin-top:2px}
 
     .novo-orc-body{display:grid;grid-template-columns:1fr 420px;gap:20px;align-items:start}
-    @media(max-width:1280px){ .novo-orc-body{grid-template-columns:1fr} }
+    /* Estoque reaproveita o grid do Novo Orçamento com uma coluna direita
+       mais estreita (340px, como o handoff pede) — precisa ser uma classe
+       própria, não style inline: inline sempre vence a media query abaixo,
+       o que travava o colapso pra 1 coluna em telas estreitas (pego em
+       teste: 375px ficava com scroll de página inteira). O override do
+       media query pra esta variante precisa estar explícito aqui dentro —
+       duas classes no mesmo elemento têm especificidade maior que uma só,
+       então só sobrescrever `.novo-orc-body` no media query não bastava. */
+    .novo-orc-body-340{grid-template-columns:1fr 340px}
+    @media(max-width:1280px){
+      .novo-orc-body{grid-template-columns:1fr}
+      .novo-orc-body-340{grid-template-columns:1fr}
+    }
     .novo-orc-left{display:flex;flex-direction:column;gap:14px;min-width:0}
     .novo-orc-left .card{margin-bottom:0}
 
@@ -1247,6 +1259,22 @@
       .est-acts{flex:1 0 100%;align-items:flex-start;margin-top:6px}
       .est-acts-row{justify-content:flex-start}
     }
+    /* Mesmo problema, gatilho diferente: a Fase 7 do redesign meteu a lista
+       de produtos numa coluna de ~1fr ao lado da coluna de 340px — bem mais
+       estreita que os ~1170px que ela sempre teve. .est-main ia pra 0px de
+       novo, só que agora em qualquer largura de tela (o media query de
+       680px não pega). Mesmo remédio, aplicado pelo container em vez do
+       viewport. */
+    .novo-orc-left .est-item{flex-wrap:wrap}
+    .novo-orc-left .est-acts{flex:1 0 100%;align-items:flex-start;margin-top:6px}
+    .novo-orc-left .est-acts-row{justify-content:flex-start}
+    .novo-orc-left .est-main{min-width:160px}
+    /* Achado à parte em teste (Fase 7), não causado pelo redesign — .tb tem
+       white-space:nowrap (certo pra a maioria dos botões da tela), mas o
+       alerta de saldo negativo usa o NOME DO PRODUTO como texto do botão, e
+       um nome comprido virava um botão de 490px de largura sozinho, maior
+       que a tela toda em celular. Só aqui, sem mexer no .tb global. */
+    #estoque-alerta .tb{white-space:normal;text-align:left}
     .eb{border:none;border-radius:7px;cursor:pointer;font-family:'Instrument Sans',sans-serif;transition:opacity .1s}
     .eb:hover{opacity:.82}
     .eb.ein{background:#dcfce7;color:#15803d;font-size:11.5px;font-weight:700;padding:6px 12px}

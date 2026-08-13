@@ -286,11 +286,82 @@ conflito. Responsivo: 1440px lado a lado, abaixo de 1280px empilha
 botão "Prévia" abaixo de 1280px; empilhar é mais simples e não perde
 informação, só não é idêntico ao mock), 375px sem overflow de página.
 
+### Próximo passo (histórico — Fase 7 já feita, ver entrada abaixo)
+
+---
+
+## REDESIGN — Fase 7: Estoque, indicadores + "Comprar agora" — 13/08
+
+Diferente das Fases 5-6: aqui eu **não** converti a lista de produtos pra
+tabela densa `.rd-table-*`. A `.est-item` de hoje carrega dot de status +
+nome + categoria/fornecedor/badges + preços + saldo por loja + até 7
+botões de ação (Entrada/Saída/Editar/Corrigir/Reserva/Transferir/
+Histórico) — rico demais pra caber na grade `1.6fr 90px 78px 78px 70px
+90px 100px` do handoff sem cortar ação de verdade (o mesmo dilema da
+Fase 5, só que sem uma "tela do produto aberta" pra mandar os botões).
+Em vez de decidir isso sozinho de novo, mantive a lista exatamente como
+estava — só o container virou `.rd-card`/coluna mais estreita — e apliquei
+o sistema novo só onde não custava nada real: barra superior, os 4
+indicadores do handoff, e a coluna direita.
+
+**O que é novo:**
+- `_renderEstoqueKPIsNovo({...})` — os 4 cards do handoff (Valor em
+  estoque / Abaixo do mínimo / Reservado em OS / Sem giro 90d), chamada
+  de dentro de `renderEstoque()` recebendo os números que a função JÁ
+  calculava (`valorEstoque`, `repor`, `valorReservado`, `parados`) — zero
+  cálculo duplicado.
+- `_renderCompraAgora()` — cartão "Comprar agora" compacto (top 3 +
+  "+N outros"), usando o MESMO motor que `_insightsPontoDePedido()` já
+  usava (`pontoDePedido()`/`disponivelProduto()`, mínimo − disponível
+  ajustado pelo lead time do fornecedor). Estado vazio no padrão do
+  handoff (ícone neutro, título, explicação do que aparece depois, ação)
+  quando não há nada abaixo do ponto de pedido.
+- Movimentações recentes (`renderMovEstoque()`, já existia) só mudou de
+  lugar — saiu do fim da página antiga pra dentro da coluna direita nova.
+- Curva ABC, comparativo entre lojas, margem, "vão acabar em breve",
+  capital parado (tudo dentro de `#estoque-insights`) e os indicadores
+  derivados do razão — ficaram onde estavam, sistema visual antigo, sem
+  equivalente no handoff.
+
+**Três bugs de CSS reais pegos em teste, todos corrigidos antes do commit:**
+1. `.est-item` (flex, sem wrap) sempre viveu numa coluna de ~1170px; a
+   Fase 7 meteu ela numa coluna de `1fr` ao lado de 340px — `.est-main`
+   (flex:1;min-width:0) ia pra ~23px e o NOME DO PRODUTO sumia. Já
+   existia exatamente esse bug documentado pra tela de celular (media
+   query 680px, com o mesmo comentário no CSS) — apliquei o mesmo remédio
+   (`flex-wrap:wrap` nos filhos), só que por container (`.novo-orc-left
+   .est-item`) em vez de por viewport, porque agora o gatilho é a coluna
+   estreita, não o tamanho da tela.
+2. Passei `style="grid-template-columns:1fr 340px"` inline pra dar à
+   Estoque uma coluna direita mais estreita que a de Novo Orçamento
+   (420px) — só que inline sempre vence media query, então o
+   `@media(max-width:1280px){.novo-orc-body{grid-template-columns:1fr}}`
+   da Fase 6 parou de colapsar pra Estoque especificamente. 375px ficava
+   com ~538px de largura mínima e rolagem de página inteira. Virou uma
+   classe própria (`.novo-orc-body-340`) com o próprio override dentro do
+   mesmo media query.
+3. Achado à parte, não causado por este redesign: o alerta de saldo
+   negativo (`#estoque-alerta`, já existia) usa o NOME DO PRODUTO como
+   texto de um `<button class="tb">`, e `.tb` tem `white-space:nowrap` —
+   um nome comprido virava um botão sozinho mais largo que a tela toda em
+   celular. Corrigido só ali (`#estoque-alerta .tb{white-space:normal}`),
+   sem tocar no `.tb` global usado em dezenas de outras telas.
+
+Testado com dado real (406 produtos, Forthemp): os 4 indicadores, cartão
+"Comprar agora" com estado vazio real (nada abaixo do ponto de pedido
+com lead time configurado agora), movimentações recentes, lista de
+produtos legível com todos os botões, responsivo 1440/375px sem overflow
+de página nas duas larguras — e confirmei que Orçamentos e Novo
+Orçamento (que compartilham `.novo-orc-body`/`.novo-orc-left`) continuam
+normais depois dos ajustes de CSS.
+
 ### Próximo passo
 
-Fase 7 — Estoque: indicadores, tabela densa (`.rd-table-*` — reaproveita
-o fix de `gap` da Fase 5), "Comprar agora", estado vazio, movimentações
-recentes.
+Falta desenhar (README, "o que falta"): Vistoria no desktop, Agenda,
+Equipamentos, Produtividade — sem handoff visual pronto, seguem os
+mesmos padrões `.rd-*` quando chegar a vez. O "turno 3" do handoff (OS,
+A Receber, Despesas, Clientes, Portal) e as 3 telas mobile (Insights,
+Novo Orçamento, Vistoria) ainda não foram mapeados nesta sessão.
 
 ---
 

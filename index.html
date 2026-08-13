@@ -2095,22 +2095,40 @@
 <div class="page" id="page-estoque">
   <div class="wrap">
     <button class="btn-voltar" onclick="voltar()">← Voltar</button>
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:14px">
-      <div style="font-size:18px;font-weight:800;color:var(--c2)">📦 Gestão de Estoque</div>
+    <!-- Barra superior (Fase 7 do redesign, 13/08) — título + resumo do
+         handoff (itens/valor parado), Balanço/Dar baixa secundários e
+         Novo produto primário. Os outros atalhos (Fornecedores, Ordens de
+         Compra, Lista de compras, Importar) não estão no handoff — ficam
+         numa fileira compacta abaixo, sem sumir. -->
+    <div class="novo-orc-topbar">
+      <div>
+        <div class="novo-orc-titulo">Estoque</div>
+        <div class="novo-orc-sub" id="estoque-resumo-sub">—</div>
+      </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="ba" style="background:var(--c1);color:white;padding:9px 14px;font-size:13px;font-weight:700" onclick="abrirBaixaRapida()">⚡ Dar baixa</button>
-        <button class="ba" style="background:var(--gray-light);color:var(--c2);padding:9px 14px;font-size:13px" onclick="abrirBalancoModal()">📋 Balanço</button>
-        <button class="ba" style="background:var(--gray-light);color:var(--c2);padding:9px 14px;font-size:13px" onclick="abrirFornecModal()">👥 Fornecedores</button>
-        <button class="ba" style="background:var(--gray-light);color:var(--c2);padding:9px 14px;font-size:13px" onclick="abrirOCListModal()">📄 Ordens de Compra</button>
-        <button class="ba" style="background:var(--gray-light);color:var(--c2);padding:9px 14px;font-size:13px" onclick="abrirListaCompras()">🛒 Lista de compras</button>
-        <button class="ba" style="background:var(--gray-light);color:var(--c2);padding:9px 14px;font-size:13px" onclick="abrirImportProdutos()">📥 Importar planilha</button>
-        <button class="btn-primary" onclick="abrirProdutoModal()" style="padding:9px 16px">＋ Novo produto</button>
+        <button type="button" class="rd-btn rd-btn-secondary" onclick="abrirBalancoModal()">Balanço</button>
+        <button type="button" class="rd-btn rd-btn-secondary" onclick="abrirBaixaRapida()">Dar baixa</button>
+        <button type="button" class="rd-btn rd-btn-primary" onclick="abrirProdutoModal()">+ Novo produto</button>
       </div>
     </div>
-    <!-- KPIs -->
-    <div class="dash" id="estoque-kpis"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+      <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="abrirFornecModal()">Fornecedores</button>
+      <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="abrirOCListModal()">Ordens de Compra</button>
+      <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="abrirListaCompras()">Lista de compras</button>
+      <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="abrirImportProdutos()">Importar planilha</button>
+    </div>
+
+    <!-- Quatro indicadores do handoff (Valor em estoque / Abaixo do mínimo /
+         Reservado em OS / Sem giro 90d) — renderEstoqueKPIsNovo(), chamada
+         de dentro de renderEstoque() com os mesmos números que a tela já
+         calculava, sem duplicar cálculo. -->
+    <div class="ins-kpis" id="estoque-kpis-novo" style="margin-bottom:16px"></div>
+
     <!-- Alertas -->
     <div id="estoque-alerta" style="display:none;background:var(--yellow-bg);border:1.5px solid var(--yellow);border-radius:10px;padding:10px 14px;margin:0 0 12px;font-size:12.5px;color:#92400e;line-height:1.6"></div>
+
+    <div class="novo-orc-body novo-orc-body-340">
+    <div class="novo-orc-left">
     <div class="card">
       <!-- Toolbar: abas de filtro + ordenação + busca -->
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
@@ -2140,7 +2158,24 @@
       <input class="hsrch" type="text" placeholder="🔍 Buscar produto ou código…" oninput="buscaEstoque(this.value)" style="margin-bottom:8px;width:100%">
       <div id="estoque-body"></div>
     </div>
-    <!-- Insights -->
+    </div><!-- /novo-orc-left -->
+
+    <!-- Coluna direita (Fase 7, 13/08) — "Comprar agora" (novo, deriva do
+         ponto de pedido que _insightsPontoDePedido já calculava, só num
+         cartão compacto próprio — renderCompraAgora()) e Movimentações
+         recentes (mudou de lugar, renderMovEstoque() continua igual). -->
+    <div class="novo-orc-right" style="background:none;border:none;padding:0">
+      <div id="estoque-comprar-agora"></div>
+      <div class="rd-card" id="estoque-mov-card" style="display:none">
+        <div class="rd-card-title" style="margin-bottom:10px">Movimentações recentes</div>
+        <div id="estoque-mov-body"></div>
+      </div>
+    </div>
+    </div><!-- /novo-orc-body -->
+
+    <!-- Insights (curva ABC, comparativo entre lojas, margem, vão acabar,
+         capital parado) — análise mais funda, sem equivalente no handoff;
+         segue no sistema visual antigo por enquanto, sem regressão. -->
     <div id="estoque-insights"></div>
     <!-- Indicadores derivados do RAZÃO, sem tabela paralela: saldo retroativo,
          ruptura e acuracidade saem de reler os mesmos movimentos. -->
@@ -2151,10 +2186,6 @@
     <div class="card" id="estoque-giro-card" style="display:none">
       <div class="ct">📊 Mais movimentados (90 dias)</div>
       <div id="estoque-giro-body"></div>
-    </div>
-    <div class="card" id="estoque-mov-card" style="display:none">
-      <div class="ct">🕒 Movimentações recentes</div>
-      <div id="estoque-mov-body"></div>
     </div>
   </div>
 </div>

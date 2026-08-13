@@ -13673,6 +13673,72 @@ function _validadeInfo(dateStr){
 // Produto com validade vencida ou vencendo em ≤30 dias
 function produtoVencendo(p){ const i=_validadeInfo(p&&p.validade); return !!i && i.dias<=30; }
 
+// ── Indicadores + "Comprar agora" (Fase 7 do redesign, 13/08) ───────────────
+// Os 4 cards do handoff, alimentados pelos MESMOS números que renderEstoque()
+// já calculava (recebidos por parâmetro — sem recalcular nada).
+function _renderEstoqueKPIsNovo({valorEstoque, totalProdutos, repor, valorReservado, parados}){
+  const el=document.getElementById('estoque-kpis-novo'); if(!el) return;
+  el.innerHTML=`
+    <div class="rd-card rd-card-dense">
+      <div class="rd-kpi-lbl">Valor em estoque</div>
+      <div class="rd-kpi-num rd-kpi-num-sm">${brl(valorEstoque)}</div>
+      <div class="rd-kpi-apoio">${totalProdutos} produto${totalProdutos!==1?'s':''}</div>
+    </div>
+    <div class="rd-card rd-card-dense${repor.length?' rd-card-warn':''}">
+      <div class="rd-kpi-lbl">Abaixo do mínimo</div>
+      <div class="rd-kpi-num rd-kpi-num-sm"${repor.length?' style="color:var(--warn)"':''}>${repor.length}</div>
+      <div class="rd-kpi-apoio">item${repor.length!==1?'s':''}</div>
+    </div>
+    <div class="rd-card rd-card-dense">
+      <div class="rd-kpi-lbl">Reservado em OS</div>
+      <div class="rd-kpi-num rd-kpi-num-sm">${brl(valorReservado)}</div>
+      <div class="rd-kpi-apoio">comprometido, não disponível</div>
+    </div>
+    <div class="rd-card rd-card-dense">
+      <div class="rd-kpi-lbl">Sem giro 90d</div>
+      <div class="rd-kpi-num rd-kpi-num-sm">${parados.length}</div>
+      <div class="rd-kpi-apoio">item${parados.length!==1?'s':''} parado${parados.length!==1?'s':''}</div>
+    </div>`;
+}
+// "Comprar agora" reaproveita pontoDePedido()/disponivelProduto() — o MESMO
+// motor de _insightsPontoDePedido (mínimo − disponível ajustado pelo lead
+// time do fornecedor; sem lead time cadastrado, cai pra mínimo − disponível).
+// Card compacto (top 3) em vez da lista completa que já existe em
+// #estoque-insights — aqui é "olhe e resolva", não "leia e entenda".
+function _renderCompraAgora(){
+  const el=document.getElementById('estoque-comprar-agora'); if(!el) return;
+  const prods=produtosVisiveis();
+  const alertas=prods.filter(p=>{
+    const pp=pontoDePedido(p.id); if(pp<=0) return false;
+    const disp=disponivelProduto(p.id);
+    return disp<=pp && disp>=0;
+  }).sort((a,b)=>disponivelProduto(a.id)/pontoDePedido(a.id)-disponivelProduto(b.id)/pontoDePedido(b.id));
+
+  if(!alertas.length){
+    el.innerHTML=`<div class="rd-card rd-empty">
+      <div class="rd-empty-ico">📄</div>
+      <div class="rd-empty-title">Nenhuma ordem de compra aberta</div>
+      <div class="rd-empty-sub">Quando você enviar uma ordem, o prazo real de cada fornecedor passa a ser medido aqui.</div>
+      <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" style="margin-top:4px" onclick="abrirOCListModal()">Nova ordem</button>
+    </div>`;
+    return;
+  }
+  const visiveis=alertas.slice(0,3);
+  el.innerHTML=`<div class="rd-card rd-card-warn">
+    <div class="rd-card-title" style="font-size:14px;margin-bottom:4px">⚠️ Comprar agora</div>
+    <div class="rd-card-sub" style="margin-bottom:11px;line-height:1.45">${alertas.length} ${alertas.length!==1?'itens abaixo':'item abaixo'} do mínimo, considerando o prazo de cada fornecedor.</div>
+    ${visiveis.map(p=>{
+      const pp=pontoDePedido(p.id), disp=disponivelProduto(p.id);
+      const sugestao=Math.max(1,Math.ceil(pp-disp));
+      return `<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;font-size:12px">
+        <span style="color:var(--c2)">${esc(p.nome)}</span>
+        <span style="font-weight:600;color:var(--c2);flex-shrink:0;font-variant-numeric:tabular-nums">+ ${fmtQtd(sugestao)} ${esc(p.unidade||'un')}</span>
+      </div>`;
+    }).join('')}
+    ${alertas.length>visiveis.length?`<div style="font-size:11px;color:var(--tx3);padding-top:2px">+${alertas.length-visiveis.length} outro(s)</div>`:''}
+    <button type="button" class="rd-btn rd-btn-primary" style="width:100%;margin-top:10px" onclick="abrirOCListModal()">Gerar ordem de compra</button>
+  </div>`;
+}
 function renderEstoque(){
   setTimeout(()=>{ try{ renderIndicadoresEstoque(); }catch(e){ console.warn('[indEstoque]',e?.message||e); } },0);
   const body=document.getElementById('estoque-body'); if(!body) return;
@@ -13695,6 +13761,14 @@ function renderEstoque(){
   const valorReservado=todos.reduce((a,p)=>a+(Math.max(0,reservadoProduto(p.id))*(parseFloat(p.custo)||0)),0);
   const valorEncomenda=enc.reduce((a,x)=>a+(x.falta*(parseFloat(x.p.custo)||0)),0);
   const valorParado=parados.reduce((a,p)=>a+(Math.max(0,fisicaProduto(p.id))*(parseFloat(p.custo)||0)),0);
+  // Fase 7 do redesign (13/08) — os 4 indicadores do handoff, reaproveitando
+  // os mesmos números já calculados acima (valorEstoque/repor/valorReservado/
+  // parados) em vez de duplicar a conta.
+  _renderEstoqueKPIsNovo({valorEstoque, totalProdutos:todos.length, repor, valorReservado, parados});
+  _renderCompraAgora();
+  const resumoSub=document.getElementById('estoque-resumo-sub');
+  if(resumoSub) resumoSub.textContent=todos.length+' item'+(todos.length!==1?'s':'')+' · '+brl(valorParado)+' parados';
+
   const kpis=document.getElementById('estoque-kpis');
   if(kpis) kpis.innerHTML=`
     <div class="dc o" ${semCustoComSaldo?`style="cursor:pointer" onclick="filtEstoque('semcusto')"`:''}><div class="dl">Valor em estoque</div><div class="dv">${brl(valorEstoque)}</div><div class="ds"${semCustoComSaldo?' style="color:var(--yellow);font-weight:700" title="Estes produtos têm saldo mas custo zerado, então entram como R$ 0 e o valor real é maior"':''}>${todos.length} produto${todos.length!==1?'s':''}${semCustoComSaldo?` · ⚠️ ${semCustoComSaldo} sem custo`:''}</div></div>
