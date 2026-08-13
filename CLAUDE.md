@@ -190,12 +190,15 @@ equipamento grava `cliente_id`+`piscina_id`; reabrir pra editar restaura os
 dois. Sem erro novo no console.
 
 **Pendências:**
-- [ ] Marcos rodar `migracao-piscinas.sql` no Supabase.
+- [x] Marcos rodar `migracao-piscinas.sql` no Supabase. **Confirmado rodado
+  (verificação read-only 13/08, Sessão B): `to_regclass('public.piscinas')`
+  retorna a tabela; `equipamentos.piscina_id`/`cliente_id` existem como
+  `text`.**
 - [ ] Ligar piscina ao fluxo de vistoria (hoje o equipamento é redigitado à
   mão lá, como o doc da auditoria já registrou) — decisão de UX de onde a
   piscina é escolhida na tela de vistoria, não implementado ainda.
-- [ ] Consumo teórico (Etapa 4) pode usar `volume_m3` agora que existe —
-  ainda não construído.
+- [x] Consumo teórico (Etapa 4) pode usar `volume_m3` agora que existe —
+  **construído, ver "Etapa 4 fechada" no topo deste arquivo.**
 
 ---
 
@@ -245,10 +248,25 @@ com um insert de teste real que falhou (`22P02`) antes da correção.
 rodar de novo no Supabase, mesmo se a tabela já existir.
 
 **Pendências:**
-- [ ] Rodar `migracao-vendas-balcao.sql` de novo (tem a correção do tipo).
+- [x] Rodar `migracao-vendas-balcao.sql` de novo (tem a correção do tipo).
+  **Confirmado rodado (verificação read-only 13/08, Sessão B):
+  `vendas_balcao.cliente_id` já é `text` em produção.**
 - [ ] Verificar depois de uma semana: quantos orçamentos novos já nascem com
   `cliente_id` preenchido (mede se a captura por autocomplete está pegando
   de verdade, ou se a maioria continua sendo digitada solta).
+
+**Checagem antecipada, só como referência (13/08, Sessão B, leitura, não
+substitui a verificação de uma semana acima):** hoje (escopo fortemp)
+`orcamentos.cliente_id` preenchido em **287 de 290 (98,9%)**;
+`ordens_servico.cliente_id` em **17 de 26 (65,4%)**. ⚠️ **Não interpretar
+isso como "a captura por autocomplete da Etapa 2 já converteu quase tudo"**
+— o número é dominado pelo trabalho manual acumulado da tela de Identidade
+(`identLigar`, ferramenta anterior à Etapa 2), não pela captura nova, que
+só passou a rodar há poucas horas. Sinal real da Etapa 2 só aparece
+comparando o preenchimento **dos orçamentos criados a partir de agora**
+contra os já existentes — é exatamente o que a pendência de uma semana
+acima está desenhada para medir; esta linha é só contexto pra não
+confundir "base já linkada" com "captura nova funcionando".
 
 ---
 
