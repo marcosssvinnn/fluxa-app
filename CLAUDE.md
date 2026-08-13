@@ -2,6 +2,47 @@
 
 ---
 
+## 🔴 Bloqueio real reportado pela Elis — corrigido (13/08)
+
+O Marcos relatou que a Elis foi aprovar um orçamento **só de mão de obra**
+(sem produto de estoque nenhum) e o sistema travou, pedindo pra "cadastrar
+no estoque" algo que não deveria precisar de estoque. Root cause: o check
+de `semVinculo` em `mudarSt()` (item sem `produto_id` E sem `avulso=true`)
+era um **bloqueio duro** — `toast()` + `return`, sem nenhum caminho de
+saída além de abrir o orçamento e marcar a checkbox "não é produto" item
+por item. Essa validação em si é recente e tem propósito real (medido:
+Camboriú só linkava 24,3% dos itens ao estoque, causando saldo errado em
+silêncio) — não é bug de lógica, é falta de uma saída rápida pro caso mais
+comum (serviço puro).
+
+**Fix:** o bloqueio virou uma confirmação (`confirmar()`, nunca
+`window.confirm` — proibido neste projeto) com resolução em 1 clique —
+"Aprovar mesmo assim" marca todos os itens sem vínculo como `avulso=true`
+e prossegue a aprovação; "Cancelar, vou revisar" reverte exatamente como
+antes. `mudarSt()` foi dividida em `mudarSt()` (só as validações) +
+`_mudarStProsseguir()` (o resto do fluxo, chamado direto ou depois da
+confirmação). O aviso de que aquele item não vai gerar baixa automática
+continua aparecendo — só não é mais um beco sem saída.
+
+Testado no browser local (`dbOk=false`, servido diretamente deste
+worktree — `preview_start` com nome de servidor caiu num launch.json de
+outro diretório e serviu app.js desatualizado, corrigido subindo um
+`python3 -m http.server` direto neste path): (1) item sem vínculo →
+abre confirmação com o texto certo, orçamento continua pendente até
+decidir; (2) "Aprovar mesmo assim" → marca avulso, aprova, grava
+`data_aprovacao`, fecha modal; (3) "Cancelar" → reverte pro status
+anterior, não mexe no item; (4) bloqueio de forma de pagamento (checagem
+anterior, não relacionada) continua intacto; (5) item já com `avulso` ou
+`produto_id` aprova direto, sem modal — caminho feliz sem regressão. `sw.js`
+v113→v114.
+
+⚠️ **Achado no próprio processo, corrigido antes de commitar:** ao
+refatorar, uma limpeza de código apagada por engano a chamada de
+`_congelarCustoOrc(o)` (congela o custo do item antes da baixa de estoque)
+— pego relendo o diff antes de testar, não em produção.
+
+---
+
 ## Etapa 3 — cobertura da carteira, achado real de adoção (13/08)
 
 O próprio roadmap original tinha um ponto de parada nunca verificado:

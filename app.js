@@ -5107,25 +5107,44 @@ async function mudarSt(id, sel){
       toast('⚠️ Defina a forma de pagamento antes de aprovar — sem isso, a parcela de recebimento não pode ser gerada e o financeiro fica sem saber como cobrar. Edite o orçamento e escolha em "Pagamento".');
       return;
     }
-    // Item sem produto_id e sem marcar "avulso" é o motivo raiz do estoque não
-    // bater: a baixa automática na aprovação só enxerga item vinculado (medido
-    // em Camboriú: 24,3% de cobertura). "avulso" existe pra mão de
-    // obra/material sem SKU não travar quem vende serviço.
+    // Item sem produto_id e sem marcar "avulso" é sinal de que ninguém decidiu
+    // se aquilo é estoque ou não — mão de obra pura (o caso mais comum) nunca
+    // teve e nunca vai ter produto pra vincular. Isso já foi bloqueio duro (até
+    // 13/08) e travava quem vende serviço puro sem dar um jeito fácil de sair —
+    // Elis relatou (13/08) ficar impedida de aprovar um orçamento só de mão de
+    // obra até "cadastrar no estoque" algo que não deveria precisar de estoque
+    // nenhum. Virou confirmação com resolução em 1 clique: continua avisando
+    // (o objetivo original — Camboriú media 24,3% de cobertura — continua
+    // válido), mas ninguém fica travado tendo que abrir o orçamento e caçar a
+    // checkbox "não é produto" item por item.
     const semVinculo=(o.servicos||[]).filter(s=>!s.produto_id && !s.avulso && (s.desc||'').trim());
     if(semVinculo.length){
-      sel.value=stAnterior||'pendente';
       const lista=semVinculo.slice(0,3).map(s=>'"'+s.desc.slice(0,40)+'"').join(', ');
-      toast(`⚠️ ${semVinculo.length} ${semVinculo.length>1?'itens não estão':'item não está'} vinculado ao estoque (${lista}${semVinculo.length>3?'…':''}) — sem isso a baixa automática não acontece e o estoque fica errado em silêncio. Edite o orçamento: vincule ao produto ou marque "não é produto".`);
+      confirmar(
+        `${semVinculo.length} ${semVinculo.length>1?'itens não estão':'item não está'} vinculado ao estoque (${lista}${semVinculo.length>3?'…':''}). Se for mão de obra/material sem SKU, pode aprovar mesmo assim — só não vai dar baixa automática no estoque por esses itens.`,
+        ()=>{ semVinculo.forEach(s=>{ s.avulso=true; }); _mudarStProsseguir(id, sel, st, o, stAnterior); },
+        'Itens sem vínculo de estoque',
+        ()=>{ sel.value=stAnterior||'pendente'; },
+        'Cancelar, vou revisar',
+        'Aprovar mesmo assim'
+      );
       return;
     }
   }
+  _mudarStProsseguir(id, sel, st, o, stAnterior);
+}
+async function _mudarStProsseguir(id, sel, st, o, stAnterior){
   sel.className='ss '+st;
   const changes={status:st};
   if(st==='aprovado') changes.data_aprovacao=new Date().toISOString();
   if(o) Object.assign(o, changes);
   // Congela o custo ANTES da baixa: a baixa pode disparar recomputarCMP numa
   // entrada concorrente, e aí o custo gravado no item já seria outro.
-  if(o && st==='aprovado' && _congelarCustoOrc(o)) changes.servicos=o.servicos;
+  if(o && st==='aprovado') _congelarCustoOrc(o);
+  // Manda servicos pro banco sempre que existir mudança nele — cobre tanto o
+  // congelamento de custo acima quanto marcar "avulso" no passo de confirmação
+  // (resolução em 1 clique): sem isso a próxima aprovação bloquearia de novo.
+  if(o) changes.servicos=o.servicos;
   lsOrcAtualizar(id, changes);
   if(o) sincronizarBaixaOrcamento(o);
   // Reverter um aprovado invalida as parcelas de recebimento que nasceram
