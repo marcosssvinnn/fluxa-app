@@ -2203,6 +2203,13 @@
 <div class="qr-modal-bg" id="prod-modal" style="display:none" onclick="if(event.target===this)fecharProdutoModal()">
   <div class="card" style="max-width:560px;width:92%;max-height:88vh;overflow:auto">
     <div class="ct" id="prod-modal-titulo">Novo produto <button onclick="fecharProdutoModal()" aria-label="Fechar" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;float:right;line-height:1">×</button></div>
+    <!-- Barra de ações do produto (Fase 7, revisão 13/08 — a pedido do Marcos,
+         a lista de Estoque virou a tabela densa do handoff igual às outras
+         telas; os botões que viviam na linha (Entrada/Saída/Corrigir/Reserva/
+         Transferir/Histórico) se mudaram pra cá, montados por
+         _renderProdAcoesEdit(p) em abrirProdutoModal(). Vazio em "Novo
+         produto" (sem id). -->
+    <div id="prod-acoes-edit" class="rd-card rd-card-dense" style="display:none;margin-bottom:14px;flex-wrap:wrap;gap:8px;align-items:center"></div>
     <div id="prod-loja-wrap"></div>
     <div class="row">
       <div class="fl"><label>Categoria</label>

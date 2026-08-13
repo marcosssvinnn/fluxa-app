@@ -292,17 +292,43 @@ informação, só não é idêntico ao mock), 375px sem overflow de página.
 
 ## REDESIGN — Fase 7: Estoque, indicadores + "Comprar agora" — 13/08
 
-Diferente das Fases 5-6: aqui eu **não** converti a lista de produtos pra
-tabela densa `.rd-table-*`. A `.est-item` de hoje carrega dot de status +
-nome + categoria/fornecedor/badges + preços + saldo por loja + até 7
-botões de ação (Entrada/Saída/Editar/Corrigir/Reserva/Transferir/
-Histórico) — rico demais pra caber na grade `1.6fr 90px 78px 78px 70px
-90px 100px` do handoff sem cortar ação de verdade (o mesmo dilema da
-Fase 5, só que sem uma "tela do produto aberta" pra mandar os botões).
-Em vez de decidir isso sozinho de novo, mantive a lista exatamente como
-estava — só o container virou `.rd-card`/coluna mais estreita — e apliquei
-o sistema novo só onde não custava nada real: barra superior, os 4
-indicadores do handoff, e a coluna direita.
+Primeira versão desta fase manteve a lista de produtos como estava (só
+trocou a moldura) — o mesmo dilema da Fase 5 (a `.est-item` tinha até 7
+botões de ação por linha, rico demais pra caber na grade `1.6fr 90px
+78px 78px 70px 90px 100px` do handoff), só que dessa vez decidi sozinho
+em vez de perguntar. O Marcos revisou e pediu handoff literal aqui
+também — mesma escolha que ele já tinha feito na Fase 5. **Revisado**
+(ainda 13/08): a lista virou a tabela densa de verdade, e os 7 botões se
+mudaram pro modal "Editar produto" (mesmo padrão da Fase 5 — o modal é o
+equivalente do "orçamento aberto" pra produto, já que não existe uma
+tela de produto própria).
+
+**O que mudou nesta revisão:**
+- `renderEstoque()`: a lista virou `.rd-table-*` — grade exata do handoff
+  (Produto/SKU/Disp./Reserv./Mín./Giro 90d/Valor), linha inteira clicável
+  (`abrirProdutoModal(id)`), ponto de status (verde/âmbar/cinza), fundo
+  `--warn-row` na linha abaixo do mínimo. Teto de 30 linhas com "Ver
+  todos" (handoff: "9 de 148 · Ver todos") — `_estoqueVerTodos`, reseta a
+  cada troca de filtro/categoria/busca.
+- `_renderProdAcoesEdit(p)` (nova, chamada por `abrirProdutoModal`) — a
+  barra de ações dentro do modal: Entrada/Saída/Corrigir/Reserva/
+  Transferir/Histórico (mesmas funções de sempre, só mudaram de
+  endereço); produto inativo mostra só "Reativar".
+- CSS morta removida: `.est-item`/`.est-main`/`.est-dot`/`.est-badge`/
+  `.est-acts`/`.eb.ein`/`.eb.eout`/etc. — inclusive os dois ajustes de
+  `flex-wrap` que eu tinha acabado de escrever pra "salvar" o layout
+  antigo (ficaram sem uso assim que a linha antiga saiu). Fiquei só com
+  `.eb`/`.eb.eico.fix`, que o modal de reserva ainda usa em outro lugar.
+- **Perda real, sinalizada:** a antiga `.est-item` mostrava o saldo por
+  loja lado a lado (`Fortemp Camboriú: 3 · Fortemp Itapema: 0`) direto na
+  lista — a grade do handoff não tem essa coluna. Quem gerencia "Todas as
+  unidades" perde essa visão rápida na lista (o número de Disp. agora é
+  só o total consolidado); o detalhe por loja continua existindo dentro
+  do modal do produto, só não é mais visível sem abrir.
+
+O resto da fase (KPIs, "Comprar agora", Movimentações recentes, Curva
+ABC/comparativo entre lojas fora do handoff) não mudou — só a lista e o
+modal.
 
 **O que é novo:**
 - `_renderEstoqueKPIsNovo({...})` — os 4 cards do handoff (Valor em

@@ -1226,64 +1226,19 @@
     .desp-dash{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
     @media(max-width:680px){.desp-dash{grid-template-columns:1fr 1fr}}
 
-    /* ── ESTOQUE: LISTA ── */
-    .est-list{background:var(--white);border-radius:14px;border:1.5px solid var(--gray-light);overflow:hidden}
-    .est-item{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--gray-light);transition:background .1s}
-    .est-item:last-child{border-bottom:none}
-    .est-item:hover{background:#fafafa}
-    .est-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;align-self:flex-start;margin-top:5px}
-    .est-main{flex:1;min-width:0}
-    .est-nome{font-size:13px;font-weight:600;color:var(--c2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .est-meta{display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin-top:2px;font-size:10.5px;color:var(--gray)}
-    .est-badge{padding:1px 7px;border-radius:50px;font-size:10px;font-weight:700;white-space:nowrap}
-    .est-prices{font-size:10.5px;color:var(--gray);margin-top:3px}
-    .est-qty-col{text-align:right;flex-shrink:0;line-height:1.2}
-    .est-qty-n{font-size:15px;font-weight:700}
-    .est-qty-u{font-size:10px;color:var(--gray)}
-    .est-qty-d{font-size:9.5px;color:var(--gray);margin-top:1px}
-    /* precisa ENCOLHER (era flex-shrink:0): com 5 ações a coluna passa da largura
-       do card no celular e o último botão fica fora da área tocável. Encolher é
-       seguro agora que .est-acts-row quebra linha — os botões descem em vez de
-       serem esmagados. */
-    .est-acts{display:flex;flex-direction:column;gap:5px;flex-shrink:1;min-width:0;align-items:flex-end}
-    /* wrap: com 5 ações (Editar/Corrigir/Reserva/Transf./Histórico) a linha passa
-       de 370px dentro de um card de ~317px no celular — sem quebrar, o último
-       botão sai do card e fica inalcançável no toque. */
-    .est-acts-row{display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
-    /* No celular a fileira de ações não cabe ao lado do texto: .est-main
-       (flex:1;min-width:0) era espremido até 0px e, como .est-nome tem
-       overflow:hidden, o NOME DO PRODUTO ficava invisível na lista. Aqui as ações
-       descem para uma linha própria e o nome volta a ter largura real. */
-    @media(max-width:680px){
-      .est-item{flex-wrap:wrap}
-      .est-acts{flex:1 0 100%;align-items:flex-start;margin-top:6px}
-      .est-acts-row{justify-content:flex-start}
-    }
-    /* Mesmo problema, gatilho diferente: a Fase 7 do redesign meteu a lista
-       de produtos numa coluna de ~1fr ao lado da coluna de 340px — bem mais
-       estreita que os ~1170px que ela sempre teve. .est-main ia pra 0px de
-       novo, só que agora em qualquer largura de tela (o media query de
-       680px não pega). Mesmo remédio, aplicado pelo container em vez do
-       viewport. */
-    .novo-orc-left .est-item{flex-wrap:wrap}
-    .novo-orc-left .est-acts{flex:1 0 100%;align-items:flex-start;margin-top:6px}
-    .novo-orc-left .est-acts-row{justify-content:flex-start}
-    .novo-orc-left .est-main{min-width:160px}
     /* Achado à parte em teste (Fase 7), não causado pelo redesign — .tb tem
        white-space:nowrap (certo pra a maioria dos botões da tela), mas o
        alerta de saldo negativo usa o NOME DO PRODUTO como texto do botão, e
        um nome comprido virava um botão de 490px de largura sozinho, maior
        que a tela toda em celular. Só aqui, sem mexer no .tb global. */
     #estoque-alerta .tb{white-space:normal;text-align:left}
+    /* .eb ainda é usado fora da lista de produtos (botão "Usar o valor dos
+       orçamentos" no modal de reserva) — só as variantes exclusivas da
+       linha antiga (ein/eout/edit/trf/ehist) saíram. */
     .eb{border:none;border-radius:7px;cursor:pointer;font-family:'Instrument Sans',sans-serif;transition:opacity .1s}
     .eb:hover{opacity:.82}
-    .eb.ein{background:#dcfce7;color:#15803d;font-size:11.5px;font-weight:700;padding:6px 12px}
-    .eb.eout{background:#fff7ed;color:#c2410c;font-size:11.5px;font-weight:700;padding:6px 12px}
     .eb.eico{background:var(--gray-light);color:var(--c2);font-size:13px;padding:5px 9px;border-radius:7px}
-    .eb.eico.edit{background:#eff6ff;color:#1d4ed8}
     .eb.eico.fix{background:#f0fdf4;color:#15803d}
-    .eb.eico.trf{background:#faf5ff;color:#7c3aed}
-    .eb.ehist{background:var(--gray-light);color:var(--gray);font-size:12px;padding:4px 8px}
 
     /* ── PRODUTIVIDADE ── */
     .prod-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:20px}

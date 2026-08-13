@@ -13582,11 +13582,16 @@ function transferirProduto(produtoId, qtd, lojaDestino, motivo){
 }
 
 // ── UI do estoque ──
-function buscaEstoque(v){ estoqueBusca=(v||'').toLowerCase(); renderEstoque(); }
+function buscaEstoque(v){ estoqueBusca=(v||'').toLowerCase(); _estoqueVerTodos=false; renderEstoque(); }
 let estoqueFiltro='todos';
 let estoqueCategoria='';
-function filtEstoque(f){ estoqueFiltro=f; renderEstoque(); }
-function filtCategoria(v){ estoqueCategoria=v; renderEstoque(); }
+// Tabela densa (Fase 7, revisão 13/08) — teto de linhas na tela, com "Ver
+// todos" expandindo (handoff: "9 de 148 · Ver todos"). Reseta ao trocar de
+// filtro/categoria/busca pra nunca abrir uma lista enorme sem querer.
+let _estoqueVerTodos=false;
+const ESTOQUE_TETO=30;
+function filtEstoque(f){ estoqueFiltro=f; _estoqueVerTodos=false; renderEstoque(); }
+function filtCategoria(v){ estoqueCategoria=v; _estoqueVerTodos=false; renderEstoque(); }
 function toggleCategOutro(){
   const v=gV('prod-categoria');
   const wrap=document.getElementById('prod-catoutra-wrap');
@@ -13809,99 +13814,54 @@ function renderEstoque(){
   });
 
   if(!lista.length){
-    body.innerHTML=`<div class="empty-st"><div class="ei">📦</div><p>${estoqueBusca?'Nenhum produto encontrado.':estoqueFiltro==='todos'?'Nenhum produto cadastrado ainda.':'Nada neste filtro. 🎉'}</p>${estoqueFiltro==='todos'?'<button class="btn-primary" style="margin-top:12px" onclick="abrirProdutoModal()">＋ Cadastrar produto</button>':''}</div>`;
+    body.innerHTML=`<div class="rd-empty" style="padding:24px"><div class="rd-empty-ico">📦</div><div class="rd-empty-title">${estoqueBusca?'Nenhum produto encontrado.':estoqueFiltro==='todos'?'Nenhum produto cadastrado ainda.':'Nada neste filtro.'}</div>${estoqueFiltro==='todos'?'<button type="button" class="rd-btn rd-btn-primary" style="margin-top:6px" onclick="abrirProdutoModal()">+ Cadastrar produto</button>':''}</div>`;
   } else {
     const ehInativo=estoqueFiltro==='inativos';
-    let h=`<div class="est-list">`;
-    lista.forEach(p=>{
+    // Handoff: linha inteira clicável abre o produto (abrirProdutoModal, que
+    // agora carrega a barra de ações — Entrada/Saída/Corrigir/Reserva/
+    // Transferir/Histórico saíram da linha e moraram lá, igual ao orçamento
+    // aberto na Fase 5). Tabela densa, sem botão nenhum na linha.
+    const total=lista.length;
+    const pagina=_estoqueVerTodos?lista:lista.slice(0,ESTOQUE_TETO);
+    const grid='1.6fr 90px 78px 78px 70px 90px 100px';
+    let h=`<div class="rd-table-wrap" style="border:none;border-radius:0">
+      <div style="overflow-x:auto"><div style="min-width:760px">
+      <div class="rd-thead" style="grid-template-columns:${grid}">
+        <div class="rd-th">Produto</div><div class="rd-th">SKU</div>
+        <div class="rd-th rd-num">Disp.</div><div class="rd-th rd-num">Reserv.</div>
+        <div class="rd-th rd-num">Mín.</div><div class="rd-th rd-num">Giro 90d</div>
+        <div class="rd-th rd-num">Valor</div>
+      </div>`;
+    pagina.forEach(p=>{
       const fis=fisicaProduto(p.id), res=reservadoProduto(p.id), disp=disponivelProduto(p.id);
       const min=parseFloat(p.estoque_minimo)||0;
-      const preco=parseFloat(p.preco_venda)||0, custo=parseFloat(p.custo)||0;
+      const custo=parseFloat(p.custo)||0;
       const encomenda=disp<0;
       const baixo=!encomenda && min>0 && disp<=min;
-      const forn=todosFornecedores.find(f=>f.id===p.fornecedor_id);
-      const pp=pontoDePedido(p.id);
-      const precisaRepor=!encomenda && pp>0 && disp<=pp;
-
-      // Ponto colorido + badge status
-      let dotCor='#22c55e', badge='';
-      if(!ehInativo){
-        if(encomenda){         dotCor='#ef4444'; badge=`<span class="est-badge" style="background:#fee2e2;color:#b91c1c">📥 Pedir</span>`; }
-        else if(baixo){        dotCor='#f59e0b'; badge=`<span class="est-badge" style="background:#fef3c7;color:#92400e">⚠️ Baixo</span>`; }
-        else if(precisaRepor){ dotCor='#eab308'; badge=`<span class="est-badge" style="background:#fef9c3;color:#713f12">🔄 Repor</span>`; }
-        else if(produtoParado(p.id)){ dotCor='#94a3b8'; badge=`<span class="est-badge" style="background:#f1f5f9;color:#475569">💤 Parado</span>`; }
-        else { badge=`<span class="est-badge" style="background:#dcfce7;color:#15803d">✅ OK</span>`; }
-      }
-
-      // Meta: código, fornecedor, badge
-      const categBadge=p.categoria?`<span style="background:#e0f2fe;color:#0369a1;padding:1px 7px;border-radius:50px;font-size:10px;font-weight:700;white-space:nowrap">${esc(p.categoria)}</span>`:'';
-      const valInfo=_validadeInfo(p.validade);
-      const validadeBadge=valInfo?`<span class="est-badge" style="background:${valInfo.bg};color:${valInfo.cor}"${p.lote?` title="Lote: ${esc(p.lote)}"`:''}>${valInfo.txt}${p.lote?' · '+esc(p.lote):''}</span>`:'';
-      const metaParts=[
-        p.codigo?`<span>Cód: ${esc(p.codigo)}</span>`:'',
-        forn?`<span>🏭 ${esc(forn.nome)}</span>`:'',
-        categBadge,
-        badge,
-        validadeBadge,
-      ].filter(Boolean).join('');
-
-      // Insight de valores
-      const capitalEstoque=Math.max(0,fis)*custo;
-      const priceParts=[];
-      if(preco>0) priceParts.push(`Venda: <strong>${brl(preco)}</strong>`);
-      if(custo>0) priceParts.push(`Custo: <strong>${brl(custo)}</strong>`);
-      if(capitalEstoque>0) priceParts.push(`Capital: <strong>${brl(capitalEstoque)}</strong>`);
-      // Sem custo com saldo em mãos: este produto entra como R$ 0 no "Valor em
-      // estoque", puxando o número para baixo sem ninguém perceber.
-      if(!(custo>0)) priceParts.push(`<span style="color:var(--yellow);font-weight:700" title="Sem custo cadastrado — não entra no valor de estoque nem permite calcular margem">⚠️ sem custo</span>`);
-      const pricesHtml=priceParts.length?`<div class="est-prices">${priceParts.join(' · ')}</div>`:'';
-
-      // Por loja — sempre visível para lojas do grupo Forthemp
-      let porLoja='';
-      if(GRUPO_FORTHEMP&&GRUPO_FORTHEMP.length>1&&(!lojaAtiva||GRUPO_FORTHEMP.includes(lojaAtiva))){
-        const spl=_saldoPorLoja(p.id);
-        porLoja=`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">`+LOJAS.filter(l=>GRUPO_FORTHEMP.includes(l.id)).map(l=>{
-          const s=spl[l.id]||{fisico:0,reservado:0}; const d=s.fisico-s.reservado;
-          const isAtiva=l.id===lojaAtiva;
-          return `<span class="loja-badge ${l.cor}" style="font-size:10px${isAtiva?';outline:2px solid currentColor;outline-offset:1px':''}">${esc(l.nome)}: <strong style="color:${d<0?'#b91c1c':d===0?'var(--gray)':'inherit'}">${fmtQtd(d)}</strong></span>`;
-        }).join('')+`</div>`;
-      }
-
-      // Qtd
-      const qtdCor=encomenda?'#ef4444':baixo?'#d97706':'var(--c2)';
-      const detQtd=res>0?`<div class="est-qty-d">Fís:${fmtQtd(fis)} Res:${fmtQtd(res)}</div>`:'';
-
-      // Botões — todos visíveis, sem menu ⋮
-      const btns=ehInativo
-        ? `<div class="est-acts-row"><button class="eb ein" onclick="reativarProduto('${p.id}')">↺ Reativar</button></div>`
-        : `<div class="est-acts-row">
-             <button class="eb ein" onclick="abrirMovModal('${p.id}','entrada')" title="Registrar entrada de mercadoria">＋ Entrada</button>
-             <button class="eb eout" onclick="abrirMovModal('${p.id}','saida')" title="Registrar saída">− Saída</button>
-           </div>
-           <div class="est-acts-row">
-             <button class="eb eico edit" onclick="abrirProdutoModal('${p.id}')" title="Editar produto">✏️ Editar</button>
-             <button class="eb eico fix" onclick="abrirMovModal('${p.id}','ajuste')" title="Corrigir saldo / Inventário">⚖️ Corrigir</button>
-             <button class="eb eico fix" onclick="abrirResvModal('${p.id}')" title="Conferir/corrigir a quantidade reservada em orçamentos"${res<-0.001?' style="border-color:var(--red);color:var(--red)"':''}>🔒 Reserva</button>
-             ${LOJAS.length>1?`<button class="eb eico trf" onclick="abrirTransfModal('${p.id}')" title="Transferir para outra unidade">🔄 Transf.</button>`:''}
-             <button class="eb ehist" onclick="abrirHistProduto('${p.id}')" title="Ver histórico de movimentos">📜</button>
-           </div>`;
-
-      h+=`<div class="est-item"${ehInativo?' style="opacity:.5"':''}>
-        <div class="est-dot" style="background:${dotCor}"></div>
-        <div class="est-main">
-          <div class="est-nome">${esc(p.nome)}</div>
-          <div class="est-meta">${metaParts}</div>
-          ${pricesHtml}${porLoja}
+      const giro=giroProduto(p.id,90);
+      const parado=!ehInativo && produtoParado(p.id);
+      let dotCor='var(--ok)';
+      if(!ehInativo){ if(encomenda||baixo) dotCor='var(--warn-dot)'; else if(parado) dotCor='var(--tx4)'; }
+      const rowWarn=!ehInativo && (encomenda||baixo);
+      h+=`<div class="rd-row${rowWarn?' rd-row-warn':''}" style="grid-template-columns:${grid};cursor:pointer${ehInativo?';opacity:.55':''}" tabindex="0" onclick="abrirProdutoModal('${p.id}')" onkeydown="if(event.key==='Enter')abrirProdutoModal('${p.id}')">
+        <div style="display:flex;align-items:center;gap:8px;min-width:0">
+          <span style="width:7px;height:7px;border-radius:999px;flex-shrink:0;background:${dotCor}"></span>
+          <span class="rd-cell-strong" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.nome)}</span>
         </div>
-        <div class="est-qty-col">
-          <div class="est-qty-n" style="color:${qtdCor}">${fmtQtd(disp)}</div>
-          <div class="est-qty-u">${esc(p.unidade||'un')}</div>
-          ${detQtd}
-        </div>
-        <div class="est-acts">${btns}</div>
+        <div class="rd-cell-sub" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.codigo||'—')}</div>
+        <div class="rd-cell-num"${encomenda||baixo?' style="color:var(--warn);font-weight:600"':''}>${fmtQtd(disp)}</div>
+        <div class="rd-cell-num">${fmtQtd(res)}</div>
+        <div class="rd-cell-num">${min>0?fmtQtd(min):'—'}</div>
+        <div class="rd-cell-num"${giro<=0?' style="color:var(--tx4)"':''}>${giro>0?fmtQtd(giro):'0'}</div>
+        <div class="rd-cell-num rd-cell-strong">${brl(Math.max(0,fis)*custo)}</div>
       </div>`;
     });
-    h+=`</div>`;
+    h+=`</div></div></div>`;
+    if(!_estoqueVerTodos && total>pagina.length){
+      h+=`<div class="rd-tfoot"><span>${pagina.length} de ${total} itens</span><button type="button" class="rd-btn rd-btn-link" style="font-size:12px" onclick="_estoqueVerTodos=true;renderEstoque()">Ver todos</button></div>`;
+    } else if(_estoqueVerTodos && total>ESTOQUE_TETO){
+      h+=`<div class="rd-tfoot"><span>${total} de ${total} itens</span><button type="button" class="rd-btn rd-btn-link" style="font-size:12px" onclick="_estoqueVerTodos=false;renderEstoque()">Mostrar menos</button></div>`;
+    }
     body.innerHTML=h;
   }
 
@@ -14374,7 +14334,42 @@ function abrirProdutoModal(id){
       wrap.innerHTML=`<div style="margin-bottom:12px"><label style="font-size:11px;font-weight:700;color:var(--c1);text-transform:uppercase;letter-spacing:.5px">🏪 Em qual unidade cadastrar?</label><select id="prod-loja-select" style="width:100%;margin-top:4px;padding:9px 12px;border:2px solid var(--c1);border-radius:8px;font-size:13px;font-family:'Instrument Sans',sans-serif;outline:none;color:var(--c2)">${opcs}</select></div>`;
     }
   }
+  _renderProdAcoesEdit(p);
   document.getElementById('prod-modal').style.display='flex';
+}
+// ── Barra de ações do produto (Fase 7, revisão 13/08) — a lista de Estoque
+// virou a tabela densa do handoff (só leitura, sem botão por linha); os
+// botões que viviam na linha se mudaram pra cá. Mesmas funções de sempre,
+// só o endereço mudou — igual fizemos com o orçamento aberto na Fase 5.
+function _renderProdAcoesEdit(p){
+  const el=document.getElementById('prod-acoes-edit'); if(!el) return;
+  if(!p){ el.style.display='none'; el.innerHTML=''; return; }
+  if(p.ativo===false){
+    el.innerHTML=`<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="reativarProduto('${p.id}')">↺ Reativar produto</button>`;
+    el.style.display='flex';
+    return;
+  }
+  // Saldo por loja — a lista antiga mostrava isso direto na linha; a grade
+  // densa do handoff não tem coluna pra isso, então virou informação só
+  // daqui (não sumiu, só mudou de endereço, igual o resto da barra).
+  let porLojaHtml='';
+  if(GRUPO_FORTHEMP&&GRUPO_FORTHEMP.length>1&&(!lojaAtiva||GRUPO_FORTHEMP.includes(lojaAtiva))){
+    const spl=_saldoPorLoja(p.id);
+    porLojaHtml=`<div style="flex-basis:100%;display:flex;flex-wrap:wrap;gap:4px;margin-top:2px">`+LOJAS.filter(l=>GRUPO_FORTHEMP.includes(l.id)).map(l=>{
+      const s=spl[l.id]||{fisico:0,reservado:0}; const d=s.fisico-s.reservado;
+      return `<span class="loja-badge ${l.cor}" style="font-size:10px">${esc(l.nome)}: <strong style="color:${d<0?'#b91c1c':d===0?'inherit':'inherit'}">${fmtQtd(d)}</strong></span>`;
+    }).join('')+`</div>`;
+  }
+  el.innerHTML=`
+    <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="abrirMovModal('${p.id}','entrada')" title="Registrar entrada de mercadoria">＋ Entrada</button>
+    <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="abrirMovModal('${p.id}','saida')" title="Registrar saída">− Saída</button>
+    <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="abrirMovModal('${p.id}','ajuste')" title="Corrigir saldo / Inventário">⚖️ Corrigir</button>
+    <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="abrirResvModal('${p.id}')" title="Conferir/corrigir a quantidade reservada em orçamentos">🔒 Reserva</button>
+    ${LOJAS.length>1?`<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="abrirTransfModal('${p.id}')" title="Transferir para outra unidade">🔄 Transferir</button>`:''}
+    <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="abrirHistProduto('${p.id}')" title="Ver histórico de movimentos">📜 Histórico</button>
+    ${porLojaHtml}
+  `;
+  el.style.display='flex';
 }
 function fecharProdutoModal(){ document.getElementById('prod-modal').style.display='none'; }
 let _prodConfirmouSemCusto=false;
