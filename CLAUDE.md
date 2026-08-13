@@ -161,10 +161,87 @@ saíram da tela (não estão no handoff). As funções (`renderRelatorioFinancei
 chamadas por nada agora — precisam de um lugar novo (aba própria? dentro
 de Produtividade? uma tela "Financeiro" nova?) antes da Fase 5.
 
+### Próximo passo (histórico — Fase 5 já feita, ver entrada abaixo)
+
+---
+
+## REDESIGN — Fase 5: lista de Orçamentos, ações mudaram de lugar — 13/08
+
+O handoff desenha a lista de Orçamentos enxuta — linha inteira clicável
+abre o orçamento, uma coluna "Próxima ação" — mas a tela de hoje tinha uma
+linha de ação pesada (trocar status ali mesmo, gerar OS, marcar entrega,
+NF, pagamento, WhatsApp, excluir, pontos de progresso). As duas coisas não
+cabem juntas. Perguntei ao Marcos como resolver esse conflito antes de
+mexer — três opções: manter os botões e só trocar o visual, ir literal no
+handoff e mover os botões pra dentro do orçamento aberto, ou fazer híbrido
+(acrescentar "Próxima ação" sem tirar nada). Ele escolheu **handoff
+literal**: a lista virou um clique só, e os botões se mudaram pra dentro
+do orçamento.
+
+**O que mudou:**
+- `renderTabela()` reescrita: grade `.rd-table-*` com Nº/Cliente/Valor/
+  Situação/Idade/Próxima ação/Origem (mesmas colunas do handoff), linha
+  inteira com `onclick="abrirOrc(...)"`, foco por teclado (`tabindex`).
+  Não é mais recortada por mês — vira fila de trabalho, não relatório
+  contábil (isso ficou só com o card "Resumo do período" que já existia,
+  que continua alimentando o dashboard `.dash` de cima via `orcMesRef`/
+  `_orcListaMes()` — nada nesses dois foi tocado, só passou a não
+  alimentar mais a lista também).
+- `_orcSituacao(o)` e `_orcProximaAcao(o)` são NOVAS — derivam badge e
+  texto de ação a partir de sinais que a fila de follow-up já calculava
+  (`_crmDiasAteDecisao`, `proximo_contato`, idade, OS vinculada). Não é
+  dado novo, é vocabulário novo em cima do que já existia.
+- **Barra de ações do orçamento aberto** (`#form-acoes-edit`, populada por
+  `_renderFormAcoesEdit(o)` em `abrirOrc()`) — status, PDF, Duplicar,
+  Gerar/Ver OS, Entregar, Pagamento, Mês, NF, WA, Excluir. São os MESMOS
+  `onclick` que a linha da tabela já chamava, só mudaram de endereço.
+  Precisa esconder/repopular em `_limparCamposOrc()` (novo orçamento) e em
+  `duplicarOrc()` (senão ficava mostrando os botões do orçamento errado)
+  — os dois casos foram testados.
+- Chips (`Todos/Em aberto/Pendente/Aprovado/Recusado/Vencido`) com
+  contagem ao vivo, `.rd-chip`. "Em aberto" não é status (Etapa 21 do
+  roadmap, preservada) — é pendente+vencido, a visão de carteira.
+- Paginação real (25/página, antes mostrava tudo de uma vez) e "Exportar"
+  (CSV simples, função nova `_orcExportarCSV()` — não existia antes).
+- Origem virou só coluna de leitura — o dropdown de filtro por origem
+  saiu (não está no handoff); month-nav e mini-KPIs continuam existindo,
+  só se moveram pra um card próprio ("Resumo do período") acima da lista.
+
+**Dois bugs reais pegos em teste, corrigidos antes do commit:**
+1. `.rd-thead`/`.rd-row` (Fase 3) nunca tiveram `gap` — colunas ficavam
+   coladas, texto ilegível ("VALORSITUAÇÃO" grudado). Corrigido na base
+   (`gap:12px` em `styles.css`), não só neste uso — protege as próximas
+   tabelas (Fase 7, Estoque) do mesmo bug.
+2. Tabela sem rolagem própria: em telas estreitas o `.rd-table-wrap`
+   cortava as colunas de fora (Situação/Idade/Próxima ação/Origem
+   invisíveis, sem barra de rolagem nem aviso). Corrigido com um wrapper
+   `overflow-x:auto` + `min-width` nas colunas — testado em 375px: a
+   PÁGINA não estica (sem scroll horizontal geral), só a tabela rola por
+   dentro, exatamente como o handoff pede ("rolagem horizontal, nunca
+   corta"). Não implementei a "primeira coluna fixa" que o handoff
+   também sugere — fica pra depois se fizer falta.
+3. (Achado à parte, não relacionado à Fase 5) o atalho "+ Orçamento" da
+   sidebar e do menu mobile chamava só `go('form')`, sem `novoOrc()` antes
+   — se você estivesse editando algo, abria "novo" ainda mostrando o
+   orçamento anterior. Já era assim antes de hoje, mas a barra de ações
+   nova tornava isso perigoso (dá pra clicar "Excluir" no orçamento
+   errado por engano). Corrigido pro mesmo padrão que `snb-os` já usava
+   (`novaOS();go('os')`).
+
+Testado com dado real de produção (299 orçamentos): chips, paginação,
+abrir/voltar, barra de ações completa (status/PDF/Duplicar/OS/Entrega/
+Pagamento/Mês/NF/WA/Excluir), exportar CSV, responsivo 375px sem overflow
+de página.
+
+**Achado fora do escopo, sinalizado, não mexido de novo:** os ~229
+upserts repetidos em `/clientes` continuam lá (task `task_a27cf171` já
+aberta na Fase 4).
+
 ### Próximo passo
 
-Fase 5 — Orçamentos (lista): filtros/paginação, tabela densa
-`.rd-table-*`, redesenho de `page-history`.
+Fase 6 — Novo Orçamento: formulário + prévia do PDF lado a lado (README
+chama de "a parte mais longa"). Fase 7 — Estoque (reaproveitar o fix de
+`gap` desta fase).
 
 ---
 

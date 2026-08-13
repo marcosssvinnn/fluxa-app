@@ -185,7 +185,7 @@
       <span class="sbadge" id="snb-badge-orc"></span>
     </button>
     <!-- temporário -->
-    <button class="snb snb-sub" id="snb-form" onclick="go('form')">
+    <button class="snb snb-sub" id="snb-form" onclick="novoOrc();go('form')">
       <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg>
       <span class="slabel">+ Orçamento</span>
     </button>
@@ -279,7 +279,7 @@
   <button class="mob-nb on" id="mnb-insights" onclick="go('insights')" style="display:none">
     <span class="micon">☀️</span><span>Hoje</span>
   </button>
-  <button class="mob-nb" id="mnb-form" onclick="go('form')" style="display:none">
+  <button class="mob-nb" id="mnb-form" onclick="novoOrc();go('form')" style="display:none">
     <span class="micon">＋</span><span>Orçam.</span>
   </button>
   <button class="mob-nb" id="mnb-os" onclick="novaOS();go('os')" style="display:none">
@@ -652,7 +652,7 @@
     <div id="draft-indicator" style="display:none;font-size:11px;color:var(--gray);text-align:right;margin-bottom:4px;padding-top:4px">💾 Rascunho salvo às <span id="draft-time"></span></div>
     <!-- Voltar ao histórico (visível só ao editar) -->
     <div id="form-back-bar" style="display:none;align-items:center;justify-content:space-between;margin-bottom:10px;padding-top:4px;flex-wrap:wrap;gap:8px">
-      <button onclick="go('history')" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:13px;font-weight:600;font-family:'Instrument Sans',sans-serif;display:flex;align-items:center;gap:5px">← Voltar ao Histórico</button>
+      <button onclick="go('history')" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:13px;font-weight:600;font-family:'Instrument Sans',sans-serif;display:flex;align-items:center;gap:5px">← Voltar aos Orçamentos</button>
       <div style="display:flex;align-items:center;gap:10px">
         <!-- Registrar contato direto no orçamento (13/08, crítica de design:
              "enquanto for uma tela separada que exige lembrar de visitar, a
@@ -662,6 +662,13 @@
         <span id="form-back-label" style="font-size:12px;color:var(--gray)"></span>
       </div>
     </div>
+    <!-- Barra de ações do orçamento aberto (Fase 5, 13/08) — a lista de
+         Orçamentos virou um clique só (linha inteira abre aqui); os botões
+         que viviam na linha da tabela (status, OS, entrega, NF, pagamento,
+         WhatsApp, excluir…) se mudaram pra cá, montados por
+         _renderFormAcoesEdit(o) em abrirOrc(). Vazio/oculto em "Novo
+         orçamento" (sem editId). -->
+    <div id="form-acoes-edit" class="rd-card rd-card-dense" style="display:none;margin-bottom:14px;flex-wrap:wrap;gap:10px;align-items:center"></div>
     <!-- CLIENTE -->
     <div class="card">
       <div class="ct">Dados do Cliente</div>
@@ -1184,35 +1191,45 @@
       <div id="dash-estoque-body"></div>
     </div>
 
+    <!-- Navegação de mês + mini-KPIs (dashboard antigo, não redesenhado ainda —
+         segue orcMesRef, que o dashboard .dash lá em cima também usa). -->
     <div class="card">
-      <!-- ── Cabeçalho com navegação de mês ── -->
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
-        <div style="font-size:17px;font-weight:800;color:var(--c2)">📋 Orçamentos</div>
+        <div style="font-size:17px;font-weight:800;color:var(--c2)">📅 Resumo do período</div>
         <div class="orc-mes-nav">
           <button class="orc-mes-btn" onclick="orcNavMes(-1)" title="Mês anterior">◀</button>
           <span class="orc-mes-lbl" id="orc-mes-label">—</span>
           <button class="orc-mes-btn" onclick="orcNavMes(1)" title="Próximo mês">▶</button>
           <button class="orc-todos-btn" id="btn-orc-todos" onclick="orcVerTodos()">Ver todos</button>
-          <button class="btn-add" style="font-size:12px;padding:5px 10px;border-width:1.5px" onclick="loadHist()" title="Atualizar">↺</button>
         </div>
       </div>
-      <!-- ── Mini KPIs do período selecionado ── -->
       <div class="orc-mini-kpis" id="orc-mini-kpis"></div>
-      <!-- ── Filtros de status + busca ── -->
-      <div class="hf">
-        <button class="fb on" data-s="todos" onclick="filt(this)">Todos</button>
-        <button class="fb" data-s="abertos" onclick="filt(this)" title="Tudo que o cliente ainda não decidiu — pendente + vencido">📂 Só abertos</button>
-        <button class="fb" data-s="pendente" onclick="filt(this)">⏳ Pendente</button>
-        <button class="fb" data-s="aprovado" onclick="filt(this)">✅ Aprovado</button>
-        <button class="fb" data-s="recusado" onclick="filt(this)">❌ Recusado</button>
-        <button class="fb" data-s="vencido" onclick="filt(this)">🕐 Vencido</button>
-        <select id="hist-filtro-origem" onchange="filtOrigem(this.value)" title="Filtrar por origem do cliente" style="padding:6px 10px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:12px;font-family:'Instrument Sans',sans-serif;outline:none;color:var(--c2);font-weight:600">
-          <option value="">🔎 Origem: todas</option>
-        </select>
+    </div>
+
+    <!-- ══ Lista de Orçamentos (Fase 5 do redesign, 13/08 — handoff literal:
+         linha inteira clicável abre o orçamento; os botões de ação (status,
+         OS, entrega, NF, pagamento, WA, excluir) se mudaram pra dentro do
+         orçamento aberto — ver #form-acoes-edit em index.html/app.js).
+         Não é recortada por mês de propósito: é fila de trabalho, não
+         relatório contábil (isso ficou com o card acima). ══ -->
+    <div class="rd-card" style="padding:0;overflow:hidden;display:flex;flex-direction:column">
+      <div style="padding:16px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+        <div>
+          <div class="rd-card-title">Orçamentos</div>
+          <div class="rd-card-sub" id="orc-lista-sub">—</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button type="button" class="rd-btn rd-btn-secondary" onclick="_orcExportarCSV()">Exportar</button>
+          <button type="button" class="rd-btn rd-btn-primary" onclick="novoOrc();go('form')">+ Novo orçamento</button>
+        </div>
+      </div>
+      <div style="padding:12px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <div id="orc-chips" style="display:flex;gap:6px;flex-wrap:wrap;flex:1"></div>
         <label class="sr-only" for="hist-busca-input">Buscar orçamentos por cliente ou número</label>
-        <input class="hsrch" type="text" id="hist-busca-input" placeholder="🔍 Buscar cliente ou #…" oninput="buscar(this.value)">
+        <input class="rd-field-box" style="width:240px" type="text" id="hist-busca-input" placeholder="🔍 Cliente ou número…" oninput="buscar(this.value)">
       </div>
       <div id="hist-body"><div class="load"><div class="spin"></div> Carregando…</div></div>
+      <div id="orc-lista-rodape"></div>
     </div>
   </div>
 </div>

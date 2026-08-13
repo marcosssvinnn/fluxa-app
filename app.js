@@ -889,7 +889,9 @@ let lojasExtraConfig = {}; // { lojaId: { nome, sub, logoB64, tel, cidades, cor,
 let db = null, dbOk = false;
 let svcs = [], editId = null;
 let osSvcs = [], modalOrcId = null, osOrcId = null; // osOrcId = ID do orçamento vinculado à OS
-let todosOrc = [], filtroSt = localStorage.getItem('fluxa_filtroSt')||'todos', busca = '', filtroOrigem = '';
+let todosOrc = [], filtroSt = localStorage.getItem('fluxa_filtroSt')||'todos', busca = '';
+let _orcPag=1;
+const ORC_PAG_TAM=25;
 // Ordenação do histórico: 'recente' (padrão, como sempre foi) ou 'idade' (mais
 // parado primeiro — a ordem para cobrar carteira). Declarada AQUI no topo, não
 // junto da função: renderTabela roda no boot via loadHist, e `let` no meio do
@@ -2751,6 +2753,7 @@ function _limparCamposOrc(){
   ['os-inline-data','os-inline-hora','os-inline-tec'].forEach(id=>{const el=document.getElementById(id);if(el){el.value=id==='os-inline-hora'?'08:00':'';}});
   const bb=document.getElementById('form-back-bar'); if(bb) bb.style.display='none';
   const btnContato=document.getElementById('form-btn-contato'); if(btnContato) btnContato.style.display='none';
+  _renderFormAcoesEdit(null);
 }
 function novoOrc(){
   limparRascunho('form'); window._skipDraftForm=true; // novo orçamento = começar do zero, sem rascunho antigo
@@ -4990,6 +4993,11 @@ function verificarVencidos(){
 function atualizarDash(){
   // KPIs sempre refletem o período do mês selecionado (ou todos)
   const orcFiltrado=_orcListaMes();
+  // Mini KPIs do período iam dentro de renderTabela() — desde a Fase 5 do
+  // redesign a lista de Orçamentos não é mais recortada por mês (o handoff
+  // trata "Orçamentos" como fila de trabalho, não relatório contábil), então
+  // quem ainda dá sentido ao recorte de mês é este dashboard, não a lista.
+  if(typeof renderOrcMiniKpis==='function') renderOrcMiniKpis(orcFiltrado);
   const tot=orcFiltrado.length, soma=orcFiltrado.reduce((a,o)=>a+(o.total||0),0);
   const aprov=orcFiltrado.filter(o=>o.status==='aprovado');
   const somaA=aprov.reduce((a,o)=>a+(o.total||0),0);
@@ -5144,10 +5152,12 @@ function renderOrigemDash(){
   }).join('')+`<div style="font-size:11px;color:var(--gray);padding-top:8px;text-align:right">${lista.length} orçamento${lista.length!==1?'s':''} com origem informada</div>`;
 }
 
-function filt(btn){
-  document.querySelectorAll('.hf .fb[data-s]').forEach(b=>b.classList.remove('on'));
-  btn.classList.add('on'); filtroSt=btn.dataset.s;
-  lsSet('fluxa_filtroSt', filtroSt);
+// Chips com contagem ao vivo (handoff: "Todos 47, Pendente 23…") — "Abertos"
+// não é status, é a visão de carteira (pendente+vencido) que faltava antes
+// da Fase 5 e continua valendo (Etapa 21 do roadmap).
+const ORC_CHIPS=[['todos','Todos'],['abertos','Em aberto'],['pendente','Pendente'],['aprovado','Aprovado'],['recusado','Recusado'],['vencido','Vencido']];
+function _orcSetFiltro(s){
+  filtroSt=s; lsSet('fluxa_filtroSt', filtroSt); _orcPag=1;
   renderTabela();
 }
 function histToggleOrdem(){
@@ -5155,8 +5165,7 @@ function histToggleOrdem(){
   toast(histOrdem==='idade' ? '⏱ Ordenado pelo tempo parado' : '📅 Ordenado por data');
   renderTabela();
 }
-function buscar(v){ busca=v.toLowerCase(); renderTabela(); }
-function filtOrigem(v){ filtroOrigem=v; renderTabela(); }
+function buscar(v){ busca=v.toLowerCase(); _orcPag=1; renderTabela(); }
 
 // ──────────────────────────────────────────────────
 //  GRÁFICO DE FATURAMENTO
@@ -5349,84 +5358,161 @@ function renderOrcMiniKpis(lista){
     </div>`;
 }
 
-function renderTabela(){
-  // auto-vence orçamentos pendentes com prazo expirado
-  autoVencerOrc(todosOrc);
-  // base: filtro por mês de vigência
-  let listaMes=_orcListaMes();
-  // Renderiza mini KPIs para o período selecionado (antes dos filtros de status/busca)
-  renderOrcMiniKpis(listaMes);
-  // Popula o select de origem (uma vez) com as origens padrão + as usadas
-  const selOrig=document.getElementById('hist-filtro-origem');
-  if(selOrig && selOrig.options.length<=1){
-    const usadas=[...new Set((todosOrc||[]).map(o=>o.origem_cliente).filter(Boolean))];
-    const todas=[...new Set([...Object.keys(ORIGEM_EMOJI), ...usadas])];
-    const atual=selOrig.value;
-    selOrig.innerHTML='<option value="">🔎 Origem: todas</option>'
-      +todas.map(o=>`<option value="${esc(o)}">${ORIGEM_EMOJI[o]||'✏️'} ${esc(o)}</option>`).join('')
-      +'<option value="__sem__">✏️ Sem origem</option>';
-    selOrig.value=atual;
+// ── Situação (badge) e Próxima ação (texto) — Fase 5 do redesign, 13/08.
+// O handoff separa "o que é" (Situação, deriva do status bruto) de "o que
+// fazer agora" (Próxima ação, deriva de sinais que a fila de follow-up já
+// usa — mesmo vocabulário de _crmDiasAteDecisao/proximo_contato, sem
+// recalcular nada nem inventar dado novo).
+function _orcSituacao(o){
+  const st=o.status||'pendente';
+  if(st==='aprovado') return {label:'Aprovado', cls:'rd-badge-ok'};
+  if(st==='recusado') return {label:'Recusado', cls:'rd-badge-bad'};
+  if(st==='vencido')  return {label:'Vencido',  cls:'rd-badge-warn'};
+  const dd=_crmDiasAteDecisao(o);
+  if(dd!==null && dd>=0 && dd<=30) return {label:'Assembleia', cls:'rd-badge-neutral'};
+  const dias=_idadeEmDias(o);
+  if(dias>=60) return {label:'Parado', cls:'rd-badge-neutral'};
+  if(dias<=2)  return {label:'Enviado', cls:'rd-badge-info'};
+  return {label:'Negociando', cls:'rd-badge-info'};
+}
+function _orcProximaAcao(o){
+  const st=o.status||'pendente';
+  if(st==='aprovado'){
+    const temOS=(todosOS||[]).some(x=>x.orcamento_id===o.id);
+    return temOS ? {txt:'—', urgente:false} : {txt:'Agendar OS', urgente:true};
   }
-  let lista=listaMes;
-  // "abertos" não é um status: é o que o cliente ainda não decidiu (pendente +
-  // vencido). É a visão de carteira que faltava — sem ela o vendedor não tinha
-  // onde ver o funil inteiro, só os 16 cards da fila de ação.
+  if(st==='recusado') return {txt:'Preço · reabrir em 60 d', urgente:false};
+  if(st==='vencido')  return {txt:'Revalidar preço', urgente:true};
+  const dd=_crmDiasAteDecisao(o);
+  if(dd!==null && dd>=0) return {txt:'Decisão em '+_dataBR(o.decisao_prevista), urgente:dd<=7};
+  if(dd!==null && dd<0)  return {txt:'Perguntar resultado da assembleia', urgente:true};
+  if(o.proximo_contato){
+    if(o.proximo_contato<=_hojeISO()) return {txt:'Ligar hoje', urgente:true};
+    const faltam=Math.round((new Date(o.proximo_contato+'T12:00:00')-new Date(_hojeISO()+'T12:00:00'))/86400000);
+    return {txt:'Follow-up em '+faltam+' d', urgente:false};
+  }
+  const dias=_idadeEmDias(o);
+  if(dias>=60) return {txt:'Reativar', urgente:false};
+  if(dias>=10) return {txt:'Ligar hoje', urgente:true};
+  return {txt:'Aguarda retorno', urgente:false};
+}
+function _orcExportarCSV(){
+  const lista=_orcListaFiltrada();
+  const linhas=[['Nº','Cliente','Valor','Situação','Idade (dias)','Próxima ação','Origem']];
+  lista.forEach(o=>linhas.push([
+    String(o.numero||'').padStart(3,'0'), o.cliente||'',
+    String(o.total||0).replace('.',','), _orcSituacao(o).label,
+    String(_idadeEmDias(o)), _orcProximaAcao(o).txt, o.origem_cliente||''
+  ]));
+  const csv=linhas.map(l=>l.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(';')).join('\r\n');
+  const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob); a.download='orcamentos_'+_hojeISO()+'.csv'; a.click();
+  URL.revokeObjectURL(a.href);
+}
+// Base da lista SEM paginação — usada pelo render, pelo export e pelas
+// contagens dos chips. Não é recortada por mês (ver comentário no HTML):
+// Orçamentos é fila de trabalho, o recorte contábil ficou só no card acima.
+function _orcListaFiltrada(){
+  autoVencerOrc(todosOrc);
+  let lista=filtrarPorLoja(todosOrc||[]);
   if(filtroSt==='abertos') lista=lista.filter(orcAbertoNoPipeline);
   else if(filtroSt!=='todos') lista=lista.filter(o=>o.status===filtroSt);
-  if(filtroOrigem==='__sem__') lista=lista.filter(o=>!o.origem_cliente);
-  else if(filtroOrigem) lista=lista.filter(o=>o.origem_cliente===filtroOrigem);
   if(busca) lista=lista.filter(o=>
     (o.cliente||'').toLowerCase().includes(busca)||
     (o.local_servico||'').toLowerCase().includes(busca)||
     String(o.numero||'').includes(busca.replace('#',''))
   );
-  if(!lista.length){
-    const msgBusca=busca?`Nenhum resultado para "<strong>${esc(busca)}</strong>"`:
-      orcMesRef?`Nenhum orçamento em ${_renderOrcMesLabelStr()}.`:'Nenhum orçamento encontrado.';
-    document.getElementById('hist-body').innerHTML=`<div class="empty-st"><div class="ei">📭</div><p>${msgBusca}</p><button class="btn-primary" style="margin-top:12px" onclick="novoOrc();go('form')">＋ Criar Orçamento</button></div>`; return;
-  }
-  // Ordenar por idade (mais velho primeiro) é o que serve para cobrar carteira:
-  // o orçamento que está há mais tempo parado é o que corre risco de morrer.
   const _idadeDias=_idadeEmDias;
   if(histOrdem==='idade') lista=lista.slice().sort((a,b)=>_idadeDias(b)-_idadeDias(a));
+  return lista;
+}
+function _orcRenderChips(baseSemStatus){
+  const el=document.getElementById('orc-chips'); if(!el) return;
+  el.innerHTML=ORC_CHIPS.map(([id,rot])=>{
+    const qtd = id==='todos' ? baseSemStatus.length
+      : id==='abertos' ? baseSemStatus.filter(orcAbertoNoPipeline).length
+      : baseSemStatus.filter(o=>o.status===id).length;
+    const alerta = id==='vencido' && qtd>0;
+    const cls = filtroSt===id ? 'rd-chip on' : (alerta ? 'rd-chip rd-chip-alert' : 'rd-chip');
+    return `<button type="button" class="${cls}" onclick="_orcSetFiltro('${id}')">${esc(rot)} ${qtd}</button>`;
+  }).join('');
+}
+function _orcMudarPagina(delta){ _orcPag=Math.max(1,_orcPag+delta); renderTabela(); }
+function renderTabela(){
+  // Base sem o filtro de status, pra contar cada chip corretamente.
+  let baseSemStatus=filtrarPorLoja(todosOrc||[]);
+  if(busca) baseSemStatus=baseSemStatus.filter(o=>
+    (o.cliente||'').toLowerCase().includes(busca)||
+    (o.local_servico||'').toLowerCase().includes(busca)||
+    String(o.numero||'').includes(busca.replace('#',''))
+  );
+  _orcRenderChips(baseSemStatus);
 
-  const sopts=s=>['pendente','aprovado','recusado','vencido'].map(x=>`<option value="${x}" ${x===s?'selected':''}>${x.charAt(0).toUpperCase()+x.slice(1)}</option>`).join('');
+  const lista=_orcListaFiltrada();
+  const abertos=filtrarPorLoja(todosOrc||[]).filter(orcAbertoNoPipeline);
+  const subEl=document.getElementById('orc-lista-sub');
+  if(subEl) subEl.textContent=abertos.length+' em aberto · '+brl(abertos.reduce((a,o)=>a+(o.total||0),0));
+
+  const rodapeEl=document.getElementById('orc-lista-rodape');
+  if(!lista.length){
+    const msgBusca=busca?`Nenhum resultado para "<strong>${esc(busca)}</strong>"`:'Nenhum orçamento nesta situação.';
+    document.getElementById('hist-body').innerHTML=`<div class="rd-empty" style="padding:24px"><div class="rd-empty-ico">📭</div><div class="rd-empty-title">${msgBusca}</div><button type="button" class="rd-btn rd-btn-primary" style="margin-top:6px" onclick="novoOrc();go('form')">+ Novo orçamento</button></div>`;
+    if(rodapeEl) rodapeEl.innerHTML='';
+    return;
+  }
+
+  const totalPag=Math.max(1,Math.ceil(lista.length/ORC_PAG_TAM));
+  if(_orcPag>totalPag) _orcPag=totalPag;
+  const inicio=(_orcPag-1)*ORC_PAG_TAM;
+  const pagina=lista.slice(inicio, inicio+ORC_PAG_TAM);
+
   const ocultarFinanceiro=eVendas();
-  const setaIdade=histOrdem==='idade'?' ▼':'';
-  let h=`<div class="htw"><table class="ht"><thead><tr><th>#</th><th>Cliente</th>${ocultarFinanceiro?'':'<th>Total / Recebido</th>'}<th style="cursor:pointer;user-select:none" onclick="histToggleOrdem()" title="Ordenar pelo tempo parado">Data / idade${setaIdade}</th><th>Status</th><th>Ações</th></tr></thead><tbody>`;
-  lista.forEach(o=>{
+  const grid=ocultarFinanceiro?'64px 1.5fr 100px 90px 1fr 120px':'64px 1.5fr 110px 110px 100px 1fr 120px';
+  // Rolagem horizontal em telas estreitas, nunca corta a tabela (handoff):
+  // as colunas fixas em px seguram sua largura, o wrapper de fora rola.
+  const minW=ocultarFinanceiro?'680px':'820px';
+  let h=`<div class="rd-table-wrap" style="border:none;border-radius:0">
+    <div style="overflow-x:auto">
+    <div style="min-width:${minW}">
+    <div class="rd-thead" style="grid-template-columns:${grid};gap:12px">
+      <div class="rd-th">Nº</div><div class="rd-th">Cliente</div>
+      ${ocultarFinanceiro?'':'<div class="rd-th rd-num">Valor</div>'}
+      <div class="rd-th">Situação</div><div class="rd-th rd-num">Idade</div>
+      <div class="rd-th">Próxima ação</div><div class="rd-th">Origem</div>
+    </div>`;
+  pagina.forEach(o=>{
     _nc[o.id]=o;
     const num=String(o.numero||'—').padStart(3,'0');
     const svs=(o.servicos||[]).map(s=>s.desc).join(', ')||'—';
-    const dt=o.data_criacao?new Date(o.data_criacao).toLocaleDateString('pt-BR'):'—';
-    const rec=o.valor_recebido||0, ttl=o.total||0;
-    const recCl=rec>=ttl&&ttl>0?'opaid':rec>0?'opaid partial':'opaid none';
-    const recTxt=rec>0?brl(rec):'—';
-    const notaIcon=o.nota_interna?` <span title="${esc(o.nota_interna)}" style="cursor:help">📝</span>`:'';
+    const dias=_idadeEmDias(o);
+    const sit=_orcSituacao(o);
+    const acao=_orcProximaAcao(o);
     const pendSync=String(o.id).startsWith('local_');
-    h+=`<tr>
-      <td><span class="on">#${num}</span>${pendSync?'<div title="Não sincronizado com o banco — aguardando conexão" style="font-size:9px;font-weight:700;color:#dc2626;background:#fee2e2;border-radius:4px;padding:1px 5px;margin-top:2px;text-align:center">⚠ PEND.</div>':''}</td>
-      <td><div class="ocl">${esc(o.cliente||'—')}${notaIcon}</div><div class="oloc">${esc(o.local_servico||'')}</div><div class="osvc" title="${esc(svs)}">${esc(svs)}</div><div style="margin-top:3px;display:flex;gap:5px;flex-wrap:wrap;align-items:center">${getLojaBadge(o.loja_id)}${getOrigemBadge(o.origem_cliente)}</div>${(()=>{ const etapas=[]; const st=o.status||'pendente'; const osVinc=(todosOS||[]).find(x=>x.orcamento_id===o.id); const entregue=!orcTemEntregaPendente(o)&&(o.servicos||[]).some(s=>s.produto_id); const etApr=st==='aprovado'||st==='recusado'||osVinc||entregue; const etOS=!!osVinc; const etConc=osVinc?.status==='concluido'; const dot=(ok,lbl)=>`<span style="display:flex;align-items:center;gap:2px;font-size:10px;color:${ok?'#16a34a':'#9ca3af'};font-weight:${ok?'700':'400'}">${ok?'●':'○'} ${lbl}</span>`; return `<div style="display:flex;gap:6px;align-items:center;margin-top:4px;flex-wrap:wrap">${dot(true,'Criado')}›${dot(etApr,'Aprovado')}›${dot(etOS,'OS')}›${dot(etConc,'Concluído')}</div>`; })()}</td>
-      ${ocultarFinanceiro?'':'<td><span class="otot">'+brl(ttl)+'</span><br><span class="'+recCl+'" style="font-size:11px">'+recTxt+'</span></td>'}
-      <td><span class="odt">${dt}</span>${(()=>{ if(!orcAbertoNoPipeline(o)) return ''; const d=_idadeDias(o); const cor=d>90?'var(--red)':d>30?'var(--yellow)':'var(--gray)'; return `<div style="font-size:11px;font-weight:600;color:${cor};margin-top:2px">${d===0?'hoje':'há '+d+'d'}</div>`; })()}</td>
-      <td><select class="ss ${o.status||'pendente'}" onchange="mudarSt('${o.id}',this)">${sopts(o.status||'pendente')}</select>${orcPrecoARevalidar(o)?'<div title="O prazo do preço expirou, mas o negócio continua no funil (equipamento ou acima de R$ 15 mil). Revalide o valor antes de retomar o contato." style="font-size:9px;font-weight:700;color:#b45309;background:#fef3c7;border-radius:4px;padding:2px 5px;margin-top:3px;text-align:center;line-height:1.25">⏳ PREÇO A<br>REVALIDAR</div>':''}</td>
-      <td><div class="ta">
-        <button class="tb" title="Ver PDF" onclick="verOrcPDF('${o.id}')">👁</button>
-        <button class="tb" title="Editar" onclick="abrirOrc('${o.id}')">✎</button>
-        <button class="tb" title="Duplicar" onclick="duplicarOrc('${o.id}')">⧉</button>
-        ${(()=>{ const osVinc=(todosOS||[]).find(x=>x.orcamento_id===o.id); if(osVinc){ const stOS=osVinc.status||'agendado'; const stLabel={agendado:'agendada',em_andamento:'em andamento',concluido:'concluída'}[stOS]||stOS; return `<button class="tb" title="OS #${String(osVinc.numero||'').padStart(3,'0')} — ${stLabel}" onclick="verDetalhesOS('${osVinc.id}')" style="background:#16a34a;color:white;border-color:#16a34a;font-weight:700">✅ OS#${String(osVinc.numero||'').padStart(3,'0')}</button>`; } if(o.status==='aprovado') return `<button class="tb" title="Gerar Ordem de Serviço" onclick="gerarOS_deOrc('${o.id}')" style="background:#C45E0A;color:white;border-color:#C45E0A;font-weight:700">📋 Gerar OS</button>`; return `<button class="tb" title="Gerar OS" onclick="gerarOS_deOrc('${o.id}')">📋</button>`; })()}
-        ${orcTemEntregaPendente(o)?`<button class="tb g" title="Marcar como entregue (baixa do estoque)" onclick="entregarOrcamento(getNC('${o.id}'),'manual')">📦 Entregar</button>`:''}
-        ${o.status==='aprovado'&&_orcTemItens(o)?`<button class="tb" title="Imprimir comprovante de entrega para o cliente conferir e assinar" onclick="gerarOrdemEntrega('${o.id}')">🧾 Entrega</button>`:''}
-        ${ocultarFinanceiro?'':'<button class="tb g" title="Registrar pagamento" onclick="abrirModalPg(\''+o.id+'\','+ttl+')">💰</button>'}
-        ${o.status==='aprovado'?`<button class="tb" title="Corrigir mês de aprovação no faturamento" onclick="corrigirDataAprovacao('${o.id}')" style="font-size:10px;font-weight:700;color:#b45309;border-color:#fbbf24;background:#fef9c3">MÊS</button>`:''}
-        ${!ocultarFinanceiro&&o.status==='aprovado'?`<button class="tb" title="Emitir Nota Fiscal" onclick="abrirModalNFe('${o.id}')" style="background:#7c3aed;color:white;border-radius:6px;padding:4px 7px;font-size:11px;font-weight:700;border:none;cursor:pointer">NF</button>`:''}
-        <button class="tb" title="Enviar no WhatsApp" style="background:var(--wa);color:white;border-color:var(--wa)" onclick="enviarNotifWA(notifOrcamento(getNC('${o.id}')), '${o.tel_cliente||''}')">💬 WA</button>
-        ${ocultarFinanceiro?'':'<button class="tb d" title="Excluir" onclick="excluirOrc(\''+o.id+'\')">🗑</button>'}
-      </div></td>
-    </tr>`;
+    h+=`<div class="rd-row${acao.urgente?' rd-row-action':''}" style="grid-template-columns:${grid};gap:12px;cursor:pointer" tabindex="0" onclick="abrirOrc('${o.id}')" onkeydown="if(event.key==='Enter')abrirOrc('${o.id}')">
+      <div><span class="rd-cell-strong" style="color:var(--c1)">#${num}</span>${pendSync?'<div class="rd-cell-sub" style="color:var(--bad)">⚠ pend.</div>':''}</div>
+      <div><div class="rd-cell-strong">${esc(o.cliente||'—')}${lojaAtiva?'':getLojaBadge(o.loja_id)}</div><div class="rd-cell-sub" title="${esc(svs)}">${esc(svs)}</div></div>
+      ${ocultarFinanceiro?'':'<div class="rd-cell-num rd-cell-strong">'+brl(o.total||0).replace('R$','').trim()+'</div>'}
+      <div><span class="rd-badge ${sit.cls}">${esc(sit.label)}</span></div>
+      <div class="rd-cell-num" style="${dias>30?'color:var(--warn);font-weight:600':''}">${dias===0?'hoje':dias+'d'}</div>
+      <div style="${acao.urgente?'color:var(--c1);font-weight:600':'color:var(--tx2)'}">${esc(acao.txt)}</div>
+      <div class="rd-cell-sub">${esc(o.origem_cliente||'—')}</div>
+    </div>`;
   });
-  h+='</tbody></table></div>';
+  h+='</div></div></div>';
   document.getElementById('hist-body').innerHTML=h;
+
+  if(rodapeEl){
+    const soma=pagina.reduce((a,o)=>a+(o.total||0),0);
+    rodapeEl.innerHTML=`<div class="rd-tfoot">
+      <span>Mostrando ${pagina.length} de ${lista.length}${ocultarFinanceiro?'':' · soma da página '+brl(soma)}</span>
+      <div style="display:flex;gap:6px;align-items:center">
+        <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" ${_orcPag<=1?'disabled':''} onclick="_orcMudarPagina(-1)">Anterior</button>
+        <span style="font-size:12px;color:var(--tx2)">${_orcPag} / ${totalPag}</span>
+        <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" ${_orcPag>=totalPag?'disabled':''} onclick="_orcMudarPagina(1)">Próxima</button>
+      </div>
+    </div>`;
+  }
 }
 
 function corrigirDataAprovacao(id){
@@ -5609,6 +5695,45 @@ async function _excluirOrcConfirmado(id){
   todosOrc=todosOrc.filter(x=>x.id!==id); atualizarDash(); renderTabela();
   logAcao('orcamento_excluido', `#${o?.numero||'?'} ${o?.cliente||''}`);
   toast('🗑 Excluído');
+  // Excluir de dentro do próprio orçamento aberto (Fase 5) não deixa o que
+  // editar — diferente de excluir a partir da lista, onde só a linha some.
+  if(document.querySelector('.page.on')?.id==='page-form' && editId===id){
+    editId=null; go('history');
+  }
+}
+
+// ── Barra de ações do orçamento aberto (Fase 5, 13/08) — a lista virou clique
+// só (linha abre o orçamento); os botões que viviam na linha da tabela se
+// mudaram pra cá. Reaproveita as MESMAS funções que a tabela já chamava —
+// só muda onde o botão mora, não o que ele faz.
+function _renderFormAcoesEdit(o){
+  const el=document.getElementById('form-acoes-edit'); if(!el) return;
+  if(!o){ el.style.display='none'; el.innerHTML=''; return; }
+  const ocultarFinanceiro=eVendas();
+  const sopts=s=>['pendente','aprovado','recusado','vencido'].map(x=>`<option value="${x}" ${x===s?'selected':''}>${x.charAt(0).toUpperCase()+x.slice(1)}</option>`).join('');
+  const osVinc=(todosOS||[]).find(x=>x.orcamento_id===o.id);
+  const btnOS = osVinc
+    ? (()=>{ const stOS=osVinc.status||'agendado'; const stLabel={agendado:'agendada',em_andamento:'em andamento',concluido:'concluída'}[stOS]||stOS;
+        return `<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="OS #${String(osVinc.numero||'').padStart(3,'0')} — ${stLabel}" onclick="verDetalhesOS('${osVinc.id}')">✅ OS#${String(osVinc.numero||'').padStart(3,'0')}</button>`; })()
+    : (o.status==='aprovado'
+        ? `<button type="button" class="rd-btn rd-btn-primary rd-btn-sm" onclick="gerarOS_deOrc('${o.id}')">📋 Gerar OS</button>`
+        : `<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Gerar OS" onclick="gerarOS_deOrc('${o.id}')">📋 OS</button>`);
+  el.innerHTML=`
+    <select class="ss ${o.status||'pendente'}" style="flex-shrink:0" onchange="mudarSt('${o.id}',this)">${sopts(o.status||'pendente')}</select>
+    ${orcPrecoARevalidar(o)?'<span class="rd-badge rd-badge-warn">⏳ preço a revalidar</span>':''}
+    <span style="flex:1"></span>
+    <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Ver PDF" onclick="verOrcPDF('${o.id}')">👁 PDF</button>
+    <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Duplicar" onclick="duplicarOrc('${o.id}')">⧉ Duplicar</button>
+    ${btnOS}
+    ${orcTemEntregaPendente(o)?`<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Marcar como entregue (baixa do estoque)" onclick="entregarOrcamento(getNC('${o.id}'),'manual')">📦 Entregar</button>`:''}
+    ${o.status==='aprovado'&&_orcTemItens(o)?`<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Comprovante de entrega" onclick="gerarOrdemEntrega('${o.id}')">🧾 Entrega</button>`:''}
+    ${ocultarFinanceiro?'':`<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Registrar pagamento" onclick="abrirModalPg('${o.id}',${o.total||0})">💰 Pagamento</button>`}
+    ${o.status==='aprovado'?`<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Corrigir mês de aprovação" onclick="corrigirDataAprovacao('${o.id}')">📅 Mês</button>`:''}
+    ${!ocultarFinanceiro&&o.status==='aprovado'?`<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Emitir Nota Fiscal" onclick="abrirModalNFe('${o.id}')">NF</button>`:''}
+    <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Enviar no WhatsApp" onclick="enviarNotifWA(notifOrcamento(getNC('${o.id}')), '${o.tel_cliente||''}')">💬 WA</button>
+    ${ocultarFinanceiro?'':`<button type="button" class="rd-btn rd-btn-danger-text rd-btn-sm" title="Excluir" onclick="excluirOrc('${o.id}')">🗑 Excluir</button>`}
+  `;
+  el.style.display='flex';
 }
 
 function abrirOrc(id){
@@ -5646,6 +5771,7 @@ function abrirOrc(id){
   if(bl){ bl.textContent='Editando ORC #'+String(o.numero).padStart(3,'0'); }
   const btnContato=document.getElementById('form-btn-contato');
   if(btnContato) btnContato.style.display='';
+  _renderFormAcoesEdit(o);
   toast('✏️ Editando Orçamento #'+String(o.numero).padStart(3,'0'));
 }
 
@@ -5691,6 +5817,12 @@ function duplicarOrc(id){
   const osf=document.getElementById('os-inline-fields'); if(osf) osf.style.display='none';
   limparRascunho('form'); window._skipDraftForm=true; // não deixar rascunho antigo sobrescrever os dados duplicados
   renderSvcs(); upd(); go('form');
+  // editId virou null — a barra de ações (Fase 5) e o back-bar eram do
+  // orçamento original; sem isto, "Duplicar" a partir da própria barra
+  // deixava os botões do orçamento velho na tela de um rascunho novo.
+  const bb=document.getElementById('form-back-bar'); if(bb) bb.style.display='none';
+  const btnContato=document.getElementById('form-btn-contato'); if(btnContato) btnContato.style.display='none';
+  _renderFormAcoesEdit(null);
   toast('📋 Orçamento duplicado — edite e salve como novo');
 }
 
