@@ -2,6 +2,83 @@
 
 ---
 
+## Fichas duplicadas voltando sempre — investigado, causa real achada e parcialmente fechada (13/08)
+
+Marcos: "volta e meia está aparecendo no sistema pra mim pra limpar as
+fichas" — pediu pra confirmar se o incidente de duplicação (encerrado
+11/08) foi realmente resolvido. **Resposta curta: não completamente —
+achei duas causas distintas, uma corrigida agora, outra ainda em
+aberto, precisa de decisão do Marcos.**
+
+**Confirmado contra produção (leitura, anon key):** existem **16
+grupos / 19 fichas duplicadas reais agora mesmo**, todas criadas
+DEPOIS do fechamento de 11/08. Isso não é a tela "grudada" mostrando
+lixo antigo — é duplicata nova, genuína.
+
+**Causa 1 — `_autoSalvarCliente()` continua criando fichas cegas
+(NÃO CORRIGIDO, decisão do Marcos pendente).** Já tinha sido apontada
+como risco na Etapa 2 ("mesma classe de risco da causa raiz do
+incidente... não mexido, fora do escopo") — agora confirmado como a
+causa ativa. A função só checa o **cache local do aparelho**
+(`lsCliLer()`) antes de criar ficha nova — nunca consulta o servidor.
+Todo aparelho que salva um orçamento/OS/vistoria pra um cliente que
+não está no cache DAQUELE aparelho específico cria sua própria cópia,
+quase sempre com telefone/endereço em branco (só o nome, capturado no
+momento do salvamento). Com Marcos/Bruno/Josimar/Eldecir/Tamara/Elis
+em aparelhos diferentes, cada um "descobrindo" o mesmo cliente pela
+primeira vez no seu próprio cache gera uma ficha nova. Padrão batendo
+100% nos 16 grupos achados: 1 ficha "real" (endereço/telefone
+preenchido, geralmente a mais antiga) + 1-2 cópias com campos em
+branco.
+
+Três jeitos de fechar isso de vez, nenhum implementado ainda —
+**precisa o Marcos escolher**, é mudança na forma como cliente é
+criado, mesma cautela usada pra desligar `_migrarClientesDeOrcamentos`:
+1. Parar de auto-criar: orçamento com nome não reconhecido fica sem
+   `cliente_id`, sem ficha nova — só é criada ficha na Identidade ou
+   na busca explícita (regride conveniência, elimina o risco de vez).
+2. Checar o servidor antes de criar (não só o cache local) — mais
+   fiel ao comportamento atual, adiciona 1 consulta por orçamento
+   salvo com nome não reconhecido.
+3. Atualizar o cache local do servidor antes de checar, só quando
+   estiver velho — meio-termo, sem consulta em toda gravação.
+
+**Causa 2 — lacuna no `_dupGrupos()` (CORRIGIDO agora).** Mesmo
+quando o Marcos clicava "Revisar e limpar", boa parte dessas 19
+fichas **não aparecia pra limpar** — por isso "nunca resolvia de
+verdade". A passada 1 (por nome) só disparava com **exatamente 1**
+cópia em uso; a passada 2 exigia a **tripla idêntica** (nome+endereço+
+telefone). Nos 16 grupos achados, NENHUMA cópia tem uso (nem
+orçamento, nem OS, nem equipamento, nem local de vistoria) — e os
+endereços divergem entre as cópias (um preenchido, o outro em
+branco). Isso não batia em NENHUMA das duas passadas — ficava pra
+sempre invisível pro "Revisar e limpar", mesmo sendo exatamente o
+tipo de duplicata vazia que a ferramenta existe pra resolver.
+
+**Fix:** nova "PASSADA 1B" em `_dupGrupos()` (`app.js`, entre a
+passada 1 e a passada 2) — mesmo nome, **zero** cópias em uso (não só
+exatamente 1), CNPJ não pode divergir (mesma trava da passada 2),
+mantém a ficha mais completa (telefone+endereço+cnpj+tipo+email
+preenchidos desempata; empate total cai pra mais antiga). Testado
+contra o banco real de produção (dados carregados read-only num teste
+isolado, `_dupGrupos()` chamada como função pura, nenhuma exclusão
+executada): **detecta corretamente os 16 grupos/19 fichas** — bate
+com uma análise independente feita em Python direto contra os dados
+crus. Confirmado também na tela real (`abrirRevisaoDuplicatas()` →
+modal lista os 16 grupos certos, cada um mantendo a ficha mais
+completa).
+
+**Não apaguei nada** — nem via API direta, nem confirmando o modal de
+teste. Isso é decisão do Marcos: da próxima vez que ele abrir Clientes
+e clicar "Revisar e limpar", agora VAI aparecer e limpar essas 19
+fichas de verdade (antes, várias ficavam invisíveis pra sempre). Mas
+sem resolver a Causa 1, o mesmo padrão volta a se acumular — é
+questão de tempo, não "se".
+
+`sw.js` v120→v121.
+
+---
+
 ## Densidade dos cards — reduzido whitespace geral (13/08, feedback de voz)
 
 Marcos: os cards ficaram legíveis mas grandes demais pro conteúdo que

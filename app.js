@@ -2246,11 +2246,49 @@ function _dupGrupos(){
       endereco:comUso[0].endereco||'', telefone:comUso[0].telefone||'' });
   });
 
+  // PASSADA 1B — por NOME, ZERO cópias em uso, endereço/telefone PODE
+  // divergir (achado 13/08, investigando por que "Revisar e limpar" nunca
+  // parava de reaparecer pro Marcos): passada 1 só disparava com exatamente
+  // 1 cópia usada; passada 2 exige a TRIPLA idêntica. Uma checagem contra o
+  // banco real de produção mostrou 16 grupos — 19 fichas — com ZERO uso em
+  // TODAS as cópias e endereço divergente ou em branco entre elas (o padrão
+  // de `_autoSalvarCliente()`: cria ficha nova sempre que o NOME não bate no
+  // cache local do aparelho, sem checar o servidor primeiro — cada aparelho
+  // que salva um orçamento pra esse cliente pela primeira vez gera sua
+  // própria cópia, quase sempre com endereço/telefone vazios). Nenhuma das
+  // duas passadas capturava esse caso: passada 1 exige uso===1, passada 2
+  // exige tripla igual. Como NENHUMA cópia tem uso, não há histórico de
+  // ninguém pra proteger (mesmo raciocínio da passada 1) — mantém a mais
+  // completa (telefone+endereço+cnpj preenchidos), remove o resto. CNPJ
+  // divergente entre cópias ainda bloqueia o grupo (são pessoas jurídicas
+  // diferentes de verdade, nunca mexe).
+  const porNome0={};
+  cli.forEach(c=>{
+    if(processados.has(c.id)) return;
+    const k=_identNorm(c.nome); (porNome0[k]=porNome0[k]||[]).push(c);
+  });
+  Object.keys(porNome0).forEach(k=>{
+    const fichas=porNome0[k];
+    if(fichas.length<2) return;
+    if(fichas.some(f=>usado(f.id))) return; // qualquer uso aqui já foi decidido na passada 1
+    const cnpj=new Set(fichas.map(f=>(f.cnpj||'').trim()).filter(Boolean));
+    if(cnpj.size>1) return; // cnpj divergente — não mexe
+    const completude=f=>(f.telefone||f.tel?1:0)+(f.endereco||f.end?1:0)+(f.cnpj?1:0)+(f.tipo?1:0)+(f.email_responsavel?1:0);
+    const manter=fichas.slice().sort((a,b)=>{
+      const d=completude(b)-completude(a);
+      return d!==0 ? d : new Date(a.data_criacao||0)-new Date(b.data_criacao||0);
+    })[0];
+    const remover=fichas.filter(f=>f.id!==manter.id);
+    if(!remover.length) return;
+    remover.forEach(f=>processados.add(f.id));
+    processados.add(manter.id);
+    grupos.push({ nome:fichas[0].nome, manterId:manter.id, removerIds:remover.map(f=>f.id), qtd:remover.length,
+      endereco:manter.endereco||manter.end||'', telefone:manter.telefone||manter.tel||'' });
+  });
+
   // PASSADA 2 — pela TRIPLA exata (nome+endereço+telefone normalizados), como
-  // antes. Cobre o que a passada 1 não resolveu: nenhuma cópia em uso (ex.:
-  // "Torri Di Mare" tinha 626 cópias vazias idênticas + 4 com endereço real,
-  // divergentes entre si — aqui as 626 idênticas ainda se limpam sozinhas) ou
-  // 2+ cópias em uso (ambíguo de verdade, não mexe).
+  // antes. Cobre o que as passadas 1/1B não resolveram: 2+ cópias em uso
+  // (ambíguo de verdade, não mexe) com alguma tripla idêntica sobrando.
   const porTripla={};
   cli.forEach(c=>{
     if(processados.has(c.id)) return; // já decidido na passada 1
