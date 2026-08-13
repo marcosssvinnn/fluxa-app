@@ -2,6 +2,39 @@
 
 ---
 
+## Task #37 fechada — 2 ligações acidentais de cliente corrigidas em produção (13/08)
+
+Investigado direto contra produção (leitura via REST + anon key, mesmo
+padrão dos baselines). "Torri di Mare" **não tinha problema**: as 7
+fichas (1 orçamento + 6 OS, cliente_id `d2f3d1a9...`) têm todas o mesmo
+`local_servico` ("SENADOR ATILIO FONTANA, 933, PEREQUE"), só espalhadas
+entre `fortemp-itapema` e `aquamotor` — é o mesmo condomínio atendido
+pelas duas lojas, ligação correta.
+
+O problema real estava em **"Di Maria"**, que são DUAS entidades
+diferentes com nome parecido:
+- `0d8131bd...` "RESIDENCIAL DI MARIA" (endereço da ficha: Rua Rio
+  Canoinhas)
+- `7661aef8...` "CONDOMINIO DI MARIA" (endereço da ficha: Rua 428,
+  Morretes, Itapema)
+
+Dos 4 orçamentos ligados a `0d8131bd` ("Residencial"), **2 tinham
+`local_servico` = "Rua 428, Morretes-Itapema"** — o endereço da OUTRA
+ficha, não da que estavam ligados. Prova independente e objetiva (o
+campo é preenchido por orçamento, não herdado da ficha do cliente) —
+não foi achismo por nome parecido. Corrigido via `PATCH` direto nas
+duas linhas (`orcamentos.id` `518985aa...` e `21edf050...`,
+`cliente_id` → `7661aef8...`). Verificado depois: as duas fichas agora
+têm 100% de coerência interna entre `local_servico` e endereço próprio.
+
+**Nota pra quem for investigar caso parecido de novo:** `local_servico`
+(preenchido por orçamento, independente da ficha) é um sinal mais
+confiável que nome/CNPJ pra flagrar ligação errada entre clientes de
+nome parecido — CNPJ e telefone às vezes é de terceiro (síndico,
+administradora) que se repete entre condomínios diferentes.
+
+---
+
 ## Etapa 6 (motor de eventos recorrentes) — versão enxuta, deliberadamente pequena (13/08)
 
 O Marcos pediu pra seguir pro "motor de recorrência e demais evoluções". O
