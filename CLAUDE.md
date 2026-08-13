@@ -2,69 +2,57 @@
 
 ---
 
-## 🟡 EM ANDAMENTO (13/08) — estendendo o consumo teórico da Etapa 4
+## Etapa 4 estendida — fatores de piscina + bromo/peróxido + editar piscina (13/08)
 
-> **Se você está pegando isto numa sessão nova porque a anterior bateu o
-> limite de contexto: comece por aqui.** O Marcos pediu pra "estender e
-> fazer tudo certinho" em cima do que já foi entregue (ver seção logo
-> abaixo, "Etapa 4 fechada"). Isto é o plano de como eu ia fazer — se
-> parte já estiver no código (`git log`/`grep` pra confirmar), pule pro
-> que faltar.
+Marcos pediu pra "estender e fazer tudo certinho" em cima do consumo
+teórico (seção "Etapa 4 fechada" logo abaixo). Aplicados os campos que o
+documento (`docs/referencia-consumo-quimico-piscinas-2026-08-12.md`, seção
+7.2) lista como maior retorno preditivo, na ordem de prioridade dele.
 
-**Objetivo:** aplicar os campos de maior retorno preditivo que o
-documento (`docs/referencia-consumo-quimico-piscinas-2026-08-12.md`,
-seção 7.2) recomenda, na ordem de prioridade dele, e adicionar bromo +
-peróxido (confiança média, o documento dá fórmula clara pros dois). Fora
-disso: PHMB continua sem estimativa (o próprio documento manda tratar
-como parâmetro aprendido, não estimado).
+- **`piscinas` ganhou 6 colunas** (`migracao-piscinas-fatores.sql`):
+  `capa_termica`, `exposicao_solar` (`pleno`/`parcial`), `aquecida`,
+  `tipo_uso` (`residencial`/`condominio`), `banhistas_dia`,
+  `estabilizante`.
+- **`demandaDiaria(piscina)`** (app.js) — aplica os coeficientes da seção
+  2.2 sobre `D_REF_CLORO`: estação do ano pelo mês atual (verão dez-mar
+  1,0× · meia-estação 0,70× · inverno 0,45×), capa térmica 0,50×,
+  exposição parcial 0,70×, aquecida 1,30×, sem estabilizante 2,15× —
+  todos multiplicativos. Banhista de condomínio **soma**, não multiplica:
+  `d += (banhistas_dia×4)/V`. `consumoTeoricoDias()` agora recebe esse `d`
+  já calculado em vez de usar a referência fixa direto.
+- **Bromo e peróxido** entraram em `consumoTeoricoDias()` como casos
+  especiais (mesmo padrão de sal/cloro líquido). Bromo usa `d_Br` — **não**
+  o `d` combinado de estação/capa/etc (achado no próprio teste: um `d`
+  baixo por causa do inverno lia como "piscina protegida" mesmo sendo
+  externa — sinais diferentes, confundir os dois dava conta errada).
+  Corrigido pra usar `exposicao_solar` da piscina direto: parcial→2,5,
+  pleno→7,0 (seção 3.6). PHMB continua sem estimativa — o documento manda
+  tratar como parâmetro aprendido, não estimado.
+- **Editar piscina** — não existia (só criar). Botão "✏️" ao lado do
+  `<select>` de piscina no formulário de Equipamento reabre o mesmo form
+  inline pré-preenchido; `_eqPiscinaCriar()` virou insert-ou-update
+  conforme `_eqPiscinaEditId`. Necessário porque o import em massa de
+  vistoria (que ficou de propósito só com nome/volume/tratamento, é fluxo
+  de velocidade) precisa de algum jeito de completar os campos novos depois.
 
-**Plano, em ordem:**
-1. **Migração aditiva** em `piscinas`: `capa_termica boolean DEFAULT false`,
-   `exposicao_solar text DEFAULT 'pleno'` (`'pleno'|'parcial'`), `aquecida
-   boolean DEFAULT false`, `tipo_uso text DEFAULT 'residencial'`
-   (`'residencial'|'condominio'`), `banhistas_dia integer`, `estabilizante
-   boolean DEFAULT true`. Arquivo: `migracao-piscinas-fatores.sql` (ainda
-   não criado).
-2. **`demandaDiaria(piscina)`** nova função em `app.js`, perto de
-   `consumoTeoricoDias` — aplica os coeficientes da seção 2.2 do documento
-   sobre `D_REF_CLORO` (estação do ano via mês atual — verão dez-mar,
-   inverno jun-ago, meia-estação o resto; capa térmica 0,50×; exposição
-   parcial 0,70×; aquecida 1,30×; sem estabilizante 2,15×; banhistas de
-   condomínio SOMA `(banhistas_dia×4)/V`, não multiplica).
-3. **`consumoTeoricoDias`** passa a receber `d` calculado (em vez de usar
-   `D_REF_CLORO` fixo direto) — chamador passa `demandaDiaria(piscina)`.
-4. **Bromo e peróxido** entram em `CONSUMO_QUIMICO_REF`/tratados como caso
-   especial na função (mesmo padrão de `cloro_liquido_10`/`sal_salino`) —
-   bromo usa `d_Br` (não é o mesmo `d` do cloro): ~2,5 se
-   `exposicao_solar==='parcial'`, ~7 se `'pleno'` (documento seção 3.6).
-   Peróxido é dose fixa, não depende de `d` (seção 3.7, `q=7,5mL/m³/dia`).
-5. **`analiseClientes()`**: troca a chamada de `consumoTeoricoDias(tipo,
-   volume)` pra passar `demandaDiaria(piscina)` também.
-6. **UI — formulário de Equipamento** (`#eq-piscina-novo`): acrescenta os
-   campos novos (checkboxes capa/aquecida/estabilizante, select
-   exposição, select uso residencial/condomínio revelando campo de
-   banhistas só quando condomínio — divulgação progressiva). Manter
-   default sensato em cada um pra quem for rápido não precisar preencher
-   tudo.
-7. **Import em massa de vistoria** (`#eqimp-pisc-novo-*`): **deixar como
-   está** (só nome/volume/tratamento) — é fluxo de velocidade, não de
-   detalhe. Detalhar depois pelo item 8.
-8. **Novo: editar piscina existente.** Hoje só dá pra criar, nunca editar
-   — precisa de um jeito de voltar numa piscina já criada (pelo import
-   rápido, por exemplo) e completar os campos novos. Adicionar botão "✏️"
-   ao lado do `<select>` de piscina em `_eqRenderPiscinas()`, que abre o
-   mesmo formulário inline pré-preenchido; `_eqPiscinaCriar()` precisa
-   virar insert-ou-update conforme um novo estado `_eqPiscinaEditId`.
-9. Testar local (`dbOk=false`): fórmula com os coeficientes novos batendo
-   com o documento em pelo menos 1 cenário por fator (capa, exposição,
-   aquecida, banhistas, estabilizante, estação atual), criar piscina com
-   campos novos, editar piscina existente, bromo/peróxido calculando.
-10. Atualizar `CLAUDE.md` (fechar esta seção, virar um recado de "feito"
-    como os outros) + `sw.js` CACHE + commit + push.
+Testado no browser local (dbOk=false): cada coeficiente isolado bate com o
+documento; cenário composto (piscina de condomínio 95m³, capa térmica,
+exposição parcial, 60 banhistas/dia) calculado à mão e conferido —
+banhistas domina mesmo com dois fatores "protetores" ativos (21 dias vs
+145 de uma residencial equivalente sem carga de banhistas — bate com o
+que o documento avisa sobre condomínio consumir 2-4× mais). Bug achado e
+corrigido no próprio teste (bromo usando o `d` errado, acima). Criar
+piscina com todos os campos, editar sem duplicar, campo de banhistas
+só aparece pra condomínio — todos confirmados. Sem erro novo no console.
 
-**Nada disso foi commitado ainda quando esta nota foi escrita** — se o
-`git log` mostrar um commit "Etapa 4 (extensão)" ou parecido depois desta
-linha, esta seção já está desatualizada, pode apagar.
+**Pendências que ficaram de fora, de propósito (registradas no documento
+salvo, não no código):** calibração de `d` a partir de histórico real
+(o documento recomenda como evolução natural depois de 2-3 ciclos
+observados — ainda cedo, base tem 4 meses), corretores de pH/algicida/
+clarificante/estabilizante como produtos próprios (consumo secundário,
+menor sinal de recompra que o sanitizante principal), acumulação de ácido
+cianúrico (seção 5 do documento — evento de compra oculto interessante,
+mas não é o "quando recompra" central).
 
 ---
 

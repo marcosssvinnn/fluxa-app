@@ -1156,11 +1156,14 @@
       <div class="row f1">
         <div class="fl">
           <label>Piscina <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--gray)">(opcional — escolha o cliente pela lupa 🔍 pra listar as piscinas dele)</span></label>
-          <select id="eq-piscina" onchange="_eqPiscinaSelect(this.value)">
-            <option value="">Nenhuma / não informado</option>
-          </select>
+          <div style="display:flex;gap:6px;align-items:flex-end">
+            <select id="eq-piscina" onchange="_eqPiscinaSelect(this.value)" style="flex:1">
+              <option value="">Nenhuma / não informado</option>
+            </select>
+            <button type="button" id="eq-piscina-editar-btn" class="tb" style="display:none;padding:9px 10px;flex-shrink:0" onclick="_eqPiscinaEditar()" title="Editar detalhes desta piscina (capa, exposição, banhistas...)">✏️</button>
+          </div>
           <div id="eq-piscina-novo" style="display:none;margin-top:8px;padding:10px;border:1px solid var(--line,#e5e7eb);border-radius:8px">
-            <div class="row f3" style="margin-bottom:0">
+            <div class="row f3" style="margin-bottom:8px">
               <div class="fl"><label>Nome</label><input type="text" id="eq-piscina-nome" placeholder="Ex: Piscina Adulto"></div>
               <div class="fl"><label>Volume (m³)</label><input type="text" inputmode="decimal" id="eq-piscina-vol" placeholder="Ex: 45"></div>
               <div class="fl"><label>Tratamento</label>
@@ -1177,7 +1180,33 @@
                 </select>
               </div>
             </div>
-            <button type="button" class="tb" onclick="_eqPiscinaCriar()" style="margin-top:4px">✅ Salvar piscina</button>
+            <!-- Campos que mais melhoram a estimativa (documento de consumo,
+                 seção 7.2), em ordem de retorno. Todos com default sensato —
+                 quem tiver pressa pode ignorar e só volta depois pelo ✏️. -->
+            <div class="row f3" style="margin-bottom:8px">
+              <div class="fl"><label>Exposição solar</label>
+                <select id="eq-piscina-exposicao">
+                  <option value="pleno">Sol pleno</option>
+                  <option value="parcial">Parcial / coberta</option>
+                </select>
+              </div>
+              <div class="fl"><label>Uso</label>
+                <select id="eq-piscina-uso" onchange="_eqPiscinaAtualizarUso()">
+                  <option value="residencial">Residencial</option>
+                  <option value="condominio">Condomínio</option>
+                </select>
+              </div>
+              <div class="fl" id="eq-piscina-banhistas-wrap" style="display:none">
+                <label>Banhistas/dia (verão)</label>
+                <input type="text" inputmode="numeric" id="eq-piscina-banhistas" placeholder="Ex: 40">
+              </div>
+            </div>
+            <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:10px;font-size:12.5px">
+              <label style="display:flex;align-items:center;gap:5px;font-weight:400;text-transform:none;letter-spacing:0"><input type="checkbox" id="eq-piscina-capa" style="width:auto"> Tem capa térmica</label>
+              <label style="display:flex;align-items:center;gap:5px;font-weight:400;text-transform:none;letter-spacing:0"><input type="checkbox" id="eq-piscina-aquecida" style="width:auto"> Piscina aquecida</label>
+              <label style="display:flex;align-items:center;gap:5px;font-weight:400;text-transform:none;letter-spacing:0"><input type="checkbox" id="eq-piscina-estabilizante" checked style="width:auto"> Tem estabilizante</label>
+            </div>
+            <button type="button" class="tb" onclick="_eqPiscinaCriar()">✅ Salvar piscina</button>
           </div>
         </div>
       </div>

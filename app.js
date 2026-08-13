@@ -7230,7 +7230,7 @@ function analiseClientes(){
       const cid=g.chave.startsWith('id:')?g.chave.slice(3):null;
       const piscina=cid && (todasPiscinas||[]).find(p=>p.cliente_id===cid && p.ativo!==false && p.volume_m3);
       if(piscina){
-        const calc=consumoTeoricoDias(piscina.tipo_tratamento, piscina.volume_m3);
+        const calc=consumoTeoricoDias(piscina.tipo_tratamento, piscina.volume_m3, demandaDiaria(piscina), piscina.exposicao_solar);
         if(calc) previsaoTeorica={...calc, piscinaNome:piscina.nome, diasAte:calc.dias-diasDesdeUltima};
       }
     }
@@ -8300,6 +8300,7 @@ let eqBusca = '', eqFiltroTipo = '';
 let _eqClienteSelecionado = null;
 let todasPiscinas = [];
 let _eqPiscinaSelecionadaId = null;
+let _eqPiscinaEditId = null; // piscina sendo editada (null = form em modo "nova")
 // Mesmo padrão em vistoria — sem isso importarEqDaVistoria() quase nunca
 // tinha cliente_id pra herdar (achado da auditoria: 1 vistoria em 7).
 let _visClienteSelecionado = null;
@@ -8359,7 +8360,7 @@ function _eqClienteEditado(){ _eqClienteSelecionado=null; _eqPiscinaSelecionadaI
 //  Só os tratamentos de confiança "alta" no documento têm cálculo — o
 //  resto fica no cadastro (registro correto) mas sem estimativa ainda.
 // ══════════════════════════════════════════════════════════════════════════════
-const D_REF_CLORO=2.0; // g Cl2/m3/dia — documento, seção 2
+const D_REF_CLORO=2.0; // g Cl2/m3/dia — documento, seção 2 (verão/externa/moderado/estabilizada)
 
 const TIPOS_TRATAMENTO=[
   {id:'',                   label:'Não sei / outro'},
@@ -8376,6 +8377,35 @@ function _tratamentoOptionsHTML(){
   return TIPOS_TRATAMENTO.map(t=>`<option value="${t.id}">${esc(t.label)}</option>`).join('');
 }
 
+// Estação do ano no Brasil (hemisfério sul) — mesma janela de verão já
+// usada em outro lugar do app ("Sazonalidade: obra grande precisa aprovar
+// até ~outubro para entregar antes da temporada (verão dez–mar)").
+function _estacaoAtual(){
+  const mes=new Date().getMonth()+1;
+  if([12,1,2,3].includes(mes)) return 'verao';
+  if([6,7,8].includes(mes)) return 'inverno';
+  return 'meia_estacao';
+}
+// Demanda diária de cloro ajustada pelos fatores da piscina — documento,
+// seções 2.1/2.2. Coeficientes multiplicam (usar o ponto médio de cada
+// faixa do documento); banhistas de condomínio SOMA, não multiplica.
+// Só entram os fatores que a ficha da piscina já captura hoje — o
+// documento lista mais (chuva, ozônio/UV, filtragem ruim) que exigiriam
+// campos que ainda não existem no cadastro.
+function demandaDiaria(piscina){
+  let d=D_REF_CLORO;
+  const estacao=_estacaoAtual();
+  d *= estacao==='verao' ? 1.0 : estacao==='meia_estacao' ? 0.70 : 0.45;
+  if(piscina.capa_termica) d *= 0.50;
+  if(piscina.exposicao_solar==='parcial') d *= 0.70;
+  if(piscina.aquecida) d *= 1.30;
+  if(piscina.estabilizante===false) d *= 2.15;
+  if(piscina.tipo_uso==='condominio' && piscina.banhistas_dia && piscina.volume_m3){
+    d += (piscina.banhistas_dia*4)/piscina.volume_m3;
+  }
+  return d;
+}
+
 // A = teor ativo (fração). Embalagem de referência = a mais comum no
 // documento pra esse tipo — não tenta casar com a embalagem exata que o
 // cliente comprou (isso exigiria rastrear produto_id por venda, fora do
@@ -8385,23 +8415,41 @@ const CONSUMO_QUIMICO_REF={
   hipoclorito_calcio: {A:0.65, embalagemG:10000, embalagemLabel:'um balde de 10kg'},
   pastilha_tricloro:  {A:0.90, embalagemG:5000,  embalagemLabel:'um balde de 5kg (25 pastilhas)'}
 };
-// Retorna {dias, embalagemLabel} ou null se não tiver cálculo pro tipo, ou
-// faltar volume.
-function consumoTeoricoDias(tipoTratamento, volumeM3){
+// `d` já vem calculado (demandaDiaria(piscina)) — quem chama decide os
+// fatores. Retorna {dias, embalagemLabel} ou null se não tiver cálculo pro
+// tipo, ou faltar volume.
+function consumoTeoricoDias(tipoTratamento, volumeM3, d, exposicaoSolar){
   if(!volumeM3 || volumeM3<=0) return null;
+  d = d==null ? D_REF_CLORO : d;
   if(tipoTratamento==='cloro_liquido_10'){
     // A = 100 g Cl2 por litro de produto (concentração 10%)
-    const qLm3dia=D_REF_CLORO/100;
+    const qLm3dia=d/100;
     const dias=20000/(qLm3dia*1000*volumeM3); // bombona 20L = 20.000mL
     return {dias:Math.round(dias), embalagemLabel:'uma bombona de 20L'};
   }
   if(tipoTratamento==='sal_salino'){
+    // Sal não segue a demanda de cloro — usa a taxa de perda de água (r),
+    // não `d`. Documento seção 3.5.
     const r=0.0035; // perda residencial default (documento: 0,2–0,5%/dia)
     const dias=25/(3.2*volumeM3*r);
     return {dias:Math.round(dias), embalagemLabel:'um saco de 25kg de sal'};
   }
+  if(tipoTratamento==='bromo'){
+    // d_Br NÃO deriva do `d` do cloro (que mistura estação/capa/aquecida —
+    // usar isso aqui confundiria uma piscina exposta no inverno com uma
+    // protegida no verão). Documento dá 2 pontos de referência fixos por
+    // contexto (seção 3.6): usa exposicao_solar da piscina diretamente.
+    const dBr = exposicaoSolar==='parcial' ? 2.5 : 7.0;
+    const dias=3050/(dBr*volumeM3); // balde 5kg, 250un, 3.050g halogênio
+    return {dias:Math.round(dias), embalagemLabel:'um balde de 5kg de pastilhas (250 un)'};
+  }
+  if(tipoTratamento==='peroxido'){
+    // Dose fixa de rótulo, não deriva da demanda de cloro (seção 3.7).
+    const dias=20000/(7.5*volumeM3); // bombona 20L
+    return {dias:Math.round(dias), embalagemLabel:'uma bombona de 20L'};
+  }
   const ref=CONSUMO_QUIMICO_REF[tipoTratamento]; if(!ref) return null;
-  const q=D_REF_CLORO/ref.A; // g de produto por m3 por dia
+  const q=d/ref.A; // g de produto por m3 por dia
   const dias=ref.embalagemG/(q*volumeM3);
   return {dias:Math.round(dias), embalagemLabel:ref.embalagemLabel};
 }
@@ -8409,9 +8457,11 @@ function consumoTeoricoDias(tipoTratamento, volumeM3){
 function _eqRenderPiscinas(){
   const sel=document.getElementById('eq-piscina'); if(!sel) return;
   document.getElementById('eq-piscina-novo').style.display='none';
+  const btnEd=document.getElementById('eq-piscina-editar-btn');
   if(!_eqClienteSelecionado?.id){
     sel.innerHTML='<option value="">Selecione o cliente pela lupa 🔍 primeiro</option>';
     sel.disabled=true;
+    if(btnEd) btnEd.style.display='none';
     return;
   }
   sel.disabled=false;
@@ -8420,24 +8470,84 @@ function _eqRenderPiscinas(){
     + doCliente.map(p=>`<option value="${esc(p.id)}"${p.id===_eqPiscinaSelecionadaId?' selected':''}>${esc(p.nome||'Piscina')}${p.volume_m3?' — '+p.volume_m3+'m³':''}</option>`).join('')
     + '<option value="__nova__">+ Cadastrar nova piscina…</option>';
   if(_eqPiscinaSelecionadaId && doCliente.some(p=>p.id===_eqPiscinaSelecionadaId)) sel.value=_eqPiscinaSelecionadaId;
+  // Editar só faz sentido com uma piscina real escolhida (não '' nem '__nova__').
+  if(btnEd) btnEd.style.display = _eqPiscinaSelecionadaId ? '' : 'none';
+}
+function _eqPiscinaLimparForm(){
+  setV('eq-piscina-nome',''); setV('eq-piscina-vol',''); setV('eq-piscina-trat','');
+  ['eq-piscina-capa','eq-piscina-aquecida'].forEach(id=>{ const el=document.getElementById(id); if(el) el.checked=false; });
+  const est=document.getElementById('eq-piscina-estabilizante'); if(est) est.checked=true;
+  setV('eq-piscina-exposicao','pleno'); setV('eq-piscina-uso','residencial'); setV('eq-piscina-banhistas','');
+  _eqPiscinaAtualizarUso();
+}
+// Campo de banhistas só aparece pra condomínio — divulgação progressiva,
+// residência não precisa decidir um número que não existe.
+function _eqPiscinaAtualizarUso(){
+  const uso=gV('eq-piscina-uso');
+  const wrap=document.getElementById('eq-piscina-banhistas-wrap');
+  if(wrap) wrap.style.display = uso==='condominio' ? '' : 'none';
 }
 function _eqPiscinaSelect(val){
   const novoForm=document.getElementById('eq-piscina-novo');
   if(val==='__nova__'){
+    _eqPiscinaEditId=null;
     novoForm.style.display='block';
-    ['eq-piscina-nome','eq-piscina-vol','eq-piscina-trat'].forEach(id=>setV(id,''));
+    _eqPiscinaLimparForm();
     _eqPiscinaSelecionadaId=null;
   } else {
     novoForm.style.display='none';
     _eqPiscinaSelecionadaId = val||null;
   }
+  _eqRenderPiscinas();
+}
+// Reabre o form inline pré-preenchido com a piscina já escolhida no select
+// — sem isto não existia jeito nenhum de completar depois os campos que o
+// import em massa não pergunta (capa, exposição, banhistas, etc.).
+function _eqPiscinaEditar(){
+  if(!_eqPiscinaSelecionadaId) return;
+  const p=(todasPiscinas||[]).find(x=>x.id===_eqPiscinaSelecionadaId); if(!p) return;
+  _eqPiscinaEditId=p.id;
+  document.getElementById('eq-piscina-novo').style.display='block';
+  setV('eq-piscina-nome',p.nome||''); setV('eq-piscina-vol',p.volume_m3!=null?String(p.volume_m3):'');
+  setV('eq-piscina-trat',p.tipo_tratamento||'');
+  const capa=document.getElementById('eq-piscina-capa'); if(capa) capa.checked=!!p.capa_termica;
+  const aquec=document.getElementById('eq-piscina-aquecida'); if(aquec) aquec.checked=!!p.aquecida;
+  const est=document.getElementById('eq-piscina-estabilizante'); if(est) est.checked=p.estabilizante!==false;
+  setV('eq-piscina-exposicao',p.exposicao_solar||'pleno');
+  setV('eq-piscina-uso',p.tipo_uso||'residencial');
+  setV('eq-piscina-banhistas',p.banhistas_dia!=null?String(p.banhistas_dia):'');
+  _eqPiscinaAtualizarUso();
 }
 async function _eqPiscinaCriar(){
   if(!_eqClienteSelecionado?.id){ toast('⚠️ Selecione o cliente pela lupa 🔍 antes de cadastrar a piscina'); return; }
   const nome=(gV('eq-piscina-nome')||'').trim()||'Piscina principal';
   const vol=parseFloat((gV('eq-piscina-vol')||'').replace(',','.'))||null;
   const trat=(gV('eq-piscina-trat')||'').trim()||null;
-  const dados={cliente_id:_eqClienteSelecionado.id, local_id:null, nome, volume_m3:vol, tipo_tratamento:trat, loja_id:lojaAtiva||LOJA_PADRAO_ID, ativo:true};
+  const uso=gV('eq-piscina-uso')||'residencial';
+  const dados={
+    cliente_id:_eqClienteSelecionado.id, local_id:null, nome, volume_m3:vol, tipo_tratamento:trat,
+    capa_termica:!!document.getElementById('eq-piscina-capa')?.checked,
+    exposicao_solar:gV('eq-piscina-exposicao')||'pleno',
+    aquecida:!!document.getElementById('eq-piscina-aquecida')?.checked,
+    tipo_uso:uso,
+    banhistas_dia: uso==='condominio' ? (parseInt(gV('eq-piscina-banhistas'))||null) : null,
+    estabilizante: document.getElementById('eq-piscina-estabilizante')?.checked!==false,
+    loja_id:lojaAtiva||LOJA_PADRAO_ID, ativo:true
+  };
+  if(_eqPiscinaEditId){
+    const idEd=_eqPiscinaEditId;
+    const idx=todasPiscinas.findIndex(x=>x.id===idEd);
+    if(idx>=0) todasPiscinas[idx]={...todasPiscinas[idx], ...dados};
+    lsPiscinaSalvar(todasPiscinas);
+    _eqPiscinaSelecionadaId=idEd; _eqPiscinaEditId=null;
+    document.getElementById('eq-piscina-novo').style.display='none';
+    _eqRenderPiscinas();
+    toast('✅ Piscina atualizada');
+    if(dbOk&&db&&!String(idEd).startsWith('pisc_')){
+      dbUpdate('piscinas', dados, 'id', idEd).catch(e=>console.warn('[_eqPiscinaCriar update]', e?.message||e));
+    }
+    return;
+  }
   const tempId='pisc_'+Date.now();
   todasPiscinas.unshift({...dados, id:tempId});
   lsPiscinaSalvar(todasPiscinas);
