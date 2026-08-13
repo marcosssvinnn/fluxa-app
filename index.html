@@ -169,7 +169,7 @@
          não passa por go(). Mora ao lado de Orçamento de propósito: as duas são
          "o que a pessoa do balcão/vendas abre pra começar uma venda", e Estoque
          (onde ficava antes) é ferramenta de gestor pra outra coisa. -->
-    <button class="snb" id="snb-venda-balcao" onclick="abrirVendaBalcao();closeSidebar()"><span class="sicon">🛒</span><span class="slabel">Nova Venda</span></button>
+    <button class="snb" id="snb-venda-balcao" onclick="abrirVendaBalcao();closeSidebar()"><span class="sicon">🛒</span><span class="slabel">Venda Rápida</span></button>
     <button class="snb" id="snb-history" onclick="go('history')"><span class="sicon">📊</span><span class="slabel">Histórico</span></button>
     <button class="snb" id="snb-estoque" onclick="go('estoque')"><span class="sicon">📦</span><span class="slabel">Estoque</span></button>
     <button class="snb" id="snb-recebiveis" onclick="go('recebiveis')"><span class="sicon">💰</span><span class="slabel">A Receber</span></button>
@@ -944,43 +944,17 @@
       <div class="dc g"><div class="dl">Fechado no mês</div><div class="dv" id="ins-d-tick">—</div><div class="ds" id="ins-d-tick-q">—</div></div>
     </div>
 
-    <!-- Barra de estágio: responde "em que fase está" sem schema novo, derivando
-         da idade do orçamento. Clicar numa faixa filtra a fila abaixo. -->
-    <!-- Diário do gestor (fase 6): o que precisa de ação HOJE. Fica antes do
-         funil de propósito — dinheiro vencendo e material faltando não podem
-         depender de alguém lembrar de abrir outra tela. -->
-    <div class="card card-action" id="ins-hoje-card" style="display:none">
-      <div class="ct"><span class="ct-title"><span class="ct-ico ct-ico-y">☀️</span>Precisa de você hoje</span></div>
-      <div id="ins-hoje-corpo"></div>
-    </div>
-
-    <!-- Fila de follow-up e Cadência ficam ANTES de "Em que fase está" de
-         propósito (2026-08-13). Quem usa o Fluxa todo dia (Tamara/Elis) tem
-         rotina reativa — responde demanda de cliente, monta orçamento — não
-         navega uma lista pra ligar. Elas passam pelo Insights todo dia (é a
-         tela inicial), mas iam direto pro próximo orçamento sem rolar até
-         aqui, porque isto ficava depois de duas seções. Agrupado com
-         "Precisa de você hoje" — as três são "faça isso agora", o gráfico de
-         fase é mais análise que ação, por isso vem depois. -->
-    <div class="card card-action">
-      <div class="ct"><span class="ct-title"><span class="ct-ico ct-ico-c1">📞</span>Fila de follow-up</span> <span style="font-size:11px;font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0" id="ins-fila-sub">quem ligar hoje</span></div>
-      <div class="crm-trilhos">
-        <div>
-          <div class="crm-trilho-hdr">
-            <span class="crm-trilho-titulo">🔧 Equipamento</span>
-            <span class="crm-trilho-sub" id="ins-sub-equip">decisão lenta — poucos por vez</span>
-          </div>
-          <div id="ins-fila-equip"><div class="load"><div class="spin"></div> Carregando…</div></div>
-        </div>
-        <div>
-          <div class="crm-trilho-hdr">
-            <span class="crm-trilho-titulo">⚡ Serviço</span>
-            <span class="crm-trilho-sub" id="ins-sub-servico">decide rápido — 43% fecham</span>
-          </div>
-          <div id="ins-fila-servico"><div class="load"><div class="spin"></div> Carregando…</div></div>
-        </div>
-      </div>
-    </div>
+    <!-- Ordem revista a pedido direto do Marcos (13/08, feedback de voz):
+         cadência/estágio/análise de cliente são o que ele quer ver de cara —
+         "uma das que mais precisa aparecer lá no topo" — e "precisa de você
+         hoje"/"fila de follow-up" ele achou que deveriam ceder o topo pra
+         isso. Faz sentido além do pedido em si: as duas já ficam visíveis em
+         QUALQUER tela via o sino de notificações (que agrega ambas), então
+         não perdem alcance por sair do topo do Insights — só deixam de
+         disputar espaço com o que ele quer ver primeiro aqui. (Supera a nota
+         de 2026-08-13 mais antiga que dizia o contrário — aquela era uma
+         inferência minha a partir da adoção zerada da fila; esta é instrução
+         direta e mais recente.) -->
 
     <!-- Cadência de recompra — Etapa 4 do roadmap de CRM. Só intervalo
          OBSERVADO (cliente com 2+ compras reais e cliente_id ligado). Some
@@ -999,12 +973,48 @@
       <div id="ins-proximos-corpo"></div>
     </div>
 
+    <!-- Barra de estágio: responde "em que fase está" sem schema novo, derivando
+         da idade do orçamento. Clicar numa faixa filtra a fila abaixo. -->
     <div class="card" id="ins-estagio-card">
       <div class="ct"><span class="ct-title"><span class="ct-ico ct-ico-blue">📶</span>Em que fase está</span>
         <span style="font-size:11px;font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0" id="ins-estagio-sub">toque numa faixa para filtrar a fila</span>
       </div>
       <div id="ins-estagio-barra" class="fase-barra"></div>
       <div id="ins-estagio-leg" class="fase-leg"></div>
+    </div>
+
+    <!-- Camada trimestral: ABC de cliente, LTV e recompra. -->
+    <div class="card">
+      <div class="ct"><span class="ct-title"><span class="ct-ico ct-ico-blue">👥</span>Análise de clientes</span> <span style="font-size:11px;font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0">quem sustenta o faturamento</span></div>
+      <div id="cli-analise"></div>
+    </div>
+
+    <!-- Diário do gestor (fase 6): o que precisa de ação HOJE. Já aparece
+         também no sino do cabeçalho (qualquer tela) — aqui é só o registro
+         completo pra quem quiser ver tudo junto. -->
+    <div class="card card-action" id="ins-hoje-card" style="display:none">
+      <div class="ct"><span class="ct-title"><span class="ct-ico ct-ico-y">☀️</span>Precisa de você hoje</span></div>
+      <div id="ins-hoje-corpo"></div>
+    </div>
+
+    <div class="card card-action">
+      <div class="ct"><span class="ct-title"><span class="ct-ico ct-ico-c1">📞</span>Fila de follow-up</span> <span style="font-size:11px;font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0" id="ins-fila-sub">quem ligar hoje</span></div>
+      <div class="crm-trilhos">
+        <div>
+          <div class="crm-trilho-hdr">
+            <span class="crm-trilho-titulo">🔧 Equipamento</span>
+            <span class="crm-trilho-sub" id="ins-sub-equip">decisão lenta — poucos por vez</span>
+          </div>
+          <div id="ins-fila-equip"><div class="load"><div class="spin"></div> Carregando…</div></div>
+        </div>
+        <div>
+          <div class="crm-trilho-hdr">
+            <span class="crm-trilho-titulo">⚡ Serviço</span>
+            <span class="crm-trilho-sub" id="ins-sub-servico">decide rápido — 43% fecham</span>
+          </div>
+          <div id="ins-fila-servico"><div class="load"><div class="spin"></div> Carregando…</div></div>
+        </div>
+      </div>
     </div>
 
     <!-- Financeiro do gestor: veio de Produtividade, que passou a ser só de
@@ -1031,16 +1041,11 @@
           <tbody id="fin-tabela-body"><tr><td colspan="4" style="text-align:center;color:var(--gray);padding:20px">Carregando…</td></tr></tbody>
         </table>
       </div>
+    </div>
 
     <!-- DRE gerencial: receita reconhecida − custo direto − despesa, com as duas
          unidades lado a lado. O baseline mostrou que comparar Camboriú com
          Itapema revela problema de processo mais rápido que qualquer média. -->
-    <!-- Camada trimestral: ABC de cliente, LTV e recompra. -->
-    <div class="card">
-      <div class="ct"><span class="ct-title"><span class="ct-ico ct-ico-blue">👥</span>Análise de clientes</span> <span style="font-size:11px;font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0">quem sustenta o faturamento</span></div>
-      <div id="cli-analise"></div>
-    </div>
-
     <div class="card">
       <div class="ct"><span class="ct-title"><span class="ct-ico ct-ico-blue">📊</span>DRE por unidade</span>
         <select id="dre-mes" onchange="renderDRE()" style="margin-left:auto;padding:6px 11px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Inter',sans-serif;outline:none;cursor:pointer"></select>
@@ -2155,7 +2160,7 @@
      cliente, sem histórico, dado que evaporava a cada saco de cloro vendido. -->
 <div class="qr-modal-bg" id="venda-modal" style="display:none" onclick="if(event.target===this)fecharVendaBalcao()">
   <div class="card" style="max-width:520px;width:94%;max-height:92vh;overflow:auto">
-    <div class="ct">🛒 Nova Venda (Balcão)
+    <div class="ct">🛒 Venda Rápida (Balcão)
       <button onclick="fecharVendaBalcao()" aria-label="Fechar" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;float:right;line-height:1">×</button>
     </div>
 

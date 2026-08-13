@@ -2,6 +2,42 @@
 
 ---
 
+## Reordenação do Insights + rótulo "Venda Rápida" (13/08, feedback de voz direto)
+
+Duas mudanças pontuais de UX pedidas pelo Marcos, por áudio, depois de ver
+o app no ar:
+
+**1. Ordem do Insights invertida.** Ele achou que Cadência de recompra,
+Em que fase está e Análise de clientes ("uma das que mais precisa
+aparecer lá no topo") deveriam vir antes de Precisa de você hoje e Fila
+de follow-up, não depois — o oposto da decisão registrada na nota "Etapa
+3" (mais antiga, mesma data). Aquela decisão era uma inferência minha a
+partir da adoção zerada da fila; esta é instrução direta e mais recente,
+prevalece. Nova ordem em `index.html`: Cadência → Chegando aí → Em que
+fase está → Análise de clientes → Precisa de você hoje → Fila de
+follow-up → Resultado Financeiro → DRE. Justificativa que também faz
+sentido por conta própria: "Precisa de você hoje" e "Fila de follow-up"
+já aparecem em QUALQUER tela via o sino de notificações — não perdem
+alcance por sair do topo do Insights.
+
+**Bug pré-existente corrigido de passagem:** a `<div class="fin-card">`
+(Resultado Financeiro) nunca tinha sua própria tag de fechamento —
+"Análise de clientes" e "DRE por unidade" ficavam aninhados dentro dela
+por acidente (só não quebrava visualmente porque divs toleram isso).
+Como já precisei mexer nesse trecho pra reordenar, fechei o `.fin-card`
+no lugar certo (logo depois de `.fin-tabela-wrap`).
+
+**2. "Nova Venda" → "Venda Rápida".** Rótulo não era autoexplicativo (o
+Marcos: "ela não ficou autoexplicativa o suficiente"). Trocado no botão
+da sidebar (`#snb-venda-balcao`) e no cabeçalho do modal
+(`#venda-modal`), único outro lugar com o texto.
+
+Testado no browser local (`dbOk=false`): ordem nova confere, `.fin-card`
+fechado renderiza Resultado Financeiro/DRE como cards separados sem
+regressão, modal abre com o texto novo. `sw.js` v117→v118.
+
+---
+
 ## Task #37 fechada — 2 ligações acidentais de cliente corrigidas em produção (13/08)
 
 Investigado direto contra produção (leitura via REST + anon key, mesmo
