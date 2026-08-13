@@ -2,6 +2,38 @@
 
 ---
 
+## Densidade dos cards — reduzido whitespace geral (13/08, feedback de voz)
+
+Marcos: os cards ficaram legíveis mas grandes demais pro conteúdo que
+carregam — "acho que dava pra posicionar mais coisas numa tela junto...
+pra dar pra ver um pouco de tudo". Cortado padding/margin em cascata,
+mantendo tipografia intacta (só espaço em branco, não tamanho de fonte):
+
+| Classe | Antes | Depois |
+|---|---|---|
+| `.card` padding / margin-bottom | 22px / 16px | 16px / 12px |
+| `.ct` margin-bottom / padding-bottom | 16px / 9px | 10px / 6px |
+| `.dash` gap / margin-bottom | 12px / 20px | 10px / 14px |
+| `.dc` padding | 16px 18px | 12px 14px |
+| `.fin-card` padding / margin | 18px 20px / mt 20px | 14px 16px / mt+mb 12px |
+| `.crm-card` padding / margin-bottom | 14px 16px / 10px | 11px 13px / 8px |
+| `.notif-item` padding | 11px 14px | 9px 12px |
+| linha de `_itensPainelHoje` (app.js) | 9px 0 | 7px 0 |
+| `.card-action` fade do wash tonal | 110px | 70px (proporcional ao card menor) |
+
+**Não mexido de propósito:** `.crm-acts .tb{min-height:44px}` — é regra
+de acessibilidade (alvo de toque mínimo pra botão usado em campo), não
+espaço decorativo; comprimir isso seria trocar densidade por erro de
+toque no celular do técnico/vendedor.
+
+Testado no browser local e em mobile (375px): nitidamente mais conteúdo
+visível por tela sem quebra de layout nem texto cortado — comparação
+direta do "Em que fase está" (cabia parcialmente cortado antes, cabe
+inteiro + começo do próximo card agora, mesma viewport). `sw.js`
+v119→v120.
+
+---
+
 ## Insights reordenado de novo — "Em que fase está" é o mais no topo (13/08, correção)
 
 Marcos corrigiu a reordenação anterior por áudio: não era Cadência de

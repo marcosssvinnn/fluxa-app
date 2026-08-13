@@ -4642,7 +4642,7 @@ function renderPainelHoje(){
   }
   card.style.display='';
   el.innerHTML=itens.map(i=>`
-    <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--gray-light);flex-wrap:wrap">
+    <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--gray-light);flex-wrap:wrap">
       <div class="icon-badge ${_corParaBadge(i.cor)}">${i.icone}</div>
       <div style="flex:1;min-width:150px">
         <div style="font-size:13px;font-weight:700;color:var(--c2)">${i.titulo}</div>
