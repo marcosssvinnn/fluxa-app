@@ -2,6 +2,78 @@
 
 ---
 
+## Central de notificações — sino no cabeçalho (13/08)
+
+Pedido direto do Marcos: "criar um tópico de notificações, que vai
+enumerando e cada vez que vai aparecer uma notificação diferente fica um
+popup ali, se abrir as notificações ele vai deixando o histórico...
+separado em outro local". Motivação de fundo é a mesma da Etapa 3: Tamara
+e Elis são reativas, não navegam pra achar avisos — os avisos precisam
+aparecer sozinhos, em qualquer tela, não só em Insights.
+
+**O que existe agora:** sino 🔔 no `.hdr-right` (só gestor/master — as
+fontes de dado são todas telas de gestor; pra vendas/técnico ficaria
+sempre vazio e confundiria). Badge com contagem, popup toast na primeira
+vez que uma categoria aparece, painel com abas **Pendentes** (com botão
+de ação + ✕ dispensar por 1 dia) e **Histórico** (últimos 50 dispensados,
+`localStorage`, sem expirar).
+
+**Não duplica nenhum motor** — `getNotificacoes()` (`app.js`, perto de
+`renderPainelHoje`) só agrega o que já existia: `_itensPainelHoje()`
+(extraída de `renderPainelHoje()` pra virar reaproveitável — recebível
+vencido/hoje, aprovado sem cobrança, ruptura de estoque, despesa fixa,
+orçamento sem identidade), mais um item agregado cada pra fila de
+follow-up (`crmCandidatos()`), cadência de recompra
+(`cadenciaCandidatos()`) e saldo negativo (`_estoqueNegativos()`). Cada
+item carrega um `id` estável (`receb-vencido`, `crm-fila`,
+`estoque-negativo`, etc.) — precisa ser estável porque dismiss/seen/
+histórico são chaveados por ele, não pelo texto (que muda com os
+números).
+
+Semântica do popup: toca **uma vez** por categoria nova (marca "vista" na
+hora); se a categoria sumir e voltar depois, toca de novo (o
+`_notifSeen*` é podado a cada render pra categorias que não estão mais
+presentes). Dispensar (✕) é 1 dia — mais curto que os 14 dias da
+cadência, porque isso aqui é operacional do dia a dia, não recompra.
+
+⚠️ **Bug pego em teste, corrigido antes de commitar:** dispensar uma
+notificação fechava o painel inteiro sem querer. Causa: `notifDispensar`
+reconstrói o `innerHTML` do painel na hora, o que desconecta do DOM o
+próprio botão que disparou o clique — quando o evento chegava (bubbling)
+no listener de "clicar fora" (`e.target.closest('.notif-wrap')`), o
+`target` já estava órfão e `closest()` retornava `null`, fechando o
+painel. Troquei para `e.composedPath()`, que é o caminho capturado no
+momento do despacho do evento e continua válido mesmo depois da mutação
+do DOM.
+
+Testado no browser local (`dbOk=false`, sessão de gestor simulada via
+`sessionStorage` direto — sem passar pelo login real pra não gravar
+auditoria contra o Supabase de produção, que estava com `dbOk=true` por
+padrão neste worktree): badge conta certo, toast dispara só na primeira
+aparição de cada categoria, dispensar remove da lista sem fechar o
+painel, histórico acumula e persiste entre reloads, aba
+Pendentes/Histórico troca certo, botão de ação fecha o painel e navega
+(`closeNotif();go(...)`), engrenagem e sino se fecham mutuamente. `sw.js`
+v114→v115.
+
+**Nota de infra de teste:** `.claude/launch.json` na raiz de
+`~/Documents` (não no worktree) apontava `http.server` sem `--directory`
+pro próprio `~/Documents` — 404 em tudo. Tentei `--directory` apontando
+pro worktree e ainda assim 404 (o wrapper `disclaimer` do preview parece
+restringir o quê o subprocesso pode abrir quando o caminho vem por flag
+explícita). O que funcionou foi o padrão já usado alhures no projeto:
+`sh -c "cd <worktree> && exec python3 -m http.server 4321"` — `cd`
+dentro do `sh -c` passa pelo sandbox, `--directory` como argumento não.
+Deixado assim no launch.json global pra próxima sessão não perder tempo
+com o mesmo problema.
+
+**Ainda não feito** (próximo passo, mesmo pedido do Marcos): "ajustar o
+resto que você sugeriu" — o mockup de hierarquia visual (fundos tonais
+distinguindo seção de ação vs. informativa, badges de ícone) que ficou
+combinado como trabalho separado, depois do sino.
+
+---
+
 ## 🔴 Bloqueio real reportado pela Elis — corrigido (13/08)
 
 O Marcos relatou que a Elis foi aprovar um orçamento **só de mão de obra**

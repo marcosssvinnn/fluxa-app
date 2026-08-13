@@ -119,6 +119,18 @@
     <select class="loja-select" id="hdr-loja-select" onchange="trocarLojaAtiva(this.value)" title="Empresa ativa" style="display:none">
       <option value="">Todas as empresas</option>
     </select>
+    <div class="notif-wrap" id="notif-wrap" style="display:none">
+      <button class="btn-sm btn-gear" id="btn-notif" onclick="toggleNotif()" title="Notificações">
+        🔔<span class="notif-badge" id="notif-badge" style="display:none">0</span>
+      </button>
+      <div class="notif-panel" id="notif-panel" style="display:none">
+        <div class="notif-tabs">
+          <button class="notif-tab on" data-tab="pendentes" onclick="notifTab('pendentes')">Pendentes</button>
+          <button class="notif-tab" data-tab="historico" onclick="notifTab('historico')">Histórico</button>
+        </div>
+        <div class="notif-corpo" id="notif-corpo"></div>
+      </div>
+    </div>
     <div class="hdr-user" id="hdr-user" onclick="toggleGear()" title="Usuário logado">
       <div class="hdr-user-avatar" id="hdr-user-avatar">G</div>
       <span class="hdr-user-nome" id="hdr-user-nome">Gestor</span>

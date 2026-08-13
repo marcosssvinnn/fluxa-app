@@ -151,6 +151,11 @@ function aplicarPermissoesPerfil(){
     lojaSelEl.style.display=mostrarSelect?'':'none';
     if(mostrarSelect) populaLojaSelect();
   }
+  // Sino de notificações — fontes de dado (recebíveis, estoque, despesas, fila,
+  // cadência) são todas telas de gestor; pra vendas/técnico o sino ficaria
+  // sempre vazio e só confundiria.
+  const notifWrapEl=document.getElementById('notif-wrap');
+  if(notifWrapEl) notifWrapEl.style.display=gestor?'':'none';
   // Preenche os selects de empresa dos formulários a partir da config das lojas
   popularSelectsLojaForm();
   // Carrega estoque em background (gestor) — necessário p/ baixa automática e reservado
@@ -162,6 +167,18 @@ function aplicarPermissoesPerfil(){
   // Vendas de balcão — mesmo gate de loadEstoque (feature de gestor por ora).
   setTimeout(()=>{ if(typeof loadVendasBalcao==='function') Promise.resolve(loadVendasBalcao()).catch(e=>console.warn('[boot loadVendasBalcao]', e?.message||e)); }, 0);
   setTimeout(()=>{ if(typeof loadPiscinas==='function') Promise.resolve(loadPiscinas()).catch(e=>console.warn('[boot loadPiscinas]', e?.message||e)); }, 0);
+  // Sino de notificações precisa dos mesmos dados do painel "hoje" (recebíveis,
+  // despesas, OS) pra badge não ficar zerada até o gestor abrir Insights.
+  if(eGestor()){
+    setTimeout(()=>{
+      Promise.all([
+        (typeof loadRecebimentos==='function'? loadRecebimentos() : null),
+        (typeof loadDespesas==='function' && !(todasDesp||[]).length ? loadDespesas() : null),
+        (typeof loadOSHist==='function' && !(todosOS||[]).length ? loadOSHist() : null)
+      ]).then(()=>{ try{ renderNotificacoes(); }catch(e){ console.warn('[notif boot]', e?.message||e); } })
+        .catch(e=>console.warn('[boot notif deps]', e?.message||e));
+    }, 0);
+  }
 
   // ── Gear menu ──
   // Regras por id
@@ -1657,6 +1674,7 @@ function voltar(){
 function toggleGear(){
   const m=document.getElementById('gear-menu');
   m.style.display=m.style.display==='none'?'block':'none';
+  if(typeof closeNotif==='function') closeNotif(); // só um dropdown do cabeçalho aberto por vez
 }
 function closeGear(){ document.getElementById('gear-menu').style.display='none'; }
 // Fechar gear ao clicar fora
@@ -4489,9 +4507,10 @@ function _crmRenderEstagio(s){
 // botão da ação junto. Dinheiro vencendo e material faltando não podem depender
 // de alguém lembrar de abrir outra tela; foi essa a lição do recebimento, em
 // que uma unidade registra 98% e a outra 28%.
-function renderPainelHoje(){
-  const card=document.getElementById('ins-hoje-card'), el=document.getElementById('ins-hoje-corpo');
-  if(!card||!el) return;
+// Extraído de renderPainelHoje() em 2026-08-13 pra ser reaproveitado pela
+// central de notificações (sino do cabeçalho) sem duplicar o cálculo — só a
+// parte pura, sem tocar em DOM.
+function _itensPainelHoje(){
   const itens=[];
 
   // 1. Recebíveis vencidos e vencendo
@@ -4499,11 +4518,11 @@ function renderPainelHoje(){
   const venc=rec.filter(r=>_recebDiasAtraso(r)>0);
   const hoje=rec.filter(r=>_recebDiasAtraso(r)===0);
   const somaR=l=>l.reduce((a,r)=>a+(parseFloat(r.valor)||0),0);
-  if(venc.length) itens.push({cor:'var(--red)', icone:'💸',
+  if(venc.length) itens.push({id:'receb-vencido', cor:'var(--red)', icone:'💸',
     titulo:`${brl(somaR(venc))} vencido`,
     sub:`${venc.length} parcela${venc.length!==1?'s':''} · a mais antiga há ${Math.max(...venc.map(_recebDiasAtraso))} dias`,
     acao:'Cobrar', fn:"go('recebiveis')"});
-  if(hoje.length) itens.push({cor:'var(--yellow)', icone:'📅',
+  if(hoje.length) itens.push({id:'receb-hoje', cor:'var(--yellow)', icone:'📅',
     titulo:`${brl(somaR(hoje))} vence hoje`,
     sub:`${hoje.length} parcela${hoje.length!==1?'s':''} — marque quando entrar`,
     acao:'Ver', fn:"go('recebiveis')"});
@@ -4517,7 +4536,7 @@ function renderPainelHoje(){
   if(semReceb.length){
     const totalSemReceb=semReceb.reduce((a,o)=>a+(parseFloat(o.total)||0),0);
     const maisAntigo=semReceb[semReceb.length-1];
-    itens.push({cor:'var(--red)', icone:'🧮',
+    itens.push({id:'aprov-sem-receb', cor:'var(--red)', icone:'🧮',
       titulo:`${brl(totalSemReceb)} aprovado sem cobrança lançada`,
       sub:`${semReceb.length} orçamento${semReceb.length!==1?'s':''} · o mais antigo desde ${_dataBR(String(maisAntigo?.data_aprovacao||maisAntigo?.data_criacao||'').slice(0,10))}`,
       acao:'Lançar', fn:"go('recebiveis')"});
@@ -4525,25 +4544,31 @@ function renderPainelHoje(){
 
   // 2. Material faltando (ruptura aberta) — é venda que não sai
   const rup=(typeof historicoRuptura==='function'? historicoRuptura(lojaAtiva||'') : []).filter(r=>r.aberta);
-  if(rup.length) itens.push({cor:'var(--red)', icone:'📦',
+  if(rup.length) itens.push({id:'estoque-ruptura', cor:'var(--red)', icone:'📦',
     titulo:`${rup.length} produto${rup.length!==1?'s':''} em falta`,
     sub: rup.slice(0,3).map(r=>esc((produtoById(r.produto_id)||{}).nome||'—')).join(' · ')+(rup.length>3?` +${rup.length-3}`:''),
     acao:'Comprar', fn:"go('estoque')"});
 
   // 3. Despesa fixa não lançada — sem ela o resultado do mês fica otimista
   const dp=(typeof _despRecorrentesPendentes==='function'? _despRecorrentesPendentes() : []);
-  if(dp.length) itens.push({cor:'var(--yellow)', icone:'🧾',
+  if(dp.length) itens.push({id:'despesa-fixa', cor:'var(--yellow)', icone:'🧾',
     titulo:`${dp.length} despesa${dp.length!==1?'s':''} fixa${dp.length!==1?'s':''} não lançada${dp.length!==1?'s':''}`,
     sub:'Sem elas o resultado do mês parece maior do que é',
     acao:'Lançar', fn:"go('despesas')"});
 
   // 4. Orçamentos sem identidade de cliente — trava LTV e recompra
   const semId=filtrarPorLoja(todosOrc||[]).filter(o=>!o.cliente_id && (o.cliente||'').trim());
-  if(semId.length>=10) itens.push({cor:'var(--gray)', icone:'🪪',
+  if(semId.length>=10) itens.push({id:'orc-sem-id', cor:'var(--gray)', icone:'🪪',
     titulo:`${semId.length} orçamentos sem cliente identificado`,
     sub:'Não entram no histórico do cliente',
     acao:'Revisar', fn:"go('identidade')"});
 
+  return itens;
+}
+function renderPainelHoje(){
+  const card=document.getElementById('ins-hoje-card'), el=document.getElementById('ins-hoje-corpo');
+  if(!card||!el) return;
+  const itens=_itensPainelHoje();
   if(!itens.length){
     card.style.display='';
     el.innerHTML=`<div style="display:flex;align-items:center;gap:10px;padding:6px 0">
@@ -4564,9 +4589,160 @@ function renderPainelHoje(){
     </div>`).join('');
 }
 
+// ── Central de notificações (sino do cabeçalho, 2026-08-13) ────────────────
+// Reúne, num só lugar visível em QUALQUER tela (não só Insights), tudo que
+// hoje só aparecia pra quem lembrasse de abrir a página certa: o painel "hoje"
+// (financeiro/estoque), a fila de follow-up e a cadência de recompra (Etapa 4)
+// e o alerta de saldo negativo. Reaproveita os motores já existentes — não
+// duplica nenhum cálculo, só agrega.
+// Semântica do popup: cada categoria toca UMA vez quando aparece pela
+// primeira vez (marca "vista" na hora); se a categoria sumir e voltar depois
+// (ex.: resolveu e surgiu de novo), toca de novo. Dispensar (✕) tira da lista
+// de pendentes por 1 dia (mais curto que os 14 dias da cadência — isto aqui é
+// operacional do dia a dia, não recompra) e registra no Histórico.
+const LS_NOTIF_DISMISS='fluxa_notif_dismiss';
+const LS_NOTIF_SEEN='fluxa_notif_seen';
+const LS_NOTIF_HIST='fluxa_notif_hist';
+function _notifDismissLer(){ try{ return JSON.parse(localStorage.getItem(LS_NOTIF_DISMISS)||'{}'); }catch(e){ return {}; } }
+function _notifDismissSalvar(m){ try{ localStorage.setItem(LS_NOTIF_DISMISS, JSON.stringify(m)); }catch(e){ console.warn('[notifDismiss]', e?.message||e); } }
+function _notifDismissAtivo(id){
+  const t=_notifDismissLer()[id]; if(!t) return false;
+  return (Date.now()-t) < 86400000; // 1 dia
+}
+function _notifSeenLer(){ try{ return JSON.parse(localStorage.getItem(LS_NOTIF_SEEN)||'{}'); }catch(e){ return {}; } }
+function _notifSeenSalvar(m){ try{ localStorage.setItem(LS_NOTIF_SEEN, JSON.stringify(m)); }catch(e){ console.warn('[notifSeen]', e?.message||e); } }
+function _notifHistLer(){ try{ return JSON.parse(localStorage.getItem(LS_NOTIF_HIST)||'[]'); }catch(e){ return []; } }
+function _notifHistSalvar(l){ try{ localStorage.setItem(LS_NOTIF_HIST, JSON.stringify(l)); }catch(e){ console.warn('[notifHist]', e?.message||e); } }
+function _notifQuando(ts){
+  const dias=Math.floor((Date.now()-ts)/86400000);
+  if(dias<=0) return 'hoje';
+  if(dias===1) return 'ontem';
+  return `há ${dias} dias`;
+}
+// Junta o painel "hoje" + fila de follow-up + cadência de recompra + estoque
+// negativo num único array de itens {id,cor,icone,titulo,sub,acao,fn}. Cada
+// bloco tem seu próprio try/catch: um erro num motor não pode apagar os
+// avisos dos outros.
+function getNotificacoes(){
+  const out=[];
+  try{ out.push(..._itensPainelHoje()); }catch(e){ console.warn('[notif:hoje]', e?.message||e); }
+  try{
+    const c=crmCandidatos();
+    const total=(c.equipamento?.length||0)+(c.servico?.length||0);
+    if(total) out.push({id:'crm-fila', cor:'var(--c1)', icone:'📞',
+      titulo:`${total} cliente${total!==1?'s':''} na fila de follow-up`,
+      sub:'Orçamentos parados esperando contato',
+      acao:'Ver fila', fn:"go('insights')"});
+  }catch(e){ console.warn('[notif:fila]', e?.message||e); }
+  try{
+    const cad=cadenciaCandidatos();
+    if(cad.length) out.push({id:'crm-cadencia', cor:'var(--c1)', icone:'🔁',
+      titulo:`${cad.length} cliente${cad.length!==1?'s':''} atrasado${cad.length!==1?'s':''} na recompra`,
+      sub:'Pelo próprio ritmo de consumo, já deveriam ter voltado',
+      acao:'Ver', fn:"go('insights')"});
+  }catch(e){ console.warn('[notif:cadencia]', e?.message||e); }
+  try{
+    const neg=_estoqueNegativos().filter(n=>!n.inativo);
+    if(neg.length) out.push({id:'estoque-negativo', cor:'var(--red)', icone:'⚠️',
+      titulo:`${neg.length} produto${neg.length!==1?'s':''} com saldo negativo`,
+      sub:'A contagem física não bate com o sistema',
+      acao:'Ver', fn:"go('estoque')"});
+  }catch(e){ console.warn('[notif:estoqueneg]', e?.message||e); }
+  return out.filter(n=>n.id && !_notifDismissAtivo(n.id));
+}
+let _notifCache=[];
+let _notifTabAtiva='pendentes';
+function notifTab(tab){ _notifTabAtiva=tab; renderNotificacoes(); }
+function toggleNotif(){
+  const p=document.getElementById('notif-panel');
+  if(!p) return;
+  const abrindo = p.style.display==='none' || !p.style.display;
+  p.style.display = abrindo ? 'block' : 'none';
+  if(abrindo){ closeGear(); renderNotificacoes(); }
+}
+function closeNotif(){ const p=document.getElementById('notif-panel'); if(p) p.style.display='none'; }
+// composedPath(), não e.target.closest(): notifDispensar() reconstrói o
+// innerHTML do painel na hora — se usássemos closest() no target original,
+// o botão clicado já estaria desconectado do DOM quando o clique chegasse
+// aqui (bubbling), closest() acharia null, e o painel fechava sozinho a
+// cada dispensa. composedPath() é o caminho capturado no despacho do
+// evento, então continua válido mesmo depois da troca de innerHTML.
+document.addEventListener('click', e=>{
+  const path = e.composedPath ? e.composedPath() : [e.target];
+  if(!path.some(el=>el.classList && el.classList.contains('notif-wrap'))) closeNotif();
+});
+function notifDispensar(id){
+  const n=_notifCache.find(x=>x.id===id);
+  const m=_notifDismissLer(); m[id]=Date.now(); _notifDismissSalvar(m);
+  const h=_notifHistLer();
+  h.unshift({id, titulo:n?n.titulo:id, em:Date.now()});
+  _notifHistSalvar(h.slice(0,50));
+  if(typeof toast==='function') toast('Ok, não aviso de novo por hoje');
+  renderNotificacoes();
+}
+// marcarVistas=true só quando o usuário efetivamente abriu o painel — evita
+// que uma chamada de fundo (boot, troca de página) já "gaste" o toast antes
+// da pessoa ver.
+function renderNotificacoes(){
+  let notifs=[];
+  try{ notifs=getNotificacoes(); }catch(e){ console.warn('[notif]', e?.message||e); }
+  _notifCache=notifs;
+
+  const badge=document.getElementById('notif-badge');
+  if(badge){
+    if(notifs.length){ badge.textContent = notifs.length>9?'9+':String(notifs.length); badge.style.display='flex'; }
+    else badge.style.display='none';
+  }
+
+  // Toast-once: só dispara pra categoria nova desde a última vez, e "esquece"
+  // categorias que sumiram (pra poder tocar de novo se reaparecerem depois).
+  const seen=_notifSeenLer();
+  const idsAtuais=new Set(notifs.map(n=>n.id));
+  let mudou=false;
+  notifs.forEach(n=>{
+    if(!seen[n.id]){
+      if(typeof toast==='function') toast(`${n.icone} ${n.titulo}`);
+      seen[n.id]=true; mudou=true;
+    }
+  });
+  Object.keys(seen).forEach(id=>{ if(!idsAtuais.has(id)){ delete seen[id]; mudou=true; } });
+  if(mudou) _notifSeenSalvar(seen);
+
+  const corpo=document.getElementById('notif-corpo');
+  if(!corpo) return;
+  document.querySelectorAll('.notif-tab').forEach(t=>t.classList.toggle('on', t.dataset.tab===_notifTabAtiva));
+
+  if(_notifTabAtiva==='historico'){
+    const h=_notifHistLer();
+    corpo.innerHTML = h.length ? h.map(x=>`
+      <div class="notif-item">
+        <span style="font-size:16px">🕓</span>
+        <div style="flex:1;min-width:0">
+          <div class="notif-item-tit">${esc(x.titulo)}</div>
+          <div class="notif-item-sub">${_notifQuando(x.em)}</div>
+        </div>
+      </div>`).join('') : `<div class="notif-vazio">Nada no histórico ainda.</div>`;
+    return;
+  }
+  corpo.innerHTML = notifs.length ? notifs.map(n=>`
+    <div class="notif-item">
+      <div class="notif-item-barra" style="background:${n.cor}"></div>
+      <span style="font-size:16px">${n.icone}</span>
+      <div style="flex:1;min-width:0">
+        <div class="notif-item-tit">${esc(n.titulo)}</div>
+        <div class="notif-item-sub">${esc(n.sub||'')}</div>
+      </div>
+      <div class="notif-item-acts">
+        <button class="tb g" onclick="closeNotif();${n.fn}">${n.acao}</button>
+        <button class="tb d" onclick="notifDispensar('${n.id}')" title="Dispensar por hoje">✕</button>
+      </div>
+    </div>`).join('') : `<div class="notif-vazio">✅ Nada pendente agora.</div>`;
+}
+
 function renderPainelInsights(){
   if(!document.getElementById('page-insights')) return;
   try{ renderPainelHoje(); }catch(e){ console.warn('[painelHoje]', e?.message||e); }
+  try{ renderNotificacoes(); }catch(e){ console.warn('[notif]', e?.message||e); }
   const s=_crmPipelineStats();
   const set=(id,txt)=>{ const el=document.getElementById(id); if(el) el.textContent=txt; };
 
