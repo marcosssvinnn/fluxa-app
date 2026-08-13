@@ -6362,16 +6362,57 @@ function editarCliente(id){
 // Auto-cadastra cliente ao salvar orçamento.
 // Regra: loja_id='aquamotor' → grupo Aquamotor. Qualquer outra → grupo Fortemp.
 // Nunca mistura entre grupos.
-function _autoSalvarCliente(nome, tel, end, cnpj, lojaId){
+//
+// Checa o SERVIDOR antes de criar (2026-08-13). Antes só olhava o cache
+// local do aparelho (lsCliLer()) — cada aparelho que "descobria" o mesmo
+// cliente pela primeira vez (Marcos, Bruno, Tamara, Elis... em celulares
+// diferentes) criava sua própria cópia, quase sempre com telefone/endereço
+// em branco. Confirmado contra produção: 16 grupos / 19 fichas duplicadas
+// criadas assim depois do incidente de duplicação já ter sido fechado (ver
+// nota "Fichas duplicadas voltando sempre", mesma data). Agora, quando não
+// acha no cache local, consulta o servidor pelo nome (mesmo critério de
+// igualdade do check local — case-insensitive, dentro do mesmo grupo
+// aquamotor/Fortemp) antes de decidir criar. Fire-and-forget nos 3 pontos
+// que chamam esta função (salvarApenas/gerarPDF) — não bloqueia o fluxo de
+// salvar o orçamento em si, mesmo padrão "local-first, sincroniza depois"
+// do resto do app; o cliente_id do orçamento vem de _orcClienteSelecionado,
+// não desta função, então não há dependência de ordem aqui.
+async function _autoSalvarCliente(nome, tel, end, cnpj, lojaId){
   if(!nome||nome==='—') return;
   const nomeL=nome.toLowerCase();
   const eAqua=lojaId==='aquamotor';
+  const mesmoGrupo=c=>(eAqua ? c.loja_id==='aquamotor' : c.loja_id!=='aquamotor');
   const lista=lsCliLer();
-  const idx=lista.findIndex(c=>
-    (c.nome||'').toLowerCase()===nomeL &&
-    (eAqua ? c.loja_id==='aquamotor' : c.loja_id!=='aquamotor')
-  );
-  if(idx>=0) return; // já existe neste grupo
+  const idx=lista.findIndex(c=>(c.nome||'').toLowerCase()===nomeL && mesmoGrupo(c));
+  if(idx>=0) return; // já existe no cache deste aparelho
+
+  if(dbOk&&db){
+    try{
+      // ilike sem % é match exato case-insensitive — mesmo critério do
+      // check local acima, só que perguntando ao servidor em vez do cache.
+      const {data:remoto,error}=await db.from('clientes')
+        .select('id,nome,loja_id').ilike('nome', nome.trim()).limit(20);
+      if(error) throw error;
+      const achou=(remoto||[]).find(c=>(c.nome||'').toLowerCase()===nomeL && mesmoGrupo(c));
+      if(achou){
+        // Existe no servidor — só não estava no cache deste aparelho ainda.
+        // Guarda no cache local (sem criar de novo) e sai.
+        const listaAgora=lsCliLer();
+        if(!listaAgora.some(c=>c.id===achou.id)){
+          listaAgora.unshift({id:achou.id, nome:achou.nome, tel:tel||'', end:end||'', cnpj:cnpj||'', email_responsavel:'', tipo:'', loja_id:achou.loja_id||null});
+          lsCliSalvar(listaAgora);
+        }
+        return;
+      }
+    }catch(e){
+      // Rede/erro na checagem: segue pro fallback local-first abaixo, igual
+      // ao comportamento de antes — melhor arriscar 1 duplicata rara (rede
+      // instável é exceção, não regra) do que travar o salvamento do
+      // orçamento por causa de uma checagem que é só um efeito colateral.
+      console.warn('[_autoSalvarCliente check]', e?.message||e);
+    }
+  }
+
   const novo={id:'cli_'+Date.now(),nome,tel:tel||'',end:end||'',cnpj:cnpj||'',email_responsavel:'',tipo:'',portal_token:crypto.randomUUID(),loja_id:lojaId||null};
   lista.unshift(novo); lsCliSalvar(lista);
   if(dbOk&&db) salvarClienteRemoto({...novo, nome, tel, end, cnpj});

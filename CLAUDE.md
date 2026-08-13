@@ -2,6 +2,59 @@
 
 ---
 
+## Causa 1 fechada — `_autoSalvarCliente()` agora checa o servidor antes de criar (13/08)
+
+Continuação direta da nota "Fichas duplicadas voltando sempre" (acima).
+Marcos escolheu a **Opção 2** das três propostas: checar o servidor antes
+de criar, em vez de parar de auto-criar ou só refrescar o cache por
+idade.
+
+**O que mudou em `_autoSalvarCliente()` (`app.js`, perto de
+`salvarNovoCliente`):** virou `async`. Quando não acha o nome no cache
+local (comportamento de antes, inalterado), agora — se `dbOk&&db` —
+consulta o servidor (`db.from('clientes').select(...).ilike('nome',
+nome).limit(20)`, `ilike` sem `%` é match exato case-insensitive, mesmo
+critério do check local) antes de decidir criar. Achou lá (criado por
+outro aparelho): só adiciona ao cache local deste aparelho com o `id`
+real do servidor — não cria de novo. Não achou (ou deu erro de
+rede/timeout): cai no mesmo fluxo de sempre (cria local + sincroniza),
+sem travar o salvamento do orçamento por causa disso.
+
+**Continua fire-and-forget** nos 3 pontos que chamam a função
+(`salvarApenas`/`gerarPDF`) — não precisei tocar nos call sites, `await`
+numa função async chamada sem `await` continua válido, só não bloqueia
+quem chamou. O `cliente_id` do orçamento em si nunca dependeu desta
+função (vem de `_orcClienteSelecionado`, mecanismo separado da Etapa 2),
+então não há risco de o orçamento salvar "sem cliente" enquanto a
+checagem ainda está rodando.
+
+**Testado com mock de `db`/`salvarClienteRemoto`** (nenhuma escrita real
+em produção — só a query de leitura simulada, nunca executada de
+verdade): 5 cenários — (1) não existe em lugar nenhum → cria; (2) existe
+no servidor, não no cache local → usa o do servidor, não duplica; (3) já
+existe no cache local → nem consulta o servidor; (4) existe no servidor
+mas em outro grupo de loja (aquamotor × Fortemp) → não casa, cria (grupo
+isolado continua isolado); (5) erro de rede na consulta → cai no
+fallback de sempre, `console.warn` correto, não trava o fluxo. Todos
+passaram.
+
+⚠️ **Pegadinha de teste registrada pra próxima sessão:** `db` (igual
+`dbOk`) é uma variável léxica (`let`), não `window.db` — setar
+`window.db = mock` no console/DevTools NÃO troca o que as funções do
+app enxergam. Primeira rodada de teste falhou silenciosamente por
+causa disso (o mock nunca era chamado, a função sempre caía no
+fallback real). Setar sempre `db = mock` (bare), mesmo padrão já
+documentado pra `dbOk`.
+
+**Não fechado, fora do escopo desta mudança:** o `_dupGrupos()` mais
+completo (passada 1B, nota acima) resolve o que já existe hoje; esta
+mudança impede que o MESMO padrão (auto-criação cega) continue gerando
+duplicata nova a partir de agora. Os dois juntos fecham o ciclo.
+
+`sw.js` v121→v122.
+
+---
+
 ## Fichas duplicadas voltando sempre — investigado, causa real achada e parcialmente fechada (13/08)
 
 Marcos: "volta e meia está aparecendo no sistema pra mim pra limpar as
