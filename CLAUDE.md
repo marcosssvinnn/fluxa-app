@@ -85,13 +85,86 @@ screenshot depois da animação terminar); telas ainda não migradas
 nova, sem quebra. Zero erro de console além do ruído de 400 já
 documentado. `sw.js` v124→v126.
 
+### Próximo passo (histórico — Fase 4 já feita, ver entrada abaixo)
+
+---
+
+## REDESIGN — Fase 4: Insights unificado (merge "Hoje"+"Resultado") — 13/08
+
+O handoff só tem UMA tela de landing ("Insights", rótulo de nav "Hoje") —
+substitui o desdobramento "Hoje"/"Resultado" que tinha sido fechado mais
+cedo hoje, como já estava documentado como decisão do Marcos na Fase 1-3.
+Rota interna unificada em `'insights'` (era `'hoje'`+`'insights'`
+convivendo): `go()`, `telaInicial()`, `snbRules`/`mnbRules`,
+`crmFiltrarFaixa()`, `getNotificacoes()`, `crmDispensar()` — tudo
+apontando pra uma função só, `renderPainelInsights()`. `page-hoje` e
+`renderPainelHojePage()` foram removidos (não desviados/renomeados —
+apagados, junto com `renderCadenciaFila/Proximos`, `_crmRenderTrilho`,
+`_crmCardHTML`, `_cadenciaCardHTML`, `_cadenciaProximoCardHTML`,
+`crmSugestaoFala` e os `CRM_TETO_*`/`CADENCIA_*_TETO` que só serviam pra
+elas — ficaram órfãos com o merge, sem chamador nenhum sobrando).
+
+**"Precisa de você hoje" é a peça central** — em vez de 3 cards
+competindo (painel de sistema, fila de follow-up, cadência), agora é UMA
+fila só, `_acaoQueue()`, que junta os três motores que já existiam
+(`_itensPainelHoje()`, `crmCandidatos()`, `cadenciaCandidatos()` +
+`cadenciaProximos()` com urgência baixa de propósito) num ranking por
+urgência numérica, sem duplicar nenhum cálculo. Primeiro item vem
+expandido (borda esquerda, ações Ligar/WhatsApp/Registrar contato — usa
+`tel:` direto e um novo helper pequeno `_acaoWA()` pra mandar WhatsApp
+sobre um orçamento específico), os demais compactos com 1 link de ação.
+Teto de 7 na tela (`ACAO_TETO`), com "ver N" quando sobra mais.
+
+**KPIs remapeados pro exato do handoff** (Pipeline aberto / Fechado no
+mês / A receber / Taxa de fechamento — os 4 do README, não mais os 4 do
+dashboard antigo). "Fechado no mês" ganhou comparação com o mês anterior
+(`fechValorAnt` em `_crmPipelineStats()`) e "Taxa de fechamento" ganhou
+"média de N dias até o sim" (`diasMedioFechar`, calculado de
+emissão→aprovação dos fechados do mês) — nenhum dos dois existia antes,
+os dois são aditivos ao objeto que `_crmPipelineStats()` já retornava.
+
+**Gráfico "Faturamento aprovado" é dedicado** (`#ins-chart`,
+`renderInsightsChart()`) — NÃO é o mesmo do Histórico (`dash-chart`,
+que continua intocado com seu próprio seletor de tipo/período). Duas
+barras por mês (aprovado escuro `var(--c1)` + emitido claro
+`var(--c1-mid)`, sempre juntas, sem toggle) e trilho de período 6M/12M/
+Ano (`_insSetPeriodo`) em vez do dropdown antigo.
+
+**Bug pego em teste, corrigido antes do commit:** o cartão do gráfico
+transbordava a coluna do grid (`.ins-body`, 1.55fr/1fr) e empurrava a
+página inteira pra rolagem horizontal — Chart.js dá ao `<canvas>` uma
+largura própria, e item de grid não encolhe abaixo do conteúdo por
+padrão (`min-width:auto` implícito). Precisou `min-width:0` em
+`.ins-fat-card`, `.ins-chart-wrap` e `.ins-col-direita`. Sem isso o
+`docWidth` (1366px) ficava maior que o `winWidth` (1140px) — só percebi
+comparando as duas medidas via JS, não era visível a olho na resolução
+que eu estava testando.
+
+Testado: KPIs/fila/fase/gráfico com dado real de produção (190
+orçamentos, R$2,4M em pipeline); trilho 6M→12M troca os meses do
+gráfico; clique numa faixa de "Em que fase está" filtra a fila de
+follow-up inline (sem navegar — a fila mora na mesma tela agora) e
+clicar de novo limpa; "Cobrar" na fila leva pra A Receber; responsivo
+1440px (lado a lado) → 1180px (empilha, fila acima do gráfico, regra
+exata do handoff) → 375px mobile (KPIs 2 colunas, sem overflow
+horizontal em nenhuma largura). `sw.js` v126→v127.
+
+**Achado fora do escopo, sinalizado, não mexido:** ao testar, o boot
+disparou ~229 chamadas repetidas pro endpoint `clientes` do Supabase,
+várias retornando 400. Não é causado por este redesign (Insights não
+mexe em cliente) — parece uma rotina de sincronização em massa. Spawnei
+uma task separada pro Marcos investigar (`task_a27cf171`).
+
+**Decisão pendente com o Marcos:** Financeiro, DRE e Análise de clientes
+saíram da tela (não estão no handoff). As funções (`renderRelatorioFinanceiro`,
+`renderDRE`, `renderAnaliseClientes`) continuam no código, só não são
+chamadas por nada agora — precisam de um lugar novo (aba própria? dentro
+de Produtividade? uma tela "Financeiro" nova?) antes da Fase 5.
+
 ### Próximo passo
 
-Fase 4 — Insights: merge de "Hoje"+"Resultado" numa tela só, no layout
-exato do handoff (KPIs + gráfico + "Precisa de você hoje" + "Em que fase
-está", sem rolagem), com a fila de ações num endpoint/função própria
-(README pede isso explicitamente). Decidir junto com o Marcos onde
-Financeiro/DRE/Análise de clientes vão morar depois do merge.
+Fase 5 — Orçamentos (lista): filtros/paginação, tabela densa
+`.rd-table-*`, redesenho de `page-history`.
 
 ---
 

@@ -12,7 +12,7 @@ function eGestor(){ const s=getSessao(); return s?.perfil==='gestor'||s?.perfil=
 // login mandava o gestor para o Insights e o boot para o Novo Orçamento, então
 // qualquer F5 tirava a gestora do lugar certo. Quem for mudar o destino, mude
 // AQUI — não espalhe go('...') pelos pontos de entrada de novo.
-// "Hoje" e "Insights" (Resultado) são gestor/master: não estão em
+// "Insights" (rótulo visível "Hoje") é gestor/master: não está em
 // pagesVendasOk nem em pagesTecnicoOk, então mandar vendas ou técnico pra lá
 // só dispara "Acesso não permitido".
 function telaInicial(sessao){
@@ -20,7 +20,7 @@ function telaInicial(sessao){
   if(!s) return 'form';                        // sem sessão: fica atrás do login
   if(s.perfil==='tecnico') return 'minhas-os';
   if(s.perfil==='vendas')  return 'form';
-  return 'hoje';                                // gestor e master — desdobrado de "insights" em 13/08
+  return 'insights';                            // gestor e master
 }
 
 // Estado de estoque declarado no TOPO (antes do boot) para evitar TDZ.
@@ -99,7 +99,6 @@ function aplicarPermissoesPerfil(){
 
   // ── Sidebar nav ──
   const snbRules = {
-    'snb-hoje'         : gestor,
     'snb-insights'     : gestor,
     'snb-form'         : gestor||vendas,
     'snb-venda-balcao' : gestor||vendas||tecnico,
@@ -196,7 +195,7 @@ function aplicarPermissoesPerfil(){
   // quem faz vistoria de verdade é o técnico, que mantém o atalho aqui.
   const mnbRules = {
     'mnb-visitas'  : tecnico,
-    'mnb-hoje'     : gestor,
+    'mnb-insights' : gestor,
     'mnb-minhas-os': tecnico,
     'mnb-form'     : gestor||vendas,
     'mnb-os'       : gestor||vendas,
@@ -429,7 +428,6 @@ function trocarLojaAtiva(id){
   if(!paginaAtiva) return;
   const pid=paginaAtiva.id.replace('page-','');
   if(pid==='history') { initOrcMes(); atualizarDash(); renderTabela(); renderGraficoDash(); }
-  else if(pid==='hoje') renderPainelHojePage();
   else if(pid==='insights') renderPainelInsights();
   else if(pid==='os-history') renderOSTabela();
   else if(pid==='clientes') renderClientes();
@@ -1570,7 +1568,7 @@ function go(p){
   if(_vendas  && !pagesVendas.includes(p))  { toast('Você não tem acesso a essa área.'); return; }
   if(_tecnico && !pagesTecnico.includes(p)) { toast('Você não tem acesso a essa área.'); return; }
   if(!_gestor && !_vendas && !_tecnico &&
-     ['form','history','hoje','insights','empresa','usuarios','produtividade'].includes(p)){
+     ['form','history','insights','empresa','usuarios','produtividade'].includes(p)){
     toast('⚠️ Acesso restrito ao Gestor'); return;
   }
   // Histórico de navegação (para o botão "← Voltar")
@@ -1587,28 +1585,19 @@ function go(p){
   const snb=document.getElementById('snb-'+p); if(snb){ snb.classList.add('on'); snb.setAttribute('aria-current','page'); }
   closeSidebar();
   if(p==='portal') { /* página gerenciada por checkPortalHash */ }
-  // "Hoje" e "Resultado" — desdobrados de um "Insights" só em 13/08 (crítica
-  // de design: uma tela respondendo três perguntas incompatíveis — "o que eu
-  // faço agora", "como está a carteira", "como foi o resultado" — não atende
-  // nenhuma bem, e foi por isso que a mesma lista de cards foi reordenada 3x
-  // num dia sem nunca parecer certa. Landing do gestor agora é "hoje".
-  if(p==='hoje'||p==='insights'){
-    // Precisa dos mesmos dados nas duas páginas (painel "hoje"/notif numa,
-    // financeiro/DRE na outra) — cada load* já se protege contra buscar de
-    // novo o que já tem (checagem de tamanho), então carregar o conjunto
-    // inteiro nas duas entradas é seguro, só evita depender de qual delas
-    // o gestor abriu primeiro.
+  // "Insights" (rótulo "Hoje") — de volta a UMA tela só em 13/08 (handoff de
+  // design substitui o desdobramento "Hoje"/"Resultado" feito mais cedo hoje:
+  // ação e leitura convivem na mesma dobra, sem rolagem). Landing do gestor.
+  if(p==='insights'){
     Promise.all([
       (typeof loadRecebimentos==='function'? loadRecebimentos() : null),
       (typeof loadEstoque==='function' && !(todosProdutos||[]).length ? loadEstoque() : null),
       (typeof loadDespesas==='function' && !(todasDesp||[]).length ? loadDespesas() : null),
       (typeof loadOSHist==='function' && !(todosOS||[]).length ? loadOSHist() : null)
     ]).then(()=>{
-      try{
-        if(p==='hoje') renderPainelHojePage(); else renderPainelInsights();
-      }catch(e){ console.warn('[painel'+p+']', e?.message||e); }
+      try{ renderPainelInsights(); }catch(e){ console.warn('[painelInsights]', e?.message||e); }
     });
-    if(p==='hoje') renderPainelHojePage(); else renderPainelInsights();
+    renderPainelInsights();
   }
   if(p==='history'){ initOrcMes(); loadHist(); setTimeout(renderGraficoDash,200); }
   if(p==='form'){
@@ -4218,20 +4207,6 @@ function crmMotivos(c){
   else if(c.dias>=30) p.push(`🕐 parado há ${c.dias} dias`);
   return p;
 }
-// Frase pronta: quem não é vendedor trava no telefone. Um script destrava.
-function crmSugestaoFala(c){
-  if(c.diasDecisao!==null && c.diasDecisao!==undefined){
-    if(c.diasDecisao<0)  return 'Vi que a reunião de vocês já aconteceu. Conseguiram avaliar nossa proposta? Fico à disposição para ajustar o que for preciso.';
-    if(c.diasDecisao<=7) return 'A assembleia de vocês está chegando. O nosso orçamento entrou na pauta? Posso mandar um resumo de uma página para ajudar na apresentação.';
-  }
-  if(c.equip && c.valor>=50000)
-    return 'Esse valor precisa passar por assembleia? Se sim, posso preparar um resumo de uma página para o síndico apresentar na reunião.';
-  if(c.equip)
-    return 'Ficou alguma dúvida sobre o equipamento ou sobre o prazo de instalação? Posso explicar o que está incluso.';
-  if(c.dias>=15)
-    return 'Passando para saber se ainda faz sentido esse serviço — consigo encaixar na agenda desta semana.';
-  return 'Vi que o orçamento ainda está em aberto. Quer que eu já reserve uma data na agenda?';
-}
 
 // ── Feedback da fila: aprender do silêncio ──────────────────────────────────
 // Local (sem schema ainda — Fase 3 persiste isso no banco). Regra: dispensou
@@ -4275,7 +4250,7 @@ function crmDispensar(orcId){
   m[orcId]=m[orcId]||{}; m[orcId].dispensas=(m[orcId].dispensas||0)+1;
   _crmFbSalvar(m);
   toast(m[orcId].dispensas>=3 ? '🔕 Não vou mais sugerir este' : 'Ok, tiro da lista de hoje');
-  if(typeof renderPainelHojePage==='function') renderPainelHojePage();
+  if(typeof renderPainelInsights==='function') renderPainelInsights();
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -4310,7 +4285,7 @@ function _cadFbOculto(cid){
 function cadenciaDispensar(cid){
   const m=_cadFbLer(); m[cid]={dispensado_em:Date.now()}; _cadFbSalvar(m);
   toast('Ok, não aviso de novo por 14 dias');
-  renderCadenciaFila();
+  if(typeof renderAcaoQueue==='function') renderAcaoQueue();
 }
 
 // ── "Chegando" — Etapa 6 do roadmap (motor de eventos recorrentes), versão
@@ -4339,91 +4314,6 @@ function cadenciaProximos(){
     .map(c=>({...c, origem:'teorico', faltam:c.previsaoTeorica.diasAte}));
   return [...observado, ...teorico].sort((a,b)=>a.faltam-b.faltam);
 }
-function _cadenciaProximoCardHTML(c){
-  const cid=c.chave.slice(3);
-  const motivo1 = c.origem==='observado'
-    ? `🟢 No ritmo — costuma comprar a cada ${c.intervaloMedioDias}d, faltam ~${c.faltam}d`
-    : `🧪 Estimativa (1ª compra) — ${esc(c.previsaoTeorica.piscinaNome||'a piscina')} deve consumir ${c.previsaoTeorica.embalagemLabel} em ~${c.faltam}d`;
-  return `<div class="crm-card" style="border-left-color:var(--blue)">
-    <div class="crm-card-top">
-      <div class="crm-cliente">${esc(c.nome)}</div>
-      <div class="crm-valor">${brl(c.valor)}</div>
-    </div>
-    <div class="crm-motivos"><span class="crm-motivo">${motivo1}</span></div>
-    <div class="crm-acts">
-      <button class="tb" onclick="verHistoricoCliente('${cid}')">👁 Ver histórico</button>
-    </div>
-  </div>`;
-}
-const CADENCIA_PROXIMOS_TETO=6;
-function renderCadenciaProximos(){
-  const card=document.getElementById('ins-proximos-card'), el=document.getElementById('ins-proximos-corpo');
-  if(!card||!el) return;
-  const cands=cadenciaProximos();
-  card.style.display='';
-  // Bloco sempre presente com estado vazio explícito (crítica de design
-  // 13/08, achado 🔴): esconder via display:none faz a posição do card
-  // mudar de dia pra dia, e é justamente o card de ação que some — o
-  // gestor nunca cria memória muscular de onde as coisas ficam numa tela
-  // consultada todo dia.
-  if(!cands.length){
-    el.innerHTML=`<div style="display:flex;align-items:center;gap:10px;padding:6px 0">
-      <span style="font-size:20px">✅</span>
-      <span style="font-size:13px;color:var(--gray)">Nada chegando nos próximos ${CADENCIA_JANELA_PROXIMOS} dias.</span></div>`;
-    return;
-  }
-  const visiveis=cands.slice(0,CADENCIA_PROXIMOS_TETO);
-  el.innerHTML=visiveis.map(_cadenciaProximoCardHTML).join('')
-    + (cands.length>visiveis.length?`<div style="text-align:center;font-size:11px;color:var(--gray);padding:6px 0">+${cands.length-visiveis.length} outro(s)</div>`:'');
-}
-function _cadenciaCardHTML(c){
-  const cid=c.chave.slice(3);
-  let motivo1, avisoTeorico='';
-  if(c.origem==='observado'){
-    const rotulo = c.ritmo==='parou' ? '🔴 Parou de comprar' : '🟡 Reduziu o ritmo';
-    motivo1 = `${rotulo} — costuma comprar a cada ${c.intervaloMedioDias}d, já são ${c.diasDesdeUltima}d`;
-  } else {
-    const pt=c.previsaoTeorica;
-    motivo1 = `🧪 Estimativa (1ª compra, sem histórico ainda) — ${esc(pt.piscinaNome||'a piscina')} deve consumir ${pt.embalagemLabel} em ~${pt.dias}d; já se passaram ${c.diasDesdeUltima}d`;
-    avisoTeorico=`<span class="crm-motivo" style="opacity:.75">⚠️ estimativa por fórmula, margem de erro grande (documento: ±35-50%) — confirme antes de cobrar</span>`;
-  }
-  return `<div class="crm-card">
-    <div class="crm-card-top">
-      <div class="crm-cliente">${esc(c.nome)}</div>
-      <div class="crm-valor">${brl(c.valor)}</div>
-    </div>
-    <div class="crm-motivos">
-      <span class="crm-motivo">${motivo1}</span>
-      <span class="crm-motivo">🛒 ${c.compras} compra${c.compras!==1?'s':''} até agora</span>
-      ${avisoTeorico}
-    </div>
-    <div class="crm-acts">
-      <button class="tb g" onclick="novoOrcParaCliente('${cid}')">➕ Novo orçamento</button>
-      <button class="tb" onclick="verHistoricoCliente('${cid}')">👁 Ver histórico</button>
-      <button class="tb d" onclick="cadenciaDispensar('${cid}')">✕ Dispensar</button>
-    </div>
-  </div>`;
-}
-const CADENCIA_TETO=6;
-function renderCadenciaFila(){
-  const card=document.getElementById('ins-cadencia-card'), el=document.getElementById('ins-cadencia-corpo');
-  if(!card||!el) return;
-  const cands=cadenciaCandidatos();
-  card.style.display='';
-  const sub=document.getElementById('ins-cadencia-sub');
-  if(!cands.length){
-    el.innerHTML=`<div style="display:flex;align-items:center;gap:10px;padding:6px 0">
-      <span style="font-size:20px">✅</span>
-      <span style="font-size:13px;color:var(--gray)">Ninguém atrasado pelo próprio ritmo agora.</span></div>`;
-    if(sub) sub.textContent='tudo em dia';
-    return;
-  }
-  const visiveis=cands.slice(0,CADENCIA_TETO);
-  el.innerHTML=visiveis.map(_cadenciaCardHTML).join('')
-    + (cands.length>visiveis.length?`<div style="text-align:center;font-size:11px;color:var(--gray);padding:6px 0">+${cands.length-visiveis.length} outro(s)</div>`:'');
-  if(sub) sub.textContent = `${cands.length} cliente${cands.length!==1?'s':''} atrasado${cands.length!==1?'s':''} pelo próprio ritmo`;
-}
-
 // ── Registrar contato (persiste no banco, não só no aparelho) ───────────────
 // O "Liguei" antigo vivia só no localStorage: trocou de celular, perdeu o
 // histórico, e o gestor nunca via o que o vendedor tinha feito. Agora grava em
@@ -4570,6 +4460,25 @@ function _crmPipelineStats(){
   const fechados=doMes.filter(o=>o.status==='aprovado');
   const convPct=doMes.length>0?Math.round(fechados.length/doMes.length*100):0;
 
+  // Mês anterior — só pro comparativo do KPI "Fechado no mês" (card 2 do
+  // Insights, handoff pede "+18% vs. mês anterior").
+  const anteriorRef=new Date(hoje.getFullYear(), hoje.getMonth()-1, 1);
+  const mesAntRef=anteriorRef.getFullYear()+'-'+String(anteriorRef.getMonth()+1).padStart(2,'0');
+  const fechValorAnt=filtrarPorLoja(todosOrc||[]).filter(o=>{
+    if(o.status!=='aprovado') return false;
+    const ref=o.data_aprovacao?new Date(o.data_aprovacao):_orcData(o);
+    return ref&&!isNaN(ref)&&ref.getFullYear()+'-'+String(ref.getMonth()+1).padStart(2,'0')===mesAntRef;
+  }).reduce((a,o)=>a+val(o),0);
+
+  // Dias médios até o "sim" — só entre quem tem as duas datas (emissão e
+  // aprovação); vira o apoio do KPI "Taxa de fechamento".
+  const diasParaFechar=fechados.map(o=>{
+    const emi=_orcData(o), ap=o.data_aprovacao?new Date(o.data_aprovacao):null;
+    if(!emi||!ap||isNaN(emi)||isNaN(ap)) return null;
+    return Math.max(0,Math.round((ap-emi)/86400000));
+  }).filter(v=>v!==null);
+  const diasMedioFechar=diasParaFechar.length?Math.round(diasParaFechar.reduce((a,b)=>a+b,0)/diasParaFechar.length):null;
+
   // Faixas de idade para a barra de estágio
   const faixas={}; CRM_FAIXAS_IDADE.forEach(f=>faixas[f.id]={qtd:0,valor:0});
   abertos.forEach(o=>{ const f=faixas[_crmFaixaDe(idade(o))]; f.qtd++; f.valor+=val(o); });
@@ -4579,64 +4488,20 @@ function _crmPipelineStats(){
     paradoQtd:parados.length, paradoValor:parados.reduce((a,o)=>a+val(o),0), paradoPct,
     vencQtd:vencendo.length, vencValor:vencendo.reduce((a,o)=>a+val(o),0),
     fechQtd:fechados.length, fechValor:fechados.reduce((a,o)=>a+val(o),0), emitidosMes:doMes.length, convPct,
+    fechValorAnt, diasMedioFechar,
     faixas, idadeDe:idade,
     mesLabel:hoje.toLocaleDateString('pt-BR',{month:'long',year:'numeric'})
   };
 }
-// Teto na tela — princípio anti-chatice: 150 sugestões = nenhuma sugestão.
-const CRM_TETO_FILA=8;
-// Equipamento entra em DOSE MENOR que serviço, de propósito. Não é limitação
-// técnica: é venda consultiva de ciclo longo (fecha ~7%, leva semanas, pode
-// depender de assembleia) — trabalhar 3 por dia com profundidade rende mais que
-// 8 por cima. Serviço fecha ~40% em 24h e merece o volume. Sem isto a fila do
-// dia ficava dominada pelo trilho que menos fecha, só porque tem ticket maior.
-const CRM_TETO_EQUIP=3;
-function _crmCardHTML(c){
-  const motivos=crmMotivos(c).map(m=>`<span class="crm-motivo">${esc(m)}</span>`).join('');
-  return `<div class="crm-card">
-    <div class="crm-card-top">
-      <div class="crm-cliente">${esc(c.orc.cliente||'—')}</div>
-      <div class="crm-valor">${brl(c.valor)}</div>
-    </div>
-    <div class="crm-motivos">${motivos}</div>
-    <div class="crm-fala">💬 "${esc(crmSugestaoFala(c))}"</div>
-    <div class="crm-acts">
-      <button class="tb g" onclick="abrirCrmContato('${c.orc.id}')">📞 Registrar contato</button>
-      <button class="tb" onclick="verOrcPDF('${c.orc.id}')">👁 Ver orçamento</button>
-      <button class="tb d" onclick="crmDispensar('${c.orc.id}')">✕ Dispensar</button>
-    </div>
-  </div>`;
-}
-function _crmRenderTrilho(elId, subId, lista, vazioTxt, teto){
-  const el=document.getElementById(elId); if(!el) return;
-  if(!lista.length){ el.innerHTML=`<div class="empty-st" style="padding:20px"><div class="ei">✅</div><p>${vazioTxt}</p></div>`; }
-  else{
-    const visiveis=lista.slice(0, teto||CRM_TETO_FILA);
-    el.innerHTML=visiveis.map(_crmCardHTML).join('')
-      + (lista.length>visiveis.length?`<div style="text-align:center;font-size:11px;color:var(--gray);padding:6px 0">+${lista.length-visiveis.length} outro(s) — resolva estes primeiro</div>`:'');
-  }
-  const sub=document.getElementById(subId);
-  if(sub) sub.textContent = lista.length ? `${lista.length} em aberto` : 'tudo em dia';
-}
-// Faixa de estágio selecionada (filtra a fila). '' = todas.
-// A fila de follow-up mora na página "Hoje" desde o desdobramento de
-// 13/08 (crítica de design) — "Em que fase está" ficou em "Resultado",
-// então tocar numa faixa aqui precisa levar pra outra tela pra ver o
-// efeito, não só redesenhar a mesma página.
+// Faixa de estágio selecionada (filtra a fila de ação). '' = todas.
+// "Em que fase está" e "Precisa de você hoje" voltaram a viver na mesma tela
+// com o handoff de 13/08 — tocar numa faixa aqui já redesenha a fila ao lado,
+// sem precisar navegar pra outra página.
 let _crmFaixaFiltro='';
 function crmFiltrarFaixa(id){
   _crmFaixaFiltro = (_crmFaixaFiltro===id) ? '' : id; // clicar de novo desmarca
-  const pid=document.querySelector('.page.on')?.id;
-  // Setar filtro só é possível a partir de "Resultado" (é lá que vivem os
-  // botões de faixa) — sempre navega pra "Hoje" pra ver o efeito. Limpar
-  // filtro acontece pelo botão "✕" que fica em "Hoje" — precisa redesenhar
-  // ALI mesmo, não só quando pid é 'page-insights' (bug pego em teste:
-  // limpar o filtro atualizava o estado mas a tela ficava com o chip
-  // travado, porque nenhum dos dois ramos originais cobria "clicar limpar
-  // estando em Hoje").
-  if(_crmFaixaFiltro && pid!=='page-hoje'){ go('hoje'); return; }
-  if(pid==='page-hoje') renderPainelHojePage();
-  else if(pid==='page-insights') _crmRenderEstagio(_crmPipelineStats());
+  if(document.querySelector('.page.on')?.id!=='page-insights'){ go('insights'); return; }
+  renderPainelInsights();
 }
 function _crmRenderEstagio(s){
   const barra=document.getElementById('ins-estagio-barra');
@@ -4668,8 +4533,8 @@ function _crmRenderEstagio(s){
   }).join('');
   const sub=document.getElementById('ins-estagio-sub');
   if(sub) sub.textContent=_crmFaixaFiltro
-    ? 'filtrando a fila em Hoje — toque de novo aqui pra limpar'
-    : 'toque numa faixa pra filtrar a fila em Hoje';
+    ? 'filtrando "Precisa de você hoje" — toque de novo aqui pra limpar'
+    : 'toque numa faixa pra filtrar a fila ao lado';
 }
 // Mapeia a cor (CSS var) já atribuída a cada item pra uma classe de badge —
 // reaproveitada no painel "hoje" e no painel de notificações (2026-08-13,
@@ -4745,28 +4610,6 @@ function _itensPainelHoje(){
 
   return itens;
 }
-function renderPainelHoje(){
-  const card=document.getElementById('ins-hoje-card'), el=document.getElementById('ins-hoje-corpo');
-  if(!card||!el) return;
-  const itens=_itensPainelHoje();
-  if(!itens.length){
-    card.style.display='';
-    el.innerHTML=`<div style="display:flex;align-items:center;gap:10px;padding:6px 0">
-      <span style="font-size:22px">✅</span>
-      <span style="font-size:13px;color:var(--gray)">Nada vencido, nada faltando, contas do mês lançadas.</span></div>`;
-    return;
-  }
-  card.style.display='';
-  el.innerHTML=itens.map(i=>`
-    <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--gray-light);flex-wrap:wrap">
-      <div class="icon-badge ${_corParaBadge(i.cor)}">${i.icone}</div>
-      <div style="flex:1;min-width:150px">
-        <div style="font-size:13px;font-weight:700;color:var(--c2)">${i.titulo}</div>
-        <div style="font-size:11.5px;color:var(--gray)">${i.sub}</div>
-      </div>
-      <button class="tb g" style="font-weight:700" onclick="${i.fn}">${i.acao}</button>
-    </div>`).join('');
-}
 
 // ── Central de notificações (sino do cabeçalho, 2026-08-13) ────────────────
 // Reúne, num só lugar visível em QUALQUER tela (não só Insights), tudo que
@@ -4811,21 +4654,21 @@ function getNotificacoes(){
     if(total) out.push({id:'crm-fila', cor:'var(--c1)', icone:'📞',
       titulo:`${total} cliente${total!==1?'s':''} na fila de follow-up`,
       sub:'Orçamentos parados esperando contato',
-      acao:'Ver fila', fn:"go('hoje')"});
+      acao:'Ver fila', fn:"go('insights')"});
   }catch(e){ console.warn('[notif:fila]', e?.message||e); }
   try{
     const cad=cadenciaCandidatos();
     if(cad.length) out.push({id:'crm-cadencia', cor:'var(--c1)', icone:'🔁',
       titulo:`${cad.length} cliente${cad.length!==1?'s':''} atrasado${cad.length!==1?'s':''} na recompra`,
       sub:'Pelo próprio ritmo de consumo, já deveriam ter voltado',
-      acao:'Ver', fn:"go('hoje')"});
+      acao:'Ver', fn:"go('insights')"});
   }catch(e){ console.warn('[notif:cadencia]', e?.message||e); }
   try{
     const prox=cadenciaProximos();
     if(prox.length) out.push({id:'crm-cadencia-proximos', cor:'var(--gray)', icone:'📅',
       titulo:`${prox.length} cliente${prox.length!==1?'s':''} vai${prox.length!==1?'ão':''} precisar de reposição em breve`,
       sub:`Nos próximos ${CADENCIA_JANELA_PROXIMOS} dias, pelo próprio ritmo — ainda dá tempo de se antecipar`,
-      acao:'Ver', fn:"go('hoje')"});
+      acao:'Ver', fn:"go('insights')"});
   }catch(e){ console.warn('[notif:cadencia-proximos]', e?.message||e); }
   try{
     const neg=_estoqueNegativos().filter(n=>!n.inativo);
@@ -4924,60 +4767,204 @@ function renderNotificacoes(){
     </div>`).join('') : `<div class="notif-vazio">✅ Nada pendente agora.</div>`;
 }
 
-// ── "Hoje" — desdobrada de "Insights" em 13/08 (crítica de design). Só o que
-// pede AÇÃO agora: precisa de você hoje, fila de follow-up, cadência
-// atrasada/chegando. Landing do gestor — troca de lugar com o que antes era
-// renderPainelInsights() completo, que virou só a metade "Resultado" abaixo.
-function renderPainelHojePage(){
-  if(!document.getElementById('page-hoje')) return;
-  try{ renderPainelHoje(); }catch(e){ console.warn('[painelHoje]', e?.message||e); }
+// ── Insights (Fase 4 do redesign, 13/08) — o handoff substitui o desdobramento
+// "Hoje"/"Resultado" de mais cedo hoje: ação e leitura voltam pra UMA tela,
+// sem rolagem. "Precisa de você hoje" é a peça central — junta os motores que
+// já existiam (painel de sistema, fila de follow-up, cadência de recompra) num
+// só ranking por urgência, em vez de três cards competindo pela atenção.
+// Análise de clientes / Financeiro / DRE saíram daqui (não estão no handoff);
+// ficam sem tela própria até essa decisão ser tomada — as funções continuam
+// no código, só não são chamadas por enquanto.
+function _acaoWA(orcId){
+  const o=(todosOrc||[]).find(x=>String(x.id)===String(orcId)); if(!o) return;
+  const tel=(o.tel_cliente||'').replace(/\D/g,'');
+  if(!tel){ toast('⚠️ Sem telefone cadastrado para este cliente'); return; }
+  const telFull=tel.startsWith('55')?tel:'55'+tel;
+  const msg=`Olá${o.cliente?', '+o.cliente.split(' ')[0]:''}! Sobre o orçamento #${String(o.numero||'?').padStart(3,'0')} (${brl(parseFloat(o.total)||0)}) — ainda faz sentido pra vocês? Fico à disposição.`;
+  window.open(`https://wa.me/${telFull}?text=${encodeURIComponent(msg)}`,'_blank');
+}
+const ACAO_TETO=7;
+function _acaoQueue(){
+  const out=[];
+
+  // Sistema: dinheiro parado, estoque travado, despesa não lançada — já vem
+  // pronto do painel de hoje (_itensPainelHoje), urgência alta por padrão.
+  try{ _itensPainelHoje().forEach(i=>out.push({...i, urgencia:88, tipo:'sistema'})); }
+  catch(e){ console.warn('[acaoQueue:sistema]', e?.message||e); }
+
+  // Fila de follow-up: usa o score que crmCandidatos() já pondera pela
+  // conversão histórica de cada trilho — só normaliza pra régua comum.
+  try{
+    const {equipamento=[], servico=[]}=crmCandidatos();
+    let cands=[...equipamento, ...servico];
+    if(_crmFaixaFiltro) cands=cands.filter(c=>_crmFaixaDe(c.dias)===_crmFaixaFiltro);
+    cands.slice(0,10).forEach(c=>{
+      const tel=(c.orc.tel_cliente||'').replace(/\D/g,'');
+      const acoes=tel
+        ? [{label:'Ligar', href:'tel:'+tel}, {label:'WhatsApp', fn:`_acaoWA('${c.orc.id}')`}, {label:'Registrar contato', fn:`abrirCrmContato('${c.orc.id}')`}]
+        : [{label:'Registrar contato', fn:`abrirCrmContato('${c.orc.id}')`}, {label:'Ver orçamento', fn:`verOrcPDF('${c.orc.id}')`}];
+      const urg=c.atrasado?96:(c.diasDecisao!==null&&c.diasDecisao<=7?92:(40+Math.min(20,c.score)));
+      out.push({
+        id:'crm-'+c.orc.id, tipo:'follow-up', urgencia:urg,
+        titulo:(c.orc.cliente||'—')+' · '+brl(c.valor),
+        sub:crmMotivos(c)[0]||'', acoes,
+        acao:acoes[0].label, fn:acoes[0].fn||null, href:acoes[0].href||null
+      });
+    });
+  }catch(e){ console.warn('[acaoQueue:followup]', e?.message||e); }
+
+  // Cadência de recompra atrasada — mesmo motor da Etapa 4.
+  try{
+    cadenciaCandidatos().slice(0,5).forEach(c=>{
+      const atraso=Math.max(0,(c.diasDesdeUltima||0)-(c.intervaloMedioDias||c.diasDesdeUltima||0));
+      out.push({
+        id:'cad-'+c.chave, tipo:'cadencia', urgencia:60+Math.min(15,atraso),
+        titulo:c.nome+' · '+brl(c.valor),
+        sub:(c.ritmo==='parou'?'parou de comprar':'reduziu o ritmo')+' — recompra atrasada',
+        acao:'Novo orçamento', fn:`novoOrcParaCliente('${c.chave.slice(3)}')`
+      });
+    });
+  }catch(e){ console.warn('[acaoQueue:cadencia]', e?.message||e); }
+
+  // Cadência "chegando" — antecipação, urgência baixa de propósito: só entra
+  // se sobrar espaço depois do que já precisa de ação hoje.
+  try{
+    cadenciaProximos().slice(0,5).forEach(c=>{
+      out.push({
+        id:'prox-'+c.chave, tipo:'proximo', urgencia:20,
+        titulo:c.nome+' · '+brl(c.valor),
+        sub:'deve precisar de reposição em breve, pelo próprio ritmo',
+        acao:'Novo orçamento', fn:`novoOrcParaCliente('${c.chave.slice(3)}')`
+      });
+    });
+  }catch(e){ console.warn('[acaoQueue:proximos]', e?.message||e); }
+
+  out.sort((a,b)=>b.urgencia-a.urgencia);
+  return out;
+}
+function _acaoItemHTML(item, expandido){
+  const acoesArr = item.acoes || [{label:item.acao, fn:item.fn, href:item.href}];
+  const botao=(a,i)=>{
+    const cls = expandido ? (i===0?'rd-btn rd-btn-primary rd-btn-sm':'rd-btn rd-btn-secondary rd-btn-sm') : 'rd-btn rd-btn-link';
+    return a.href
+      ? `<a class="${cls}" href="${esc(a.href)}">${esc(a.label)}</a>`
+      : `<button type="button" class="${cls}" onclick="${a.fn}">${esc(a.label)}</button>`;
+  };
+  if(expandido){
+    return `<div class="rd-q-item rd-q-expand">
+      <div class="rd-q-top"><span class="rd-q-nome">${esc(item.titulo)}</span></div>
+      ${item.sub?`<div class="rd-q-desc">${esc(item.sub)}</div>`:''}
+      <div class="rd-q-acts">${acoesArr.map(botao).join('')}</div>
+    </div>`;
+  }
+  return `<div class="rd-q-item rd-q-compact">
+    <div class="rd-q-tx">
+      <span class="rd-q-nome">${esc(item.titulo)}</span>
+      ${item.sub?`<span class="rd-q-sub">${esc(item.sub)}</span>`:''}
+    </div>
+    ${botao(acoesArr[0],0)}
+  </div>`;
+}
+function renderAcaoQueue(){
+  const el=document.getElementById('ins-fila-corpo'); if(!el) return;
+  const fila=_acaoQueue();
+  const linkEl=document.getElementById('ins-fila-ver');
+  if(!fila.length){
+    el.innerHTML=`<div class="rd-empty" style="padding:8px 0">
+      <div class="rd-empty-ico">✅</div>
+      <div class="rd-empty-title">Tudo em dia</div>
+      <div class="rd-empty-sub">Nada vencido, nada parado, nada faltando agora.</div></div>`;
+    if(linkEl) linkEl.textContent='';
+    return;
+  }
+  const visiveis=fila.slice(0,ACAO_TETO);
+  el.innerHTML=visiveis.map((it,i)=>_acaoItemHTML(it,i===0)).join('');
+  if(linkEl) linkEl.textContent = fila.length>visiveis.length ? `ver ${fila.length}` : `${fila.length}`;
+}
+
+// ── Gráfico "Faturamento aprovado" — dedicado ao Insights (não mexe no
+// gráfico do Histórico, que tem seleção de tipo/período próprias).
+let _insChart=null, _insPeriodo='6';
+function _insSetPeriodo(p){
+  _insPeriodo=p;
+  document.querySelectorAll('.ins-period button').forEach(b=>b.classList.toggle('on', b.dataset.p===p));
+  renderInsightsChart();
+}
+function renderInsightsChart(){
+  const canvas=document.getElementById('ins-chart'); if(!canvas||typeof Chart==='undefined') return;
+  const hoje=new Date();
+  const qtd = _insPeriodo==='12'?12 : _insPeriodo==='ano'?(hoje.getMonth()+1) : 6;
+  const meses=[]; for(let i=qtd-1;i>=0;i--){ const d=new Date(hoje.getFullYear(),hoje.getMonth()-i,1); meses.push({y:d.getFullYear(),m:d.getMonth()}); }
+  const orcFilt=filtrarPorLoja(todosOrc||[]);
+  const despFilt=filtrarPorLoja(todasDesp||[]);
+  const labels=[], aprovDados=[], emitDados=[];
+  let totRec=0, totDesp=0;
+  meses.forEach(({y,m})=>{
+    const d=new Date(y,m,1);
+    labels.push(d.toLocaleDateString('pt-BR',{month:'short'}));
+    const doMes=orcFilt.filter(o=>{ const dt=_orcData(o); return dt&&!isNaN(dt)&&dt.getFullYear()===y&&dt.getMonth()===m; });
+    const emit=doMes.reduce((a,o)=>a+(o.total||0),0);
+    const aprov=doMes.filter(o=>o.status==='aprovado').reduce((a,o)=>a+(o.total||0),0);
+    aprovDados.push(aprov); emitDados.push(emit);
+    const desp=despFilt.filter(dd=>{ const raw=(dd.data||'').split('T')[0]; if(!raw) return false; const dt=new Date(raw+'T12:00:00'); return dt.getFullYear()===y&&dt.getMonth()===m; }).reduce((a,dd)=>a+(dd.valor||0),0);
+    totRec+=aprov; totDesp+=desp;
+  });
+  const set=(id,txt)=>{ const e=document.getElementById(id); if(e) e.textContent=txt; };
+  set('ins-fat-receita', brl(totRec));
+  set('ins-fat-despesas', brl(totDesp));
+  const res=totRec-totDesp;
+  const resEl=document.getElementById('ins-fat-resultado');
+  if(resEl){ resEl.textContent=brl(res); resEl.style.color = res>=0?'var(--ok)':'var(--bad)'; }
+
+  const cor=(getComputedStyle(document.documentElement).getPropertyValue('--c1')||'#0B62CE').trim();
+  const corClara=(getComputedStyle(document.documentElement).getPropertyValue('--c1-mid')||'#CEE0F5').trim();
+  if(_insChart){ try{_insChart.destroy();}catch(e){} _insChart=null; }
+  _insChart=new Chart(canvas,{
+    type:'bar',
+    data:{ labels, datasets:[
+      {label:'Aprovado', data:aprovDados, backgroundColor:cor||'#0B62CE', borderRadius:4, maxBarThickness:22},
+      {label:'Emitido',  data:emitDados,  backgroundColor:corClara||'#CEE0F5', borderRadius:4, maxBarThickness:22}
+    ]},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, tooltip:{callbacks:{label:ctx=>ctx.dataset.label+': '+brl(ctx.raw)}} },
+      scales:{
+        x:{grid:{display:false}, ticks:{font:{size:11,family:'Instrument Sans'}, color:'#6B7686'}},
+        y:{grid:{color:'#EDF1F7'}, border:{display:false}, ticks:{font:{size:10,family:'Instrument Sans'}, color:'#6B7686', callback:v=>v===0?'':(v>=1000?(v/1000)+'k':v)}}
+      }
+    }
+  });
+}
+
+function renderPainelInsights(){
+  if(!document.getElementById('page-insights')) return;
   try{ renderNotificacoes(); }catch(e){ console.warn('[notif]', e?.message||e); }
   try{ atualizarBadgesNav(); }catch(e){ console.warn('[badges]', e?.message||e); }
 
   const s=_crmPipelineStats();
-  let {equipamento, servico}=crmCandidatos();
-  if(_crmFaixaFiltro){
-    const naFaixa=c=>_crmFaixaDe(s.idadeDe(c.orc))===_crmFaixaFiltro;
-    equipamento=equipamento.filter(naFaixa);
-    servico=servico.filter(naFaixa);
-  }
-  _crmRenderTrilho('ins-fila-equip','ins-sub-equip', equipamento, 'Nenhum equipamento parado no momento.', CRM_TETO_EQUIP);
-  _crmRenderTrilho('ins-fila-servico','ins-sub-servico', servico, 'Nenhum serviço parado no momento.', CRM_TETO_FILA);
-  const totalFila=equipamento.length+servico.length;
-  const faixaNome=_crmFaixaFiltro?(CRM_FAIXAS_IDADE.find(f=>f.id===_crmFaixaFiltro)||{}).nome:'';
-  const filaSubEl=document.getElementById('ins-fila-sub');
-  if(filaSubEl){
-    filaSubEl.innerHTML = (totalFila
-      ? `${totalFila} orçamento(s) merecem uma ligação${faixaNome?' · filtro: '+esc(faixaNome):''}`
-      : (_crmFaixaFiltro?`nada nesta faixa (${esc(faixaNome)})`:'tudo em dia — nada parado'))
-      + (_crmFaixaFiltro?` <button class="tb" style="padding:2px 8px;font-size:10px;margin-left:4px" onclick="crmFiltrarFaixa('${_crmFaixaFiltro}')">✕ limpar filtro</button>`:'');
-  }
-  try{ renderCadenciaFila(); }catch(e){ console.warn('[renderCadenciaFila]', e?.message||e); }
-  try{ renderCadenciaProximos(); }catch(e){ console.warn('[renderCadenciaProximos]', e?.message||e); }
-}
-
-// ── "Resultado" — a outra metade do desdobramento. Só leitura/análise: KPIs,
-// fase do funil, análise de clientes, financeiro, DRE. Ninguém disputa topo
-// aqui — não tem card de ação, então a ordem óbvia é a que já está.
-function renderPainelInsights(){
-  if(!document.getElementById('page-insights')) return;
-  const s=_crmPipelineStats();
   const set=(id,txt)=>{ const el=document.getElementById(id); if(el) el.textContent=txt; };
 
-  set('ins-mes-label','· pipeline completo');
-  set('ins-d-emit', brl(s.pipeValor));
-  set('ins-d-emit-q', s.pipeQtd+' orçamento(s) em aberto');
-  set('ins-d-aprov', brl(s.paradoValor));
-  set('ins-d-aprov-q', s.paradoQtd+' orç. · '+s.paradoPct+'% do pipeline');
-  set('ins-d-rec', brl(s.vencValor));
-  set('ins-d-rec-q', s.vencQtd ? s.vencQtd+' orç. — revalidar o preço' : 'nada vencendo');
-  set('ins-d-tick', brl(s.fechValor));
-  set('ins-d-tick-q', s.fechQtd+'/'+s.emitidosMes+' emitidos · '+s.convPct+'% · '+s.mesLabel);
+  const hojeStr=new Date().toLocaleDateString('pt-BR',{weekday:undefined,day:'numeric',month:'long'});
+  set('ins-titulo','Hoje, '+hojeStr);
+  const agoraStr=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  set('ins-atualizado','Atualizado às '+agoraStr+' · '+(lojaAtiva?esc(getLojaNome(lojaAtiva)):(CFG.todasLabel||'todas as unidades')));
+
+  set('ins-d-pipe', brl(s.pipeValor));
+  set('ins-d-pipe-q', s.pipeQtd+' orçamento(s) · ticket '+(s.pipeQtd?brl(s.pipeValor/s.pipeQtd):'—'));
+  set('ins-d-fech', brl(s.fechValor));
+  const varMes = s.fechValorAnt>0 ? Math.round((s.fechValor-s.fechValorAnt)/s.fechValorAnt*100) : null;
+  set('ins-d-fech-q', varMes===null ? s.fechQtd+' orç. neste mês' : (varMes>=0?'+':'')+varMes+'% vs. mês anterior');
+  const abertosReceb=_recebVisiveis().filter(r=>!r.data_pagamento);
+  const aReceberValor=abertosReceb.reduce((a,r)=>a+(parseFloat(r.valor)||0),0);
+  const vencidosValor=abertosReceb.filter(r=>_recebDiasAtraso(r)>0).reduce((a,r)=>a+(parseFloat(r.valor)||0),0);
+  set('ins-d-receber', brl(aReceberValor));
+  set('ins-d-receber-q', vencidosValor>0 ? brl(vencidosValor)+' vencidos' : 'nada vencido');
+  set('ins-d-taxa', s.convPct+'%');
+  set('ins-d-taxa-q', s.diasMedioFechar!==null ? 'média de '+s.diasMedioFechar+' dias até o sim' : s.mesLabel);
 
   _crmRenderEstagio(s);
-  try{ renderAnaliseClientes(); }catch(e){ console.warn('[analiseClientes]', e?.message||e); }
-  try{ renderRelatorioFinanceiro(); }catch(e){ console.warn('[relatorioFinanceiro]', e?.message||e); }
-  try{ renderDRE(); }catch(e){ console.warn('[dre]', e?.message||e); }
+  renderAcaoQueue();
+  renderInsightsChart();
 }
 
 function verificarVencidos(){

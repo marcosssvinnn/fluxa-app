@@ -297,6 +297,47 @@
     .rd-skel::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.6),transparent);animation:rd-skel-pulse 1.2s ease-in-out infinite}
     @keyframes rd-skel-pulse{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
     @media (prefers-reduced-motion: reduce){ .rd-skel::after{animation:none} }
+    .rd-btn-sm{padding:6px 11px;font-size:12px}
+
+    /* ══════════════════════════════════════════════════════════════════
+       REDESIGN — INSIGHTS (Fase 4, 13/08). Primeira tela a usar .rd-*.
+       ══════════════════════════════════════════════════════════════════ */
+    .ins-topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:16px}
+    .ins-titulo{font-size:16px;font-weight:600;color:var(--c2);letter-spacing:-.01em}
+    .ins-atualizado{font-size:12px;color:var(--tx3);margin-top:2px}
+
+    .ins-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:16px}
+    @media(max-width:900px){ .ins-kpis{grid-template-columns:repeat(2,1fr)} }
+
+    .ins-body{display:grid;grid-template-columns:1.55fr 1fr;gap:16px;align-items:start}
+    @media(max-width:1180px){ .ins-body{grid-template-columns:1fr} .ins-col-direita{order:-1} }
+    .ins-col-direita{display:flex;flex-direction:column;gap:16px;min-width:0}
+
+    /* min-width:0 é necessário nos dois: item de grid não encolhe abaixo do
+       conteúdo por padrão, e o canvas do Chart.js define uma largura própria
+       que, sem isto, empurra o cartão pra fora da coluna (overflow horizontal
+       da página inteira — pego em teste da Fase 4). */
+    .ins-fat-card{display:flex;flex-direction:column;min-width:0}
+    .ins-period{display:inline-flex;background:var(--line2);border-radius:8px;padding:3px;gap:2px;flex-shrink:0}
+    .ins-period button{border:none;background:none;font-family:'Instrument Sans',sans-serif;font-size:12px;font-weight:500;color:var(--tx2);padding:4px 10px;border-radius:6px;cursor:pointer}
+    .ins-period button.on{background:#fff;color:var(--c2);font-weight:600}
+    .ins-chart-wrap{position:relative;height:190px;flex:1;min-width:0}
+    .ins-fat-footer{border-top:1px solid var(--line2);margin-top:14px;padding-top:14px;display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+    .ins-fat-lbl{font-size:11px;color:var(--tx3)}
+    .ins-fat-val{font-size:16px;font-weight:600;color:var(--c2);font-variant-numeric:tabular-nums;margin-top:2px}
+
+    /* Fila de ação unificada ("Precisa de você hoje") */
+    .rd-q-item{border:1px solid var(--line);border-radius:10px;padding:11px 13px;margin-bottom:8px}
+    .rd-q-item:last-child{margin-bottom:0}
+    .rd-q-expand{border-left:3px solid var(--c1);display:flex;flex-direction:column;gap:6px}
+    .rd-q-top{display:flex;align-items:center;justify-content:space-between}
+    .rd-q-nome{font-size:13px;font-weight:600;color:var(--c2)}
+    .rd-q-desc{font-size:12px;color:var(--tx2);line-height:1.4}
+    .rd-q-acts{display:flex;gap:6px;flex-wrap:wrap}
+    .rd-q-compact{display:flex;align-items:center;justify-content:space-between;gap:10px}
+    .rd-q-tx{display:flex;flex-direction:column;gap:2px;min-width:0}
+    .rd-q-tx .rd-q-nome{font-size:13px}
+    .rd-q-sub{font-size:12px;color:var(--tx2)}
 
     /* ── FORM ── */
     .row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}

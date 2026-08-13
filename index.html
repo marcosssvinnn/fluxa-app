@@ -147,12 +147,13 @@
      com usuário. IDs mantidos iguais aos de antes de propósito:
      aplicarPermissoesPerfil() (app.js, snbRules) mostra/esconde por id, não
      por posição no DOM — não precisou mudar por causa deste redesign.
-     Dois itens temporários ficam marcados abaixo: "Resultado" (Financeiro/
-     DRE/Análise de clientes ainda não têm outro lugar — somem quando a
-     Fase 4 remanejar esse conteúdo pra dentro de "Hoje", igual ao handoff) e
-     os atalhos de criar Orçamento/OS/Venda Rápida (o handoff os move pra um
-     botão primário na barra superior de cada lista — isso só existe a partir
-     da Fase 5/6; até lá, tirar daqui deixaria a pessoa sem como criar nada). -->
+     Um grupo temporário fica marcado abaixo: os atalhos de criar Orçamento/
+     OS/Venda Rápida (o handoff os move pra um botão primário na barra
+     superior de cada lista — isso só existe a partir da Fase 5/6; até lá,
+     tirar daqui deixaria a pessoa sem como criar nada). "Resultado" foi
+     absorvido por "Hoje" na Fase 4 (13/08) — Financeiro/DRE/Análise de
+     clientes saíram da tela (não estão no handoff) e ficam sem lugar
+     definido até uma decisão futura; as funções continuam no código. -->
 <aside class="sidebar s-hidden" id="sidebar" role="navigation" aria-label="Menu principal">
   <div class="snav-brand">
     <div class="snav-logo" id="snav-logo">F</div>
@@ -174,14 +175,9 @@
 
   <nav class="snav">
     <span class="snav-group-lbl">Operação</span>
-    <button class="snb on" id="snb-hoje" onclick="go('hoje')">
+    <button class="snb on" id="snb-insights" onclick="go('insights')">
       <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13h4l3-7 4 14 3-7h4"></path></svg>
       <span class="slabel">Hoje</span>
-    </button>
-    <!-- temporário — ver comentário no topo do bloco -->
-    <button class="snb" id="snb-insights" onclick="go('insights')">
-      <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V10M12 20V4M19 20v-7"></path></svg>
-      <span class="slabel">Resultado</span>
     </button>
     <button class="snb" id="snb-history" onclick="go('history')">
       <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6zM15 3v4h4M9 13h6M9 17h4"></path></svg>
@@ -278,9 +274,9 @@
   <button class="mob-nb" id="mnb-minhas-os" onclick="go('minhas-os')" style="display:none">
     <span class="micon">🗂️</span><span>Minhas OS</span>
   </button>
-  <!-- "Hoje" é a landing do gestor (13/08) — precisa caber em 1 toque no
-       celular, não só na sidebar/"☰ Mais" (crítica de design). -->
-  <button class="mob-nb on" id="mnb-hoje" onclick="go('hoje')" style="display:none">
+  <!-- "Hoje" (rota: insights) é a landing do gestor — precisa caber em 1
+       toque no celular, não só na sidebar/"☰ Mais". -->
+  <button class="mob-nb on" id="mnb-insights" onclick="go('insights')" style="display:none">
     <span class="micon">☀️</span><span>Hoje</span>
   </button>
   <button class="mob-nb" id="mnb-form" onclick="go('form')" style="display:none">
@@ -1032,144 +1028,100 @@
   </div>
 </div>
 
-<!-- ══ PAGE: INSIGHTS (landing do gestor) ══ -->
-<!-- ══ PAGE: HOJE ══ (desdobrada de "Insights" em 13/08 — crítica de design:
-     uma tela só respondendo "o que eu faço agora" + "como está a carteira" +
-     "como foi o resultado" ao mesmo tempo não atende nenhuma bem, e foi por
-     isso que a mesma lista de cards foi reordenada 3x num dia sem nunca
-     parecer certa. Aqui é só AÇÃO — landing do gestor. -->
-<div class="page" id="page-hoje">
-  <div class="wrap">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
-      <div style="font-size:18px;font-weight:800;color:var(--c2)">☀️ Hoje</div>
-      <button class="tb" onclick="renderPainelHojePage()">🔄 Atualizar</button>
-    </div>
-
-    <!-- Diário do gestor: o que precisa de ação HOJE. Bloco sempre presente
-         com estado vazio explícito (renderPainelHoje já fazia isso) — também
-         aparece no sino do cabeçalho em qualquer tela, aqui é o registro
-         completo. -->
-    <div class="card card-action" id="ins-hoje-card">
-      <div class="ct"><span class="ct-title"><span class="ct-ico ct-ico-y">☀️</span>Precisa de você hoje</span></div>
-      <div id="ins-hoje-corpo"></div>
-    </div>
-
-    <div class="card card-action">
-      <div class="ct"><span class="ct-title"><span class="ct-ico ct-ico-c1">📞</span>Fila de follow-up</span> <span style="font-size:11px;font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0" id="ins-fila-sub">quem ligar hoje</span></div>
-      <div class="crm-trilhos">
-        <div>
-          <div class="crm-trilho-hdr">
-            <span class="crm-trilho-titulo">🔧 Equipamento</span>
-            <span class="crm-trilho-sub" id="ins-sub-equip">decisão lenta — poucos por vez</span>
-          </div>
-          <div id="ins-fila-equip"><div class="load"><div class="spin"></div> Carregando…</div></div>
-        </div>
-        <div>
-          <div class="crm-trilho-hdr">
-            <span class="crm-trilho-titulo">⚡ Serviço</span>
-            <span class="crm-trilho-sub" id="ins-sub-servico">decide rápido — 43% fecham</span>
-          </div>
-          <div id="ins-fila-servico"><div class="load"><div class="spin"></div> Carregando…</div></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Cadência de recompra — Etapa 4 do roadmap de CRM. Bloco sempre
-         presente com estado vazio explícito. -->
-    <div class="card card-action" id="ins-cadencia-card">
-      <div class="ct"><span class="ct-title"><span class="ct-ico ct-ico-c1">🔁</span>Cadência de recompra</span> <span style="font-size:11px;font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0" id="ins-cadencia-sub">quem já comprou e está atrasado pelo próprio ritmo</span></div>
-      <div id="ins-cadencia-corpo"><div class="load"><div class="spin"></div> Carregando…</div></div>
-    </div>
-
-    <!-- Etapa 6 do roadmap (motor de eventos recorrentes), versão enxuta —
-         antecipa quem vai precisar de reposição nos próximos dias, em vez de
-         só avisar depois que já passou do prazo (card acima). -->
-    <div class="card" id="ins-proximos-card">
-      <div class="ct"><span class="ct-title"><span class="ct-ico ct-ico-gray">📅</span>Chegando aí</span> <span style="font-size:11px;font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0">quem vai precisar de reposição em breve, pelo próprio ritmo</span></div>
-      <div id="ins-proximos-corpo"></div>
-    </div>
-  </div>
-</div>
-
-<!-- ══ PAGE: RESULTADO ══ (a outra metade do desdobramento — só leitura/
-     análise: KPIs, fase do funil, análise de clientes, financeiro, DRE.
-     Ninguém disputa topo aqui, não tem card de ação. id continua "insights"
-     de propósito — minimiza o raio de mudança em quem referencia
-     page-insights/renderPainelInsights por código, só o rótulo visível
-     virou "Resultado". -->
+<!-- ══ PAGE: INSIGHTS (landing do gestor, rótulo visível "Hoje") ══
+     Fase 4 do redesign (handoff design_handoff_fluxa_redesign, 13/08) — volta
+     a ser UMA tela só, no formato exato do handoff: ação e leitura na mesma
+     dobra, sem rolagem. Substitui o desdobramento "Hoje"/"Resultado" feito
+     mais cedo hoje (crítica de design original ainda vale — a solução virou
+     "uma tela, duas metades" em vez de duas telas). Análise de clientes,
+     Financeiro e DRE saíram (não estão no handoff); ver comentário no topo
+     do bloco da sidebar. -->
 <div class="page" id="page-insights">
   <div class="wrap">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
-      <div style="font-size:18px;font-weight:800;color:var(--c2)">📊 Resultado <span style="font-size:12px;font-weight:400;color:var(--gray)" id="ins-mes-label"></span></div>
-      <button class="tb" onclick="renderPainelInsights()">🔄 Atualizar</button>
-    </div>
-
-    <!-- KPIs de PIPELINE (não contábeis — o dashboard do Histórico cobre aquilo).
-         Os três primeiros ignoram o mês de propósito: carteira aberta não zera
-         na virada. Só "Fechado no mês" é mensal. -->
-    <div class="dash">
-      <div class="dc b"><div class="dl">Pipeline aberto</div><div class="dv" id="ins-d-emit">—</div><div class="ds" id="ins-d-emit-q">— orç.</div></div>
-      <div class="dc r"><div class="dl">Parado +30 dias</div><div class="dv" id="ins-d-aprov">—</div><div class="ds" id="ins-d-aprov-q">—</div></div>
-      <div class="dc y"><div class="dl">Vence em 7 dias</div><div class="dv" id="ins-d-rec">—</div><div class="ds" id="ins-d-rec-q">revalidar o preço</div></div>
-      <div class="dc g"><div class="dl">Fechado no mês</div><div class="dv" id="ins-d-tick">—</div><div class="ds" id="ins-d-tick-q">—</div></div>
-    </div>
-
-    <!-- Barra de estágio: responde "em que fase está" sem schema novo, derivando
-         da idade do orçamento. Clicar numa faixa leva pra "Hoje" com a fila
-         de follow-up já filtrada por aquela faixa (crmFiltrarFaixa navega
-         entre páginas desde o desdobramento — a fila não mora mais aqui). -->
-    <div class="card" id="ins-estagio-card">
-      <div class="ct"><span class="ct-title"><span class="ct-ico ct-ico-blue">📶</span>Em que fase está</span>
-        <span style="font-size:11px;font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0" id="ins-estagio-sub">toque numa faixa pra filtrar a fila em Hoje</span>
+    <div class="ins-topbar">
+      <div class="ins-topbar-tx">
+        <div class="ins-titulo" id="ins-titulo">Hoje</div>
+        <div class="ins-atualizado" id="ins-atualizado">—</div>
       </div>
-      <div id="ins-estagio-barra" class="fase-barra"></div>
-      <div id="ins-estagio-leg" class="fase-leg"></div>
+      <button type="button" class="rd-btn rd-btn-primary" onclick="novoOrc();go('form')">+ Novo orçamento</button>
     </div>
 
-    <!-- Camada trimestral: ABC de cliente, LTV e recompra. -->
-    <div class="card">
-      <div class="ct"><span class="ct-title"><span class="ct-ico ct-ico-blue">👥</span>Análise de clientes</span> <span style="font-size:11px;font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0">quem sustenta o faturamento</span></div>
-      <div id="cli-analise"></div>
-    </div>
-
-    <!-- Financeiro do gestor: veio de Produtividade, que passou a ser só de
-         técnico. Quem abre Resultado quer saber como a empresa está — e não
-         faz sentido procurar DRE dentro de "produtividade da equipe". -->
-    <!-- ── Resultado financeiro ── -->
-    <div class="fin-card">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
-        <div class="ct" style="margin:0"><span class="ct-title"><span class="ct-ico ct-ico-green">💰</span>Resultado Financeiro</span></div>
-        <select id="fin-periodo" onchange="renderRelatorioFinanceiro()" style="padding:7px 12px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Instrument Sans',sans-serif;outline:none;cursor:pointer">
-          <option value="6m">Últimos 6 meses</option>
-          <option value="12m">Últimos 12 meses</option>
-          <option value="ano">Este ano</option>
-        </select>
+    <!-- Faixa de KPIs — só o primeiro é escuro (Pipeline é a métrica que manda
+         nesta tela). Pipeline/Fechado ignoram loja fechada no mês de propósito
+         onde faz sentido: carteira aberta não zera na virada. -->
+    <div class="ins-kpis">
+      <div class="rd-card rd-card-dense rd-card-dark">
+        <div class="rd-kpi-lbl">Pipeline aberto</div>
+        <div class="rd-kpi-num" id="ins-d-pipe">—</div>
+        <div class="rd-kpi-apoio" id="ins-d-pipe-q">—</div>
       </div>
-      <div class="fin-tabela-wrap">
-        <table class="fin-tabela">
-          <thead><tr>
-            <th>Mês</th>
-            <th>Receita (Aprovados)</th>
-            <th>Despesas</th>
-            <th>Resultado</th>
-          </tr></thead>
-          <tbody id="fin-tabela-body"><tr><td colspan="4" style="text-align:center;color:var(--gray);padding:20px">Carregando…</td></tr></tbody>
-        </table>
+      <div class="rd-card rd-card-dense">
+        <div class="rd-kpi-lbl">Fechado no mês</div>
+        <div class="rd-kpi-num" id="ins-d-fech">—</div>
+        <div class="rd-kpi-apoio" id="ins-d-fech-q">—</div>
+      </div>
+      <div class="rd-card rd-card-dense">
+        <div class="rd-kpi-lbl">A receber</div>
+        <div class="rd-kpi-num" id="ins-d-receber">—</div>
+        <div class="rd-kpi-apoio" id="ins-d-receber-q">—</div>
+      </div>
+      <div class="rd-card rd-card-dense">
+        <div class="rd-kpi-lbl">Taxa de fechamento</div>
+        <div class="rd-kpi-num" id="ins-d-taxa">—</div>
+        <div class="rd-kpi-apoio" id="ins-d-taxa-q">—</div>
       </div>
     </div>
 
-    <!-- DRE gerencial: receita reconhecida − custo direto − despesa, com as duas
-         unidades lado a lado. O baseline mostrou que comparar Camboriú com
-         Itapema revela problema de processo mais rápido que qualquer média. -->
-    <div class="card">
-      <div class="ct"><span class="ct-title"><span class="ct-ico ct-ico-blue">📊</span>DRE por unidade</span>
-        <select id="dre-mes" onchange="renderDRE()" style="margin-left:auto;padding:6px 11px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Instrument Sans',sans-serif;outline:none;cursor:pointer"></select>
+    <div class="ins-body">
+      <!-- Faturamento aprovado — gráfico dedicado (não é o do Histórico:
+           período curto, sempre aprovado+emitido juntos, sem seleção de tipo). -->
+      <div class="rd-card ins-fat-card">
+        <div class="rd-card-hdr">
+          <div>
+            <div class="rd-card-title">Faturamento aprovado</div>
+            <div class="rd-card-sub">linha clara é o total emitido</div>
+          </div>
+          <div class="ins-period">
+            <button type="button" class="on" data-p="6" onclick="_insSetPeriodo('6')">6M</button>
+            <button type="button" data-p="12" onclick="_insSetPeriodo('12')">12M</button>
+            <button type="button" data-p="ano" onclick="_insSetPeriodo('ano')">Ano</button>
+          </div>
+        </div>
+        <div class="ins-chart-wrap"><canvas id="ins-chart"></canvas></div>
+        <div class="ins-fat-footer">
+          <div><div class="ins-fat-lbl">Receita</div><div class="ins-fat-val" id="ins-fat-receita">—</div></div>
+          <div><div class="ins-fat-lbl">Despesas</div><div class="ins-fat-val" id="ins-fat-despesas">—</div></div>
+          <div><div class="ins-fat-lbl">Resultado</div><div class="ins-fat-val" id="ins-fat-resultado">—</div></div>
+        </div>
       </div>
-      <div id="dre-corpo"></div>
-      <div id="dre-nota" style="font-size:11.5px;color:var(--gray);margin-top:10px;line-height:1.5"></div>
+
+      <div class="ins-col-direita">
+        <!-- "Precisa de você hoje" — peça central do redesign: junta o painel
+             de sistema (dinheiro/estoque/despesa) com a fila de follow-up e a
+             cadência de recompra num só ranking por urgência. Reaproveita os
+             três motores já existentes (_itensPainelHoje/crmCandidatos/
+             cadenciaCandidatos) — não duplica nenhum cálculo, só ordena. -->
+        <div class="rd-card ins-fila-card">
+          <div class="rd-card-hdr">
+            <div class="rd-card-title">Precisa de você hoje</div>
+            <span class="rd-btn rd-btn-link" style="font-size:12px" id="ins-fila-ver"></span>
+          </div>
+          <div id="ins-fila-corpo"><div class="load"><div class="spin"></div> Carregando…</div></div>
+        </div>
+
+        <!-- Em que fase está — deriva da idade do orçamento, sem schema novo.
+             Toca numa faixa e filtra a fila acima (mesma tela agora). -->
+        <div class="rd-card" id="ins-estagio-card">
+          <div class="rd-card-hdr">
+            <div class="rd-card-title">Em que fase está</div>
+          </div>
+          <div class="rd-card-sub" id="ins-estagio-sub" style="margin-bottom:8px">toque numa faixa pra filtrar a fila ao lado</div>
+          <div id="ins-estagio-barra" class="fase-barra"></div>
+          <div id="ins-estagio-leg" class="fase-leg"></div>
+        </div>
+      </div>
     </div>
   </div>
-</div>
 </div>
 
 <!-- ══ PAGE: HISTÓRICO ══ -->
