@@ -2,6 +2,72 @@
 
 ---
 
+## 🟡 EM ANDAMENTO (13/08) — estendendo o consumo teórico da Etapa 4
+
+> **Se você está pegando isto numa sessão nova porque a anterior bateu o
+> limite de contexto: comece por aqui.** O Marcos pediu pra "estender e
+> fazer tudo certinho" em cima do que já foi entregue (ver seção logo
+> abaixo, "Etapa 4 fechada"). Isto é o plano de como eu ia fazer — se
+> parte já estiver no código (`git log`/`grep` pra confirmar), pule pro
+> que faltar.
+
+**Objetivo:** aplicar os campos de maior retorno preditivo que o
+documento (`docs/referencia-consumo-quimico-piscinas-2026-08-12.md`,
+seção 7.2) recomenda, na ordem de prioridade dele, e adicionar bromo +
+peróxido (confiança média, o documento dá fórmula clara pros dois). Fora
+disso: PHMB continua sem estimativa (o próprio documento manda tratar
+como parâmetro aprendido, não estimado).
+
+**Plano, em ordem:**
+1. **Migração aditiva** em `piscinas`: `capa_termica boolean DEFAULT false`,
+   `exposicao_solar text DEFAULT 'pleno'` (`'pleno'|'parcial'`), `aquecida
+   boolean DEFAULT false`, `tipo_uso text DEFAULT 'residencial'`
+   (`'residencial'|'condominio'`), `banhistas_dia integer`, `estabilizante
+   boolean DEFAULT true`. Arquivo: `migracao-piscinas-fatores.sql` (ainda
+   não criado).
+2. **`demandaDiaria(piscina)`** nova função em `app.js`, perto de
+   `consumoTeoricoDias` — aplica os coeficientes da seção 2.2 do documento
+   sobre `D_REF_CLORO` (estação do ano via mês atual — verão dez-mar,
+   inverno jun-ago, meia-estação o resto; capa térmica 0,50×; exposição
+   parcial 0,70×; aquecida 1,30×; sem estabilizante 2,15×; banhistas de
+   condomínio SOMA `(banhistas_dia×4)/V`, não multiplica).
+3. **`consumoTeoricoDias`** passa a receber `d` calculado (em vez de usar
+   `D_REF_CLORO` fixo direto) — chamador passa `demandaDiaria(piscina)`.
+4. **Bromo e peróxido** entram em `CONSUMO_QUIMICO_REF`/tratados como caso
+   especial na função (mesmo padrão de `cloro_liquido_10`/`sal_salino`) —
+   bromo usa `d_Br` (não é o mesmo `d` do cloro): ~2,5 se
+   `exposicao_solar==='parcial'`, ~7 se `'pleno'` (documento seção 3.6).
+   Peróxido é dose fixa, não depende de `d` (seção 3.7, `q=7,5mL/m³/dia`).
+5. **`analiseClientes()`**: troca a chamada de `consumoTeoricoDias(tipo,
+   volume)` pra passar `demandaDiaria(piscina)` também.
+6. **UI — formulário de Equipamento** (`#eq-piscina-novo`): acrescenta os
+   campos novos (checkboxes capa/aquecida/estabilizante, select
+   exposição, select uso residencial/condomínio revelando campo de
+   banhistas só quando condomínio — divulgação progressiva). Manter
+   default sensato em cada um pra quem for rápido não precisar preencher
+   tudo.
+7. **Import em massa de vistoria** (`#eqimp-pisc-novo-*`): **deixar como
+   está** (só nome/volume/tratamento) — é fluxo de velocidade, não de
+   detalhe. Detalhar depois pelo item 8.
+8. **Novo: editar piscina existente.** Hoje só dá pra criar, nunca editar
+   — precisa de um jeito de voltar numa piscina já criada (pelo import
+   rápido, por exemplo) e completar os campos novos. Adicionar botão "✏️"
+   ao lado do `<select>` de piscina em `_eqRenderPiscinas()`, que abre o
+   mesmo formulário inline pré-preenchido; `_eqPiscinaCriar()` precisa
+   virar insert-ou-update conforme um novo estado `_eqPiscinaEditId`.
+9. Testar local (`dbOk=false`): fórmula com os coeficientes novos batendo
+   com o documento em pelo menos 1 cenário por fator (capa, exposição,
+   aquecida, banhistas, estabilizante, estação atual), criar piscina com
+   campos novos, editar piscina existente, bromo/peróxido calculando.
+10. Atualizar `CLAUDE.md` (fechar esta seção, virar um recado de "feito"
+    como os outros) + `sw.js` CACHE + commit + push.
+
+**Nada disso foi commitado ainda quando esta nota foi escrita** — se o
+`git log` mostrar um commit "Etapa 4 (extensão)" ou parecido depois desta
+linha, esta seção já está desatualizada, pode apagar.
+
+---
+
 ## Etapa 4 fechada — consumo teórico implementado (13/08, mesmo dia)
 
 O Marcos trouxe a referência de dosagem química que faltava (pediu pra uma
