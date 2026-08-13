@@ -12,14 +12,15 @@ function eGestor(){ const s=getSessao(); return s?.perfil==='gestor'||s?.perfil=
 // login mandava o gestor para o Insights e o boot para o Novo Orçamento, então
 // qualquer F5 tirava a gestora do lugar certo. Quem for mudar o destino, mude
 // AQUI — não espalhe go('...') pelos pontos de entrada de novo.
-// Insights é gestor/master: não está em pagesVendasOk nem em pagesTecnicoOk,
-// então mandar vendas ou técnico para lá só dispara "Acesso não permitido".
+// "Hoje" e "Insights" (Resultado) são gestor/master: não estão em
+// pagesVendasOk nem em pagesTecnicoOk, então mandar vendas ou técnico pra lá
+// só dispara "Acesso não permitido".
 function telaInicial(sessao){
   const s = sessao || getSessao();
   if(!s) return 'form';                        // sem sessão: fica atrás do login
   if(s.perfil==='tecnico') return 'minhas-os';
   if(s.perfil==='vendas')  return 'form';
-  return 'insights';                           // gestor e master
+  return 'hoje';                                // gestor e master — desdobrado de "insights" em 13/08
 }
 
 // Estado de estoque declarado no TOPO (antes do boot) para evitar TDZ.
@@ -96,27 +97,9 @@ function aplicarPermissoesPerfil(){
   const vendas  = eVendas();
   const tecnico = eTecnico();
 
-  // ── Desktop nav ──
-  // Mapa: id do botão → quem pode ver
-  const navRules = {
-    'nb-insights'     : gestor,
-    'nb-form'         : gestor||vendas,
-    'nb-history'      : gestor||vendas,
-    'nb-clientes'     : gestor||vendas,
-    'nb-agendamentos' : gestor||vendas,
-    'nb-os'           : gestor||vendas,
-    'nb-os-history'   : gestor,
-    'nb-equipamentos' : gestor,
-    'nb-visitas'      : gestor||tecnico,
-    'nb-despesas'     : gestor,
-    'nb-produtividade': gestor,
-  };
-  Object.entries(navRules).forEach(([id,pode])=>{
-    const el=document.getElementById(id); if(el) el.style.display=pode?'':'none';
-  });
-
   // ── Sidebar nav ──
   const snbRules = {
+    'snb-hoje'         : gestor,
     'snb-insights'     : gestor,
     'snb-form'         : gestor||vendas,
     'snb-venda-balcao' : gestor||vendas||tecnico,
@@ -203,10 +186,15 @@ function aplicarPermissoesPerfil(){
 
   // ── Mobile nav — prioridade por perfil ──
   // Técnico:       Vistorias | Minhas OS | Mais
-  // Gestor/Master: Vistorias | Orçam. | OS | Histórico | Mais
+  // Gestor/Master: Hoje | Orçam. | OS | Histórico | Mais
   // Vendas:        Orçam. | OS | Histórico | Mais
+  // "Hoje" entrou no lugar de "Vistorias" pro gestor (13/08, crítica de
+  // design — landing precisa caber em 1 toque no celular, teto de 5 slots
+  // contando "Mais"). Vistorias continua acessível pelo gestor via sidebar;
+  // quem faz vistoria de verdade é o técnico, que mantém o atalho aqui.
   const mnbRules = {
-    'mnb-visitas'  : gestor||tecnico,
+    'mnb-visitas'  : tecnico,
+    'mnb-hoje'     : gestor,
     'mnb-minhas-os': tecnico,
     'mnb-form'     : gestor||vendas,
     'mnb-os'       : gestor||vendas,
@@ -404,6 +392,7 @@ function trocarLojaAtiva(id){
   if(!paginaAtiva) return;
   const pid=paginaAtiva.id.replace('page-','');
   if(pid==='history') { initOrcMes(); atualizarDash(); renderTabela(); renderGraficoDash(); }
+  else if(pid==='hoje') renderPainelHojePage();
   else if(pid==='insights') renderPainelInsights();
   else if(pid==='os-history') renderOSTabela();
   else if(pid==='clientes') renderClientes();
@@ -1529,7 +1518,7 @@ function go(p){
   if(_vendas  && !pagesVendas.includes(p))  { toast('Você não tem acesso a essa área.'); return; }
   if(_tecnico && !pagesTecnico.includes(p)) { toast('Você não tem acesso a essa área.'); return; }
   if(!_gestor && !_vendas && !_tecnico &&
-     ['form','history','insights','empresa','usuarios','produtividade'].includes(p)){
+     ['form','history','hoje','insights','empresa','usuarios','produtividade'].includes(p)){
     toast('⚠️ Acesso restrito ao Gestor'); return;
   }
   // Histórico de navegação (para o botão "← Voltar")
@@ -1546,10 +1535,17 @@ function go(p){
   const snb=document.getElementById('snb-'+p); if(snb){ snb.classList.add('on'); snb.setAttribute('aria-current','page'); }
   closeSidebar();
   if(p==='portal') { /* página gerenciada por checkPortalHash */ }
-  if(p==='insights'){
-    renderPainelInsights();
-    // carrega o que o bloco "hoje" precisa e redesenha — sem isso o gestor via
-    // zero recebível vencido só porque a tabela ainda não tinha sido lida
+  // "Hoje" e "Resultado" — desdobrados de um "Insights" só em 13/08 (crítica
+  // de design: uma tela respondendo três perguntas incompatíveis — "o que eu
+  // faço agora", "como está a carteira", "como foi o resultado" — não atende
+  // nenhuma bem, e foi por isso que a mesma lista de cards foi reordenada 3x
+  // num dia sem nunca parecer certa. Landing do gestor agora é "hoje".
+  if(p==='hoje'||p==='insights'){
+    // Precisa dos mesmos dados nas duas páginas (painel "hoje"/notif numa,
+    // financeiro/DRE na outra) — cada load* já se protege contra buscar de
+    // novo o que já tem (checagem de tamanho), então carregar o conjunto
+    // inteiro nas duas entradas é seguro, só evita depender de qual delas
+    // o gestor abriu primeiro.
     Promise.all([
       (typeof loadRecebimentos==='function'? loadRecebimentos() : null),
       (typeof loadEstoque==='function' && !(todosProdutos||[]).length ? loadEstoque() : null),
@@ -1557,11 +1553,10 @@ function go(p){
       (typeof loadOSHist==='function' && !(todosOS||[]).length ? loadOSHist() : null)
     ]).then(()=>{
       try{
-        renderPainelHoje();
-        // financeiro migrou de Produtividade para cá
-        renderRelatorioFinanceiro(); renderDRE(); renderAnaliseClientes();
-      }catch(e){ console.warn('[painelInsights]', e?.message||e); }
+        if(p==='hoje') renderPainelHojePage(); else renderPainelInsights();
+      }catch(e){ console.warn('[painel'+p+']', e?.message||e); }
     });
+    if(p==='hoje') renderPainelHojePage(); else renderPainelInsights();
   }
   if(p==='history'){ initOrcMes(); loadHist(); setTimeout(renderGraficoDash,200); }
   if(p==='form'){
@@ -4227,7 +4222,7 @@ function crmDispensar(orcId){
   m[orcId]=m[orcId]||{}; m[orcId].dispensas=(m[orcId].dispensas||0)+1;
   _crmFbSalvar(m);
   toast(m[orcId].dispensas>=3 ? '🔕 Não vou mais sugerir este' : 'Ok, tiro da lista de hoje');
-  if(typeof renderPainelInsights==='function') renderPainelInsights();
+  if(typeof renderPainelHojePage==='function') renderPainelHojePage();
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -4312,8 +4307,18 @@ function renderCadenciaProximos(){
   const card=document.getElementById('ins-proximos-card'), el=document.getElementById('ins-proximos-corpo');
   if(!card||!el) return;
   const cands=cadenciaProximos();
-  if(!cands.length){ card.style.display='none'; return; }
   card.style.display='';
+  // Bloco sempre presente com estado vazio explícito (crítica de design
+  // 13/08, achado 🔴): esconder via display:none faz a posição do card
+  // mudar de dia pra dia, e é justamente o card de ação que some — o
+  // gestor nunca cria memória muscular de onde as coisas ficam numa tela
+  // consultada todo dia.
+  if(!cands.length){
+    el.innerHTML=`<div style="display:flex;align-items:center;gap:10px;padding:6px 0">
+      <span style="font-size:20px">✅</span>
+      <span style="font-size:13px;color:var(--gray)">Nada chegando nos próximos ${CADENCIA_JANELA_PROXIMOS} dias.</span></div>`;
+    return;
+  }
   const visiveis=cands.slice(0,CADENCIA_PROXIMOS_TETO);
   el.innerHTML=visiveis.map(_cadenciaProximoCardHTML).join('')
     + (cands.length>visiveis.length?`<div style="text-align:center;font-size:11px;color:var(--gray);padding:6px 0">+${cands.length-visiveis.length} outro(s)</div>`:'');
@@ -4351,12 +4356,18 @@ function renderCadenciaFila(){
   const card=document.getElementById('ins-cadencia-card'), el=document.getElementById('ins-cadencia-corpo');
   if(!card||!el) return;
   const cands=cadenciaCandidatos();
-  if(!cands.length){ card.style.display='none'; return; }
   card.style.display='';
+  const sub=document.getElementById('ins-cadencia-sub');
+  if(!cands.length){
+    el.innerHTML=`<div style="display:flex;align-items:center;gap:10px;padding:6px 0">
+      <span style="font-size:20px">✅</span>
+      <span style="font-size:13px;color:var(--gray)">Ninguém atrasado pelo próprio ritmo agora.</span></div>`;
+    if(sub) sub.textContent='tudo em dia';
+    return;
+  }
   const visiveis=cands.slice(0,CADENCIA_TETO);
   el.innerHTML=visiveis.map(_cadenciaCardHTML).join('')
     + (cands.length>visiveis.length?`<div style="text-align:center;font-size:11px;color:var(--gray);padding:6px 0">+${cands.length-visiveis.length} outro(s)</div>`:'');
-  const sub=document.getElementById('ins-cadencia-sub');
   if(sub) sub.textContent = `${cands.length} cliente${cands.length!==1?'s':''} atrasado${cands.length!==1?'s':''} pelo próprio ritmo`;
 }
 
@@ -4555,10 +4566,24 @@ function _crmRenderTrilho(elId, subId, lista, vazioTxt, teto){
   if(sub) sub.textContent = lista.length ? `${lista.length} em aberto` : 'tudo em dia';
 }
 // Faixa de estágio selecionada (filtra a fila). '' = todas.
+// A fila de follow-up mora na página "Hoje" desde o desdobramento de
+// 13/08 (crítica de design) — "Em que fase está" ficou em "Resultado",
+// então tocar numa faixa aqui precisa levar pra outra tela pra ver o
+// efeito, não só redesenhar a mesma página.
 let _crmFaixaFiltro='';
 function crmFiltrarFaixa(id){
   _crmFaixaFiltro = (_crmFaixaFiltro===id) ? '' : id; // clicar de novo desmarca
-  renderPainelInsights();
+  const pid=document.querySelector('.page.on')?.id;
+  // Setar filtro só é possível a partir de "Resultado" (é lá que vivem os
+  // botões de faixa) — sempre navega pra "Hoje" pra ver o efeito. Limpar
+  // filtro acontece pelo botão "✕" que fica em "Hoje" — precisa redesenhar
+  // ALI mesmo, não só quando pid é 'page-insights' (bug pego em teste:
+  // limpar o filtro atualizava o estado mas a tela ficava com o chip
+  // travado, porque nenhum dos dois ramos originais cobria "clicar limpar
+  // estando em Hoje").
+  if(_crmFaixaFiltro && pid!=='page-hoje'){ go('hoje'); return; }
+  if(pid==='page-hoje') renderPainelHojePage();
+  else if(pid==='page-insights') _crmRenderEstagio(_crmPipelineStats());
 }
 function _crmRenderEstagio(s){
   const barra=document.getElementById('ins-estagio-barra');
@@ -4590,8 +4615,8 @@ function _crmRenderEstagio(s){
   }).join('');
   const sub=document.getElementById('ins-estagio-sub');
   if(sub) sub.textContent=_crmFaixaFiltro
-    ? 'filtrando a fila — toque de novo para limpar'
-    : 'toque numa faixa para filtrar a fila';
+    ? 'filtrando a fila em Hoje — toque de novo aqui pra limpar'
+    : 'toque numa faixa pra filtrar a fila em Hoje';
 }
 // Mapeia a cor (CSS var) já atribuída a cada item pra uma classe de badge —
 // reaproveitada no painel "hoje" e no painel de notificações (2026-08-13,
@@ -4733,21 +4758,21 @@ function getNotificacoes(){
     if(total) out.push({id:'crm-fila', cor:'var(--c1)', icone:'📞',
       titulo:`${total} cliente${total!==1?'s':''} na fila de follow-up`,
       sub:'Orçamentos parados esperando contato',
-      acao:'Ver fila', fn:"go('insights')"});
+      acao:'Ver fila', fn:"go('hoje')"});
   }catch(e){ console.warn('[notif:fila]', e?.message||e); }
   try{
     const cad=cadenciaCandidatos();
     if(cad.length) out.push({id:'crm-cadencia', cor:'var(--c1)', icone:'🔁',
       titulo:`${cad.length} cliente${cad.length!==1?'s':''} atrasado${cad.length!==1?'s':''} na recompra`,
       sub:'Pelo próprio ritmo de consumo, já deveriam ter voltado',
-      acao:'Ver', fn:"go('insights')"});
+      acao:'Ver', fn:"go('hoje')"});
   }catch(e){ console.warn('[notif:cadencia]', e?.message||e); }
   try{
     const prox=cadenciaProximos();
     if(prox.length) out.push({id:'crm-cadencia-proximos', cor:'var(--gray)', icone:'📅',
       titulo:`${prox.length} cliente${prox.length!==1?'s':''} vai${prox.length!==1?'ão':''} precisar de reposição em breve`,
       sub:`Nos próximos ${CADENCIA_JANELA_PROXIMOS} dias, pelo próprio ritmo — ainda dá tempo de se antecipar`,
-      acao:'Ver', fn:"go('insights')"});
+      acao:'Ver', fn:"go('hoje')"});
   }catch(e){ console.warn('[notif:cadencia-proximos]', e?.message||e); }
   try{
     const neg=_estoqueNegativos().filter(n=>!n.inativo);
@@ -4846,10 +4871,42 @@ function renderNotificacoes(){
     </div>`).join('') : `<div class="notif-vazio">✅ Nada pendente agora.</div>`;
 }
 
-function renderPainelInsights(){
-  if(!document.getElementById('page-insights')) return;
+// ── "Hoje" — desdobrada de "Insights" em 13/08 (crítica de design). Só o que
+// pede AÇÃO agora: precisa de você hoje, fila de follow-up, cadência
+// atrasada/chegando. Landing do gestor — troca de lugar com o que antes era
+// renderPainelInsights() completo, que virou só a metade "Resultado" abaixo.
+function renderPainelHojePage(){
+  if(!document.getElementById('page-hoje')) return;
   try{ renderPainelHoje(); }catch(e){ console.warn('[painelHoje]', e?.message||e); }
   try{ renderNotificacoes(); }catch(e){ console.warn('[notif]', e?.message||e); }
+
+  const s=_crmPipelineStats();
+  let {equipamento, servico}=crmCandidatos();
+  if(_crmFaixaFiltro){
+    const naFaixa=c=>_crmFaixaDe(s.idadeDe(c.orc))===_crmFaixaFiltro;
+    equipamento=equipamento.filter(naFaixa);
+    servico=servico.filter(naFaixa);
+  }
+  _crmRenderTrilho('ins-fila-equip','ins-sub-equip', equipamento, 'Nenhum equipamento parado no momento.', CRM_TETO_EQUIP);
+  _crmRenderTrilho('ins-fila-servico','ins-sub-servico', servico, 'Nenhum serviço parado no momento.', CRM_TETO_FILA);
+  const totalFila=equipamento.length+servico.length;
+  const faixaNome=_crmFaixaFiltro?(CRM_FAIXAS_IDADE.find(f=>f.id===_crmFaixaFiltro)||{}).nome:'';
+  const filaSubEl=document.getElementById('ins-fila-sub');
+  if(filaSubEl){
+    filaSubEl.innerHTML = (totalFila
+      ? `${totalFila} orçamento(s) merecem uma ligação${faixaNome?' · filtro: '+esc(faixaNome):''}`
+      : (_crmFaixaFiltro?`nada nesta faixa (${esc(faixaNome)})`:'tudo em dia — nada parado'))
+      + (_crmFaixaFiltro?` <button class="tb" style="padding:2px 8px;font-size:10px;margin-left:4px" onclick="crmFiltrarFaixa('${_crmFaixaFiltro}')">✕ limpar filtro</button>`:'');
+  }
+  try{ renderCadenciaFila(); }catch(e){ console.warn('[renderCadenciaFila]', e?.message||e); }
+  try{ renderCadenciaProximos(); }catch(e){ console.warn('[renderCadenciaProximos]', e?.message||e); }
+}
+
+// ── "Resultado" — a outra metade do desdobramento. Só leitura/análise: KPIs,
+// fase do funil, análise de clientes, financeiro, DRE. Ninguém disputa topo
+// aqui — não tem card de ação, então a ordem óbvia é a que já está.
+function renderPainelInsights(){
+  if(!document.getElementById('page-insights')) return;
   const s=_crmPipelineStats();
   const set=(id,txt)=>{ const el=document.getElementById(id); if(el) el.textContent=txt; };
 
@@ -4864,22 +4921,9 @@ function renderPainelInsights(){
   set('ins-d-tick-q', s.fechQtd+'/'+s.emitidosMes+' emitidos · '+s.convPct+'% · '+s.mesLabel);
 
   _crmRenderEstagio(s);
-
-  let {equipamento, servico}=crmCandidatos();
-  if(_crmFaixaFiltro){
-    const naFaixa=c=>_crmFaixaDe(s.idadeDe(c.orc))===_crmFaixaFiltro;
-    equipamento=equipamento.filter(naFaixa);
-    servico=servico.filter(naFaixa);
-  }
-  _crmRenderTrilho('ins-fila-equip','ins-sub-equip', equipamento, 'Nenhum equipamento parado no momento.', CRM_TETO_EQUIP);
-  _crmRenderTrilho('ins-fila-servico','ins-sub-servico', servico, 'Nenhum serviço parado no momento.', CRM_TETO_FILA);
-  const totalFila=equipamento.length+servico.length;
-  const faixaNome=_crmFaixaFiltro?(CRM_FAIXAS_IDADE.find(f=>f.id===_crmFaixaFiltro)||{}).nome:'';
-  document.getElementById('ins-fila-sub').textContent = totalFila
-    ? `${totalFila} orçamento(s) merecem uma ligação${faixaNome?' · filtro: '+faixaNome:''}`
-    : (_crmFaixaFiltro?`nada nesta faixa (${faixaNome})`:'tudo em dia — nada parado');
-  try{ renderCadenciaFila(); }catch(e){ console.warn('[renderCadenciaFila]', e?.message||e); }
-  try{ renderCadenciaProximos(); }catch(e){ console.warn('[renderCadenciaProximos]', e?.message||e); }
+  try{ renderAnaliseClientes(); }catch(e){ console.warn('[analiseClientes]', e?.message||e); }
+  try{ renderRelatorioFinanceiro(); }catch(e){ console.warn('[relatorioFinanceiro]', e?.message||e); }
+  try{ renderDRE(); }catch(e){ console.warn('[dre]', e?.message||e); }
 }
 
 function verificarVencidos(){

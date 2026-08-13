@@ -101,19 +101,6 @@
       <span class="hdr-sub" id="hdr-sub">Serviços</span>
     </div>
   </div>
-  <nav class="hdr-nav">
-    <button class="nb" onclick="go('insights')" id="nb-insights">📊 Insights</button>
-    <button class="nb" onclick="go('form')"    id="nb-form">＋ Orçamento</button>
-    <button class="nb" onclick="novaOS();go('os')" id="nb-os">📋 OS</button>
-    <button class="nb" onclick="go('history')" id="nb-history">📊 Histórico</button>
-    <button class="nb" onclick="go('os-history')" id="nb-os-history">📋 Hist. OS</button>
-    <button class="nb" onclick="go('clientes')" id="nb-clientes">👥 Clientes</button>
-    <button class="nb" onclick="go('equipamentos')" id="nb-equipamentos">🔧 Equipamentos</button>
-    <button class="nb" onclick="go('agendamentos')" id="nb-agendamentos">📅 Agenda</button>
-    <button class="nb" onclick="go('visitas')" id="nb-visitas">🔍 Vistorias</button>
-    <button class="nb" onclick="go('despesas')" id="nb-despesas">💸 Despesas</button>
-    <button class="nb" onclick="go('produtividade')" id="nb-produtividade">📈 Produt.</button>
-  </nav>
   <div class="hdr-right">
     <span class="db-dot" id="db-dot" title="Status do banco de dados"></span>
     <select class="loja-select" id="hdr-loja-select" onchange="trocarLojaAtiva(this.value)" title="Empresa ativa" style="display:none">
@@ -163,8 +150,13 @@
          vistorias 7 · equipamentos 0 · despesas 0. Reordenar aqui é seguro:
          aplicarPermissoesPerfil() (app.js) mostra/esconde por id, não por
          posição no DOM. -->
-    <button class="snb" id="snb-insights" onclick="go('insights')"><span class="sicon">📊</span><span class="slabel">Insights</span></button>
-    <button class="snb on" id="snb-form" onclick="go('form')"><span class="sicon">＋</span><span class="slabel">Orçamento</span></button>
+    <!-- "Hoje" e "Resultado" — desdobrados de um único "Insights" em 13/08
+         (crítica de design: uma tela respondendo três perguntas incompatíveis
+         não atende nenhuma bem). "Hoje" é a landing do gestor agora; nomes
+         são promessa ("o que vou encontrar"), não categoria de conteúdo. -->
+    <button class="snb on" id="snb-hoje" onclick="go('hoje')"><span class="sicon">☀️</span><span class="slabel">Hoje</span></button>
+    <button class="snb" id="snb-insights" onclick="go('insights')"><span class="sicon">📊</span><span class="slabel">Resultado</span></button>
+    <button class="snb" id="snb-form" onclick="go('form')"><span class="sicon">＋</span><span class="slabel">Orçamento</span></button>
     <!-- Venda de balcão não é um "page-X" — é um carrinho rápido (modal), então
          não passa por go(). Mora ao lado de Orçamento de propósito: as duas são
          "o que a pessoa do balcão/vendas abre pra começar uma venda", e Estoque
@@ -192,7 +184,7 @@
 <!-- ══ BOTTOM NAV (mobile) ══ -->
 <nav class="mob-nav" id="mob-nav">
   <!-- Técnico: Minhas OS | Vistorias | Mais -->
-  <!-- Gestor/Master: Vistorias | Orçam. | OS | Histórico | Mais -->
+  <!-- Gestor/Master: Hoje | Orçam. | OS | Histórico | Mais -->
   <!-- Vendas: Orçam. | OS | Histórico | Mais -->
   <button class="mob-nb" id="mnb-visitas" onclick="go('visitas')" style="display:none">
     <span class="micon">🔍</span><span>Vistorias</span>
@@ -200,7 +192,12 @@
   <button class="mob-nb" id="mnb-minhas-os" onclick="go('minhas-os')" style="display:none">
     <span class="micon">🗂️</span><span>Minhas OS</span>
   </button>
-  <button class="mob-nb on" id="mnb-form" onclick="go('form')" style="display:none">
+  <!-- "Hoje" é a landing do gestor (13/08) — precisa caber em 1 toque no
+       celular, não só na sidebar/"☰ Mais" (crítica de design). -->
+  <button class="mob-nb on" id="mnb-hoje" onclick="go('hoje')" style="display:none">
+    <span class="micon">☀️</span><span>Hoje</span>
+  </button>
+  <button class="mob-nb" id="mnb-form" onclick="go('form')" style="display:none">
     <span class="micon">＋</span><span>Orçam.</span>
   </button>
   <button class="mob-nb" id="mnb-os" onclick="novaOS();go('os')" style="display:none">
@@ -927,71 +924,23 @@
 </div>
 
 <!-- ══ PAGE: INSIGHTS (landing do gestor) ══ -->
-<div class="page" id="page-insights">
+<!-- ══ PAGE: HOJE ══ (desdobrada de "Insights" em 13/08 — crítica de design:
+     uma tela só respondendo "o que eu faço agora" + "como está a carteira" +
+     "como foi o resultado" ao mesmo tempo não atende nenhuma bem, e foi por
+     isso que a mesma lista de cards foi reordenada 3x num dia sem nunca
+     parecer certa. Aqui é só AÇÃO — landing do gestor. -->
+<div class="page" id="page-hoje">
   <div class="wrap">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
-      <div style="font-size:18px;font-weight:800;color:var(--c2)">📊 Insights <span style="font-size:12px;font-weight:400;color:var(--gray)" id="ins-mes-label"></span></div>
-      <button class="tb" onclick="renderPainelInsights()">🔄 Atualizar</button>
+      <div style="font-size:18px;font-weight:800;color:var(--c2)">☀️ Hoje</div>
+      <button class="tb" onclick="renderPainelHojePage()">🔄 Atualizar</button>
     </div>
 
-    <!-- KPIs de PIPELINE (não contábeis — o dashboard do Histórico cobre aquilo).
-         Os três primeiros ignoram o mês de propósito: carteira aberta não zera
-         na virada. Só "Fechado no mês" é mensal. -->
-    <div class="dash">
-      <div class="dc b"><div class="dl">Pipeline aberto</div><div class="dv" id="ins-d-emit">—</div><div class="ds" id="ins-d-emit-q">— orç.</div></div>
-      <div class="dc r"><div class="dl">Parado +30 dias</div><div class="dv" id="ins-d-aprov">—</div><div class="ds" id="ins-d-aprov-q">—</div></div>
-      <div class="dc y"><div class="dl">Vence em 7 dias</div><div class="dv" id="ins-d-rec">—</div><div class="ds" id="ins-d-rec-q">revalidar o preço</div></div>
-      <div class="dc g"><div class="dl">Fechado no mês</div><div class="dv" id="ins-d-tick">—</div><div class="ds" id="ins-d-tick-q">—</div></div>
-    </div>
-
-    <!-- Ordem revista a pedido direto do Marcos (13/08, feedback de voz,
-         2 rodadas): a barra de estágio ("em que fase está" — a fila de
-         conversão do funil) é a que ele mais quer ver primeiro, na frente
-         de tudo mais desta seção. Cadência/análise de cliente vêm logo
-         depois; "precisa de você hoje"/"fila de follow-up" cedem o topo —
-         as duas já ficam visíveis em qualquer tela via o sino de
-         notificações, então não perdem alcance por sair do topo do
-         Insights. (Supera a nota de 2026-08-13 mais antiga que botava
-         Cadência primeiro — aquela já era a correção de uma inferência
-         minha; esta é o Marcos pedindo de novo, com mais precisão.) -->
-
-    <!-- Barra de estágio: responde "em que fase está" sem schema novo, derivando
-         da idade do orçamento. Clicar numa faixa filtra a fila abaixo. -->
-    <div class="card" id="ins-estagio-card">
-      <div class="ct"><span class="ct-title"><span class="ct-ico ct-ico-blue">📶</span>Em que fase está</span>
-        <span style="font-size:11px;font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0" id="ins-estagio-sub">toque numa faixa para filtrar a fila</span>
-      </div>
-      <div id="ins-estagio-barra" class="fase-barra"></div>
-      <div id="ins-estagio-leg" class="fase-leg"></div>
-    </div>
-
-    <!-- Cadência de recompra — Etapa 4 do roadmap de CRM. Só intervalo
-         OBSERVADO (cliente com 2+ compras reais e cliente_id ligado). Some
-         sozinho quando não há ninguém atrasado — não é card fixo. -->
-    <div class="card card-action" id="ins-cadencia-card" style="display:none">
-      <div class="ct"><span class="ct-title"><span class="ct-ico ct-ico-c1">🔁</span>Cadência de recompra</span> <span style="font-size:11px;font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0" id="ins-cadencia-sub">quem já comprou e está atrasado pelo próprio ritmo</span></div>
-      <div id="ins-cadencia-corpo"><div class="load"><div class="spin"></div> Carregando…</div></div>
-    </div>
-
-    <!-- Etapa 6 do roadmap (motor de eventos recorrentes), versão enxuta —
-         antecipa quem vai precisar de reposição nos próximos dias, em vez de
-         só avisar depois que já passou do prazo (card acima). Informativo,
-         não card-action: ainda não é urgente hoje, é "fique de olho". -->
-    <div class="card" id="ins-proximos-card" style="display:none">
-      <div class="ct"><span class="ct-title"><span class="ct-ico ct-ico-gray">📅</span>Chegando aí</span> <span style="font-size:11px;font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0">quem vai precisar de reposição em breve, pelo próprio ritmo</span></div>
-      <div id="ins-proximos-corpo"></div>
-    </div>
-
-    <!-- Camada trimestral: ABC de cliente, LTV e recompra. -->
-    <div class="card">
-      <div class="ct"><span class="ct-title"><span class="ct-ico ct-ico-blue">👥</span>Análise de clientes</span> <span style="font-size:11px;font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0">quem sustenta o faturamento</span></div>
-      <div id="cli-analise"></div>
-    </div>
-
-    <!-- Diário do gestor (fase 6): o que precisa de ação HOJE. Já aparece
-         também no sino do cabeçalho (qualquer tela) — aqui é só o registro
-         completo pra quem quiser ver tudo junto. -->
-    <div class="card card-action" id="ins-hoje-card" style="display:none">
+    <!-- Diário do gestor: o que precisa de ação HOJE. Bloco sempre presente
+         com estado vazio explícito (renderPainelHoje já fazia isso) — também
+         aparece no sino do cabeçalho em qualquer tela, aqui é o registro
+         completo. -->
+    <div class="card card-action" id="ins-hoje-card">
       <div class="ct"><span class="ct-title"><span class="ct-ico ct-ico-y">☀️</span>Precisa de você hoje</span></div>
       <div id="ins-hoje-corpo"></div>
     </div>
@@ -1016,8 +965,66 @@
       </div>
     </div>
 
+    <!-- Cadência de recompra — Etapa 4 do roadmap de CRM. Bloco sempre
+         presente com estado vazio explícito. -->
+    <div class="card card-action" id="ins-cadencia-card">
+      <div class="ct"><span class="ct-title"><span class="ct-ico ct-ico-c1">🔁</span>Cadência de recompra</span> <span style="font-size:11px;font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0" id="ins-cadencia-sub">quem já comprou e está atrasado pelo próprio ritmo</span></div>
+      <div id="ins-cadencia-corpo"><div class="load"><div class="spin"></div> Carregando…</div></div>
+    </div>
+
+    <!-- Etapa 6 do roadmap (motor de eventos recorrentes), versão enxuta —
+         antecipa quem vai precisar de reposição nos próximos dias, em vez de
+         só avisar depois que já passou do prazo (card acima). -->
+    <div class="card" id="ins-proximos-card">
+      <div class="ct"><span class="ct-title"><span class="ct-ico ct-ico-gray">📅</span>Chegando aí</span> <span style="font-size:11px;font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0">quem vai precisar de reposição em breve, pelo próprio ritmo</span></div>
+      <div id="ins-proximos-corpo"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PAGE: RESULTADO ══ (a outra metade do desdobramento — só leitura/
+     análise: KPIs, fase do funil, análise de clientes, financeiro, DRE.
+     Ninguém disputa topo aqui, não tem card de ação. id continua "insights"
+     de propósito — minimiza o raio de mudança em quem referencia
+     page-insights/renderPainelInsights por código, só o rótulo visível
+     virou "Resultado". -->
+<div class="page" id="page-insights">
+  <div class="wrap">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+      <div style="font-size:18px;font-weight:800;color:var(--c2)">📊 Resultado <span style="font-size:12px;font-weight:400;color:var(--gray)" id="ins-mes-label"></span></div>
+      <button class="tb" onclick="renderPainelInsights()">🔄 Atualizar</button>
+    </div>
+
+    <!-- KPIs de PIPELINE (não contábeis — o dashboard do Histórico cobre aquilo).
+         Os três primeiros ignoram o mês de propósito: carteira aberta não zera
+         na virada. Só "Fechado no mês" é mensal. -->
+    <div class="dash">
+      <div class="dc b"><div class="dl">Pipeline aberto</div><div class="dv" id="ins-d-emit">—</div><div class="ds" id="ins-d-emit-q">— orç.</div></div>
+      <div class="dc r"><div class="dl">Parado +30 dias</div><div class="dv" id="ins-d-aprov">—</div><div class="ds" id="ins-d-aprov-q">—</div></div>
+      <div class="dc y"><div class="dl">Vence em 7 dias</div><div class="dv" id="ins-d-rec">—</div><div class="ds" id="ins-d-rec-q">revalidar o preço</div></div>
+      <div class="dc g"><div class="dl">Fechado no mês</div><div class="dv" id="ins-d-tick">—</div><div class="ds" id="ins-d-tick-q">—</div></div>
+    </div>
+
+    <!-- Barra de estágio: responde "em que fase está" sem schema novo, derivando
+         da idade do orçamento. Clicar numa faixa leva pra "Hoje" com a fila
+         de follow-up já filtrada por aquela faixa (crmFiltrarFaixa navega
+         entre páginas desde o desdobramento — a fila não mora mais aqui). -->
+    <div class="card" id="ins-estagio-card">
+      <div class="ct"><span class="ct-title"><span class="ct-ico ct-ico-blue">📶</span>Em que fase está</span>
+        <span style="font-size:11px;font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0" id="ins-estagio-sub">toque numa faixa pra filtrar a fila em Hoje</span>
+      </div>
+      <div id="ins-estagio-barra" class="fase-barra"></div>
+      <div id="ins-estagio-leg" class="fase-leg"></div>
+    </div>
+
+    <!-- Camada trimestral: ABC de cliente, LTV e recompra. -->
+    <div class="card">
+      <div class="ct"><span class="ct-title"><span class="ct-ico ct-ico-blue">👥</span>Análise de clientes</span> <span style="font-size:11px;font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0">quem sustenta o faturamento</span></div>
+      <div id="cli-analise"></div>
+    </div>
+
     <!-- Financeiro do gestor: veio de Produtividade, que passou a ser só de
-         técnico. Quem abre Insights quer saber como a empresa está — e não
+         técnico. Quem abre Resultado quer saber como a empresa está — e não
          faz sentido procurar DRE dentro de "produtividade da equipe". -->
     <!-- ── Resultado financeiro ── -->
     <div class="fin-card">

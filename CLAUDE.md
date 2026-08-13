@@ -2,6 +2,77 @@
 
 ---
 
+## Desdobrado "Insights" em "Hoje" + "Resultado" — crítica de design externa (13/08)
+
+O Marcos colou uma crítica de design formal (markup-only, sem ver o app
+rodando) apontando o achado central certo: a tela de Insights tinha sido
+reordenada 3x no mesmo dia (ver notas acima) e nunca "parecia certa" —
+não porque a ordem estivesse errada, mas porque uma coluna só de 9 cards
+respondia três perguntas incompatíveis ao mesmo tempo ("o que eu faço
+agora" / "como está a carteira" / "como foi o resultado"). Reordenar só
+trocava quem ganhava aquela semana; nunca resolvia.
+
+**Aprovado pelo Marcos: fazer a recomendação 1 (desdobrar) E a
+recomendação de fundo da parte 2 (tela do técnico) na mesma sessão.**
+Esta nota cobre a 1; a da tela do técnico vem depois.
+
+### O que mudou
+
+- **`page-hoje`** (nova, `snb-hoje`/`mnb-hoje`) — só AÇÃO: Precisa de você
+  hoje, Fila de follow-up, Cadência de recompra, Chegando aí. Vira a
+  landing do gestor (`telaInicial()` retorna `'hoje'`, não mais
+  `'insights'`).
+- **`page-insights`** vira "Resultado" — só leitura: KPIs, Em que fase
+  está, Análise de clientes, Financeiro, DRE. **Manteve o id `insights`
+  de propósito** (minimiza raio de mudança em quem referencia
+  `page-insights`/`renderPainelInsights()` no código — só o rótulo
+  visível virou "Resultado").
+- **Blocos de ação sempre visíveis com estado vazio explícito** (achado
+  🔴 da crítica): `renderCadenciaFila()` e `renderCadenciaProximos()`
+  escondiam o card inteiro (`display:none`) quando vazios —
+  `renderPainelHoje()` já não fazia isso. Agora as três mostram "✅ nada
+  pendente" em vez de sumir. Landing estável = memória muscular de onde
+  as coisas ficam.
+- **`renderPainelInsights()` dividida em duas**: `renderPainelHojePage()`
+  (novo, `_itensPainelHoje`/notif/fila/cadência/chegando) e
+  `renderPainelInsights()` enxuta (só KPIs/estágio/análise/financeiro/
+  DRE — absorveu as chamadas que antes viviam soltas no `.then()` de
+  `go()`).
+- **`crmFiltrarFaixa()` cruza páginas** — clicar numa faixa em "Resultado"
+  navega pra "Hoje" com a fila já filtrada (a fila não mora mais na
+  mesma tela do gráfico). Chip "✕ limpar filtro" novo no subtítulo da
+  fila, porque o gesto antigo ("toque de nov na faixa") não está mais
+  visível de "Hoje".
+  🔴 **Bug pego em teste, corrigido antes de commitar:** limpar o filtro
+  atualizava `_crmFaixaFiltro` mas não redesenhava nada quando a pessoa
+  já estava em "Hoje" (nenhum dos dois ramos originais cobria esse
+  caso) — o chip ficava travado na tela mesmo com o filtro já limpo por
+  baixo. Corrigido: a função agora sempre redesenha a página onde está,
+  além de navegar quando precisa setar o filtro vindo de "Resultado".
+- **Sino de notificações**: os 3 itens que apontavam `go('insights')`
+  (fila, cadência atrasada, cadência chegando) agora apontam
+  `go('hoje')` — é onde o conteúdo deles mora agora.
+- **Nav mobile do gestor**: "Vistorias" saiu do slot inferior (continua
+  na sidebar), "Hoje" entrou no lugar — landing precisa caber em 1
+  toque no celular (achado 🟡 da crítica: Insights nunca esteve na nav
+  inferior, ficava só dentro de "☰ Mais"). Técnico mantém "Vistorias"
+  no slot de baixo — quem faz vistoria de verdade é ele.
+- **Removido `.hdr-nav`/`.nb`** (achado 🟢, código morto): 11 botões com
+  `display:none!important` fixo desde sempre — a navegação real sempre
+  foi a sidebar. Removida a marcação HTML, o CSS (2 regras + 1 na media
+  query mobile) e o `navRules` do JS que só existia pra esconder/mostrar
+  botões que nunca apareciam.
+
+Testado no browser local (`dbOk=false`) em desktop e mobile: landing
+correta (`page-hoje`), sidebar com "Hoje"/"Resultado", nav mobile com 5
+slots corretos por perfil, os 3 blocos de ação em "Hoje" mostrando
+estado vazio em vez de sumir, filtro de faixa cruzando pra "Hoje" e
+voltando a limpar corretamente, sino navegando pro lugar certo, zero
+erro de console (fora o ruído de 400 já documentado, de testes locais
+anteriores, sem relação com este código). `sw.js` v122→v123.
+
+---
+
 ## Causa 1 fechada — `_autoSalvarCliente()` agora checa o servidor antes de criar (13/08)
 
 Continuação direta da nota "Fichas duplicadas voltando sempre" (acima).

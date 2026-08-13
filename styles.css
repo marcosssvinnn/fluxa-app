@@ -31,8 +31,6 @@
     .hdr-logo-text{display:flex;flex-direction:column;line-height:1}
     .hdr-nome{font-size:18px;font-weight:800;color:var(--c1);letter-spacing:-.5px}
     .hdr-sub{font-size:8px;font-weight:700;color:rgba(255,255,255,.5);letter-spacing:3px;text-transform:uppercase}
-    .hdr-nav{display:none!important}
-    .nb{display:none!important}
     .hdr-right{margin-left:auto;display:flex;align-items:center;gap:8px;padding-left:8px;flex-shrink:0}
     .db-dot{width:7px;height:7px;border-radius:50%;background:#6b7280;flex-shrink:0}
     .db-dot.ok{background:#22c55e}.db-dot.err{background:var(--red)}
@@ -746,9 +744,8 @@
       .hsrch{width:100%;margin-left:0;margin-top:4px}
       .seg-grid{grid-template-columns:1fr 1fr}
 
-      /* Mostrar nav inferior, esconder nav do header */
+      /* Mostrar nav inferior */
       .mob-nav{display:flex}
-      .hdr-nav{display:none}
       .hdr{padding:0 10px}
       /* Sidebar vira drawer no mobile */
       body,body.sbar-col{padding-left:0!important}
