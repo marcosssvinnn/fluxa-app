@@ -4226,6 +4226,60 @@ function cadenciaDispensar(cid){
   toast('Ok, não aviso de novo por 14 dias');
   renderCadenciaFila();
 }
+
+// ── "Chegando" — Etapa 6 do roadmap (motor de eventos recorrentes), versão
+// enxuta (2026-08-13). O roadmap original marcava essa etapa como prematura
+// — base com poucos meses de histórico, e a Etapa 3 mediu 0% de adoção do
+// mecanismo de follow-up mais simples que já existia. Construir agendamento
+// automático/geração de OS em cima disso repetiria o mesmo erro. Esta versão
+// só muda O MOMENTO do aviso: cadenciaCandidatos() (acima) só avisa depois
+// que o cliente já passou do próprio ritmo; isto aqui avisa ~7 dias ANTES,
+// reaproveitando o mesmo cálculo (intervalo observado / consumo teórico) —
+// sem tabela nova, sem `agendamentos` (que é plano recorrente COM técnico e
+// gera OS sozinho — semântica errada pro que é só um alerta de reposição).
+const CADENCIA_JANELA_PROXIMOS=7;
+function cadenciaProximos(){
+  const {lista}=analiseClientes();
+  const observado=lista
+    .filter(c=>c.porId && c.ritmo==='em_dia' && c.intervaloMedioDias
+      && (c.intervaloMedioDias-c.diasDesdeUltima)>=0
+      && (c.intervaloMedioDias-c.diasDesdeUltima)<=CADENCIA_JANELA_PROXIMOS
+      && !_cadFbOculto(c.chave.slice(3)))
+    .map(c=>({...c, origem:'observado', faltam:c.intervaloMedioDias-c.diasDesdeUltima}));
+  const teorico=lista
+    .filter(c=>c.porId && c.previsaoTeorica
+      && c.previsaoTeorica.diasAte>=0 && c.previsaoTeorica.diasAte<=CADENCIA_JANELA_PROXIMOS
+      && !_cadFbOculto(c.chave.slice(3)))
+    .map(c=>({...c, origem:'teorico', faltam:c.previsaoTeorica.diasAte}));
+  return [...observado, ...teorico].sort((a,b)=>a.faltam-b.faltam);
+}
+function _cadenciaProximoCardHTML(c){
+  const cid=c.chave.slice(3);
+  const motivo1 = c.origem==='observado'
+    ? `🟢 No ritmo — costuma comprar a cada ${c.intervaloMedioDias}d, faltam ~${c.faltam}d`
+    : `🧪 Estimativa (1ª compra) — ${esc(c.previsaoTeorica.piscinaNome||'a piscina')} deve consumir ${c.previsaoTeorica.embalagemLabel} em ~${c.faltam}d`;
+  return `<div class="crm-card" style="border-left-color:var(--blue)">
+    <div class="crm-card-top">
+      <div class="crm-cliente">${esc(c.nome)}</div>
+      <div class="crm-valor">${brl(c.valor)}</div>
+    </div>
+    <div class="crm-motivos"><span class="crm-motivo">${motivo1}</span></div>
+    <div class="crm-acts">
+      <button class="tb" onclick="verHistoricoCliente('${cid}')">👁 Ver histórico</button>
+    </div>
+  </div>`;
+}
+const CADENCIA_PROXIMOS_TETO=6;
+function renderCadenciaProximos(){
+  const card=document.getElementById('ins-proximos-card'), el=document.getElementById('ins-proximos-corpo');
+  if(!card||!el) return;
+  const cands=cadenciaProximos();
+  if(!cands.length){ card.style.display='none'; return; }
+  card.style.display='';
+  const visiveis=cands.slice(0,CADENCIA_PROXIMOS_TETO);
+  el.innerHTML=visiveis.map(_cadenciaProximoCardHTML).join('')
+    + (cands.length>visiveis.length?`<div style="text-align:center;font-size:11px;color:var(--gray);padding:6px 0">+${cands.length-visiveis.length} outro(s)</div>`:'');
+}
 function _cadenciaCardHTML(c){
   const cid=c.chave.slice(3);
   let motivo1, avisoTeorico='';
@@ -4651,6 +4705,13 @@ function getNotificacoes(){
       acao:'Ver', fn:"go('insights')"});
   }catch(e){ console.warn('[notif:cadencia]', e?.message||e); }
   try{
+    const prox=cadenciaProximos();
+    if(prox.length) out.push({id:'crm-cadencia-proximos', cor:'var(--gray)', icone:'📅',
+      titulo:`${prox.length} cliente${prox.length!==1?'s':''} vai${prox.length!==1?'ão':''} precisar de reposição em breve`,
+      sub:`Nos próximos ${CADENCIA_JANELA_PROXIMOS} dias, pelo próprio ritmo — ainda dá tempo de se antecipar`,
+      acao:'Ver', fn:"go('insights')"});
+  }catch(e){ console.warn('[notif:cadencia-proximos]', e?.message||e); }
+  try{
     const neg=_estoqueNegativos().filter(n=>!n.inativo);
     if(neg.length) out.push({id:'estoque-negativo', cor:'var(--red)', icone:'⚠️',
       titulo:`${neg.length} produto${neg.length!==1?'s':''} com saldo negativo`,
@@ -4780,6 +4841,7 @@ function renderPainelInsights(){
     ? `${totalFila} orçamento(s) merecem uma ligação${faixaNome?' · filtro: '+faixaNome:''}`
     : (_crmFaixaFiltro?`nada nesta faixa (${faixaNome})`:'tudo em dia — nada parado');
   try{ renderCadenciaFila(); }catch(e){ console.warn('[renderCadenciaFila]', e?.message||e); }
+  try{ renderCadenciaProximos(); }catch(e){ console.warn('[renderCadenciaProximos]', e?.message||e); }
 }
 
 function verificarVencidos(){

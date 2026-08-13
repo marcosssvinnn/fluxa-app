@@ -2,6 +2,54 @@
 
 ---
 
+## Etapa 6 (motor de eventos recorrentes) — versão enxuta, deliberadamente pequena (13/08)
+
+O Marcos pediu pra seguir pro "motor de recorrência e demais evoluções". O
+texto original das 8 etapas nunca foi salvo em lugar nenhum do repo (só foi
+colado direto numa conversa, ver aviso mais abaixo) e ele não tinha o texto
+à mão pra colar de novo — me pediu pra decidir. Antes de construir qualquer
+coisa, voltei à nota de duas seções abaixo ("Etapa 3 — cobertura da
+carteira"): o próprio roadmap original já marcava a Etapa 6 como prematura
+(base com poucos meses de histórico) e a Etapa 3 mediu **0% de adoção** do
+mecanismo de follow-up mais simples que já existia. Construir agendamento
+automático ou geração de OS em cima disso — a leitura mais óbvia de "motor
+de eventos recorrentes" — repetiria o mesmo erro: mecanismo pesado sobre
+hábito que ainda não existe.
+
+**O que fiz em vez disso:** só mudei O MOMENTO do aviso. `cadenciaCandidatos()`
+(Etapa 4) só avisava depois que o cliente já tinha passado do próprio
+ritmo — reativo, "já era". `cadenciaProximos()` (nova, `app.js`, logo depois
+de `cadenciaDispensar()`) avisa **~7 dias antes**, reaproveitando o mesmo
+cálculo (intervalo observado via `analiseClientes()`, ou `previsaoTeorica`
+pra quem só comprou uma vez) — zero tabela nova, zero side effect. Cor
+cinza/azul em vez de laranja, tanto no card `#ins-proximos-card`
+("📅 Chegando aí", `.card` neutro, não `.card-action`) quanto na notificação
+(`crm-cadencia-proximos` em `getNotificacoes()`) — sinal deliberadamente
+mais suave que "atrasado", porque ainda não é.
+
+**Por que não usei a tabela `agendamentos` existente:** ela já é um motor de
+recorrência de verdade — plano com periodicidade/dia/técnico que
+auto-gera OS (`gerarOSdoAgendamento`). Mas é semântica de **visita técnica
+agendada**, não de "avise que este cliente vai precisar comprar mais
+cloro". Usar a tabela errada teria dois efeitos colaterais reais: OS sendo
+criada sozinha pra algo que ainda é só uma estimativa (margem de erro
+±35-50%, documentada em `docs/referencia-consumo-quimico-piscinas-2026-08-12.md`),
+e um técnico sendo implicitamente atribuído a uma reposição que talvez
+seja só telefonema.
+
+Testado no browser local (`dbOk=false`): cliente com 2 compras a cada 30d,
+última há 26d → aparece em "Chegando aí" com "faltam ~4d" (não em
+"atrasado"), badge do sino sobe, toast dispara. `sw.js` v116→v117.
+
+**Etapas 7 e 8:** pedi pro Marcos decidir se tinha o texto original — ele
+me deixou propor. A 8 (atribuição) já tem baseline capturado em
+`docs/crm-baseline-atribuicao-2026-08-12.md`; construir em cima dela sem
+saber o que o texto original pedia é o mesmo risco de adivinhar errado que
+evitei aqui. Deixei registrado como próximo passo a discutir com o Marcos,
+não construí nada às cegas.
+
+---
+
 ## Hierarquia visual — cards de ação vs. informativo (13/08)
 
 Segunda parte do pedido do Marcos sobre a interface ficar "um pouco
