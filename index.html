@@ -942,14 +942,14 @@
       <div id="ins-hoje-corpo"></div>
     </div>
 
-    <div class="card" id="ins-estagio-card">
-      <div class="ct">📶 Em que fase está
-        <span style="font-size:11px;font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0" id="ins-estagio-sub">toque numa faixa para filtrar a fila</span>
-      </div>
-      <div id="ins-estagio-barra" class="fase-barra"></div>
-      <div id="ins-estagio-leg" class="fase-leg"></div>
-    </div>
-
+    <!-- Fila de follow-up e Cadência ficam ANTES de "Em que fase está" de
+         propósito (2026-08-13). Quem usa o Fluxa todo dia (Tamara/Elis) tem
+         rotina reativa — responde demanda de cliente, monta orçamento — não
+         navega uma lista pra ligar. Elas passam pelo Insights todo dia (é a
+         tela inicial), mas iam direto pro próximo orçamento sem rolar até
+         aqui, porque isto ficava depois de duas seções. Agrupado com
+         "Precisa de você hoje" — as três são "faça isso agora", o gráfico de
+         fase é mais análise que ação, por isso vem depois. -->
     <div class="card">
       <div class="ct">📞 Fila de follow-up <span style="font-size:11px;font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0" id="ins-fila-sub">quem ligar hoje</span></div>
       <div class="crm-trilhos">
@@ -976,6 +976,14 @@
     <div class="card" id="ins-cadencia-card" style="display:none">
       <div class="ct">🔁 Cadência de recompra <span style="font-size:11px;font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0" id="ins-cadencia-sub">quem já comprou e está atrasado pelo próprio ritmo</span></div>
       <div id="ins-cadencia-corpo"><div class="load"><div class="spin"></div> Carregando…</div></div>
+    </div>
+
+    <div class="card" id="ins-estagio-card">
+      <div class="ct">📶 Em que fase está
+        <span style="font-size:11px;font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0" id="ins-estagio-sub">toque numa faixa para filtrar a fila</span>
+      </div>
+      <div id="ins-estagio-barra" class="fase-barra"></div>
+      <div id="ins-estagio-leg" class="fase-leg"></div>
     </div>
 
     <!-- Financeiro do gestor: veio de Produtividade, que passou a ser só de

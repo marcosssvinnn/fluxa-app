@@ -2,6 +2,49 @@
 
 ---
 
+## Etapa 3 — cobertura da carteira, achado real de adoção (13/08)
+
+O próprio roadmap original tinha um ponto de parada nunca verificado:
+"depois da 3, medir a cobertura da carteira — perto de zero, parar e
+rever o desenho antes de seguir." Medi: **0 de 214 orçamentos abertos**
+têm qualquer sinal de follow-up (`proximo_contato`/`decisao_prevista`/
+`motivo_perda`/`crm_notas`) — mesmo número de ontem, apesar do mecanismo
+("📞 Registrar contato" na fila) existir há semanas.
+
+**Auditei o fluxo antes de mexer** (mesmo método usado pra achar o
+problema da Nova Venda): a fila renderiza bem, o modal é curto (2 campos
+com default sensato, salva em 1 clique) — **não é friction de UI**. O
+achado real veio do Marcos: quem usa o sistema todo dia de verdade é
+**Tamara e Elis**, e a rotina delas é **reativa** — recebem demanda de
+cliente (loja, tráfego) e montam orçamento. Não navegam uma "lista pra
+ligar" porque o dia delas não é feito de ligações de saída, é resposta a
+quem já chegou.
+
+**O que mudei (só isso — reordenação, não redesenho):** "Fila de
+follow-up" e "Cadência de recompra" mudaram de lugar em `index.html`,
+pra logo depois de "Precisa de você hoje" (a seção que já é "faça isso
+agora") e antes de "Em que fase está" (que é mais análise que ação).
+Antes, a fila ficava depois do gráfico de estágio — dava pra nunca rolar
+até lá antes de já estar no próximo orçamento, mesmo passando pelo
+Insights todo dia (que já é a tela inicial delas).
+
+Efeito colateral aceito: clicar numa faixa do gráfico "Em que fase está"
+pra filtrar a fila agora exige rolar pra CIMA pra ver o resultado (a fila
+ficou acima do gráfico no HTML). É uma interação secundária, não o fluxo
+principal — troca que vale a pena.
+
+**Não fiz mais nada em cima disso** — não sei se mover resolve, é uma
+mudança de posição, não de hábito. Não construí Etapa 6 (motor de eventos
+— o próprio roadmap já dizia que não é urgente, base tem só 4 meses) nem
+fui além na Etapa 8 (atribuição), porque os dois dependem do mesmo hábito
+de registrar contato que está zerado. Próxima sessão: medir de novo depois
+de alguns dias de uso com a fila no topo — se continuar zerado, o problema
+não é posição na tela, é processo (talvez a decisão de "ligar" nem seja da
+Tamara/Elis, e sim de quem recebe o WhatsApp — vale perguntar ao Marcos
+antes de mexer mais).
+
+---
+
 ## Etapa 4 estendida — fatores de piscina + bromo/peróxido + editar piscina (13/08)
 
 Marcos pediu pra "estender e fazer tudo certinho" em cima do consumo
