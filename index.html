@@ -949,8 +949,8 @@
     <!-- Diário do gestor (fase 6): o que precisa de ação HOJE. Fica antes do
          funil de propósito — dinheiro vencendo e material faltando não podem
          depender de alguém lembrar de abrir outra tela. -->
-    <div class="card" id="ins-hoje-card" style="display:none">
-      <div class="ct">☀️ Precisa de você hoje</div>
+    <div class="card card-action" id="ins-hoje-card" style="display:none">
+      <div class="ct"><span class="ct-title"><span class="ct-ico ct-ico-y">☀️</span>Precisa de você hoje</span></div>
       <div id="ins-hoje-corpo"></div>
     </div>
 
@@ -962,8 +962,8 @@
          aqui, porque isto ficava depois de duas seções. Agrupado com
          "Precisa de você hoje" — as três são "faça isso agora", o gráfico de
          fase é mais análise que ação, por isso vem depois. -->
-    <div class="card">
-      <div class="ct">📞 Fila de follow-up <span style="font-size:11px;font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0" id="ins-fila-sub">quem ligar hoje</span></div>
+    <div class="card card-action">
+      <div class="ct"><span class="ct-title"><span class="ct-ico ct-ico-c1">📞</span>Fila de follow-up</span> <span style="font-size:11px;font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0" id="ins-fila-sub">quem ligar hoje</span></div>
       <div class="crm-trilhos">
         <div>
           <div class="crm-trilho-hdr">
@@ -985,13 +985,13 @@
     <!-- Cadência de recompra — Etapa 4 do roadmap de CRM. Só intervalo
          OBSERVADO (cliente com 2+ compras reais e cliente_id ligado). Some
          sozinho quando não há ninguém atrasado — não é card fixo. -->
-    <div class="card" id="ins-cadencia-card" style="display:none">
-      <div class="ct">🔁 Cadência de recompra <span style="font-size:11px;font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0" id="ins-cadencia-sub">quem já comprou e está atrasado pelo próprio ritmo</span></div>
+    <div class="card card-action" id="ins-cadencia-card" style="display:none">
+      <div class="ct"><span class="ct-title"><span class="ct-ico ct-ico-c1">🔁</span>Cadência de recompra</span> <span style="font-size:11px;font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0" id="ins-cadencia-sub">quem já comprou e está atrasado pelo próprio ritmo</span></div>
       <div id="ins-cadencia-corpo"><div class="load"><div class="spin"></div> Carregando…</div></div>
     </div>
 
     <div class="card" id="ins-estagio-card">
-      <div class="ct">📶 Em que fase está
+      <div class="ct"><span class="ct-title"><span class="ct-ico ct-ico-blue">📶</span>Em que fase está</span>
         <span style="font-size:11px;font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0" id="ins-estagio-sub">toque numa faixa para filtrar a fila</span>
       </div>
       <div id="ins-estagio-barra" class="fase-barra"></div>
@@ -1004,7 +1004,7 @@
     <!-- ── Resultado financeiro ── -->
     <div class="fin-card">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
-        <div class="ct" style="margin:0">💰 Resultado Financeiro</div>
+        <div class="ct" style="margin:0"><span class="ct-title"><span class="ct-ico ct-ico-green">💰</span>Resultado Financeiro</span></div>
         <select id="fin-periodo" onchange="renderRelatorioFinanceiro()" style="padding:7px 12px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Inter',sans-serif;outline:none;cursor:pointer">
           <option value="6m">Últimos 6 meses</option>
           <option value="12m">Últimos 12 meses</option>
@@ -1028,12 +1028,12 @@
          Itapema revela problema de processo mais rápido que qualquer média. -->
     <!-- Camada trimestral: ABC de cliente, LTV e recompra. -->
     <div class="card">
-      <div class="ct">👥 Análise de clientes <span style="font-size:11px;font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0">quem sustenta o faturamento</span></div>
+      <div class="ct"><span class="ct-title"><span class="ct-ico ct-ico-blue">👥</span>Análise de clientes</span> <span style="font-size:11px;font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0">quem sustenta o faturamento</span></div>
       <div id="cli-analise"></div>
     </div>
 
     <div class="card">
-      <div class="ct">📊 DRE por unidade
+      <div class="ct"><span class="ct-title"><span class="ct-ico ct-ico-blue">📊</span>DRE por unidade</span>
         <select id="dre-mes" onchange="renderDRE()" style="margin-left:auto;padding:6px 11px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Inter',sans-serif;outline:none;cursor:pointer"></select>
       </div>
       <div id="dre-corpo"></div>

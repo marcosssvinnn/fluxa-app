@@ -2,6 +2,44 @@
 
 ---
 
+## Hierarquia visual — cards de ação vs. informativo (13/08)
+
+Segunda parte do pedido do Marcos sobre a interface ficar "um pouco
+arcaica": antes TODO card do Insights (KPI, ação, análise, DRE) tinha o
+mesmo branco liso, mesma sombra, mesmo cabeçalho em caixa alta laranja —
+zero pista visual de prioridade. Ele citou a hierarquia do Insights como
+exemplo concreto.
+
+**Duas peças novas em `styles.css`, reaproveitadas em vários lugares:**
+- `.card-action` — borda superior de 3px na cor de marca (`--c1`, que é
+  branded via JS por empresa — no teste local do Forthemp saiu azul, não
+  laranja, e está certo, é o próprio sistema de white-label já existente)
+  + wash tonal (`--c1-light`) que desvanece pro branco nos primeiros
+  ~110px. Aplicado só nos 3 cards que pedem ação HOJE: "Precisa de você
+  hoje", "Fila de follow-up", "Cadência de recompra". Os informativos
+  ("Em que fase está", "Resultado Financeiro", "Análise de clientes",
+  "DRE por unidade") continuam brancos lisos — o contraste é a hierarquia.
+- `.ct-ico` / `.icon-badge` — badge circular colorido em vez de emoji
+  solto no meio do texto. `.ct-ico` nos títulos de seção (`.ct`,
+  `index.html`); `.icon-badge` nas linhas de lista dinâmica
+  (`_itensPainelHoje` em `renderPainelHoje()` e o painel de notificações
+  em `renderNotificacoes()`, `app.js`) — cor do badge = `_corParaBadge()`
+  mapeando a mesma `cor` que cada item já carregava (antes usada só numa
+  barrinha lateral de 4px, que foi removida por redundante depois do
+  badge assumir o sinal de cor).
+
+**Não mexi** nos `.dc` (cards de KPI — já tinham diferenciação via borda
+superior colorida, essa camada já existia) nem nos `.crm-card` (itens da
+fila/cadência — ícone fica dentro do texto do motivo, reestruturar isso é
+escopo maior, ficou de fora de propósito).
+
+Testado no browser local (`dbOk=false`, mesma sessão simulada via
+`sessionStorage`) em desktop e mobile (375px): contraste de ação vs.
+informativo visível de cara, sem overflow, sem regressão nos KPIs/DRE/
+tabela financeira. `sw.js` v115→v116.
+
+---
+
 ## Central de notificações — sino no cabeçalho (13/08)
 
 Pedido direto do Marcos: "criar um tópico de notificações, que vai

@@ -4501,6 +4501,16 @@ function _crmRenderEstagio(s){
     ? 'filtrando a fila — toque de novo para limpar'
     : 'toque numa faixa para filtrar a fila';
 }
+// Mapeia a cor (CSS var) já atribuída a cada item pra uma classe de badge —
+// reaproveitada no painel "hoje" e no painel de notificações (2026-08-13,
+// hierarquia visual): antes o emoji ficava solto no meio da linha, sem o
+// mesmo peso do texto ao lado; agora entra num círculo tonal na cor do item.
+function _corParaBadge(cor){
+  if(cor==='var(--red)') return 'icon-badge-red';
+  if(cor==='var(--yellow)') return 'icon-badge-yellow';
+  if(cor==='var(--c1)') return 'icon-badge-c1';
+  return 'icon-badge-gray';
+}
 // ── Diário do gestor (fase 6) ────────────────────────────────────────
 // O painel vem por último de propósito: agora existe dado real por trás de cada
 // número. Este bloco é a camada DIÁRIA — só o que precisa de ação hoje, com o
@@ -4579,8 +4589,7 @@ function renderPainelHoje(){
   card.style.display='';
   el.innerHTML=itens.map(i=>`
     <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--gray-light);flex-wrap:wrap">
-      <div style="width:4px;align-self:stretch;border-radius:2px;background:${i.cor};min-height:32px"></div>
-      <span style="font-size:18px">${i.icone}</span>
+      <div class="icon-badge ${_corParaBadge(i.cor)}">${i.icone}</div>
       <div style="flex:1;min-width:150px">
         <div style="font-size:13px;font-weight:700;color:var(--c2)">${i.titulo}</div>
         <div style="font-size:11.5px;color:var(--gray)">${i.sub}</div>
@@ -4716,7 +4725,7 @@ function renderNotificacoes(){
     const h=_notifHistLer();
     corpo.innerHTML = h.length ? h.map(x=>`
       <div class="notif-item">
-        <span style="font-size:16px">🕓</span>
+        <div class="icon-badge icon-badge-gray">🕓</div>
         <div style="flex:1;min-width:0">
           <div class="notif-item-tit">${esc(x.titulo)}</div>
           <div class="notif-item-sub">${_notifQuando(x.em)}</div>
@@ -4726,8 +4735,7 @@ function renderNotificacoes(){
   }
   corpo.innerHTML = notifs.length ? notifs.map(n=>`
     <div class="notif-item">
-      <div class="notif-item-barra" style="background:${n.cor}"></div>
-      <span style="font-size:16px">${n.icone}</span>
+      <div class="icon-badge ${_corParaBadge(n.cor)}">${n.icone}</div>
       <div style="flex:1;min-width:0">
         <div class="notif-item-tit">${esc(n.titulo)}</div>
         <div class="notif-item-sub">${esc(n.sub||'')}</div>
