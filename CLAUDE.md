@@ -2,6 +2,26 @@
 
 ---
 
+## Insights reordenado de novo — "Em que fase está" é o mais no topo (13/08, correção)
+
+Marcos corrigiu a reordenação anterior por áudio: não era Cadência de
+recompra que ele mais queria em cima, era **"Em que fase está"** ("a fila
+de conversões" — a barra de estágio do funil). Movida pra primeiro card
+depois dos KPIs, na frente de Cadência/Chegando aí. Ordem final:
+KPIs → Em que fase está → Cadência de recompra → Chegando aí → Análise
+de clientes → Precisa de você hoje → Fila de follow-up → Resultado
+Financeiro → DRE. Testado no browser (`dbOk=false`, seed de orçamentos
+pipeline pra popular a barra): renderiza primeiro, sem erro. `sw.js`
+v118→v119.
+
+**Padrão pra próxima sessão:** posição de card no Insights é
+literalmente o que o Marcos falar por último — não travar numa
+justificativa própria (a nota anterior, de UMA hora atrás, já tinha
+"corrigido" a mesma seção uma vez). Se ele pedir de novo, mover de novo,
+sem resistência.
+
+---
+
 ## Reordenação do Insights + rótulo "Venda Rápida" (13/08, feedback de voz direto)
 
 Duas mudanças pontuais de UX pedidas pelo Marcos, por áudio, depois de ver

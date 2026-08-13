@@ -944,17 +944,26 @@
       <div class="dc g"><div class="dl">Fechado no mês</div><div class="dv" id="ins-d-tick">—</div><div class="ds" id="ins-d-tick-q">—</div></div>
     </div>
 
-    <!-- Ordem revista a pedido direto do Marcos (13/08, feedback de voz):
-         cadência/estágio/análise de cliente são o que ele quer ver de cara —
-         "uma das que mais precisa aparecer lá no topo" — e "precisa de você
-         hoje"/"fila de follow-up" ele achou que deveriam ceder o topo pra
-         isso. Faz sentido além do pedido em si: as duas já ficam visíveis em
-         QUALQUER tela via o sino de notificações (que agrega ambas), então
-         não perdem alcance por sair do topo do Insights — só deixam de
-         disputar espaço com o que ele quer ver primeiro aqui. (Supera a nota
-         de 2026-08-13 mais antiga que dizia o contrário — aquela era uma
-         inferência minha a partir da adoção zerada da fila; esta é instrução
-         direta e mais recente.) -->
+    <!-- Ordem revista a pedido direto do Marcos (13/08, feedback de voz,
+         2 rodadas): a barra de estágio ("em que fase está" — a fila de
+         conversão do funil) é a que ele mais quer ver primeiro, na frente
+         de tudo mais desta seção. Cadência/análise de cliente vêm logo
+         depois; "precisa de você hoje"/"fila de follow-up" cedem o topo —
+         as duas já ficam visíveis em qualquer tela via o sino de
+         notificações, então não perdem alcance por sair do topo do
+         Insights. (Supera a nota de 2026-08-13 mais antiga que botava
+         Cadência primeiro — aquela já era a correção de uma inferência
+         minha; esta é o Marcos pedindo de novo, com mais precisão.) -->
+
+    <!-- Barra de estágio: responde "em que fase está" sem schema novo, derivando
+         da idade do orçamento. Clicar numa faixa filtra a fila abaixo. -->
+    <div class="card" id="ins-estagio-card">
+      <div class="ct"><span class="ct-title"><span class="ct-ico ct-ico-blue">📶</span>Em que fase está</span>
+        <span style="font-size:11px;font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0" id="ins-estagio-sub">toque numa faixa para filtrar a fila</span>
+      </div>
+      <div id="ins-estagio-barra" class="fase-barra"></div>
+      <div id="ins-estagio-leg" class="fase-leg"></div>
+    </div>
 
     <!-- Cadência de recompra — Etapa 4 do roadmap de CRM. Só intervalo
          OBSERVADO (cliente com 2+ compras reais e cliente_id ligado). Some
@@ -971,16 +980,6 @@
     <div class="card" id="ins-proximos-card" style="display:none">
       <div class="ct"><span class="ct-title"><span class="ct-ico ct-ico-gray">📅</span>Chegando aí</span> <span style="font-size:11px;font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0">quem vai precisar de reposição em breve, pelo próprio ritmo</span></div>
       <div id="ins-proximos-corpo"></div>
-    </div>
-
-    <!-- Barra de estágio: responde "em que fase está" sem schema novo, derivando
-         da idade do orçamento. Clicar numa faixa filtra a fila abaixo. -->
-    <div class="card" id="ins-estagio-card">
-      <div class="ct"><span class="ct-title"><span class="ct-ico ct-ico-blue">📶</span>Em que fase está</span>
-        <span style="font-size:11px;font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0" id="ins-estagio-sub">toque numa faixa para filtrar a fila</span>
-      </div>
-      <div id="ins-estagio-barra" class="fase-barra"></div>
-      <div id="ins-estagio-leg" class="fase-leg"></div>
     </div>
 
     <!-- Camada trimestral: ABC de cliente, LTV e recompra. -->
