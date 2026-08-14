@@ -309,6 +309,13 @@
     .ins-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:16px}
     @media(max-width:900px){ .ins-kpis{grid-template-columns:repeat(2,1fr)} }
 
+    /* Variante de 3 colunas (Despesas, Fase 8c) — classe própria em vez de
+       inline: inline sempre vence a media query acima, então sobrescrever
+       grid-template-columns direto no elemento quebraria o colapso mobile
+       (mesmo bug já documentado nas Fases 6/7). */
+    .ins-kpis-3{grid-template-columns:repeat(3,1fr)}
+    @media(max-width:640px){ .ins-kpis-3{grid-template-columns:1fr} }
+
     .ins-body{display:grid;grid-template-columns:1.55fr 1fr;gap:16px;align-items:start}
     @media(max-width:1180px){ .ins-body{grid-template-columns:1fr} .ins-col-direita{order:-1} }
     .ins-col-direita{display:flex;flex-direction:column;gap:16px;min-width:0}

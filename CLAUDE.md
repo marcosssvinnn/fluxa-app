@@ -523,9 +523,84 @@ Responsivo: 1440px (grid 1fr 340px) → 375px (empilha, sem overflow de
 página, `docWidth===winWidth===375` confirmado). Zero erro novo de
 console. `sw.js` v132→v133.
 
+### Próximo passo (histórico — Fase 8c já feita, ver entrada abaixo)
+
+---
+
+## REDESIGN — Fase 8c: Despesas (KPIs fixa/variável + tabela densa) — 13/08
+
+Mapeamento: `page-despesas`/`renderDespesas()`. Handoff pede 3 KPIs (mês/
+fixa/variável), tabela densa de lançamentos e coluna direita (por
+categoria, sem comprovante, resultado do mês).
+
+**Achado antes de codar — o dado não distinguia fixa/variável.** O
+formulário só captura `centro_custo` (fixo/variável/administrativo/
+campo) pra despesa "da empresa"; despesa "de campo" (a maioria, técnico
+gastando) nunca teve essa classificação. Decisão: `_despFixaOuVariavel(tipo)`
+classifica por TIPO da despesa, não por natureza — mapa fixo de 7 tipos
+que não mudam com o volume de venda (Aluguel, Salário, Energia,
+Internet, Software, Contador, Imposto) contra os demais (Combustível,
+Material, Alimentação, Manutenção de veículo, Marketing, Outro) como
+variável. "Outro" caiu em variável por ser o lado menos previsível —
+registrado aqui porque é uma classificação NOVA em cima de dado que já
+existia, não um campo que o formulário já perguntava.
+
+**O que mudou:**
+- **3 KPIs** (`_renderDespKPIsNovo`): Despesa do mês (card escuro, com
+  "% da receita aprovada" — nova função `_despReceitaAprovadaMes()`,
+  soma de `todosOrc` aprovados no mês por `data_aprovacao`, mesma lógica
+  usada em Resultado), Fixa, Variável.
+- **Tabela densa** `.rd-table-*`: Data/Descrição/Categoria/Vínculo/Valor/
+  Comprovante. "Vínculo" é sempre `OS #N` (quando `os_numero` existe) ou
+  "—" — o handoff também mostra "Estoque" como vínculo, mas despesa não
+  liga a movimento de estoque no schema atual, não fabriquei essa
+  distinção. Ações (reembolsar/ver foto/excluir) continuam as mesmas
+  funções de sempre, só mudaram de aparência (botões pequenos na célula
+  de Comprovante em vez de coluna própria).
+- **"Por categoria"** (`_renderDespCategoria`) — mesmo cálculo que já
+  existia (`desp-cat-card`), só moveu pra coluna direita e trocou ícone
+  fixo por barra proporcional, igual ao handoff.
+- **"N sem comprovante"** (`_renderDespSemComprovante`, nova) — conta e
+  soma despesas do mês sem `foto_base64`. O handoff diz "o fechamento do
+  mês fica bloqueado até resolver" — **não existe essa trava no app**
+  (não há "fechar o mês"), reescrevi o texto sem essa frase pra não
+  prometer um bloqueio que não acontece. Botão rola até a tabela (não
+  filtra — filtrar exigiria um 3º dropdown novo, fora do escopo).
+- **"Resultado do mês"** (`_renderDespResultado`) — Receita aprovada
+  (mesma `_despReceitaAprovadaMes()`) − Despesas = Resultado, cores
+  ok/bad conforme sinal.
+- **`_despExportarCSV()`** (nova) — mesmo padrão de `_orcExportarCSV`
+  (Fase 5), exporta só os campos que já existem, nenhum dado novo.
+- CSS: `.ins-kpis-3` nova (`styles.css`) — variante de 3 colunas do
+  `.ins-kpis` que Insights/Estoque já usavam (4 colunas); classe própria
+  em vez de `style=` inline pelo mesmo motivo já documentado nas Fases
+  6/7 (inline sempre vence media query, quebraria o colapso mobile).
+
+**Bug pego em teste, corrigido antes do commit:** as linhas da tabela
+(`.rd-row`) saíram sem `style="grid-template-columns:${grid}"` — só o
+cabeçalho (`.rd-thead`) tinha. Sem isso `.rd-row` (que não define
+`grid-template-columns` na base, cada tela injeta via inline) colapsava
+pra 1 coluna só, empilhando as 6 células verticalmente em vez de lado a
+lado. Pego comparando `getComputedStyle` do thead com o do row antes de
+assumir que "renderizou parecido" bastava — none dos outros redesigns
+(Orçamentos/OS/Estoque/Recebíveis) tinha esse bug porque todos já
+passavam o `style=` linha a linha; este foi o único onde esqueci.
+
+Testado no browser local (`dbOk=false`, 6 despesas sintéticas cobrindo
+fixa/variável/campo/empresa/com e sem comprovante/vinculada a OS, 2
+orçamentos aprovados no mês pra "Receita aprovada"): KPIs batendo
+(28.020 total = 16.800 fixa + 11.220 variável, 45% da receita de
+62.400), tabela com 6 colunas alinhadas, "Por categoria" ranqueado
+certo, "2 sem comprovante · R$3.740" batendo com as 2 despesas sem
+foto, "Resultado" 34.380 verde. Ação real testada: `reembolsarDesp` muda
+o status de verdade (não só chamada isolada). Responsivo: 1440px (3
+KPIs lado a lado + coluna direita), 375px (`.ins-kpis-3` empilha em 1
+coluna abaixo de 640px, `docWidth===winWidth===375` sem overflow de
+página). Zero erro novo de console. `sw.js` v133→v134.
+
 ### Próximo passo
 
-Faltam 3 telas do turno 3: Despesas, Clientes, Portal do Cliente.
+Faltam 2 telas do turno 3: Clientes, Portal do Cliente.
 
 ---
 

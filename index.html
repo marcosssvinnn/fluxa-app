@@ -2103,33 +2103,52 @@
 
     <div id="desp-recorrentes-aviso" style="display:none"></div>
 
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
-      <div style="font-size:18px;font-weight:800;color:var(--c2)">💸 Despesas</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <select id="desp-filtro-tec" onchange="renderDespesas()" style="padding:7px 12px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Instrument Sans',sans-serif;outline:none">
+    <!-- Fase 8c do redesign (13/08) — topbar título+resumo, 3 KPIs (mês/
+         fixa/variável — classificação por tipo, ver _despFixaOuVariavel em
+         app.js), tabela densa de lançamentos + coluna direita (por
+         categoria, sem comprovante, resultado do mês). Filtros de técnico/
+         status que já existiam viraram secundários na topbar. -->
+    <div class="novo-orc-topbar">
+      <div>
+        <div class="novo-orc-titulo">Despesas</div>
+        <div class="novo-orc-sub" id="desp-resumo-sub">—</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <select id="desp-filtro-tec" onchange="renderDespesas()" style="padding:8px 12px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Instrument Sans',sans-serif;outline:none;background:white;cursor:pointer;color:var(--c2)">
           <option value="">Todos os técnicos</option>
         </select>
-        <select id="desp-filtro-st" onchange="renderDespesas()" style="padding:7px 12px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Instrument Sans',sans-serif;outline:none">
+        <select id="desp-filtro-st" onchange="renderDespesas()" style="padding:8px 12px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Instrument Sans',sans-serif;outline:none;background:white;cursor:pointer;color:var(--c2)">
           <option value="">Todos os status</option>
           <option value="pendente">⏳ Pendente</option>
           <option value="reembolsado">✅ Reembolsado</option>
         </select>
-        <button class="btn-primary" style="padding:8px 16px;font-size:13px" onclick="abrirFormDesp()">＋ Despesa</button>
+        <button type="button" class="rd-btn rd-btn-primary" onclick="abrirFormDesp()">+ Nova despesa</button>
       </div>
     </div>
 
-    <div class="desp-dash">
-      <div class="dc y"><div class="dl">Total Pendente</div><div class="dv" id="desp-d-pend">—</div><div class="ds" id="desp-d-pend-q">— itens</div></div>
-      <div class="dc g"><div class="dl">Reembolsado</div><div class="dv" id="desp-d-reimb">—</div><div class="ds" id="desp-d-reimb-q">— itens</div></div>
-      <div class="dc o"><div class="dl">Total Geral</div><div class="dv" id="desp-d-total">—</div><div class="ds">este mês</div></div>
-    </div>
+    <div class="novo-orc-body novo-orc-body-340">
+    <div class="novo-orc-left">
+      <div class="ins-kpis ins-kpis-3" id="desp-kpis-novo"></div>
 
-    <div class="card" id="desp-cat-card" style="display:none">
-      <div class="ct">📊 Onde vai o dinheiro (este mês)</div>
-      <div id="desp-cat-body"></div>
-    </div>
+      <div class="rd-card" style="padding:0;overflow:hidden;display:flex;flex-direction:column">
+        <div style="padding:16px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+          <div class="rd-card-title">Lançamentos</div>
+          <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="_despExportarCSV()">Exportar para o contador</button>
+        </div>
+        <div id="desp-lista"></div>
+        <div id="desp-rodape"></div>
+      </div>
+    </div><!-- /novo-orc-left -->
 
-    <div id="desp-lista"></div>
+    <div class="novo-orc-right" style="background:none;border:none;padding:0">
+      <div class="rd-card" id="desp-cat-card" style="display:none">
+        <div class="rd-card-title" style="margin-bottom:12px">Por categoria</div>
+        <div id="desp-cat-body"></div>
+      </div>
+      <div class="rd-card rd-card-warn" id="desp-sem-comprovante" style="display:none"></div>
+      <div class="rd-card" id="desp-resultado"></div>
+    </div>
+    </div><!-- /novo-orc-body -->
   </div>
 </div>
 

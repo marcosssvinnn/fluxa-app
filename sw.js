@@ -1,6 +1,6 @@
 // Altere este número a cada novo deploy para forçar atualização em todos os dispositivos
 // (não é mais obrigatório: o index.html detecta novas versões sozinho via ETag/Last-Modified)
-const CACHE = 'fluxa-v133';
+const CACHE = 'fluxa-v134';
 
 const URLS = [
   'libs/supabase.min.js',

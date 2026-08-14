@@ -8650,6 +8650,115 @@ async function loadDespesas(){
   }
 }
 
+// Fase 8c do redesign (13/08) — o handoff pede "Fixa"/"Variável" como 2 dos
+// 3 KPIs, mas o app só classifica centro_custo pra despesa "da empresa"; a
+// maioria das despesas são "de campo" (técnico) e nunca tiveram essa
+// classificação. Mapeamento por TIPO (não por natureza) pra cobrir as duas:
+// fixa = não muda com o volume de venda; variável = acompanha a operação.
+// "Outro" cai em variável por ser o lado menos previsível — decisão
+// registrada no CLAUDE.md, não é dado que o formulário já capturava.
+const _DESP_TIPOS_FIXOS=new Set(['Aluguel','Salário / pró-labore','Energia / água','Internet / telefone','Software / sistema','Contador','Imposto / taxa']);
+function _despFixaOuVariavel(tipo){ return _DESP_TIPOS_FIXOS.has(tipo) ? 'fixa' : 'variavel'; }
+const _DESP_CAT_ICONS={Combustível:'⛽',Pedágio:'🛣️',Material:'🔩',Alimentação:'🍽️',Outro:'📎'};
+
+function _despExportarCSV(){
+  const filtTec=gV('desp-filtro-tec'), filtSt=gV('desp-filtro-st');
+  let lista=filtrarPorLoja([...todasDesp]);
+  if(filtTec) lista=lista.filter(d=>d.tecnico===filtTec);
+  if(filtSt) lista=lista.filter(d=>d.status===filtSt);
+  const linhas=[['Data','Descrição','Tipo','OS','Valor','Status']];
+  lista.forEach(d=>linhas.push([
+    d.data||'', d.descricao||'', d.tipo||'', d.os_numero?String(d.os_numero):'',
+    String(d.valor||0).replace('.',','), d.categoria==='empresa'?'empresa':(d.status||'pendente')
+  ]));
+  const csv=linhas.map(l=>l.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(';')).join('\r\n');
+  const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob); a.download='despesas_'+_hojeISO()+'.csv'; a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function _renderDespKPIsNovo(doMes){
+  const el=document.getElementById('desp-kpis-novo'); if(!el) return;
+  const total=doMes.reduce((a,d)=>a+(d.valor||0),0);
+  const fixa=doMes.filter(d=>_despFixaOuVariavel(d.tipo)==='fixa').reduce((a,d)=>a+(d.valor||0),0);
+  const variavel=total-fixa;
+  // Comparação com receita aprovada do mês (mesma base do card "Resultado").
+  const receitaMes=_despReceitaAprovadaMes();
+  el.innerHTML=`
+    <div class="rd-card rd-card-dense rd-card-dark">
+      <div class="rd-kpi-lbl">Despesa do mês</div>
+      <div class="rd-kpi-num">${brl(total)}</div>
+      <div class="rd-kpi-apoio">${receitaMes>0?Math.round(total/receitaMes*100)+'% da receita aprovada':'—'}</div>
+    </div>
+    <div class="rd-card rd-card-dense">
+      <div class="rd-kpi-lbl">Fixa</div>
+      <div class="rd-kpi-num">${brl(fixa)}</div>
+      <div class="rd-kpi-apoio">folha, aluguel, contador…</div>
+    </div>
+    <div class="rd-card rd-card-dense">
+      <div class="rd-kpi-lbl">Variável</div>
+      <div class="rd-kpi-num">${brl(variavel)}</div>
+      <div class="rd-kpi-apoio">campo, material, veículos…</div>
+    </div>`;
+}
+
+function _despReceitaAprovadaMes(){
+  const agora=new Date(), mesAtual=agora.getMonth(), anoAtual=agora.getFullYear();
+  return filtrarPorLoja(todosOrc||[]).filter(o=>{
+    if(o.status!=='aprovado'||!o.data_aprovacao) return false;
+    const dd=new Date(o.data_aprovacao);
+    return dd.getMonth()===mesAtual&&dd.getFullYear()===anoAtual;
+  }).reduce((a,o)=>a+(parseFloat(o.total)||0),0);
+}
+
+function _renderDespCategoria(doMes){
+  const catCard=document.getElementById('desp-cat-card'), catBody=document.getElementById('desp-cat-body');
+  if(!catCard||!catBody) return;
+  const porCat={}; doMes.forEach(d=>{ const k=d.tipo||'Outro'; porCat[k]=(porCat[k]||0)+(d.valor||0); });
+  const totMes=doMes.reduce((a,d)=>a+(d.valor||0),0);
+  const rank=Object.entries(porCat).sort((a,b)=>b[1]-a[1]);
+  if(!rank.length||totMes<=0){ catCard.style.display='none'; return; }
+  catCard.style.display='';
+  const max=rank[0][1]||1;
+  catBody.innerHTML=`<div style="display:flex;flex-direction:column;gap:9px">${rank.map(([cat,v])=>`
+    <div style="display:flex;align-items:center;gap:10px">
+      <span style="font-size:12px;color:var(--tx2);width:84px;flex-shrink:0">${esc(cat)}</span>
+      <div style="flex:1;height:8px;border-radius:4px;background:var(--line2,#EDF1F7)"><div style="width:${Math.round(v/max*100)}%;height:100%;border-radius:4px;background:var(--c1)"></div></div>
+      <span style="font-size:12px;font-weight:600;color:var(--c2);font-variant-numeric:tabular-nums;width:70px;text-align:right">${brl(v).replace('R$','').trim()}</span>
+    </div>`).join('')}</div>`;
+}
+
+function _renderDespSemComprovante(doMes){
+  const el=document.getElementById('desp-sem-comprovante'); if(!el) return;
+  const semFoto=doMes.filter(d=>!d.foto_base64);
+  if(!semFoto.length){ el.style.display='none'; return; }
+  el.style.display='';
+  const soma=semFoto.reduce((a,d)=>a+(d.valor||0),0);
+  el.innerHTML=`
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:11px">
+      <span style="font-size:16px">🧾</span>
+      <span class="rd-card-title" style="margin:0">${semFoto.length} sem comprovante</span>
+    </div>
+    <div style="font-size:12px;color:var(--tx2);line-height:1.45;margin-bottom:11px">${brl(soma)} lançados este mês sem comprovante anexado.</div>
+    <button type="button" class="rd-btn rd-btn-primary" style="width:100%" onclick="document.getElementById('desp-lista').scrollIntoView({behavior:'smooth',block:'start'})">Ver lançamentos</button>`;
+}
+
+function _renderDespResultado(doMes){
+  const el=document.getElementById('desp-resultado'); if(!el) return;
+  const despMes=doMes.reduce((a,d)=>a+(d.valor||0),0);
+  const receitaMes=_despReceitaAprovadaMes();
+  const resultado=receitaMes-despMes;
+  const nomeMes=new Date().toLocaleDateString('pt-BR',{month:'long'});
+  el.innerHTML=`
+    <div class="rd-card-title" style="margin-bottom:11px">Resultado de ${esc(nomeMes)}</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--tx2)"><span>Receita aprovada</span><span style="font-size:13px;font-weight:600;color:var(--c2);font-variant-numeric:tabular-nums">${brl(receitaMes).replace('R$','').trim()}</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--tx2)"><span>Despesas</span><span style="font-size:13px;font-weight:600;color:var(--bad);font-variant-numeric:tabular-nums">− ${brl(despMes).replace('R$','').trim()}</span></div>
+      <div style="display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid var(--line);padding-top:8px"><span style="font-size:13px;font-weight:600;color:var(--c2)">Resultado</span><span style="font-size:20px;font-weight:600;color:${resultado>=0?'var(--ok)':'var(--bad)'};font-variant-numeric:tabular-nums">${brl(resultado)}</span></div>
+    </div>`;
+}
+
 function renderDespesas(){
   const filtTec=gV('desp-filtro-tec'), filtSt=gV('desp-filtro-st');
   let lista=[...todasDesp];
@@ -8658,59 +8767,59 @@ function renderDespesas(){
   if(filtSt) lista=lista.filter(d=>d.status===filtSt);
   const agora=new Date(), mesAtual=agora.getMonth(), anoAtual=agora.getFullYear();
   const doMes=filtrarPorLoja(todasDesp).filter(d=>{ if(!d.data) return false; const dd=new Date(d.data+'T12:00:00'); return dd.getMonth()===mesAtual&&dd.getFullYear()===anoAtual; });
-  const pend=doMes.filter(d=>d.status==='pendente');
-  const reimb=doMes.filter(d=>d.status==='reembolsado');
-  setV_el('desp-d-pend',brl(pend.reduce((a,d)=>a+(d.valor||0),0)),'textContent');
-  setV_el('desp-d-pend-q',pend.length+' item'+(pend.length!==1?'s':''),'textContent');
-  setV_el('desp-d-reimb',brl(reimb.reduce((a,d)=>a+(d.valor||0),0)),'textContent');
-  setV_el('desp-d-reimb-q',reimb.length+' item'+(reimb.length!==1?'s':''),'textContent');
-  setV_el('desp-d-total',brl(doMes.reduce((a,d)=>a+(d.valor||0),0)),'textContent');
-  // Breakdown por categoria (onde vai o dinheiro)
-  const catCard=document.getElementById('desp-cat-card'), catBody=document.getElementById('desp-cat-body');
-  if(catCard&&catBody){
-    const porCat={}; doMes.forEach(d=>{ const k=d.tipo||'Outro'; porCat[k]=(porCat[k]||0)+(d.valor||0); });
-    const totMes=doMes.reduce((a,d)=>a+(d.valor||0),0);
-    const rank=Object.entries(porCat).sort((a,b)=>b[1]-a[1]);
-    if(!rank.length||totMes<=0){ catCard.style.display='none'; }
-    else {
-      catCard.style.display='';
-      const max=rank[0][1]||1;
-      const catIcons={Combustível:'⛽',Pedágio:'🛣️',Material:'🔩',Alimentação:'🍽️',Outro:'📎'};
-      catBody.innerHTML=rank.map(([cat,v])=>`<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--gray-light)">
-        <div style="font-size:16px;width:24px;text-align:center">${catIcons[cat]||'📎'}</div>
-        <div style="flex:1;min-width:0">
-          <div style="display:flex;justify-content:space-between;font-size:12.5px;font-weight:600;color:var(--c2);margin-bottom:3px"><span>${esc(cat)}</span><span>${brl(v)} <span style="color:var(--gray);font-weight:400">(${Math.round(v/totMes*100)}%)</span></span></div>
-          <div style="height:6px;background:var(--gray-light);border-radius:50px;overflow:hidden"><div style="height:100%;background:var(--c1);border-radius:50px;width:${Math.round(v/max*100)}%"></div></div>
-        </div>
-      </div>`).join('');
-    }
+
+  const subEl=document.getElementById('desp-resumo-sub');
+  if(subEl){
+    const nomeMes=agora.toLocaleDateString('pt-BR',{month:'long'});
+    subEl.textContent=`${nomeMes.charAt(0).toUpperCase()+nomeMes.slice(1)} · ${brl(doMes.reduce((a,d)=>a+(d.valor||0),0))} lançados`;
   }
+
+  _renderDespKPIsNovo(doMes);
+  _renderDespCategoria(doMes);
+  _renderDespSemComprovante(doMes);
+  _renderDespResultado(doMes);
+
   const el=document.getElementById('desp-lista');
-  if(!lista.length){ el.innerHTML='<div class="empty-st"><div class="ei">💸</div><p>Nenhuma despesa registrada.</p><button class="btn-primary" style="margin-top:12px" onclick="abrirFormDesp()">＋ Registrar despesa</button></div>'; return; }
-  const icons={Combustível:'⛽',Pedágio:'🛣️',Material:'🔩',Alimentação:'🍽️',Outro:'📎'};
-  el.innerHTML=lista.map(d=>`
-    <div class="desp-card ${d.status||'pendente'}">
-      <div class="desp-icon">${icons[d.tipo]||'📎'}</div>
-      <div class="desp-info">
-        <div class="desp-tipo">${esc(d.tipo||'')}${d.os_numero?' · OS #'+String(d.os_numero).padStart(3,'0'):''}</div>
-        <div class="desp-desc">${esc(d.descricao||'—')}</div>
-        <div class="desp-meta">${d.categoria==='empresa'
-          ? '🏢 '+esc({fixo:'Fixo',variavel:'Variável',administrativo:'Administrativo',campo:'Campo'}[d.centro_custo]||d.centro_custo||'—')
-            + (d.competencia?' · 🗓 comp. '+esc(d.competencia):'')
-            + (d.recorrente?' · ↻ mensal':'')
-          : '👤 '+esc(d.tecnico||'—')+' · 📅 '+(d.data?new Date(d.data+'T12:00:00').toLocaleDateString('pt-BR'):'—')}</div>
-      </div>
-      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0">
-        <div class="desp-valor">${brl(d.valor||0)}</div>
-        <span class="desp-st ${d.status||'pendente'}">${d.categoria==='empresa'?'🏢 Empresa':(d.status==='reembolsado'?'✅ Reembolsado':'⏳ Pendente')}</span>
+  const rodapeEl=document.getElementById('desp-rodape');
+  if(!lista.length){
+    el.innerHTML=`<div class="rd-empty" style="padding:24px"><div class="rd-empty-ico">💸</div><div class="rd-empty-title">Nenhuma despesa registrada.</div><button type="button" class="rd-btn rd-btn-primary" style="margin-top:6px" onclick="abrirFormDesp()">+ Registrar despesa</button></div>`;
+    if(rodapeEl) rodapeEl.innerHTML='';
+    return;
+  }
+  const grid='84px 1.5fr 132px 118px 116px 108px';
+  let h=`<div class="rd-table-wrap" style="border:none;border-radius:0">
+    <div style="overflow-x:auto"><div style="min-width:760px">
+    <div class="rd-thead" style="grid-template-columns:${grid}">
+      <div class="rd-th">Data</div><div class="rd-th">Descrição</div>
+      <div class="rd-th">Categoria</div><div class="rd-th">Vínculo</div>
+      <div class="rd-th rd-num">Valor</div><div class="rd-th">Comprovante</div>
+    </div>`;
+  lista.forEach(d=>{
+    const dt=d.data?new Date(d.data+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'}):'—';
+    const vinculo=d.os_numero?'OS #'+String(d.os_numero).padStart(3,'0'):'—';
+    h+=`<div class="rd-row" style="grid-template-columns:${grid}">
+      <div class="rd-cell-sub">${dt}</div>
+      <div><div class="rd-cell-strong">${esc(d.descricao||'—')}</div><div class="rd-cell-sub">${d.categoria==='empresa'?'🏢 '+esc({fixo:'Fixo',variavel:'Variável',administrativo:'Administrativo',campo:'Campo'}[d.centro_custo]||d.centro_custo||'—'):'👤 '+esc(d.tecnico||'—')}</div></div>
+      <div><span class="rd-badge rd-badge-neutral">${esc(d.tipo||'—')}</span></div>
+      <div class="rd-cell-sub">${d.os_numero?'<span style="color:var(--c1)">'+esc(vinculo)+'</span>':'—'}</div>
+      <div class="rd-cell-num rd-cell-strong">${brl(d.valor||0).replace('R$','').trim()}</div>
+      <div style="display:flex;align-items:center;gap:8px;justify-content:space-between">
+        <span class="rd-badge ${d.foto_base64?'rd-badge-ok':'rd-badge-warn'}">${d.foto_base64?'Anexado':'Falta'}</span>
         <div style="display:flex;gap:4px">
-          ${d.status==='pendente'&&d.categoria!=='empresa'?`<button class="tb g" onclick="reembolsarDesp('${d.id}')">✅</button>`:''}
-          ${d.foto_base64?`<button class="tb" onclick="verFotoDesp('${d.id}')">🧾</button>`:''}
-          <button class="tb d" onclick="excluirDesp('${d.id}')">🗑</button>
+          ${d.status==='pendente'&&d.categoria!=='empresa'?`<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Marcar como reembolsado" onclick="reembolsarDesp('${d.id}')">✅</button>`:''}
+          ${d.foto_base64?`<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Ver comprovante" onclick="verFotoDesp('${d.id}')">🧾</button>`:''}
+          <button type="button" class="rd-btn rd-btn-danger-text rd-btn-sm" title="Excluir" onclick="excluirDesp('${d.id}')">🗑</button>
         </div>
       </div>
-    </div>
-  `).join('');
+    </div>`;
+  });
+  h+='</div></div></div>';
+  el.innerHTML=h;
+
+  if(rodapeEl){
+    const soma=lista.reduce((a,d)=>a+(d.valor||0),0);
+    rodapeEl.innerHTML=`<div class="rd-tfoot"><span>${lista.length} lançamento${lista.length!==1?'s':''} · soma ${brl(soma)}</span></div>`;
+  }
 }
 
 function verFotoDesp(id){
