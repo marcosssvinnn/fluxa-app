@@ -5911,6 +5911,7 @@ function gerarOS_deOrc(id){
 function novaOS(){
   osEditId=null; // OS nova
   _osClienteSelecionado=null;
+  const acoesEl=document.getElementById('os-acoes-edit'); if(acoesEl){ acoesEl.style.display='none'; acoesEl.innerHTML=''; }
   checkinAt=null; if(checkinTimer){clearInterval(checkinTimer);checkinTimer=null;}
   const checkinBarEl=document.getElementById('checkin-bar'); if(checkinBarEl) checkinBarEl.style.display='none';
   const checkinFormEl=document.getElementById('checkin-form'); if(checkinFormEl) checkinFormEl.style.display='flex';
@@ -6000,11 +6001,26 @@ async function loadOSHist(){
   }catch(e){ console.warn('loadOSHist erro:',e?.message||e); }
 }
 
-function filtOS(btn){
-  document.querySelectorAll('#page-os-history .fb[data-oss]').forEach(b=>b.classList.remove('on'));
-  btn.classList.add('on'); filtroOSSt=btn.dataset.oss;
-  lsSet('fluxa_filtroOSSt', filtroOSSt);
+// Chips com contagem ao vivo (mesmo padrão de ORC_CHIPS, Fase 5) — "Atrasado"
+// não é status gravado, é agendado com data_servico passada (mesmo cálculo
+// que já colorapria a linha antes da Fase 8).
+const OS_CHIPS=[['todos','Todos'],['agendado','Agendado'],['atrasado','Atrasado'],['concluido','Concluído'],['cancelado','Cancelado']];
+function _osSetFiltro(s){
+  filtroOSSt=s; lsSet('fluxa_filtroOSSt', filtroOSSt);
   renderOSTabela();
+}
+function _osRenderChips(baseSemStatus){
+  const el=document.getElementById('os-chips'); if(!el) return;
+  const _hoje=_hojeLocal();
+  const atrasadas=baseSemStatus.filter(o=>o.status==='agendado'&&o.data_servico&&o.data_servico<_hoje);
+  el.innerHTML=OS_CHIPS.map(([id,rot])=>{
+    const qtd = id==='todos' ? baseSemStatus.length
+      : id==='atrasado' ? atrasadas.length
+      : baseSemStatus.filter(o=>o.status===id).length;
+    const alerta = id==='atrasado' && qtd>0;
+    const cls = filtroOSSt===id ? 'rd-chip on' : (alerta ? 'rd-chip rd-chip-alert' : 'rd-chip');
+    return `<button type="button" class="${cls}" onclick="_osSetFiltro('${id}')">${esc(rot)} ${qtd}</button>`;
+  }).join('');
 }
 function buscarOS(v){ buscaOS=v.toLowerCase(); renderOSTabela(); }
 function filtTecOS(val){ filtroOSTec=val; renderOSTabela(); }
@@ -6041,19 +6057,55 @@ function autoVencerOrc(lista){
   return lista;
 }
 
+function _fmtDuracaoMin(min){
+  const m=parseInt(min)||0; if(m<=0) return '—';
+  if(m<60) return m+'min';
+  return Math.floor(m/60)+'h '+String(m%60).padStart(2,'0');
+}
+// Barra de ações se move pro detalhe (Fase 8, mesmo padrão de #form-acoes-edit):
+// o texto de "Próxima ação" da linha é só leitura — não repete os botões.
+function _osProximaAcao(o, atrasado){
+  if(o.status==='concluido'||o.status==='cancelado') return {txt:'—', urgente:false};
+  if(!( (o.tecnico||'').trim() )) return {txt:'Atribuir técnico', urgente:true};
+  if(atrasado) return {txt:'Atrasado · remarcar', urgente:true};
+  if(o.checkin_time && !o.checkout_time) return {txt:'Fazer check-out', urgente:true};
+  return {txt:'—', urgente:false};
+}
 function renderOSTabela(){
   populaFiltTecOS();
-  let lista=todosOS;
-  lista=filtrarPorLoja(lista);
-  if(filtroOSSt!=='todos') lista=lista.filter(o=>o.status===filtroOSSt);
-  if(filtroOSTec) lista=lista.filter(o=>(o.tecnico||'')===filtroOSTec);
-  if(buscaOS) lista=lista.filter(o=>
+  // Base sem o filtro de status, pra contar cada chip corretamente (mesmo
+  // padrão de _orcRenderChips/renderTabela, Fase 5).
+  let baseSemStatus=filtrarPorLoja(todosOS||[]);
+  if(filtroOSTec) baseSemStatus=baseSemStatus.filter(o=>(o.tecnico||'')===filtroOSTec);
+  if(buscaOS) baseSemStatus=baseSemStatus.filter(o=>
     (o.cliente||'').toLowerCase().includes(buscaOS)||
     String(o.numero||'').includes(buscaOS.replace('#',''))
   );
-  if(!lista.length){ document.getElementById('osh-body').innerHTML=`<div class="empty-st"><div class="ei">📋</div><p>Nenhuma OS encontrada.</p><button class="btn-primary" style="margin-top:12px" onclick="novaOS();go('os')">＋ Nova OS</button></div>`; return; }
-  // Ordena: pendentes/atrasadas por data crescente primeiro; concluídas/canceladas no final
+  _osRenderChips(baseSemStatus);
+  _renderOSKPIsNovo(baseSemStatus);
+  _renderCargaTecnico(baseSemStatus);
+
   const _hoje=_hojeLocal();
+  let lista=baseSemStatus;
+  if(filtroOSSt==='atrasado') lista=lista.filter(o=>o.status==='agendado'&&o.data_servico&&o.data_servico<_hoje);
+  else if(filtroOSSt!=='todos') lista=lista.filter(o=>o.status===filtroOSSt);
+
+  const subEl=document.getElementById('os-resumo-sub');
+  if(subEl){
+    const hojeStr=new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'long'});
+    const agendadasHoje=baseSemStatus.filter(o=>o.status==='agendado'&&o.data_servico===_hoje).length;
+    const semTec=baseSemStatus.filter(o=>o.status==='agendado'&&!( (o.tecnico||'').trim() )).length;
+    subEl.textContent=`${hojeStr} · ${agendadasHoje} agendada${agendadasHoje!==1?'s':''} hoje${semTec?' · '+semTec+' sem técnico':''}`;
+  }
+
+  const rodapeEl=document.getElementById('os-lista-rodape');
+  if(!lista.length){
+    const msgBusca=buscaOS?`Nenhum resultado para "<strong>${esc(buscaOS)}</strong>"`:'Nenhuma OS nesta situação.';
+    document.getElementById('osh-body').innerHTML=`<div class="rd-empty" style="padding:24px"><div class="rd-empty-ico">📋</div><div class="rd-empty-title">${msgBusca}</div><button type="button" class="rd-btn rd-btn-primary" style="margin-top:6px" onclick="novaOS();go('os')">+ Nova OS</button></div>`;
+    if(rodapeEl) rodapeEl.innerHTML='';
+    return;
+  }
+  // Ordena: pendentes/atrasadas por data crescente primeiro; concluídas/canceladas no final
   lista=lista.slice().sort((a,b)=>{
     const ac=a.status==='concluido'||a.status==='cancelado';
     const bc=b.status==='concluido'||b.status==='cancelado';
@@ -6061,34 +6113,126 @@ function renderOSTabela(){
     const da=a.data_servico||'9999'; const db2=b.data_servico||'9999';
     return da<db2?-1:da>db2?1:0;
   });
-  let h=`<div class="htw"><table class="ht"><thead><tr><th>#</th><th>Cliente</th><th>Local</th><th>Data</th><th>Técnico</th><th>Status</th><th>Ações</th></tr></thead><tbody>`;
+
+  const grid='100px 1.6fr 110px 120px 90px 1fr';
+  let h=`<div class="rd-table-wrap" style="border:none;border-radius:0">
+    <div style="overflow-x:auto"><div style="min-width:780px">
+    <div class="rd-thead" style="grid-template-columns:${grid}">
+      <div class="rd-th">Data</div><div class="rd-th">Cliente</div>
+      <div class="rd-th">Técnico</div><div class="rd-th">Situação</div>
+      <div class="rd-th rd-num">Duração</div><div class="rd-th">Próxima ação</div>
+    </div>`;
   lista.forEach(o=>{
     _nc[o.id]=o;
-    const num=String(o.numero||'—').padStart(3,'0');
-    const dt=o.data_servico?new Date(o.data_servico+'T12:00:00').toLocaleDateString('pt-BR'):(o.data_criacao?new Date(o.data_criacao).toLocaleDateString('pt-BR'):'—');
+    const dt=o.data_servico?new Date(o.data_servico+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'}):'—';
     const atrasado=o.status==='agendado'&&o.data_servico&&o.data_servico<_hoje;
-    const stCl=o.status==='concluido'?'os-concluido':o.status==='cancelado'?'os-cancelado':atrasado?'os-atrasado':'os-agendado';
-    const stTx=o.status==='concluido'?'✅ Concluído':o.status==='cancelado'?'Cancelado':atrasado?'⚠️ Atrasado':'📅 Agendado';
-    h+=`<tr>
-      <td><span class="on">#${num}</span></td>
-      <td><div class="ocl">${esc(o.cliente||'—')}</div>
-        <div style="margin-top:3px">${getLojaBadge(o.loja_id)}</div></td>
-      <td><div class="oloc">${esc(o.local_servico||'')}</div></td>
-      <td><span class="odt">${dt}</span></td>
-      <td><span style="font-size:12px">${esc(o.tecnico||'—')}</span></td>
-      <td><span class="os-badge ${stCl}">${stTx}</span></td>
-      <td><div class="ta">
-        <button class="tb" onclick="editarOS('${o.id}')">✎ Editar</button>
-        <button class="tb" title="Gerar PDF desta OS" onclick="_gerarPDFdaOS('${o.id}')">📄 PDF</button>
-        ${o.status!=='concluido'&&o.status!=='cancelado'?`<button class="tb" title="Marcar como concluída (baixa de estoque automática)" onclick="concluirOSHistorico('${o.id}')" style="background:#16a34a;color:white;border-color:#16a34a;font-weight:700">✅ Concluir</button>`:''}
-        ${o.status==='concluido'?`<button class="tb" title="Notif. OS concluída" style="background:var(--wa);color:white;border-color:var(--wa)" onclick="enviarNotifWA(notifConcluida(getNC('${o.id}')), '${o.tel_cliente||''}')">✅💬</button>`:''}
-        ${o.status==='agendado'||atrasado?`<button class="tb" title="Lembrete de visita" style="background:var(--wa);color:white;border-color:var(--wa)" onclick="enviarNotifWA(notifVisita(getNC('${o.id}')), '${o.tel_cliente||''}')">📅💬</button>`:''}
-        <button class="tb d" onclick="excluirOS('${o.id}')">🗑</button>
-      </div></td>
-    </tr>`;
+    const emCampo=o.checkin_time && !o.checkout_time && o.status!=='concluido' && o.status!=='cancelado';
+    const sit = o.status==='concluido' ? {label:'Concluída', cls:'rd-badge-ok'}
+      : o.status==='cancelado' ? {label:'Cancelada', cls:'rd-badge-neutral'}
+      : emCampo ? {label:'Em campo', cls:'rd-badge-info'}
+      : atrasado ? {label:'Atrasado', cls:'rd-badge-warn'}
+      : {label:'Agendada', cls:'rd-badge-neutral'};
+    const acao=_osProximaAcao(o, atrasado);
+    const svc=(o.servicos||[]).map(s=>typeof s==='string'?s:s.desc).filter(Boolean).join(', ')||o.local_servico||'—';
+    h+=`<div class="rd-row${acao.urgente?' rd-row-action':''}" style="grid-template-columns:${grid};cursor:pointer" tabindex="0" onclick="editarOS('${o.id}')" onkeydown="if(event.key==='Enter')editarOS('${o.id}')">
+      <div class="rd-cell-sub">${dt}${o.hora?' · '+esc(o.hora):''}</div>
+      <div><div class="rd-cell-strong">${esc(o.cliente||'—')}${lojaAtiva?'':getLojaBadge(o.loja_id)}</div><div class="rd-cell-sub" title="${esc(svc)}">${esc(svc)}</div></div>
+      <div class="rd-cell-sub">${esc(o.tecnico||'—')}</div>
+      <div><span class="rd-badge ${sit.cls}">${esc(sit.label)}</span></div>
+      <div class="rd-cell-num">${_fmtDuracaoMin(o.duracao_min)}</div>
+      <div style="${acao.urgente?'color:var(--c1);font-weight:600':'color:var(--tx2)'}">${esc(acao.txt)}</div>
+    </div>`;
   });
-  h+='</tbody></table></div>';
+  h+='</div></div></div>';
   document.getElementById('osh-body').innerHTML=h;
+
+  if(rodapeEl){
+    rodapeEl.innerHTML=`<div class="rd-tfoot"><span>Mostrando ${lista.length} de ${baseSemStatus.length}</span></div>`;
+  }
+}
+function _renderOSKPIsNovo(base){
+  const el=document.getElementById('os-kpis-novo'); if(!el) return;
+  const _hoje=_hojeLocal();
+  const emAtendimento=base.filter(o=>o.checkin_time && !o.checkout_time && o.status!=='concluido' && o.status!=='cancelado').length;
+  const concluidasHoje=base.filter(o=>{
+    if(o.status!=='concluido') return false;
+    const dt=o.checkout_time ? String(o.checkout_time).slice(0,10) : o.data_servico;
+    return dt===_hoje;
+  }).length;
+  const semTecnico=base.filter(o=>o.status==='agendado'&&!( (o.tecnico||'').trim() )).length;
+  const duracoesHoje=base.filter(o=>{
+    if(o.status!=='concluido'||!(parseInt(o.duracao_min)>0)) return false;
+    const dt=o.checkout_time ? String(o.checkout_time).slice(0,10) : o.data_servico;
+    return dt===_hoje;
+  }).map(o=>parseInt(o.duracao_min));
+  const tempoMedio=duracoesHoje.length ? Math.round(duracoesHoje.reduce((a,b)=>a+b,0)/duracoesHoje.length) : 0;
+  el.innerHTML=`
+    <div class="rd-card rd-card-dense${emAtendimento?' rd-card-dark':''}">
+      <div class="rd-kpi-lbl">Em atendimento agora</div>
+      <div class="rd-kpi-num rd-kpi-num-sm">${emAtendimento}</div>
+    </div>
+    <div class="rd-card rd-card-dense">
+      <div class="rd-kpi-lbl">Concluídas hoje</div>
+      <div class="rd-kpi-num rd-kpi-num-sm">${concluidasHoje}</div>
+    </div>
+    <div class="rd-card rd-card-dense${semTecnico?' rd-card-warn':''}">
+      <div class="rd-kpi-lbl">Sem técnico</div>
+      <div class="rd-kpi-num rd-kpi-num-sm"${semTecnico?' style="color:var(--warn)"':''}>${semTecnico}</div>
+    </div>
+    <div class="rd-card rd-card-dense">
+      <div class="rd-kpi-lbl">Tempo médio</div>
+      <div class="rd-kpi-num rd-kpi-num-sm">${tempoMedio?_fmtDuracaoMin(tempoMedio):'—'}</div>
+      <div class="rd-kpi-apoio">concluídas hoje</div>
+    </div>`;
+}
+// "Carga por técnico" (handoff) — o app não guarda estimativa de duração de
+// OS futura, só a real de quem já foi concluída (duracao_min). Por isso o
+// indicador é CONTAGEM de OS de hoje por técnico, não horas — mostrar "Xh"
+// inventaria um número que a base não sustenta. Card só aparece com dado
+// real (mesmo princípio dos outros estados vazios do redesign).
+function _renderCargaTecnico(base){
+  const el=document.getElementById('os-carga-tec'); if(!el) return;
+  const _hoje=_hojeLocal();
+  const hoje=base.filter(o=>o.data_servico===_hoje && o.status!=='cancelado');
+  if(!hoje.length){ el.style.display='none'; el.innerHTML=''; return; }
+  const porTec={};
+  hoje.forEach(o=>{ const t=(o.tecnico||'').trim()||'Sem técnico'; porTec[t]=(porTec[t]||0)+1; });
+  const linhas=Object.entries(porTec).sort((a,b)=>b[1]-a[1]);
+  const max=Math.max(...linhas.map(l=>l[1]),1);
+  el.style.display='';
+  el.innerHTML=`<div class="rd-card">
+    <div class="rd-card-title" style="font-size:14px;margin-bottom:11px">Carga por técnico — hoje</div>
+    <div style="display:flex;flex-direction:column;gap:9px">
+      ${linhas.map(([nome,qtd])=>`
+        <div style="display:flex;flex-direction:column;gap:4px">
+          <div style="display:flex;justify-content:space-between;font-size:12px">
+            <span style="color:var(--tx2)">${esc(nome)}</span>
+            <span style="font-weight:600;color:var(--c2)">${qtd} OS</span>
+          </div>
+          <div style="height:8px;border-radius:4px;background:var(--line2,#EDF1F7)"><div style="width:${Math.round(qtd/max*100)}%;height:100%;border-radius:4px;background:var(--c1)"></div></div>
+        </div>`).join('')}
+    </div>
+  </div>`;
+}
+// Barra de ações da OS aberta (Fase 8, mesmo padrão de #form-acoes-edit) — a
+// "Agenda" em page-os-history virou clique só; os botões que viviam na linha
+// (PDF/WhatsApp/Concluir/Excluir) se mudaram pra cá.
+function _renderOSAcoesEdit(o){
+  const el=document.getElementById('os-acoes-edit'); if(!el) return;
+  if(!o){ el.style.display='none'; el.innerHTML=''; return; }
+  const _hoje=_hojeLocal();
+  const atrasado=o.status==='agendado'&&o.data_servico&&o.data_servico<_hoje;
+  const stTx=o.status==='concluido'?'✅ Concluída':o.status==='cancelado'?'Cancelada':atrasado?'⚠️ Atrasada':'📅 Agendada';
+  el.innerHTML=`
+    <span class="rd-badge ${o.status==='concluido'?'rd-badge-ok':o.status==='cancelado'?'rd-badge-neutral':atrasado?'rd-badge-warn':'rd-badge-neutral'}">${stTx}</span>
+    <span style="flex:1"></span>
+    <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Gerar PDF desta OS" onclick="_gerarPDFdaOS('${o.id}')">📄 PDF</button>
+    ${o.status!=='concluido'&&o.status!=='cancelado'?`<button type="button" class="rd-btn rd-btn-primary rd-btn-sm" title="Marcar como concluída (baixa de estoque automática)" onclick="concluirOSHistorico('${o.id}')">✅ Concluir</button>`:''}
+    ${o.status==='concluido'?`<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Notif. OS concluída" onclick="enviarNotifWA(notifConcluida(getNC('${o.id}')), '${o.tel_cliente||''}')">💬 Concluída</button>`:''}
+    ${o.status==='agendado'||atrasado?`<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Lembrete de visita" onclick="enviarNotifWA(notifVisita(getNC('${o.id}')), '${o.tel_cliente||''}')">💬 Lembrete</button>`:''}
+    <button type="button" class="rd-btn rd-btn-danger-text rd-btn-sm" title="Excluir" onclick="excluirOS('${o.id}')">🗑 Excluir</button>
+  `;
+  el.style.display='flex';
 }
 
 // Tipo da OS: vistoria mensal (agendamento), do orçamento, ou serviço avulso
@@ -6154,6 +6298,7 @@ function _abrirOSForm(o){
   const numStr='#'+String(o.numero||o.id||'').toString().padStart(3,'0');
   const tituloEl=document.getElementById('os-form-titulo');
   if(tituloEl) tituloEl.textContent='Editar OS '+numStr;
+  _renderOSAcoesEdit(o);
   go('os');
   // Após go() — aplicar modo técnico (campos do gestor read-only)
   const _tecMode = eTecnico();

@@ -381,13 +381,88 @@ de página nas duas larguras — e confirmei que Orçamentos e Novo
 Orçamento (que compartilham `.novo-orc-body`/`.novo-orc-left`) continuam
 normais depois dos ajustes de CSS.
 
+### Próximo passo (histórico — Fase 8a já feita, ver entrada abaixo)
+
+---
+
+## REDESIGN — Fase 8a: quadro de OS ("Ordens de Serviço") — 13/08
+
+Início do "turno 3" do handoff (OS, A Receber, Despesas, Clientes, Portal).
+Li as 5 telas inteiras em `Fluxa Redesign.dc.html` antes de começar — o
+handoff pede "quadro do dia por técnico": topbar com resumo do dia, 4 KPIs,
+tabela "Agenda de hoje" e coluna direita (carga por técnico, peças a
+separar, últimos check-ins).
+
+**Mapeamento (3 telas diferentes de OS já existiam, não confundir):**
+`page-os-history` (`renderOSTabela`) = lista do gestor, todos os técnicos —
+era a mais parecida com o "quadro" do handoff, virou o alvo desta fase.
+`page-minhas-os` (`renderMinhasOS`) = cards do próprio técnico, **não
+mexida** — já é mobile-first e role-gated, o handoff não desenha um
+equivalente técnico separado. `page-os` = formulário de abrir/editar UMA
+OS, usado pelos dois (drill-in) — ganhou só a barra de ações nova.
+
+**O que mudou:**
+- `renderOSTabela()`: virou tabela densa `.rd-table-*` (Data/Cliente/
+  Técnico/Situação/Duração/Próxima ação), linha inteira clicável
+  (`editarOS(id)`) — mesmo padrão handoff-literal de Orçamentos/Estoque
+  (Fases 5/7, confirmado como preferência do Marcos em
+  `fluxa-redesign-preferencia-handoff-literal.md` na memória). Os botões
+  que viviam na linha (PDF/WhatsApp/Concluir/Excluir) se mudaram pra
+  dentro da OS aberta.
+- **Barra de ações da OS aberta** (`#os-acoes-edit`, populada por
+  `_renderOSAcoesEdit(o)` em `_abrirOSForm()`) — badge de situação, PDF,
+  Concluir (some se já concluída/cancelada), WhatsApp (conclusão ou
+  lembrete de visita, conforme o status), Excluir. Mesmos `onclick` que a
+  linha antiga já chamava. Escondida/limpa em `novaOS()`.
+- **Chips com contagem ao vivo** (`OS_CHIPS`/`_osRenderChips`, mesmo padrão
+  de `ORC_CHIPS`): Todos/Agendado/Atrasado/Concluído/Cancelado — "Atrasado"
+  é novo como filtro (antes só colorizava a linha), calculado igual
+  (`agendado` com `data_servico` no passado), chip fica em destaque
+  (`rd-chip-alert`) quando > 0.
+- **4 KPIs do handoff** (`_renderOSKPIsNovo`): "Em atendimento agora"
+  (`checkin_time` setado, sem `checkout_time`), "Concluídas hoje",
+  "Sem técnico" (agendada sem `tecnico` preenchido), "Tempo médio"
+  (`duracao_min` médio das concluídas de hoje — "—" sem nenhuma). Todos
+  derivados de campos que a OS já grava (`checkin_time`/`checkout_time`/
+  `duracao_min`, ver "Fase B da crítica de design" abaixo) — nenhum dado
+  novo, nenhuma tabela nova.
+- **"Carga por técnico" na coluna direita** (`_renderCargaTecnico`) — o
+  handoff pede "Xh / 8h" com barra de progresso, mas o app não guarda
+  ESTIMATIVA de duração de OS futura, só a real de quem já foi concluída.
+  Mostrar horas seria inventar número que a base não sustenta — o cartão
+  virou **contagem** de OS de hoje por técnico com barra proporcional ao
+  técnico mais carregado. Card só aparece com dado real (some se não há
+  nenhuma OS hoje) — mesmo princípio de estado vazio das fases anteriores.
+- **Não implementado, de propósito:** os outros 2 cards da coluna direita
+  do handoff — "Peças a separar" (exigiria cruzar todos os itens
+  vinculados a estoque de todas as OS de hoje, ainda não construído) e
+  "Últimos check-ins" (o app não guarda um LOG de check-ins, só o
+  check-in ATUAL de cada OS — não haveria histórico pra listar). Nenhum
+  dos dois foi simulado com dado fictício.
+- Não desliguei nem redesenhei `page-minhas-os` — segue como estava,
+  cards + "✅ Concluir" de um toque, é o fluxo mobile do técnico em campo.
+
+Testado no browser local (`dbOk=false`, sessão master simulada via
+`sessionStorage`, 5 OS sintéticas cobrindo os 5 estados: em campo,
+sem técnico, atrasada, agendada normal, concluída com duração): KPIs
+batendo (1/1/1/1h02), chips com contagem e alerta no "Atrasado", tabela
+com badges corretos (Em campo azul/Atrasado laranja/Agendada cinza/
+Concluída verde) e "Próxima ação" certa por linha (Atribuir técnico /
+Fazer check-out / Atrasado · remarcar / — pros sem ação), carga por
+técnico com barras proporcionais, clique na linha abre a OS certa com a
+barra de ações populada (testado com OS concluída E agendada — botões
+certos em cada caso), `novaOS()` esconde a barra. Responsivo: 1440px
+(3 colunas + coluna direita), 375px (KPIs empilham 2×2, chips quebram
+linha, tabela rola por dentro do próprio wrapper sem esticar a página —
+confirmado `docWidth===winWidth===375`). Zero erro novo de console (só
+o ruído de 400 pré-existente, do boot inicial com `dbOk=true` antes de eu
+sobrescrever pra teste local). `sw.js` v131→v132.
+
 ### Próximo passo
 
-Falta desenhar (README, "o que falta"): Vistoria no desktop, Agenda,
-Equipamentos, Produtividade — sem handoff visual pronto, seguem os
-mesmos padrões `.rd-*` quando chegar a vez. O "turno 3" do handoff (OS,
-A Receber, Despesas, Clientes, Portal) e as 3 telas mobile (Insights,
-Novo Orçamento, Vistoria) ainda não foram mapeados nesta sessão.
+Faltam as outras 4 telas do turno 3: A Receber, Despesas, Clientes,
+Portal do Cliente — specs já lidas (mesma sessão), mapeamento de cada
+uma pro código atual ainda por fazer fase a fase, mesmo padrão desta.
 
 ---
 

@@ -925,6 +925,12 @@
 <div class="page" id="page-os">
   <div class="wrap">
     <button class="btn-voltar" onclick="voltar()">← Voltar</button>
+    <!-- Barra de ações da OS aberta (Fase 8 do redesign, 13/08) — a "Agenda"
+         em page-os-history virou clique só; os botões que viviam na linha
+         (PDF, WhatsApp, Concluir, Excluir) se mudaram pra cá, montados por
+         _renderOSAcoesEdit(o) em _abrirOSForm(). Vazio/oculto em "Nova OS"
+         (sem osEditId) — mesmo padrão de #form-acoes-edit (Orçamentos). -->
+    <div id="os-acoes-edit" class="rd-card rd-card-dense" style="display:none;margin-bottom:14px;flex-wrap:wrap;gap:10px;align-items:center"></div>
     <div class="card">
       <div class="ct"><span id="os-form-titulo">Nova Ordem de Serviço</span> <span id="os-src-badge" style="font-size:11px;color:var(--gray);font-weight:400;text-transform:none;letter-spacing:0"></span></div>
       <div class="row">
@@ -1831,21 +1837,45 @@
 <!-- ══ PAGE: OS HISTORY ══ -->
 <div class="page" id="page-os-history">
   <div class="wrap">
-    <div class="card">
-      <div class="ct">Histórico de OS <button class="btn-add" style="font-size:12px;padding:5px 11px;border-width:1.5px" onclick="loadOSHist()">↺</button></div>
-      <div class="hf">
-        <button class="fb on" data-oss="todos" onclick="filtOS(this)">Todos</button>
-        <button class="fb" data-oss="agendado" onclick="filtOS(this)">📅 Agendado</button>
-        <button class="fb" data-oss="concluido" onclick="filtOS(this)">✅ Concluído</button>
-        <button class="fb" data-oss="cancelado" onclick="filtOS(this)">❌ Cancelado</button>
+    <button class="btn-voltar" onclick="voltar()">← Voltar</button>
+    <!-- Fase 8 do redesign (13/08) — quadro de OS: topbar título+resumo do dia,
+         4 KPIs (renderOSKPIs), tabela densa "Agenda" (handoff literal: linha
+         inteira clicável abre a OS — botões que viviam na linha (PDF/WA/
+         Concluir/Excluir) se mudaram pra dentro da OS aberta, ver
+         #os-acoes-edit em page-os). Coluna direita: carga por técnico hoje. -->
+    <div class="novo-orc-topbar">
+      <div>
+        <div class="novo-orc-titulo">Ordens de Serviço</div>
+        <div class="novo-orc-sub" id="os-resumo-sub">—</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button type="button" class="rd-btn rd-btn-secondary" onclick="loadOSHist()">↺ Atualizar</button>
+        <button type="button" class="rd-btn rd-btn-primary" onclick="novaOS();go('os')">+ Nova OS</button>
+      </div>
+    </div>
+
+    <div class="ins-kpis" id="os-kpis-novo" style="margin-bottom:16px"></div>
+
+    <div class="novo-orc-body novo-orc-body-340">
+    <div class="novo-orc-left">
+    <div class="rd-card" style="padding:0;overflow:hidden;display:flex;flex-direction:column">
+      <div style="padding:12px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <div id="os-chips" style="display:flex;gap:6px;flex-wrap:wrap;flex:1"></div>
         <label class="sr-only" for="os-busca-input">Buscar ordens de serviço por cliente ou número</label>
-        <input class="hsrch" type="text" id="os-busca-input" placeholder="🔍 Buscar cliente ou #…" oninput="buscarOS(this.value)">
+        <input class="rd-field-box" style="width:200px" type="text" id="os-busca-input" placeholder="🔍 Cliente ou #…" oninput="buscarOS(this.value)">
         <select id="os-filt-tec" onchange="filtTecOS(this.value)" style="padding:6px 10px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Instrument Sans',sans-serif;outline:none;background:white;cursor:pointer;color:var(--c2)">
           <option value="">👤 Todos técnicos</option>
         </select>
       </div>
       <div id="osh-body"><div class="load"><div class="spin"></div> Carregando…</div></div>
+      <div id="os-lista-rodape"></div>
     </div>
+    </div><!-- /novo-orc-left -->
+
+    <div class="novo-orc-right" style="background:none;border:none;padding:0">
+      <div id="os-carga-tec" style="display:none"></div>
+    </div>
+    </div><!-- /novo-orc-body -->
   </div>
 </div>
 
