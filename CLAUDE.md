@@ -29,7 +29,19 @@ que é código morto pra remover sem confirmar com o Marcos — fica
 registrado, não mexi. Testado com dados sintéticos de OS por técnico,
 estado "sem técnico configurado", mobile 375px — sem erro no console.
 
-Próximas: Agenda, Vistoria desktop (nesta ordem).
+**Agenda — fechada.** Header (título + abas Calendário/Contratos + Novo)
+migrado pra `novo-orc-topbar`/`rd-chip` (`agTab()` não precisou mudar,
+já era agnóstico ao nome da classe). Lista de Contratos (`renderAgLista()`)
+saiu de cards com hex fixo inline (`#7c3aed`) pra `rd-q-item`/`rd-q-expand`
+(mesmo componente da fila "Precisa de você hoje"), badge "Plano" virou
+`rd-badge` de verdade. **Calendário em si (`table.cal`) não mexido** — é
+um paradigma visual diferente (grade de dias) sem equivalente `.rd-*`
+pronto, arriscado migrar sem necessidade. Testado com dados sintéticos
+(lista com item normal + item de plano, estado vazio, troca de aba,
+calendário renderizando sem regressão, mobile 375px) — sem erro no
+console.
+
+Próxima: Vistoria desktop (última da lista).
 
 ---
 
