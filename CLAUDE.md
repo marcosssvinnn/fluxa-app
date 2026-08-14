@@ -41,7 +41,26 @@ pronto, arriscado migrar sem necessidade. Testado com dados sintéticos
 calendário renderizando sem regressão, mobile 375px) — sem erro no
 console.
 
-Próxima: Vistoria desktop (última da lista).
+**Vistoria desktop — fechada (escopo reduzido de propósito).** Header
+(título + abas Nova Vistoria/Histórico/Meus Locais) migrado pra
+`novo-orc-topbar`/`rd-chip`. Filtros do Histórico (busca/mês/técnico)
+viram `rd-field-box`; chips de status (Todos/Crítico/Atenção) viram
+`rd-chip`. Cabeçalho de Meus Locais migrado pra `novo-orc-titulo`.
+**Formulário de captura (Nova Vistoria) e os cards de equipamento — status/
+observação/foto — NÃO mexidos**, mesma cautela já registrada na Fase 9c/
+Fase B da crítica de design: é a captura de dado real, alto risco pra
+reescrever sem necessidade. **Também fora do escopo, registrado pra
+decisão futura:** os cards de stats/ranking/lista do Histórico e o
+formulário/lista de planos de Meus Locais continuam no estilo antigo —
+funcionais, só não usam `.rd-*` ainda; são blocos grandes e complexos,
+arriscado migrar tudo junto. Testado (3 abas trocando sem erro, filtro de
+status, `renderVisHistorico()` limpo, mobile 375px) — sem erro no console.
+
+**Com isso, as 4 telas da lista original estão com pelo menos header/
+navegação/filtros no padrão novo.** As 17 telas do app inteiro (13 do
+handoff + estas 4) estão, no mínimo, com a mesma tipografia/tokens/
+componentes de navegação — o que ficou de fora em cada uma foi registrado
+explicitamente acima, não esquecido.
 
 ---
 
