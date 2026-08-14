@@ -893,7 +893,7 @@ let CFG = { ...CFG_DEF };
 let lojasExtraConfig = {}; // { lojaId: { nome, sub, logoB64, tel, cidades, cor, cor2, tagline } }
 let db = null, dbOk = false;
 let svcs = [], editId = null;
-let osSvcs = [], modalOrcId = null, osOrcId = null; // osOrcId = ID do orçamento vinculado à OS
+let osSvcs = [], osOrcId = null; // osOrcId = ID do orçamento vinculado à OS
 let todosOrc = [], filtroSt = localStorage.getItem('fluxa_filtroSt')||'todos', busca = '';
 let _orcPag=1;
 const ORC_PAG_TAM=25;
@@ -5974,7 +5974,6 @@ function _renderFormAcoesEdit(o){
     ${btnOS}
     ${orcTemEntregaPendente(o)?`<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Marcar como entregue (baixa do estoque)" onclick="entregarOrcamento(getNC('${o.id}'),'manual')">📦 Entregar</button>`:''}
     ${o.status==='aprovado'&&_orcTemItens(o)?`<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Comprovante de entrega" onclick="gerarOrdemEntrega('${o.id}')">🧾 Entrega</button>`:''}
-    ${ocultarFinanceiro?'':`<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Registrar pagamento" onclick="abrirModalPg('${o.id}',${o.total||0})">💰 Pagamento</button>`}
     ${o.status==='aprovado'?`<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Corrigir mês de aprovação" onclick="corrigirDataAprovacao('${o.id}')">📅 Mês</button>`:''}
     ${!ocultarFinanceiro&&o.status==='aprovado'?`<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Emitir Nota Fiscal" onclick="abrirModalNFe('${o.id}')">NF</button>`:''}
     <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Enviar no WhatsApp" onclick="enviarNotifWA(notifOrcamento(getNC('${o.id}')), '${o.tel_cliente||''}')">💬 WA</button>
@@ -6141,18 +6140,6 @@ function novaOS(){
   osMateriais=[]; _osMatRenderLista();
 }
 
-// ── MODAL PAGAMENTO ──
-function abrirModalPg(id, tot){ modalOrcId=id; setV('mg-tot',brl(tot)); setV('mg-val',''); document.getElementById('modal-pg').classList.add('on'); }
-function fecharModal(){ document.getElementById('modal-pg').classList.remove('on'); modalOrcId=null; }
-async function salvarPagamento(){
-  const v=parseFloat(gV('mg-val'))||0;
-  const o=todosOrc.find(x=>x.id===modalOrcId); if(o){ o.valor_recebido=v; }
-  lsOrcAtualizar(modalOrcId,{valor_recebido:v}); // persiste local
-  if(dbOk&&db&&!String(modalOrcId||'').startsWith('local_'))
-    dbUpdate('orcamentos', {valor_recebido:v}, 'id', modalOrcId).then(()=>{}).catch(()=>{});
-  fecharModal(); atualizarDash(); renderTabela();
-  toast('💰 Pagamento registrado: '+brl(v));
-}
 
 // ──────────────────────────────────────────────────
 //  OS HISTORY
