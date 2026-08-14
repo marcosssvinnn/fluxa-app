@@ -695,10 +695,28 @@
       </div>
     </div>
 
+    <!-- Fase 9b do redesign (13/08) — versão mobile do handoff ("Turno 1 ·
+         Proposta A"): indicador de passos (Cliente/Serviços/Finalizar —
+         renomeado de "Pagamento" porque a forma de pagamento já mora no
+         card Cliente aqui, não virou um 3º card separado) rola até a
+         seção em vez de esconder campos. Decisão consciente: NÃO
+         implementei um wizard que esconde/mostra cards — a Fase 6 já
+         registrou que os componentes internos do formulário (vincular
+         item ao estoque, checkbox "não é produto", preset com preço
+         editável) são interações reais demais pra arriscar sem
+         necessidade; esconder cards inteiros por trás de "passos" podia
+         quebrar o rascunho automático e a prévia ao vivo, que dependem
+         de tudo estar no DOM. Some no desktop. -->
+    <div class="novo-orc-steps" id="novo-orc-steps">
+      <button type="button" onclick="document.getElementById('orc-step-cliente').scrollIntoView({behavior:'smooth',block:'start'})"><span></span>Cliente</button>
+      <button type="button" onclick="document.getElementById('orc-step-servicos').scrollIntoView({behavior:'smooth',block:'start'})"><span></span>Serviços</button>
+      <button type="button" onclick="document.getElementById('orc-step-final').scrollIntoView({behavior:'smooth',block:'start'})"><span></span>Finalizar</button>
+    </div>
+
     <div class="novo-orc-body">
     <div class="novo-orc-left">
     <!-- CLIENTE -->
-    <div class="card">
+    <div class="card" id="orc-step-cliente">
       <div class="ct">Dados do Cliente</div>
       <div class="row">
         <div class="fl">
@@ -792,7 +810,7 @@
 
     <!-- SERVIÇOS -->
     <div class="card">
-      <div class="ct">Serviços</div>
+      <div class="ct" id="orc-step-servicos">Serviços</div>
       <div class="presets-hd">Adicionar rápido:</div>
       <div class="presets" id="presets"></div>
       <div class="slist" id="slist"></div>
@@ -814,7 +832,7 @@
     </div>
 
     <!-- ESCOPO + OBS + FOTO -->
-    <div class="card">
+    <div class="card" id="orc-step-final">
       <div class="ct">Descrição e Observações</div>
       <div class="row f1" style="margin-bottom:12px">
         <div class="fl">
@@ -911,6 +929,22 @@
       </div>
     </div><!-- /novo-orc-right -->
     </div><!-- /novo-orc-body -->
+
+    <!-- Barra fixa de total (Fase 9b, 13/08) — "total sempre visível" do
+         handoff mobile. Mesmos botões/valor de sempre (Salvar rascunho/
+         Gerar PDF, #d-tot espelhado por upd()), só reposicionados fixos
+         no rodapé pra não precisar rolar até o card de Serviços pra ver
+         quanto está cobrando. Some no desktop. -->
+    <div class="novo-orc-mobile-bar" id="novo-orc-mobile-bar">
+      <div class="novo-orc-mobile-tot">
+        <span>Total</span>
+        <span id="orc-mobile-tot">R$ 0,00</span>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button type="button" class="rd-btn rd-btn-secondary" style="flex:1" onclick="salvarApenas()">Salvar</button>
+        <button type="button" class="rd-btn rd-btn-primary" style="flex:1.4" onclick="gerarPDF()">Gerar PDF →</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -1136,6 +1170,42 @@
         <div class="rd-kpi-lbl">Taxa de fechamento</div>
         <div class="rd-kpi-num" id="ins-d-taxa">—</div>
         <div class="rd-kpi-apoio" id="ins-d-taxa-q">—</div>
+      </div>
+    </div>
+
+    <!-- Fase 9a do redesign (13/08) — versão mobile do handoff ("Turno 1 ·
+         Proposta A"): hero escuro do Pipeline com barra segmentada por
+         situação (Enviado/Negociando/Assembleia, reaproveitando
+         _orcSituacao já usada na Fase 5) + 3 cards compactos. Some no
+         desktop, substitui a faixa de 4 KPIs acima só abaixo de 680px —
+         mesmos números, o `.ins-kpis` normal nunca deixa de existir/ser
+         calculado, só troca de visibilidade via CSS. -->
+    <div class="ins-mobile-hero" id="ins-mobile-hero">
+      <div class="rd-card rd-card-dark ins-mh-pipe">
+        <div class="rd-kpi-lbl">Pipeline aberto</div>
+        <div style="display:flex;align-items:baseline;gap:8px;margin:2px 0 10px">
+          <span class="ins-mh-pipe-num" id="ins-mh-pipe-num">—</span>
+          <span class="ins-mh-pipe-qtd" id="ins-mh-pipe-qtd">—</span>
+        </div>
+        <div class="ins-mh-segbar" id="ins-mh-segbar"></div>
+        <div class="ins-mh-seglabels" id="ins-mh-seglabels"></div>
+      </div>
+      <div class="ins-mh-stats">
+        <div class="rd-card rd-card-dense">
+          <div class="rd-kpi-lbl">Vence em 7 dias</div>
+          <div class="rd-kpi-num rd-kpi-num-sm" id="ins-mh-venc" style="color:var(--c1)">—</div>
+          <div class="rd-kpi-apoio">revalidar preço</div>
+        </div>
+        <div class="rd-card rd-card-dense">
+          <div class="rd-kpi-lbl">Parado +30d</div>
+          <div class="rd-kpi-num rd-kpi-num-sm" id="ins-mh-parado">—</div>
+          <div class="rd-kpi-apoio" id="ins-mh-parado-q">—</div>
+        </div>
+        <div class="rd-card rd-card-dense">
+          <div class="rd-kpi-lbl">Fechado/mês</div>
+          <div class="rd-kpi-num rd-kpi-num-sm" id="ins-mh-fech">—</div>
+          <div class="rd-kpi-apoio" id="ins-mh-fech-q" style="color:var(--ok)">—</div>
+        </div>
       </div>
     </div>
 
@@ -2780,6 +2850,17 @@
       <!-- Vistoria por equipamento -->
       <div class="card" id="vis-equip-card" style="display:none">
         <div class="ct">🔧 Vistoria dos Equipamentos</div>
+        <!-- Fase 9c do redesign (13/08) — versão mobile do handoff ("Turno 1
+             · Proposta A"): barra de progresso "N de M vistoriados". Some
+             no desktop; os cards de equipamento em si (status Bom/Atenção/
+             Crítico, observação, fotos) NÃO foram reescritos — já tinham
+             cor por status (.vis-equip-block.status-*) desde antes, e são
+             a captura de dado real que a Fase B da crítica de design já
+             tinha protegido de mudança sem necessidade. -->
+        <div class="vis-progresso-mobile" id="vis-progresso-mobile" style="display:none">
+          <div class="vis-progresso-hdr"><span>Equipamentos</span><span id="vis-progresso-txt">0 de 0 vistoriados</span></div>
+          <div class="vis-progresso-barra"><div id="vis-progresso-fill" style="width:0%"></div></div>
+        </div>
         <div class="vis-equip-grid" id="vis-equip-grid"></div>
       </div>
 
@@ -2802,8 +2883,9 @@
         </div>
       </div>
 
-      <!-- Ações -->
-      <div class="acts" style="grid-template-columns:2fr 1fr">
+      <!-- Ações — vira barra fixa no rodapé abaixo de 680px (Fase 9c),
+           mesmos botões/funções de sempre, só reposicionados. -->
+      <div class="acts" id="vis-acts-bottom" style="grid-template-columns:2fr 1fr">
         <button class="btn-primary" style="font-size:15px;padding:14px" onclick="finalizarVistoria()">
           ✅ Finalizar Vistoria
         </button>

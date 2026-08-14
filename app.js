@@ -3201,6 +3201,7 @@ function formatPagamento(pag, total){
 function upd(){
   const s=sub(),d=disc(s),t=Math.max(0,s-d);
   setV_el('d-tot',brl(t),'textContent');
+  setV_el('orc-mobile-tot',brl(t),'textContent'); // espelha o total na barra fixa mobile (Fase 9b)
   if(d>0){ show('row-sub'); show('row-disc'); setV_el('d-sub',brl(s),'textContent'); setV_el('d-disc','− '+brl(d),'textContent'); }
   else { hide('row-sub'); hide('row-disc'); }
   // validade
@@ -5092,8 +5093,39 @@ function renderPainelInsights(){
   set('ins-d-taxa-q', s.diasMedioFechar!==null ? 'média de '+s.diasMedioFechar+' dias até o sim' : s.mesLabel);
 
   _crmRenderEstagio(s);
+  _renderInsMobileHero(s);
   renderAcaoQueue();
   renderInsightsChart();
+}
+
+function _brlK(v){
+  const n=parseFloat(v)||0;
+  if(Math.abs(n)>=1000) return (n/1000).toFixed(1).replace('.',',')+'k';
+  return String(Math.round(n));
+}
+// Hero mobile (Fase 9a, 13/08) — mesmos números do `.ins-kpis` de cima,
+// só reapresentados no formato do handoff mobile: pipeline em destaque +
+// barra segmentada por SITUAÇÃO (não idade — reaproveita _orcSituacao,
+// mesmo vocabulário da Fase 5, em vez de inventar uma 2ª categorização).
+function _renderInsMobileHero(s){
+  const el=document.getElementById('ins-mobile-hero'); if(!el) return;
+  setV_el('ins-mh-pipe-num', brl(s.pipeValor).replace('R$','').trim(),'textContent');
+  setV_el('ins-mh-pipe-qtd', s.pipeQtd+' orç.','textContent');
+  setV_el('ins-mh-venc', String(s.vencQtd),'textContent');
+  setV_el('ins-mh-parado', String(s.paradoQtd),'textContent');
+  setV_el('ins-mh-parado-q', brl(s.paradoValor),'textContent');
+  setV_el('ins-mh-fech', _brlK(s.fechValor),'textContent');
+  const varMes = s.fechValorAnt>0 ? Math.round((s.fechValor-s.fechValorAnt)/s.fechValorAnt*100) : null;
+  setV_el('ins-mh-fech-q', varMes===null?'':(varMes>=0?'+':'')+varMes+'%','textContent');
+
+  const abertos=filtrarPorLoja(todosOrc||[]).filter(orcAbertoNoPipeline);
+  const segs=[['Enviado','#0B62CE'],['Negociando','#6FA8E8'],['Assembleia','#6E645A']];
+  const cont=segs.map(([lbl])=>abertos.filter(o=>_orcSituacao(o).label===lbl).length);
+  const total=Math.max(1,s.pipeQtd);
+  const barra=document.getElementById('ins-mh-segbar');
+  if(barra) barra.innerHTML=segs.map(([lbl,cor],i)=>cont[i]?`<span style="width:${Math.round(cont[i]/total*100)}%;background:${cor}"></span>`:'').join('');
+  const leg=document.getElementById('ins-mh-seglabels');
+  if(leg) leg.innerHTML=segs.map(([lbl],i)=>cont[i]?`<span>${esc(lbl)} ${cont[i]}</span>`:'').filter(Boolean).join('');
 }
 
 function verificarVencidos(){
@@ -11486,6 +11518,24 @@ function renderVisEquipGrid(){
   const _idsAtuais=new Set(ordem);
   _visEquipAbertos.forEach(id=>{ if(!_idsAtuais.has(id)) _visEquipAbertos.delete(id); });
   if(!_visEquipAbertos.size && ordem.length) _visEquipAbertos.add(ordem[0]);
+  // Barra de progresso mobile (Fase 9c) — conta quem já tem status marcado
+  // (bom/atenção/crítico/N-A contam como "vistoriado", só pendente é quem
+  // ainda não recebeu toque nenhum nos botões de status).
+  (function(){
+    const prog=document.getElementById('vis-progresso-mobile'); if(!prog) return;
+    if(!ordem.length){ prog.style.display='none'; return; }
+    prog.style.display=''; // deixa a media query decidir (bloco no mobile, oculto no desktop)
+    // "na" é o valor padrão gravado assim que o equipamento é ADICIONADO
+    // (toggleVisEquip), antes de qualquer avaliação real — não dá pra
+    // diferenciar "nunca tocado" de "usuário confirmou N/A" sem mudar o
+    // dado. Conta só bom/atenção/crítico como vistoriado: mais
+    // conservador (um N/A real fica "pendente" pra sempre), mas não finge
+    // progresso que não existe — 100% de cara em tudo seria pior.
+    const feitos=ordem.filter(id=>{ const st=visEquipDados[id]?.status; return st&&st!=='na'; }).length;
+    setV_el('vis-progresso-txt', feitos+' de '+ordem.length+' vistoriados','textContent');
+    const fill=document.getElementById('vis-progresso-fill');
+    if(fill) fill.style.width=Math.round(feitos/ordem.length*100)+'%';
+  })();
   // Renderiza equipamentos customizados do plano, agrupados por ambiente
   // (facilita achar tudo de um mesmo local durante a vistoria)
   if(_visEquipsCustom.length){

@@ -316,6 +316,22 @@
     .ins-kpis-3{grid-template-columns:repeat(3,1fr)}
     @media(max-width:640px){ .ins-kpis-3{grid-template-columns:1fr} }
 
+    /* Insights mobile (Fase 9a, 13/08) — hero do handoff mobile ("Turno 1 ·
+       Proposta A"), some no desktop e substitui a faixa de 4 KPIs abaixo
+       de 680px (mesmos dados, só reapresentados). */
+    .ins-mobile-hero{display:none}
+    @media(max-width:680px){
+      .ins-kpis{display:none}
+      .ins-mobile-hero{display:flex;flex-direction:column;gap:12px;margin-bottom:16px}
+    }
+    .ins-mh-pipe-num{font-size:30px;font-weight:600;letter-spacing:-.02em;color:var(--nav-tx-strong);font-variant-numeric:tabular-nums}
+    .ins-mh-pipe-qtd{font-size:13px;color:var(--tx4)}
+    .ins-mh-segbar{height:6px;border-radius:4px;background:#2A3543;display:flex;overflow:hidden}
+    .ins-mh-segbar span{height:100%}
+    .ins-mh-seglabels{display:flex;gap:14px;font-size:11px;color:var(--tx4);margin-top:8px;flex-wrap:wrap}
+    .ins-mh-stats{display:flex;gap:10px}
+    .ins-mh-stats .rd-card{flex:1;padding:12px 13px}
+
     .ins-body{display:grid;grid-template-columns:1.55fr 1fr;gap:16px;align-items:start}
     @media(max-width:1180px){ .ins-body{grid-template-columns:1fr} .ins-col-direita{order:-1} }
     .ins-col-direita{display:flex;flex-direction:column;gap:16px;min-width:0}
@@ -373,6 +389,29 @@
     }
     .novo-orc-left{display:flex;flex-direction:column;gap:14px;min-width:0}
     .novo-orc-left .card{margin-bottom:0}
+
+    /* Novo Orçamento mobile (Fase 9b, 13/08) — indicador de passos (rola
+       até a seção, não esconde nada — ver comentário no HTML) + barra
+       fixa de total. Ambos só aparecem abaixo de 900px, mesmo corte que
+       .novo-orc-body já usa pra empilhar (Fase 6). */
+    .novo-orc-steps{display:none}
+    .novo-orc-mobile-bar{display:none}
+    @media(max-width:900px){
+      .novo-orc-steps{display:flex;gap:6px;margin-bottom:14px}
+      .novo-orc-steps button{flex:1;background:none;border:none;padding:0;cursor:pointer;display:flex;flex-direction:column;gap:5px;font-family:'Instrument Sans',sans-serif}
+      .novo-orc-steps button span{height:3px;border-radius:2px;background:var(--c1)}
+      .novo-orc-steps button{font-size:11px;font-weight:600;color:var(--c2)}
+      #page-form .wrap{padding-bottom:100px}
+      .novo-orc-mobile-bar{display:flex;flex-direction:column;gap:10px;position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--line);padding:12px 14px calc(12px + env(safe-area-inset-bottom));z-index:40;box-shadow:0 -6px 16px -8px rgba(16,28,48,.18)}
+      .novo-orc-mobile-tot{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;color:var(--tx2)}
+      .novo-orc-mobile-tot span:last-child{font-size:20px;font-weight:600;color:var(--c2);font-variant-numeric:tabular-nums}
+    }
+    /* Abaixo de 680px o .mob-nav (nav inferior real) também aparece — a
+       barra de total precisa subir pra cima dele, não por baixo. */
+    @media(max-width:680px){
+      #page-form .wrap{padding-bottom:170px}
+      .novo-orc-mobile-bar{bottom:64px}
+    }
 
     .novo-orc-right{background:var(--surface2);border:1px solid var(--line);border-radius:var(--r);padding:18px;display:flex;flex-direction:column;gap:12px;min-width:0;position:sticky;top:70px}
     @media(max-width:1280px){ .novo-orc-right{position:static} }
@@ -1171,6 +1210,19 @@
     .vis-hist-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:50px}
     @media(max-width:680px){.vis-status-row .vis-status-btn{font-size:11px;padding:7px 4px}.vis-fotos-row{grid-template-columns:repeat(3,1fr)}}
     @media(max-width:520px){.vis-status-btn{min-height:44px;font-size:13px!important;padding:10px 6px!important}}
+
+    /* Vistoria mobile (Fase 9c, 13/08) — barra de progresso "N de M
+       vistoriados" (some no desktop) + check-in fixo no topo + ações
+       fixas no rodapé, abaixo de 680px (mesmo corte da nav inferior). */
+    .vis-progresso-hdr{display:flex;justify-content:space-between;font-size:12px;color:var(--gray);margin-bottom:6px}
+    .vis-progresso-barra{height:5px;border-radius:3px;background:var(--gray-light);overflow:hidden}
+    .vis-progresso-barra div{height:100%;background:var(--c1);border-radius:3px;transition:width .2s}
+    @media(max-width:680px){
+      .vis-progresso-mobile{display:block;margin-bottom:12px}
+      #page-visitas #vis-checkin-bar.checkin-bar{position:sticky;top:0;z-index:20;box-shadow:0 4px 10px -6px rgba(16,28,48,.25)}
+      #page-visitas .wrap{padding-bottom:100px}
+      #vis-acts-bottom{position:fixed;left:0;right:0;bottom:64px;z-index:40;background:#fff;border-top:1px solid var(--line);padding:12px 14px;margin:0;box-shadow:0 -6px 16px -8px rgba(16,28,48,.18)}
+    }
     .vis-obs-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;margin-bottom:8px}
     .vis-obs-chip{display:inline-block;padding:4px 10px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:11px;cursor:pointer;background:var(--white);color:var(--c2);font-family:'Instrument Sans',sans-serif;transition:all .15s;font-weight:600;user-select:none}
     .vis-obs-chip:hover{background:var(--c1-light);border-color:var(--c1);color:var(--c1)}

@@ -746,13 +746,93 @@ console. `sw.js` v135→v136.
 Com isso o turno 3 do handoff está completo: OS (8a), A Receber (8b),
 Despesas (8c), Clientes (8d), Portal (8e).
 
+### Próximo passo (histórico — Fase 9 já feita, ver entrada abaixo)
+
+---
+
+## REDESIGN — Fase 9: as 3 telas mobile do handoff — 13/08
+
+Última seção do arquivo (`Fluxa Redesign.dc.html`, linhas 1422-1703),
+rotulada no próprio handoff como **"Turno 1 · Proposta A"** — rótulo
+diferente do resto (que era só "turno 2"/"turno 3"), o que levantou a
+dúvida de ser uma exploração de design não aprovada. Perguntei ao Marcos
+antes de construir; ele confirmou que é pra implementar mesmo.
+
+As 3 telas são frames de celular (390×800) com uma linguagem visual
+mobile própria — hero escuro, wizard de passos, timer de check-in — bem
+diferente do "colapsa em coluna única" que as fases anteriores já faziam
+em todo breakpoint mobile. Decisão de escopo, válida pras 3: **tudo foi
+aditivo dentro de `@media`, nenhum HTML/JS de captura de dado real foi
+reescrito** — mesma cautela já registrada na Fase 6 ("os componentes
+internos do formulário são interações reais demais pra arriscar sem
+necessidade") e na Fase 9b especificamente. Nenhuma das 3 telas teve
+comportamento de desktop alterado — testado e confirmado nas 3.
+
+**9a — Insights.** `_renderInsMobileHero(s)` (nova) monta, só abaixo de
+680px, um hero escuro "Pipeline aberto" com barra segmentada por
+SITUAÇÃO (reaproveita `_orcSituacao()` da Fase 5 — Enviado/Negociando/
+Assembleia — em vez de inventar uma 2ª categorização por idade) + 3
+cards compactos (Vence 7d/Parado 30d/Fechado mês). Mesmos dados de
+`_crmPipelineStats()` que a faixa de 4 KPIs do desktop já usa — o
+`.ins-kpis` de sempre continua existindo e sendo calculado, só troca de
+visibilidade via CSS (`.ins-kpis{display:none}` / `.ins-mobile-hero
+{display:flex}` dentro do mesmo `@media(max-width:680px)`). "Precisa de
+você hoje" não precisou de nada novo — a Fase 4 já entrega exatamente
+isso (1º item expandido, resto compacto).
+
+**9b — Novo Orçamento.** O mock pede wizard de 3 passos (Cliente/
+Serviços/Pagamento) com campos escondidos por passo. **Não implementei
+isso.** A "Pagamento" no formulário real já mora dentro do card Cliente
+(select de forma de pagamento), não é um 3º card separado — esconder
+cards por trás de passos arriscava quebrar o rascunho automático e a
+prévia ao vivo (dependem de tudo estar no DOM o tempo todo). Em vez
+disso: indicador de 3 passos (`#novo-orc-steps`, renomeado "Cliente/
+Serviços/Finalizar" pra bater com a estrutura real) que **rola até a
+seção** em vez de esconder — todos os campos continuam sempre
+presentes e funcionais. + barra fixa de total no rodapé
+(`#novo-orc-mobile-bar`, espelha `#d-tot` via `upd()`), acima do
+`.mob-nav` real (`bottom:64px` abaixo de 680px, onde os dois convivem).
+
+**9c — Vistoria.** Também não recriei os cards de equipamento (já
+tinham cor por status desde antes — `.vis-equip-block.status-*` — e são
+a captura de dado real que a Fase B da crítica de design já tinha
+protegido). O que entrou: barra de progresso "N de M vistoriados"
+(`renderVisEquipGrid()` já calculava a lista `ordem`, só adicionei a
+contagem) + check-in sticky no topo (reposiciona `#vis-checkin-bar`
+existente via CSS, sem duplicar) + ações fixas no rodapé (mesmo padrão
+da 9b, reaproveitando os MESMOS botões/funções, só com `id` novo pra
+escopar o CSS).
+
+**Achado e corrigido durante a implementação:** o critério óbvio pra
+"vistoriado" (`visEquipDados[id]?.status` truthy) dava sempre 100% —
+`toggleVisEquip()` já grava `status:'na'` no momento em que o
+equipamento é ADICIONADO à lista, antes de qualquer avaliação real (é o
+valor inicial, não uma escolha consciente do técnico). Sem mudar esse
+dado (produção real, muitas vistorias já usam esse padrão), o critério
+virou "status diferente de 'na'" — mais conservador (um N/A
+genuinamente confirmado nunca conta como "feito", fica pendente pra
+sempre), mas não finge progresso que não existe.
+
+Testado no browser local (`dbOk=false`) nas 3 telas, 375px e 1440px:
+Insights (hero com R$45.000 · 4 orç., segmentos Enviado 1/Negociando 2,
+3 stats corretos, desktop com 4-KPI grid intacto), Novo Orçamento
+(passos rolam pra seção certa testado via `scrollIntoView`, barra de
+total espelhando em tempo real, desktop com prévia PDF ao lado sem
+regressão), Vistoria (progresso "2 de 3" batendo com bom+atenção
+setados e N/A de fora, check-in e ações fixas sem sobrepor a nav
+inferior real, desktop com layout inline de sempre). Zero erro novo de
+console (só ruído de Service Worker do ambiente de dev local, não
+relacionado). `sw.js` v136→v137.
+
+Com isso, todo o handoff visual mapeado nesta sessão está implementado:
+turno 2 (Insights/Orçamentos/Novo Orçamento/Estoque), turno 3 (OS/A
+Receber/Despesas/Clientes/Portal) e as 3 telas mobile.
+
 ### Próximo passo
 
-Faltam as 3 telas mobile do handoff (Insights, Novo Orçamento, Vistoria
-— `Fluxa Redesign.dc.html` linhas 1422-1703, ainda não lidas nesta
-sessão) e as telas sem handoff pronto (Vistoria desktop, Agenda,
-Equipamentos, Produtividade — seguem os padrões `.rd-*` já estabelecidos
-quando chegar a vez, conforme o próprio README do handoff já orienta).
+Telas sem handoff pronto (o próprio README já orienta seguir os padrões
+`.rd-*` estabelecidos quando chegar a vez, sem mock pra seguir
+literalmente): Vistoria desktop, Agenda, Equipamentos, Produtividade.
 
 ---
 
