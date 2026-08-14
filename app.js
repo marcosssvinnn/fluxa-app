@@ -7632,10 +7632,16 @@ async function checkPortalHash(){
   const token=hash.replace('#portal/','').trim();
   if(!token) return false;
 
-  // Esconde tudo menos o portal
+  // Esconde tudo menos o portal — achado ao testar a Fase 8e do redesign:
+  // faltava esconder a sidebar (só .hdr/#mob-nav eram escondidos antes),
+  // então quem abrisse o link do portal via boot direto (sem passar pela
+  // tela de login) via a barra lateral inteira do app por trás, incluindo
+  // nomes de outras telas internas — não deveria aparecer pra cliente.
   document.getElementById('login-overlay').style.display='none';
   document.querySelector('.hdr').style.display='none';
   const mobNav=document.getElementById('mob-nav'); if(mobNav) mobNav.style.display='none';
+  const sbEl=document.getElementById('sidebar'); if(sbEl) sbEl.style.display='none';
+  const sbOverlay=document.getElementById('sidebar-overlay'); if(sbOverlay) sbOverlay.style.display='none';
   document.body.style.background='#f0f2f5';
   document.body.style.paddingTop='0';
 
@@ -7669,6 +7675,7 @@ function mostrarErroPortal(){
   document.getElementById('portal-erro').style.display='block';
 }
 
+let _portalVistorias=[];
 async function renderPortal(cli){
   document.getElementById('portal-loading').style.display='none';
   document.getElementById('portal-content').style.display='block';
@@ -7676,12 +7683,13 @@ async function renderPortal(cli){
   // fix #C: usa branding da loja do cliente, não o CFG global
   const LC = getLojaConfig(cli.loja_id);
   document.getElementById('portal-empresa-nome').textContent=LC.nome||'';
-  document.getElementById('portal-empresa-sub').textContent=LC.sub||'';
+  document.getElementById('portal-empresa-sub').textContent=LC.sub||'Área do cliente';
   const logo=document.getElementById('portal-logo');
   if(LC.logoB64){ logo.src=LC.logoB64; logo.classList.add('has-logo'); }
   document.getElementById('portal-cli-nome').textContent='Olá, '+cli.nome+' 👋';
 
-  // Próxima visita (busca OS agendadas do cliente)
+  // Visita de hoje (checkin_time setado = técnico já chegou) ou próxima
+  // futura (fallback) — busca OS do cliente.
   const osLocal=JSON.parse(ls('fluxa_os_hist')||'[]');
   let osCliente=osLocal.filter(o=>(o.cliente||'').toLowerCase()===cli.nome.toLowerCase());
   if(dbOk&&db){
@@ -7691,33 +7699,87 @@ async function renderPortal(cli){
     }catch(e){ console.warn('[portal:OS]', e?.message||e); }
   }
   const hoje=new Date(); hoje.setHours(0,0,0,0);
+  const hojeISO=_hojeLocal();
+  const deHoje=osCliente.filter(o=>o.data_servico===hojeISO && o.status!=='cancelado');
+  const emCampoHoje=deHoje.find(o=>o.checkin_time && !o.checkout_time);
   const futuras=osCliente.filter(o=>o.status==='agendado'&&o.data_servico&&new Date(o.data_servico+'T12:00:00')>=hoje).sort((a,b)=>new Date(a.data_servico)-new Date(b.data_servico));
   const secVisita=document.getElementById('portal-sec-visita');
-  if(futuras.length){
+  const subEl=document.getElementById('portal-cli-sub');
+  if(emCampoHoje){
+    secVisita.style.display='block';
+    document.getElementById('portal-proxima-visita').innerHTML=`
+      <div class="portal-section-title">📅 Visita de hoje</div>
+      <div class="portal-visita">
+        <div class="portal-visita-info">
+          <div class="portal-visita-tipo">${esc(emCampoHoje.tecnico||'Técnico')} está no local</div>
+          <div class="portal-visita-tec">${esc((emCampoHoje.servicos||[]).map(s=>typeof s==='string'?s:s.desc).join(', ')||'Visita técnica')} · chegou às ${new Date(emCampoHoje.checkin_time).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</div>
+        </div>
+        <span class="rd-badge rd-badge-info">Em andamento</span>
+      </div>`;
+    if(subEl) subEl.textContent=`Próxima visita hoje, com ${emCampoHoje.tecnico||'nosso técnico'}.`;
+  } else if(deHoje.length){
+    secVisita.style.display='block';
+    const v=deHoje[0];
+    document.getElementById('portal-proxima-visita').innerHTML=`
+      <div class="portal-section-title">📅 Visita de hoje</div>
+      <div class="portal-visita">
+        <div class="portal-visita-info">
+          <div class="portal-visita-tipo">${esc((v.servicos||[]).map(s=>typeof s==='string'?s:s.desc).join(', ')||'Visita técnica')}</div>
+          <div class="portal-visita-tec">👤 ${esc(v.tecnico||'')}${v.hora?' · ⏰ '+v.hora:''}</div>
+        </div>
+      </div>`;
+    if(subEl) subEl.textContent=`Próxima visita hoje${v.hora?', às '+v.hora:''}.`;
+  } else if(futuras.length){
     secVisita.style.display='block';
     const prox=futuras[0];
     const d=new Date(prox.data_servico+'T12:00:00');
     document.getElementById('portal-proxima-visita').innerHTML=`
+      <div class="portal-section-title">📅 Próxima visita</div>
       <div class="portal-visita">
         <div class="portal-visita-data">${d.getDate()}<div style="font-size:11px">${d.toLocaleDateString('pt-BR',{month:'short'})}</div></div>
         <div class="portal-visita-info">
-          <div class="portal-visita-tipo">${esc((prox.servicos||[]).join(', ')||'Visita técnica')}</div>
+          <div class="portal-visita-tipo">${esc((prox.servicos||[]).map(s=>typeof s==='string'?s:s.desc).join(', ')||'Visita técnica')}</div>
           <div class="portal-visita-tec">👤 ${esc(prox.tecnico||'')} ${prox.hora?' · ⏰ '+prox.hora:''}</div>
         </div>
       </div>`;
   }
 
-  // Histórico de OS
-  const concluidas=osCliente.filter(o=>o.status==='concluido').sort((a,b)=>new Date(b.data_criacao)-new Date(a.data_criacao)).slice(0,5);
+  // Últimos relatórios — prioriza vistorias (têm PDF de laudo real); cai
+  // pra histórico de OS concluída se o cliente não tiver vistoria nenhuma.
+  let visCliente=[];
+  if(dbOk&&db){
+    try{
+      const {data}=await db.from('vistorias').select('*').ilike('cliente',cli.nome).order('data',{ascending:false}).limit(5);
+      if(data) visCliente=data;
+    }catch(e){ console.warn('[portal:vistorias]', e?.message||e); }
+  }
+  if(!visCliente.length) visCliente=lsVisLer().filter(v=>(v.cliente||'').toLowerCase()===cli.nome.toLowerCase()).sort((a,b)=>(b.data||'').localeCompare(a.data||'')).slice(0,5);
+  _portalVistorias=visCliente;
   const secOS=document.getElementById('portal-sec-os');
-  if(concluidas.length){
+  const tituloOS=document.getElementById('portal-os-titulo');
+  if(visCliente.length){
     secOS.style.display='block';
-    document.getElementById('portal-os-lista').innerHTML=concluidas.map(o=>`
-      <div class="portal-os-item">
-        <div class="portal-os-data">${o.data_servico?new Date(o.data_servico+'T12:00:00').toLocaleDateString('pt-BR'):'—'}</div>
-        <div class="portal-os-desc">${esc((o.servicos||[]).join(', ')||'Serviço')}</div>
-        <span class="os-badge os-concluido">✅</span>
-      </div>`).join('');
+    if(tituloOS) tituloOS.textContent='🔧 Últimos relatórios';
+    document.getElementById('portal-os-lista').innerHTML=visCliente.map((v,i)=>{
+      const critico=(typeof v.equipamentos==='string'?JSON.parse(v.equipamentos||'[]'):v.equipamentos||[]).some(e=>e.status==='critico'||e.status==='atencao');
+      return `<div class="portal-os-item">
+        <div class="portal-os-data">${v.data?new Date(v.data+'T12:00:00').toLocaleDateString('pt-BR'):'—'}</div>
+        <div class="portal-os-desc">Vistoria${critico?' · item em atenção':' · tudo normal'}</div>
+        <button type="button" class="rd-btn rd-btn-link" style="font-size:12px" onclick="_portalAbrirPDFVistoria(${i})">Abrir PDF</button>
+      </div>`;
+    }).join('');
+  } else {
+    const concluidas=osCliente.filter(o=>o.status==='concluido').sort((a,b)=>new Date(b.data_criacao)-new Date(a.data_criacao)).slice(0,5);
+    if(concluidas.length){
+      secOS.style.display='block';
+      if(tituloOS) tituloOS.textContent='🔧 Histórico de Serviços';
+      document.getElementById('portal-os-lista').innerHTML=concluidas.map(o=>`
+        <div class="portal-os-item">
+          <div class="portal-os-data">${o.data_servico?new Date(o.data_servico+'T12:00:00').toLocaleDateString('pt-BR'):'—'}</div>
+          <div class="portal-os-desc">${esc((o.servicos||[]).map(s=>typeof s==='string'?s:s.desc).join(', ')||'Serviço')}</div>
+          <span class="os-badge os-concluido">✅</span>
+        </div>`).join('');
+    }
   }
 
   // Orçamentos pendentes — fix #D: busca do Supabase se todosOrc estiver vazio (portal aberto sem login prévio)
@@ -7751,6 +7813,36 @@ async function renderPortal(cli){
       </div>`).join('');
   }
 
+  // Pagamento em aberto — parcelas de recebimentos deste cliente ainda não
+  // pagas. Sem Pix/boleto real (o app não tem gateway de pagamento
+  // integrado) — o botão manda pro WhatsApp, não fabrica um "Pagar com
+  // Pix" que não processaria nada de verdade.
+  const secPag=document.getElementById('portal-sec-pag');
+  if(secPag){
+    let recebCliente=[];
+    const orcIdsCliente=new Set(orcsCliente.concat(filtrarPorLoja(todosOrc).filter(o=>(o.cliente||'').toLowerCase()===cli.nome.toLowerCase())).map(o=>o.id));
+    if(dbOk&&db){
+      try{
+        const {data}=await db.from('recebimentos').select('*').is('data_pagamento',null);
+        if(data) recebCliente=data.filter(r=>orcIdsCliente.has(r.orcamento_id));
+      }catch(e){ console.warn('[portal:recebimentos]', e?.message||e); }
+    }
+    if(!recebCliente.length) recebCliente=(todosReceb||[]).filter(r=>!r.data_pagamento && orcIdsCliente.has(r.orcamento_id));
+    if(recebCliente.length){
+      secPag.style.display='block';
+      const total=recebCliente.reduce((a,r)=>a+(parseFloat(r.valor)||0),0);
+      const venc=recebCliente.filter(r=>r.vencimento).sort((a,b)=>a.vencimento.localeCompare(b.vencimento))[0];
+      document.getElementById('portal-pag-body').innerHTML=`
+        <div style="font-size:28px;font-weight:600;color:var(--c2);letter-spacing:-.02em;margin-bottom:8px">${brl(total)}</div>
+        <div style="font-size:13px;color:var(--gray);line-height:1.5;margin-bottom:14px">${recebCliente.length>1?recebCliente.length+' parcelas em aberto':'1 parcela em aberto'}${venc?', a mais próxima vence em '+_dataBR(venc.vencimento):''}. Fale com a gente pra combinar a forma de pagamento.</div>
+        <button type="button" class="rd-btn rd-btn-primary" style="width:100%" onclick="abrirWAPortal()">Falar sobre pagamento</button>`;
+    }
+  }
+
+  // Contato — dados da empresa (não há "responsável técnico" por cliente hoje)
+  const contatoEl=document.getElementById('portal-contato-body');
+  if(contatoEl) contatoEl.innerHTML=`<div style="font-size:13px;color:var(--c2);font-weight:600">${esc(LC.nome||'')}</div><div style="font-size:12px;color:var(--gray);margin-top:2px">${esc(LC.tel||'')}</div>`;
+
   // Equipamentos
   let eqCliente=todosEq.filter(e=>(e.cliente_nome||'').toLowerCase()===cli.nome.toLowerCase());
   if(dbOk&&db&&!eqCliente.length){
@@ -7782,6 +7874,13 @@ async function renderPortal(cli){
       </div>`;
     }).join('');
   }
+}
+// Abre o PDF de uma vistoria buscada pelo portal (fora do login, sem
+// depender do cache local que baixarPDFVistoria() usa — o objeto já veio
+// de _portalVistorias, populado por renderPortal()).
+async function _portalAbrirPDFVistoria(idx){
+  const vis=_portalVistorias[idx]; if(!vis){ toast('Relatório não encontrado'); return; }
+  await _gerarPDFVistoria(vis);
 }
 
 // ──────────────────────────────────────────────────

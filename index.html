@@ -1467,50 +1467,76 @@
       <p>Carregando seu portal…</p>
     </div>
     <div id="portal-content" style="display:none">
-      <!-- Header empresa -->
+      <!-- Fase 8e do redesign (13/08) — header próprio (sem sidebar, "sem
+           jargão interno" como o handoff pede) + grid 1.4fr/1fr abaixo:
+           visita de hoje + relatórios à esquerda, pagamento/orçamento/
+           contato à direita. Nav do header (Início/Relatórios/Orçamentos/
+           Pagamentos) é só visual — o portal continua 1 página só, essas
+           sub-páginas não existem; construí-las seria escopo novo, não
+           redesign visual. Equipamentos (fora do handoff) virou seção
+           full-width no fim, não removida. -->
       <div class="portal-header">
         <img id="portal-logo" class="portal-logo" alt="logo">
-        <div>
+        <div style="flex:1">
           <div class="portal-nome-empresa" id="portal-empresa-nome"></div>
           <div class="portal-sub-empresa" id="portal-empresa-sub"></div>
         </div>
+        <nav class="portal-nav">
+          <span class="on">Início</span>
+          <span>Relatórios</span>
+          <span>Orçamentos</span>
+          <span>Pagamentos</span>
+        </nav>
       </div>
 
       <!-- Saudação -->
       <div class="portal-cli-nome" id="portal-cli-nome"></div>
-      <div class="portal-cli-sub">Seu portal exclusivo de serviços</div>
+      <div class="portal-cli-sub" id="portal-cli-sub">Seu portal exclusivo de serviços</div>
 
-      <!-- Próxima visita -->
-      <div class="portal-section" id="portal-sec-visita" style="display:none">
-        <div class="portal-section-title">📅 Próxima Visita</div>
-        <div id="portal-proxima-visita"></div>
+      <div class="portal-grid">
+        <div class="portal-col">
+          <!-- Visita de hoje / próxima visita -->
+          <div class="portal-section" id="portal-sec-visita" style="display:none">
+            <div id="portal-proxima-visita"></div>
+          </div>
+
+          <!-- Relatórios (vistorias, com fallback pra OS concluída se o
+               cliente não tiver nenhuma vistoria registrada) -->
+          <div class="portal-section" id="portal-sec-os" style="display:none">
+            <div class="portal-section-title" id="portal-os-titulo">🔧 Últimos relatórios</div>
+            <div id="portal-os-lista"></div>
+          </div>
+        </div>
+
+        <div class="portal-col">
+          <!-- Pagamento em aberto -->
+          <div class="portal-section portal-section-warn" id="portal-sec-pag" style="display:none">
+            <div class="portal-section-title" style="color:var(--warn);border-color:var(--warn-border)">💰 Pagamento em aberto</div>
+            <div id="portal-pag-body"></div>
+          </div>
+
+          <!-- Orçamentos pendentes -->
+          <div class="portal-section" id="portal-sec-orc" style="display:none">
+            <div class="portal-section-title">📋 Orçamento aguardando você</div>
+            <div id="portal-orcs"></div>
+          </div>
+
+          <!-- Contato -->
+          <div class="portal-section">
+            <div class="portal-section-title">💬 Seu contato</div>
+            <div id="portal-contato-body"></div>
+            <button class="portal-wa-btn" onclick="abrirWAPortal()">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413z"/></svg>
+              Falar no WhatsApp
+            </button>
+          </div>
+        </div>
       </div>
 
-      <!-- Orçamentos pendentes -->
-      <div class="portal-section" id="portal-sec-orc" style="display:none">
-        <div class="portal-section-title">📋 Orçamentos Pendentes</div>
-        <div id="portal-orcs"></div>
-      </div>
-
-      <!-- Histórico de OS -->
-      <div class="portal-section" id="portal-sec-os" style="display:none">
-        <div class="portal-section-title">🔧 Histórico de Serviços</div>
-        <div id="portal-os-lista"></div>
-      </div>
-
-      <!-- Equipamentos -->
+      <!-- Equipamentos (fora do handoff, mantido) -->
       <div class="portal-section" id="portal-sec-eq" style="display:none">
         <div class="portal-section-title">⚙️ Seus Equipamentos</div>
         <div id="portal-eq-lista"></div>
-      </div>
-
-      <!-- Contato -->
-      <div class="portal-section">
-        <div class="portal-section-title">💬 Fale Conosco</div>
-        <button class="portal-wa-btn" onclick="abrirWAPortal()">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413z"/></svg>
-          Falar com a Equipe
-        </button>
       </div>
     </div>
 

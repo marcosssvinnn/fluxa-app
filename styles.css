@@ -1279,16 +1279,31 @@
     .prod-bar-bg{background:var(--gray-light);border-radius:50px;height:6px;margin-top:4px}
     .prod-bar{background:var(--c1);height:6px;border-radius:50px;transition:width .4s}
 
-    /* ── PORTAL DO CLIENTE ── */
-    .portal-wrap{max-width:680px;margin:0 auto;padding:20px 14px 60px;font-family:'Instrument Sans',sans-serif}
-    .portal-header{background:var(--c2);padding:20px;border-radius:16px;margin-bottom:20px;display:flex;align-items:center;gap:14px}
-    .portal-logo{width:52px;height:52px;border-radius:12px;object-fit:cover;display:none}
+    /* ── PORTAL DO CLIENTE (Fase 8e do redesign, 13/08) ──
+       Sem sidebar de propósito — "sem lateral, sem jargão interno" é a
+       frase do próprio handoff pra esta tela. max-width maior que antes
+       (980px) pra caber o grid 2 colunas em desktop; abaixo de 900px
+       colapsa pra pilha única, que já era o comportamento mobile-first
+       original — nenhuma regressão no celular (onde o link é acessado
+       na maioria das vezes, vindo do WhatsApp). */
+    .portal-wrap{max-width:980px;margin:0 auto;padding:20px 14px 60px;font-family:'Instrument Sans',sans-serif}
+    .portal-header{background:var(--c2);padding:16px 20px;border-radius:16px;margin-bottom:20px;display:flex;align-items:center;gap:14px}
+    .portal-logo{width:44px;height:44px;border-radius:11px;object-fit:cover;display:none}
     .portal-logo.has-logo{display:block}
-    .portal-nome-empresa{font-size:20px;font-weight:800;color:white;line-height:1.2}
-    .portal-sub-empresa{font-size:12px;color:rgba(255,255,255,.6);margin-top:2px}
+    .portal-nome-empresa{font-size:16px;font-weight:700;color:white;line-height:1.2}
+    .portal-sub-empresa{font-size:11px;color:rgba(255,255,255,.6);margin-top:2px}
+    .portal-nav{display:flex;gap:22px}
+    .portal-nav span{font-size:13px;font-weight:500;color:rgba(255,255,255,.55);cursor:default}
+    .portal-nav span.on{color:#fff;font-weight:600;border-bottom:2px solid var(--c1);padding-bottom:3px}
+    @media(max-width:640px){ .portal-nav{display:none} }
     .portal-cli-nome{font-size:22px;font-weight:800;color:var(--c2);margin-bottom:4px}
     .portal-cli-sub{font-size:13px;color:var(--gray);margin-bottom:20px}
+    .portal-grid{display:grid;grid-template-columns:1.4fr 1fr;gap:20px;align-items:start}
+    @media(max-width:900px){ .portal-grid{grid-template-columns:1fr} }
+    .portal-col{display:flex;flex-direction:column;gap:14px;min-width:0}
     .portal-section{background:var(--white);border-radius:var(--r);padding:18px;margin-bottom:14px;box-shadow:var(--sh)}
+    .portal-col .portal-section{margin-bottom:0}
+    .portal-section-warn{border:1px solid var(--warn-border)}
     .portal-section-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--c1);border-bottom:2px solid var(--c1-light);padding-bottom:8px;margin-bottom:14px}
     .portal-visita{display:flex;align-items:center;gap:14px;padding:12px;background:var(--c1-light);border-radius:10px;border-left:4px solid var(--c1)}
     .portal-visita-data{font-size:24px;font-weight:800;color:var(--c1);min-width:50px;text-align:center;line-height:1}

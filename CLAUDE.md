@@ -673,9 +673,86 @@ controlado) para confirmar que não era bug do redesign. Responsivo:
 `docWidth===winWidth===375`, ficha com KPIs 2×2). Zero erro novo de
 console. `sw.js` v134→v135.
 
+### Próximo passo (histórico — Fase 8e já feita, ver entrada abaixo)
+
+---
+
+## REDESIGN — Fase 8e: Portal do Cliente (última do turno 3) — 13/08
+
+Fecha o turno 3 do handoff (OS/A Receber/Despesas/Clientes/Portal — as 5
+telas do mapeamento inicial desta sessão, todas concluídas). O portal é
+a ÚNICA tela client-facing do app — sem sidebar, sem jargão interno,
+acessada via `#portal/<token>` sem login.
+
+**Mapeamento:** `page-portal`/`renderPortal(cli)` — já mostrava próxima
+visita, orçamentos pendentes, histórico de OS concluída, equipamentos e
+um botão de WhatsApp fixo, em coluna única (`.portal-wrap`, max-width
+680px, mobile-first porque o link chega pelo WhatsApp).
+
+**Decisões de conteúdo, não só de estilo:**
+- **"Últimos relatórios" prioriza vistorias** (com "Abrir PDF" real,
+  `_gerarPDFVistoria(vis)` chamado direto no objeto já buscado — não usa
+  `baixarPDFVistoria(id)` porque essa depende do cache local, que o
+  dispositivo do cliente nunca teve) — cai pra "Histórico de Serviços"
+  (OS concluída, como antes) só se o cliente não tiver NENHUMA vistoria
+  registrada. Union, não substituição: nenhum cliente perde informação
+  que já tinha.
+- **"Visita de hoje" é novo** — antes só existia "próxima visita futura"
+  (qualquer data ≥ hoje). Agora, se o técnico já fez check-in numa OS de
+  hoje (`checkin_time` setado, sem `checkout_time`), mostra badge "Em
+  andamento" com o nome do técnico e hora de chegada — meio real que o
+  handoff pede ("Júlio chegou às 9:36"), sem inventar geolocalização.
+  Cai pra "OS de hoje agendada" e depois pra "próxima futura", nessa
+  ordem, sempre com o rótulo certo pro que está mostrando.
+- **"Pagamento em aberto" mostra dado real (`recebimentos` do cliente),
+  mas SEM Pix/boleto fake** — o app não tem gateway de pagamento
+  integrado. O handoff mostra botões "Pagar com Pix"/"Boleto"; puxar
+  isso literalmente teria fabricado uma funcionalidade que não processa
+  nada de verdade. Botão vira "Falar sobre pagamento" (WhatsApp real).
+- **Header ganhou nav visual** (Início/Relatórios/Orçamentos/Pagamentos,
+  só "Início" ativo) — são sub-páginas que não existem; construí-las
+  seria escopo novo (múltiplas rotas dentro do portal), não redesign
+  visual desta fase. Nav só aparece ≥640px (mobile prioriza o conteúdo).
+- **"Seu contato"** usa dados da EMPRESA (`LC.nome`/`LC.tel`), não de um
+  "responsável técnico" por cliente — esse dado não existe no schema
+  hoje (não fabricado).
+- Grid 1.4fr/1fr só ativa ≥900px (`.portal-grid`); abaixo disso empilha
+  em coluna única, que já era o layout inteiro antes — zero regressão
+  mobile, só ganho em desktop.
+
+**Bug real achado e corrigido, fora do texto/CSS mas na própria tela do
+portal:** `checkPortalHash()` só escondia `.hdr` e `#mob-nav` antes de
+mostrar o portal — nunca escondia a `#sidebar`. Quem abrisse o link
+direto (sem passar pela tela de login) via a barra lateral inteira do
+app admin por trás do conteúdo do cliente, incluindo nomes de telas
+internas (Orçamentos, Despesas, Estoque…) que um cliente não deveria
+ver. Corrigido: `#sidebar`/`#sidebar-overlay` escondidos junto.
+
+Testado no browser local (`dbOk=false`, cliente sintético "Hotel
+Marlin" com OS em campo hoje, orçamento pendente, parcela vencida,
+vistoria com item em atenção): header sem sidebar por trás (confirmado
+o fix acima), "Visita de hoje" com badge "Em andamento" e hora de
+chegada, "Últimos relatórios" com "Abrir PDF", "Pagamento em aberto"
+com valor e "Falar sobre pagamento", "Orçamento aguardando você" com
+Aprovar/Recusar, "Seu contato" com dados da empresa. Achado à parte, não
+relacionado a este código: durante o teste, `localStorage` foi
+sobrescrito por uma promise de sync pendente de um boot anterior desta
+mesma aba (mesma classe de artefato já documentado nas Fases 8b/8d) —
+validada a lógica de filtro isoladamente com dado controlado antes de
+seguir. Responsivo: 900px+ (grid 2 colunas), 375px (empilha,
+`docWidth===winWidth===375`, nav do header oculta). Zero erro novo de
+console. `sw.js` v135→v136.
+
+Com isso o turno 3 do handoff está completo: OS (8a), A Receber (8b),
+Despesas (8c), Clientes (8d), Portal (8e).
+
 ### Próximo passo
 
-Falta 1 tela do turno 3: Portal do Cliente.
+Faltam as 3 telas mobile do handoff (Insights, Novo Orçamento, Vistoria
+— `Fluxa Redesign.dc.html` linhas 1422-1703, ainda não lidas nesta
+sessão) e as telas sem handoff pronto (Vistoria desktop, Agenda,
+Equipamentos, Produtividade — seguem os padrões `.rd-*` já estabelecidos
+quando chegar a vez, conforme o próprio README do handoff já orienta).
 
 ---
 
