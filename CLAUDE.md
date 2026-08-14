@@ -17,7 +17,19 @@ solto colorido de antes. Header migrado pra `novo-orc-topbar`. Testado
 com dados sintéticos (4 cenários de garantia, campos vazios, estado
 vazio, mobile 375px) — sem erro no console.
 
-Próximas: Produtividade, Agenda, Vistoria desktop (nesta ordem).
+**Produtividade — fechada.** Cards por técnico (`renderProd()`) migraram
+pra `.rd-card`/`.rd-kpi-num`/`rd-badge` (taxa de conclusão vira badge, não
+texto colorido solto). Tabela comparativa saiu de `<table>` nativo pra
+`rd-table-wrap` em grid de divs, mesmo idioma do Histórico/Equipamentos.
+**Achado, não mexido:** essa página tem um bloco `#cr-card` (Contas a
+Receber) embutido, ainda populado por `renderContasReceber()` — mas já
+existe uma tela dedicada mais completa (`page-recebiveis`, Fase 8b) fora
+daqui. Pode ser duplicação a limpar, mas não tinha certeza suficiente de
+que é código morto pra remover sem confirmar com o Marcos — fica
+registrado, não mexi. Testado com dados sintéticos de OS por técnico,
+estado "sem técnico configurado", mobile 375px — sem erro no console.
+
+Próximas: Agenda, Vistoria desktop (nesta ordem).
 
 ---
 
