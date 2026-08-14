@@ -2,6 +2,25 @@
 
 ---
 
+## Redesign das 4 telas restantes — em andamento (14/08)
+
+O Marcos autorizou continuar sem supervisão ("Você está expressamente
+autorizado a fazer qualquer atualização aí que você necessite"). Retomando
+a lista de telas sem handoff pronto (README não cobre): **Vistoria
+desktop, Agenda, Equipamentos, Produtividade**. Sem mockup literal —
+seguindo os padrões `.rd-*` já estabelecidos nas 13 telas já feitas.
+
+**Equipamentos — fechada.** `renderEqGrid()` reescrita de cards em grid
+pra `rd-table-wrap` densa (mesmo idioma do Histórico de Orçamentos/
+Estoque). Badge de garantia (`_eqGarantiaBadge()`) substitui o texto
+solto colorido de antes. Header migrado pra `novo-orc-topbar`. Testado
+com dados sintéticos (4 cenários de garantia, campos vazios, estado
+vazio, mobile 375px) — sem erro no console.
+
+Próximas: Produtividade, Agenda, Vistoria desktop (nesta ordem).
+
+---
+
 ## Etapa 7 implementada (14/08) — itens 1 e 2 da proposta
 
 O Marcos aprovou a proposta (`docs/crm-etapas-7-8-proposta-2026-08-14.md`,
