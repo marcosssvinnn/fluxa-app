@@ -2,7 +2,20 @@
 
 ---
 
-## ⚠️ Achado, precisa de decisão do Marcos: dois sistemas de recebimento coexistindo (14/08)
+## ✅ RESOLVIDO — botão antigo de Pagamento removido (14/08, decisão do Marcos)
+
+O achado abaixo foi levado direto pro Marcos (com explicação de onde o
+tipo de pagamento é definido no orçamento e onde as parcelas nascem de
+verdade na aprovação, pra ele decidir com contexto completo). Decisão:
+**remover o botão antigo.** Feito — botão "Pagamento", `abrirModalPg()`/
+`fecharModal()`/`salvarPagamento()`, `#modal-pg` e a variável `modalOrcId`
+removidos (nenhum tinha outro uso, conferido por grep antes de apagar).
+`orcamentos.valor_recebido` em si não foi tocado (ainda alimenta o KPI
+"A Receber" do Insights) — só o caminho de escrita antigo (o botão) saiu.
+Testado: barra de ações do orçamento renderiza sem erro, resto dos
+botões intacto. `sw.js` v145→v146.
+
+## Achado original (contexto, já resolvido acima): dois sistemas de recebimento coexistindo (14/08)
 
 Ao investigar o achado de ontem ("`#cr-card` em Produtividade pode ser
 duplicação"), confirmei que é mais sério do que "tela repetida":
