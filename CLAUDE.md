@@ -598,9 +598,84 @@ KPIs lado a lado + coluna direita), 375px (`.ins-kpis-3` empilha em 1
 coluna abaixo de 640px, `docWidth===winWidth===375` sem overflow de
 página). Zero erro novo de console. `sw.js` v133→v134.
 
+### Próximo passo (histórico — Fase 8d já feita, ver entrada abaixo)
+
+---
+
+## REDESIGN — Fase 8d: Clientes (lista + ficha lado a lado) — 13/08
+
+Mudança de padrão mais estrutural do turno 3: o handoff pede lista
+compacta (380px) + ficha do cliente selecionado sempre visível ao lado —
+diferente do padrão "linha clicável abre em outra tela/modal" das fases
+anteriores (5/7/8a). Aqui os dois ficam lado a lado o tempo todo.
+
+**Mapeamento:** `page-clientes`/`renderClientes()` (lista simples em
+cards) + `verHistoricoCliente()` (modal dinâmico com abas de Orçamentos/
+OS/Vistorias/Agendamentos/Vendas balcão) — o handoff funde os dois numa
+ficha só, sempre aberta.
+
+**O que mudou:**
+- **Lista à esquerda** (`.cli-master-left`, 380px, rolagem própria):
+  busca + 3 chips novos (Todos/Contrato/Inadimplente — `_cliTemContratoAtivo`
+  checa agendamento recorrente não cancelado, `_cliTemInadimplencia` checa
+  parcela vencida em `recebimentos`; os dois já eram deriváveis do que o
+  app carrega, não é dado novo). Cada linha mostra faturamento e, se
+  inadimplente, "venc." em vermelho. Primeiro cliente da lista seleciona
+  sozinho ao abrir (mesmo estado do mock, que já mostra uma ficha aberta).
+- **Ficha à direita** (`_renderFichaCliente`, nova) — reaproveita os
+  MESMOS dados que `verHistoricoCliente` já calculava (orçamentos/OS/
+  vistorias/vendas balcão por nome+`cliente_id`), só reformatados: header
+  (avatar por iniciais, badge Contrato ativo/Avulso, WhatsApp, Novo
+  orçamento), 4 KPIs (Faturado total/Cliente desde/OS realizadas/Em
+  aberto — este último soma `recebimentos` não pagos do cliente,
+  dado novo mas derivado, não fabricado), Histórico (timeline unificada,
+  6 eventos mais recentes dos 4 tipos), Equipamentos no local
+  (`todosEq.filter(e=>e.cliente_id===id)`, já existia desde a Etapa 5 do
+  CRM) e Acesso ao portal (botão "Copiar link do portal", reaproveita
+  `getPortalLinkCliente()` que já existia).
+- **`verHistoricoCliente()` removida** — sem chamador algum depois da
+  fusão (confirmado por grep antes de apagar), a própria ficha agora É
+  o histórico.
+- Ações que não couberam no header viraram links pequenos no rodapé da
+  ficha: "✏️ Editar cadastro" (mesmo form inline de sempre, só
+  `#cli-form-titulo` trocou de seletor — antes buscava `.ct`, que não
+  existe mais no form redesenhado), "🔧 Nova OS", "🗑 Excluir cliente".
+
+**Bug real pego em teste, corrigido antes do commit:** os botões
+"WhatsApp" e "Copiar link do portal" usavam `JSON.stringify(cli.nome)`
+dentro de um atributo `onclick="..."` — `JSON.stringify` produz aspas
+DUPLAS, que fecham o atributo HTML (também delimitado por aspas duplas)
+no meio da string, quebrando o botão (o resto do onclick vazava como
+texto visível). Corrigido com duas funções novas, `_cliEnviarWA(id)` e
+`_cliCopiarLinkPortal(id)`, que buscam o cliente pelo ID (já seguro em
+`onclick="fn('${id}')"`, mesmo padrão usado em todo o resto do código)
+em vez de receber nome/telefone livres pelo HTML — mais seguro contra
+qualquer caractere especial no nome do cliente, não só este caso.
+
+CSS novo: `.cli-master-body` (grid 380px 1fr, colapsa em 1 coluna abaixo
+de 1024px), `.cli-row`/`.cli-row.on` (linha da lista, borda esquerda
+azul quando selecionada), `.cli-ficha-grid` (Histórico/Equipamentos+Portal
+lado a lado, 1 coluna abaixo de 640px).
+
+Testado no browser local (`dbOk=false`, 4 clientes sintéticos + orçamento/
+OS/agendamento/equipamento/recebimento vinculados): ficha renderiza com
+KPIs corretos, badge Contrato ativo quando há agendamento, "R$X venc."
+na lista quando inadimplente, timeline com 4 eventos ordenados por data,
+equipamentos e portal certos; clique real numa linha troca a ficha;
+`editarCliente()` abre o form pré-preenchido com o título certo. Achado
+à parte, não relacionado a este código: durante o teste, `todosOrc`
+global foi sobrescrito por um sync assíncrono real de produção entre
+duas chamadas de ferramenta (mesma classe de risco já documentada em
+sessões anteriores sobre `dbOk` ser `let`, não `window.dbOk`) — validada
+a lógica do filtro isoladamente (`orcCli.length===1` com dado
+controlado) para confirmar que não era bug do redesign. Responsivo:
+1440px (lista+ficha lado a lado), 375px (empilha,
+`docWidth===winWidth===375`, ficha com KPIs 2×2). Zero erro novo de
+console. `sw.js` v134→v135.
+
 ### Próximo passo
 
-Faltam 2 telas do turno 3: Clientes, Portal do Cliente.
+Falta 1 tela do turno 3: Portal do Cliente.
 
 ---
 

@@ -6696,6 +6696,41 @@ function lsCliLer(){ try{ return JSON.parse(ls(LS_CLI_FULL)||'[]'); }catch(e){ r
 function lsCliSalvar(l){ lsSet(LS_CLI_FULL,JSON.stringify(l)); }
 
 
+// Fase 8d do redesign (13/08) — lista compacta (380px) + ficha do cliente
+// selecionado ao lado (handoff: "lista e ficha lado a lado"), substituindo
+// o modal verHistoricoCliente() por um painel sempre visível. Chips
+// Todos/Contrato/Inadimplente são novos (o handoff pede, a lista antiga não
+// tinha) — "Contrato" = tem agendamento recorrente não cancelado;
+// "Inadimplente" = tem parcela vencida em recebimentos. Os dois já eram
+// deriváveis do que o app carrega, não são dado novo.
+let _cliSelecionadoId=null, _cliFiltro='todos';
+const CLI_TETO=30; let _cliVerTodos=false;
+function _cliSetFiltro(f){ _cliFiltro=f; _cliVerTodos=false; renderClientes(); }
+function _cliTemContratoAtivo(nome){
+  const n=(nome||'').toLowerCase();
+  return (todosAg||[]).some(a=>(a.cliente||'').toLowerCase()===n && a.status!=='cancelado');
+}
+function _cliTemInadimplencia(nome, cliId){
+  const n=(nome||'').toLowerCase();
+  const orcIds=new Set(filtrarPorLoja(todosOrc||[]).filter(o=>(o.cliente||'').toLowerCase()===n||o.cliente_id===cliId).map(o=>o.id));
+  return (todosReceb||[]).some(r=>orcIds.has(r.orcamento_id) && !r.data_pagamento && _recebDiasAtraso(r)>0);
+}
+function _cliSelecionar(id){ _cliSelecionadoId=id; renderClientes(); }
+// Buscam o cliente por ID em vez de receber nome/telefone livres pelo
+// onclick — nome de cliente pode ter aspas (JSON.stringify dentro de um
+// atributo onclick="..." quebra o HTML, bug real pego em teste desta fase).
+function _cliEnviarWA(id){
+  const c=lsCliLer().find(x=>x.id===id); if(!c) return;
+  const tel=(c.tel||c.telefone||'').replace(/\D/g,'');
+  enviarNotifWA('Olá '+(c.nome||'').split(' ')[0]+'! Aqui é da '+(CFG.nome||'')+'.', tel);
+}
+function _cliCopiarLinkPortal(id){
+  const c=lsCliLer().find(x=>x.id===id); if(!c) return;
+  const link=getPortalLinkCliente(c.nome||'');
+  if(!link){ toast('⚠️ Cliente sem link de portal gerado'); return; }
+  navigator.clipboard.writeText(link).then(()=>toast('✅ Link copiado')).catch(()=>toast('✅ Copiado'));
+}
+
 function renderClientes(){
   // Regra simples: loja_id='aquamotor' → Aquamotor. Tudo mais → Fortemp.
   let lista=lsCliLer();
@@ -6704,7 +6739,6 @@ function renderClientes(){
   } else {
     lista=lista.filter(c=>c.loja_id!=='aquamotor');
   }
-  const el=document.getElementById('clientes-lista');
   const busca=(document.getElementById('cli-busca')?.value||'').toLowerCase().trim();
   if(busca){
     const q=busca.replace(/\D/g,'');
@@ -6713,47 +6747,143 @@ function renderClientes(){
       || (q && (c.cnpj||'').replace(/\D/g,'').includes(q))
       || (c.end||'').toLowerCase().includes(busca));
   }
-  // Origem de aquisição por cliente — derivada dos orçamentos (o cliente não
-  // guarda origem; ela fica no orçamento). Usa a do orçamento MAIS ANTIGO
-  // (a aquisição real), ignorando "Já é cliente" quando há outra origem.
-  // Deriva de TODOS os orçamentos (a origem é do cliente; a lista já está
-  // escopada por empresa acima) — evita marcar "sem origem" à toa.
-  const _orcsOrigem=(todosOrc||[]).filter(o=>o.origem_cliente)
-    .slice().sort((a,b)=>String(a.data_criacao||'').localeCompare(String(b.data_criacao||'')));
-  const origemPorNome={};
-  _orcsOrigem.forEach(o=>{
-    const n=(o.cliente||'').toLowerCase().trim(); if(!n) return;
-    const org=o.origem_cliente;
-    if(!origemPorNome[n]) origemPorNome[n]=org;
-    else if(origemPorNome[n]==='Já é cliente' && org!=='Já é cliente') origemPorNome[n]=org;
-  });
-  const _origemDoCli=c=>origemPorNome[(c.nome||'').toLowerCase().trim()]||'';
+  const totalAntesFiltroChip=lista.length;
+  const contratoLista=lista.filter(c=>_cliTemContratoAtivo(c.nome));
+  const inadimpLista=lista.filter(c=>_cliTemInadimplencia(c.nome, c.id));
+  if(_cliFiltro==='contrato') lista=contratoLista;
+  else if(_cliFiltro==='inadimplente') lista=inadimpLista;
+
   // Faturamento por cliente (todos os orçamentos aprovados, todas as lojas)
   const fatPorNome={};
   filtrarPorLoja(todosOrc).filter(o=>o.status==='aprovado').forEach(o=>{ const n=(o.cliente||'').toLowerCase(); fatPorNome[n]=(fatPorNome[n]||0)+(o.total||0); });
   lista.sort((a,b)=>(fatPorNome[(b.nome||'').toLowerCase()]||0)-(fatPorNome[(a.nome||'').toLowerCase()]||0) || (a.nome||'').localeCompare(b.nome||''));
-  if(!lista.length){ el.innerHTML=`<div class="empty-st"><div class="ei">👥</div><p>${busca?'Nenhum cliente encontrado.':'Nenhum cliente cadastrado.'}</p>${busca?'':'<button class="btn-primary" style="margin-top:12px" onclick="mostrarFormCliente()">＋ Cadastrar Cliente</button>'}</div>`; return; }
-  el.innerHTML=lista.map(c=>{
-    const fat=fatPorNome[(c.nome||'').toLowerCase()]||0;
-    const lojas=(c.lojas||[c.loja_id]).filter(Boolean);
-    const lojasBadges=lojas.map(lid=>getLojaBadge(lid)).filter(Boolean).join('');
-    const origemBadge=getOrigemBadge(_origemDoCli(c));
-    return `
-    <div class="cli-card">
-      <div class="cli-card-info">
-        <div class="cli-card-nome">${esc(c.nome)}${fat>0?` <span style="font-size:10px;background:var(--green-bg);color:var(--green);padding:1px 7px;border-radius:50px;font-weight:700">${brl(fat)}</span>`:''}</div>
-        <div class="cli-card-det">${[c.tel||c.telefone,c.cnpj,c.end||c.endereco].filter(Boolean).map(x=>esc(x)).join(' · ')||'—'}${c.email_responsavel?' · ✉️ '+esc(c.email_responsavel):''}</div>
-        ${(lojasBadges||origemBadge)?`<div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap;align-items:center">${lojasBadges}${origemBadge}</div>`:''}
+
+  const subEl=document.getElementById('cli-resumo-sub');
+  if(subEl) subEl.textContent=`${totalAntesFiltroChip} ativo${totalAntesFiltroChip!==1?'s':''} · ${contratoLista.length} com contrato mensal`;
+
+  const chipsEl=document.getElementById('cli-chips');
+  if(chipsEl) chipsEl.innerHTML=[['todos','Todos',totalAntesFiltroChip],['contrato','Contrato',contratoLista.length],['inadimplente','Inadimplente',inadimpLista.length]]
+    .map(([k,rot,qtd])=>`<button type="button" class="${_cliFiltro===k?'rd-chip on':'rd-chip'}" onclick="_cliSetFiltro('${k}')">${esc(rot)} ${qtd}</button>`).join('');
+
+  // Seleciona o primeiro cliente automaticamente (mesmo padrão do handoff,
+  // que já mostra a ficha aberta) — só quando nada foi escolhido ainda, ou
+  // o selecionado saiu da lista filtrada (busca/chip mudou).
+  if(lista.length && (!_cliSelecionadoId || !lista.some(c=>c.id===_cliSelecionadoId))) _cliSelecionadoId=lista[0].id;
+  if(!lista.length) _cliSelecionadoId=null;
+
+  const el=document.getElementById('clientes-lista');
+  if(!lista.length){
+    el.innerHTML=`<div class="rd-empty" style="padding:24px"><div class="rd-empty-ico">👥</div><div class="rd-empty-title">${busca||_cliFiltro!=='todos'?'Nenhum cliente encontrado.':'Nenhum cliente cadastrado.'}</div>${busca||_cliFiltro!=='todos'?'':'<button type="button" class="rd-btn rd-btn-primary" style="margin-top:6px" onclick="mostrarFormCliente()">+ Novo cliente</button>'}</div>`;
+  } else {
+    const teto=_cliVerTodos?lista.length:CLI_TETO;
+    const pagina=lista.slice(0,teto);
+    let h=pagina.map(c=>{
+      const fat=fatPorNome[(c.nome||'').toLowerCase()]||0;
+      const inad=_cliTemInadimplencia(c.nome, c.id);
+      return `<div class="cli-row${c.id===_cliSelecionadoId?' on':''}" tabindex="0" onclick="_cliSelecionar('${c.id}')" onkeydown="if(event.key==='Enter')_cliSelecionar('${c.id}')">
+        <div class="cli-row-top">
+          <span class="rd-cell-strong">${esc(c.nome)}</span>
+          <span style="font-size:12px;font-weight:600;font-variant-numeric:tabular-nums;color:${inad?'var(--bad)':'var(--tx2)'}">${fat>0?brl(fat).replace('R$','').trim():''}${inad?' venc.':''}</span>
+        </div>
+        <div class="rd-cell-sub">${[c.tipo?({condominio:'Condomínio',hotel:'Hotel/Pousada',clube:'Clube/Academia',comercial:'Comercial'}[c.tipo]||'Residência'):'',_cliTemContratoAtivo(c.nome)?'Contrato mensal':'Avulso',c.end||c.endereco].filter(Boolean).join(' · ')||'—'}</div>
+      </div>`;
+    }).join('');
+    if(lista.length>teto) h+=`<div style="padding:12px 16px;display:flex;justify-content:space-between;font-size:12px;color:var(--tx2)"><span>${teto} de ${lista.length}</span><button type="button" class="rd-btn rd-btn-link" style="font-size:12px" onclick="_cliVerTodos=true;renderClientes()">Carregar mais</button></div>`;
+    el.innerHTML=h;
+  }
+
+  _renderFichaCliente(_cliSelecionadoId);
+}
+
+function _renderFichaCliente(cliId){
+  const el=document.getElementById('cli-ficha'); if(!el) return;
+  if(!cliId){
+    el.innerHTML=`<div class="rd-empty" style="padding:40px 24px"><div class="rd-empty-ico">👥</div><div class="rd-empty-title">Selecione um cliente</div><div class="rd-empty-sub">A ficha completa aparece aqui.</div></div>`;
+    return;
+  }
+  const cli=lsCliLer().find(c=>c.id===cliId); if(!cli){ el.innerHTML=''; return; }
+  const nomeL=(cli.nome||'').toLowerCase();
+  const orcCli=filtrarPorLoja(todosOrc).filter(o=>(o.cliente||'').toLowerCase()===nomeL||o.cliente_id===cliId);
+  const osCli=filtrarPorLoja(todosOS).filter(o=>(o.cliente||'').toLowerCase()===nomeL||o.cliente_id===cliId);
+  const visCli=filtrarPorLoja(lsVisLer(),'loja_id').filter(v=>(v.cliente||'').toLowerCase()===nomeL);
+  const agCli=filtrarPorLoja(todosAg).filter(a=>(a.cliente||'').toLowerCase()===nomeL);
+  const vendasCli=filtrarPorLoja(todasVendasBalcao||[]).filter(v=>v.cliente_id===cliId||(v.cliente_nome||'').toLowerCase()===nomeL);
+  const eqCli=(todosEq||[]).filter(e=>e.cliente_id===cliId);
+  const totalFat=orcCli.filter(o=>o.status==='aprovado').reduce((a,o)=>a+(o.total||0),0);
+  const totalVendas=vendasCli.reduce((a,v)=>a+(v.valor_total||0),0);
+  const totalGeral=totalFat+totalVendas;
+  const osConcluidas=osCli.filter(o=>o.status==='concluido');
+  const orcIds=new Set(orcCli.map(o=>o.id));
+  const emAberto=(todosReceb||[]).filter(r=>orcIds.has(r.orcamento_id)&&!r.data_pagamento).reduce((a,r)=>a+(parseFloat(r.valor)||0),0);
+  const temContrato=_cliTemContratoAtivo(cli.nome);
+
+  // "Cliente desde" — ano da transação mais antiga entre os 3 tipos.
+  const datasOrigem=[...orcCli.map(o=>o.data_criacao), ...osCli.map(o=>o.data_servico), ...vendasCli.map(v=>v.data_criacao)].filter(Boolean).sort();
+  const clienteDesde=datasOrigem.length?new Date(datasOrigem[0]).getFullYear():null;
+
+  // Timeline unificada — últimos 6 eventos reais (orçamento/OS/vistoria/venda), sem inventar categoria.
+  const eventos=[
+    ...orcCli.map(o=>({data:o.data_aprovacao||o.data_criacao, cor:o.status==='aprovado'?'var(--ok)':'var(--tx4)', titulo:`Orçamento #${String(o.numero||'').padStart(3,'0')} ${o.status||''}`, sub:`${_dataBR(String(o.data_criacao||'').slice(0,10))} · ${brl(o.total||0)}`})),
+    ...osCli.map(o=>({data:o.data_servico?o.data_servico+'T12:00:00':o.data_criacao, cor:o.status==='concluido'?'var(--ok)':'var(--tx4)', titulo:`OS #${String(o.numero||'').padStart(3,'0')} ${o.status==='concluido'?'concluída':o.status||''}`, sub:`${_dataBR(o.data_servico)}${o.tecnico?' · '+esc(o.tecnico):''}`})),
+    ...visCli.map(v=>({data:v.data?v.data+'T12:00:00':null, cor:'var(--tx4)', titulo:'Vistoria '+(v.status==='concluido'?'concluída':'')+(v.recomendacoes||(v.equipamentos||[]).some(e=>e.status==='critico')?' · item em atenção':''), sub:`${_dataBR(v.data)}${v.tecnico?' · '+esc(v.tecnico):''}`})),
+    ...vendasCli.map(v=>({data:v.data_criacao, cor:'var(--tx4)', titulo:'Recompra de balcão', sub:`${_dataBR(String(v.data_criacao||'').slice(0,10))} · ${brl(v.valor_total||0)}`})),
+  ].filter(e=>e.data).sort((a,b)=>String(b.data).localeCompare(String(a.data))).slice(0,6);
+
+  const iniciais=(cli.nome||'?').trim().split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase();
+  const telLimpo=(cli.tel||'').replace(/\D/g,'');
+
+  el.innerHTML=`
+    <div class="rd-card" style="display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap">
+      <div style="width:46px;height:46px;border-radius:13px;background:var(--line2,#EDF1F7);color:#41506A;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:600;flex-shrink:0">${esc(iniciais)}</div>
+      <div style="flex:1;min-width:180px;display:flex;flex-direction:column;gap:4px">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span style="font-size:18px;font-weight:600;color:var(--c2);letter-spacing:-.02em">${esc(cli.nome)}</span>
+          <span class="rd-badge ${temContrato?'rd-badge-ok':'rd-badge-neutral'}">${temContrato?'Contrato ativo':'Avulso'}</span>
+        </div>
+        <div class="rd-cell-sub">${[cli.end||cli.endereco, cli.cnpj?'CNPJ '+cli.cnpj:''].filter(Boolean).map(esc).join(' · ')||'—'}</div>
+        <div class="rd-cell-sub">${[cli.tel||cli.telefone, cli.email_responsavel].filter(Boolean).map(esc).join(' · ')||'—'}</div>
       </div>
-      <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap">
-        <button class="tb" onclick="verHistoricoCliente('${c.id}')">📋 Hist.</button>
-        <button class="tb" onclick="editarCliente('${c.id}')">✏️ Editar</button>
-        <button class="tb" onclick="novoOrcParaCliente('${c.id}')">＋ Orç.</button>
-        <button class="tb" onclick="novaOSParaCliente('${c.id}')">🔧 OS</button>
-        <button class="tb d" onclick="excluirCliente('${c.id}')">🗑</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${telLimpo?`<button type="button" class="rd-btn rd-btn-secondary" onclick="_cliEnviarWA('${cli.id}')">WhatsApp</button>`:''}
+        <button type="button" class="rd-btn rd-btn-primary" onclick="novoOrcParaCliente('${cli.id}')">Novo orçamento</button>
       </div>
-    </div>`;
-  }).join('');
+    </div>
+
+    <div class="ins-kpis" style="margin:0">
+      <div class="rd-card rd-card-dense"><div class="rd-kpi-lbl">Faturado total</div><div class="rd-kpi-num rd-kpi-num-sm">${brl(totalGeral)}</div></div>
+      <div class="rd-card rd-card-dense"><div class="rd-kpi-lbl">Cliente desde</div><div class="rd-kpi-num rd-kpi-num-sm">${clienteDesde||'—'}</div></div>
+      <div class="rd-card rd-card-dense"><div class="rd-kpi-lbl">OS realizadas</div><div class="rd-kpi-num rd-kpi-num-sm">${osConcluidas.length}</div></div>
+      <div class="rd-card rd-card-dense${emAberto>0?' rd-card-warn':''}"><div class="rd-kpi-lbl">Em aberto</div><div class="rd-kpi-num rd-kpi-num-sm"${emAberto>0?' style="color:var(--warn)"':''}>${brl(emAberto)}</div></div>
+    </div>
+
+    <div class="cli-ficha-grid">
+      <div class="rd-card">
+        <div class="rd-card-title" style="margin-bottom:12px">Histórico</div>
+        ${eventos.length?`<div style="display:flex;flex-direction:column;gap:10px">${eventos.map(e=>`
+          <div style="display:flex;gap:10px"><span style="width:7px;height:7px;border-radius:999px;background:${e.cor};margin-top:5px;flex-shrink:0"></span>
+            <div style="display:flex;flex-direction:column;gap:1px"><span style="font-size:12px;font-weight:600;color:var(--c2)">${esc(e.titulo)}</span><span class="rd-cell-sub">${e.sub}</span></div>
+          </div>`).join('')}</div>`:'<div class="rd-cell-sub">Nenhum histórico ainda.</div>'}
+      </div>
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div class="rd-card">
+          <div class="rd-card-title" style="margin-bottom:11px">Equipamentos no local</div>
+          ${eqCli.length?`<div style="display:flex;flex-direction:column;gap:9px">${eqCli.map(e=>`
+            <div style="display:flex;align-items:center;gap:10px"><span style="width:7px;height:7px;border-radius:999px;background:${e.garantia_ate&&new Date(e.garantia_ate)<new Date()?'var(--warn-dot)':'var(--ok)'}"></span><span style="font-size:12px;color:var(--c2);flex:1">${esc(e.tipo||'')} ${esc(e.marca||'')} ${esc(e.modelo||'')}</span></div>`).join('')}</div>`
+            :'<div class="rd-cell-sub">Nenhum equipamento cadastrado.</div>'}
+        </div>
+        <div class="rd-card">
+          <div class="rd-card-title" style="margin-bottom:8px">Acesso ao portal</div>
+          ${cli.portal_token?`<button type="button" class="rd-btn rd-btn-secondary" style="width:100%" onclick="_cliCopiarLinkPortal('${cli.id}')">Copiar link do portal</button>`:'<div class="rd-cell-sub">Cliente ainda sem link de portal gerado.</div>'}
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:12px">
+      <button type="button" class="rd-btn rd-btn-link" style="font-size:12px" onclick="editarCliente('${cli.id}')">✏️ Editar cadastro</button>
+      <button type="button" class="rd-btn rd-btn-link" style="font-size:12px" onclick="novaOSParaCliente('${cli.id}')">🔧 Nova OS</button>
+      <button type="button" class="rd-btn rd-btn-danger-text" style="font-size:12px" onclick="excluirCliente('${cli.id}')">🗑 Excluir cliente</button>
+    </div>
+  `;
 }
 
 function novoOrcParaCliente(id){
@@ -6782,126 +6912,6 @@ function novaOSParaCliente(id){
     if(document.getElementById('os-cnpj')) setV('os-cnpj', c.cnpj||'');
     go('os');
   }, 50);
-}
-
-// ──────────────────────────────────────────────────
-//  HISTÓRICO COMPLETO DO CLIENTE
-// ──────────────────────────────────────────────────
-function verHistoricoCliente(cliId){
-  const lista=lsCliLer();
-  const cli=lista.find(x=>x.id===cliId); if(!cli){ toast('Cliente não encontrado'); return; }
-  const nomeL=cli.nome.toLowerCase();
-  const orcCli=filtrarPorLoja(todosOrc).filter(o=>(o.cliente||'').toLowerCase()===nomeL||o.cliente_id===cliId);
-  const osCli=filtrarPorLoja(todosOS).filter(o=>(o.cliente||'').toLowerCase()===nomeL||o.cliente_id===cliId);
-  const visCli=filtrarPorLoja(lsVisLer(),'loja_id').filter(v=>(v.cliente||'').toLowerCase()===nomeL);
-  const agCli=filtrarPorLoja(todosAg).filter(a=>(a.cliente||'').toLowerCase()===nomeL);
-  // cliente_id é o primeiro vínculo de verdade que este app tem (Etapa 1 do
-  // roadmap de CRM) — casa por id quando a venda veio da busca de cliente, e
-  // por nome como fallback (venda digitada à mão, sem selecionar da lista).
-  const vendasCli=filtrarPorLoja(todasVendasBalcao||[]).filter(v=>v.cliente_id===cliId||(v.cliente_nome||'').toLowerCase()===nomeL);
-  const totalFat=orcCli.filter(o=>o.status==='aprovado').reduce((a,o)=>a+(o.total||0),0);
-  const totalOS=osCli.filter(o=>o.status==='concluido').reduce((a,o)=>a+(o.total||0),0);
-  const totalVendas=vendasCli.reduce((a,v)=>a+(v.valor_total||0),0);
-  const stC={aprovado:'var(--green)',pendente:'var(--yellow)',recusado:'var(--red)',vencido:'var(--gray)',agendado:'var(--blue)',concluido:'var(--green)',cancelado:'var(--red)'};
-  const stBg={aprovado:'var(--green-bg)',pendente:'var(--yellow-bg)',recusado:'var(--red-bg)',vencido:'var(--gray-light)',agendado:'var(--blue-bg)',concluido:'var(--green-bg)',cancelado:'var(--red-bg)'};
-  const _dt=(d,safe)=>{ if(!d) return '—'; try{ return new Date(safe?d+'T12:00:00':d).toLocaleDateString('pt-BR'); }catch(e){ return '—'; } };
-  const existing=document.getElementById('modal-hist-cli'); if(existing) existing.remove();
-  const m=document.createElement('div'); m.id='modal-hist-cli'; m.className='cli-hist-overlay';
-  const orcHTML=orcCli.length?[...orcCli].sort((a,b)=>(b.numero||0)-(a.numero||0)).map(o=>`
-    <div class="chi">
-      <div>
-        <div class="chi-desc">Orçamento #${String(o.numero||'').padStart(3,'0')}</div>
-        <div class="chi-sub">${esc((o.servicos||[]).map(s=>s.desc||s).slice(0,2).join(', '))||'—'} · ${_dt(o.data_criacao)}</div>
-      </div>
-      <div class="chi-right">
-        <div class="chi-val">${brl(o.total||0)}</div>
-        <span class="chi-badge" style="background:${stBg[o.status]||'var(--gray-light)'};color:${stC[o.status]||'var(--gray)'}">${o.status||'—'}</span>
-      </div>
-    </div>`).join('')
-    :'<div style="padding:10px 0;font-size:13px;color:var(--gray)">Nenhum orçamento encontrado</div>';
-  const osHTML=osCli.length?[...osCli].sort((a,b)=>(b.numero||0)-(a.numero||0)).map(o=>`
-    <div class="chi">
-      <div>
-        <div class="chi-desc">OS #${String(o.numero||'').padStart(3,'0')} · ${esc(o.tecnico||'—')}</div>
-        <div class="chi-sub">${esc(Array.isArray(o.servicos)?o.servicos.map(s=>typeof s==='string'?s:(s.desc||s)).slice(0,2).join(', '):'')||'—'} · ${_dt(o.data_servico, true)}</div>
-      </div>
-      <div class="chi-right">
-        <div class="chi-val">${o.total?brl(o.total):'—'}</div>
-        <span class="chi-badge" style="background:${stBg[o.status]||'var(--blue-bg)'};color:${stC[o.status]||'var(--blue)'}">${o.status||'agendado'}</span>
-      </div>
-    </div>`).join('')
-    :'<div style="padding:10px 0;font-size:13px;color:var(--gray)">Nenhuma OS encontrada</div>';
-  const visHTML=visCli.length?[...visCli].sort((a,b)=>(b.data||'').localeCompare(a.data||'')).map(v=>`
-    <div class="chi">
-      <div>
-        <div class="chi-desc">Vistoria · ${esc(v.local||v.local_servico||'—')}</div>
-        <div class="chi-sub">${esc(v.tecnico||'—')} · ${_dt(v.data, true)}</div>
-      </div>
-      <div class="chi-right">
-        <span class="chi-badge" style="background:${v.status==='concluido'?'var(--green-bg)':'var(--blue-bg)'};color:${v.status==='concluido'?'var(--green)':'var(--blue)'}">${v.status||'realizada'}</span>
-      </div>
-    </div>`).join('')
-    :'<div style="padding:10px 0;font-size:13px;color:var(--gray)">Nenhuma vistoria encontrada</div>';
-  const agHTML=agCli.length?[...agCli].sort((a,b)=>(b.data||'').localeCompare(a.data||'')).map(a=>`
-    <div class="chi">
-      <div>
-        <div class="chi-desc">${esc(a.tipo_servico||'Agendamento')} · ${esc(a.local_servico||'—')}</div>
-        <div class="chi-sub">${esc(a.tecnico||'—')} · ${_dt(a.data, true)}${a.hora?' às '+a.hora:''}</div>
-      </div>
-      <div class="chi-right">
-        <span class="chi-badge" style="background:${stBg[a.status]||'var(--blue-bg)'};color:${stC[a.status]||'var(--blue)'}">${a.status||'agendado'}</span>
-      </div>
-    </div>`).join('')
-    :'<div style="padding:10px 0;font-size:13px;color:var(--gray)">Nenhum agendamento encontrado</div>';
-  const vendasHTML=vendasCli.length?[...vendasCli].sort((a,b)=>(b.data_criacao||'').localeCompare(a.data_criacao||'')).map(v=>`
-    <div class="chi">
-      <div>
-        <div class="chi-desc">🛒 Venda balcão</div>
-        <div class="chi-sub">${esc((v.itens||[]).map(i=>i.nome).slice(0,2).join(', '))||'—'} · ${_dt(v.data_criacao)}</div>
-      </div>
-      <div class="chi-right">
-        <div class="chi-val">${brl(v.valor_total||0)}</div>
-      </div>
-    </div>`).join('')
-    :'<div style="padding:10px 0;font-size:13px;color:var(--gray)">Nenhuma venda de balcão encontrada</div>';
-  const totalGeral=totalFat+totalOS+totalVendas;
-  m.innerHTML=`<div class="cli-hist-box">
-    <div class="cli-hist-hdr">
-      <div class="cli-hist-titulo">📋 ${esc(cli.nome)}</div>
-      <button class="cli-hist-close" onclick="document.getElementById('modal-hist-cli').remove()">×</button>
-    </div>
-    <div class="cli-hist-body">
-      ${cli.tel||cli.email_responsavel||cli.cnpj?`<div class="chi-contato">
-        ${cli.tel?`<span>📞 ${esc(cli.tel)}</span>`:''}
-        ${cli.email_responsavel?`<span>✉ ${esc(cli.email_responsavel)}</span>`:''}
-        ${cli.cnpj?`<span>🏢 ${esc(cli.cnpj)}</span>`:''}
-      </div>`:''}
-      <div class="cli-hist-resumo">
-        <div class="chr-item"><span class="chr-val">${orcCli.length}</span><div class="chr-label">Orçamentos</div></div>
-        <div class="chr-item"><span class="chr-val">${osCli.length}</span><div class="chr-label">OS</div></div>
-        <div class="chr-item"><span class="chr-val">${visCli.length}</span><div class="chr-label">Vistorias</div></div>
-        <div class="chr-item"><span class="chr-val">${vendasCli.length}</span><div class="chr-label">Vendas balcão</div></div>
-        <div class="chr-item"><span class="chr-val">${brl(totalGeral)}</span><div class="chr-label">Faturado</div></div>
-      </div>
-      <div class="cli-hist-secao">
-        <div class="cli-hist-sec-titulo">Orçamentos</div>${orcHTML}
-      </div>
-      <div class="cli-hist-secao">
-        <div class="cli-hist-sec-titulo">Ordens de Serviço</div>${osHTML}
-      </div>
-      <div class="cli-hist-secao">
-        <div class="cli-hist-sec-titulo">Vistorias</div>${visHTML}
-      </div>
-      <div class="cli-hist-secao">
-        <div class="cli-hist-sec-titulo">Agendamentos</div>${agHTML}
-      </div>
-      <div class="cli-hist-secao">
-        <div class="cli-hist-sec-titulo">Vendas balcão</div>${vendasHTML}
-      </div>
-    </div>
-  </div>`;
-  m.addEventListener('click',e=>{ if(e.target===m) m.remove(); });
-  document.body.appendChild(m);
 }
 
 function excluirCliente(id){
@@ -6934,8 +6944,9 @@ function editarCliente(id){
   // muda o título do form
   const btn=wrap.querySelector('button[onclick="salvarNovoCliente()"]');
   if(btn) btn.textContent='💾 Salvar alterações';
-  const titulo=wrap.querySelector('.ct');
+  const titulo=document.getElementById('cli-form-titulo');
   if(titulo) titulo.textContent='Editar Cliente';
+  wrap.scrollIntoView({behavior:'smooth', block:'start'});
 }
 
 // Auto-cadastra cliente ao gerar orçamento/OS.
@@ -7032,9 +7043,10 @@ function mostrarFormCliente(){
   ['cli-new-nome','cli-new-tel','cli-new-end','cli-new-cnpj'].forEach(id=>setV(id,''));
   const btn=wrap.querySelector('button[onclick="salvarNovoCliente()"]');
   if(btn) btn.textContent='💾 Salvar Cliente';
-  const titulo=wrap.querySelector('.ct');
-  if(titulo) titulo.textContent='Novo Cliente';
+  const titulo=document.getElementById('cli-form-titulo');
+  if(titulo) titulo.textContent='＋ Novo Cliente';
   wrap.style.display='block';
+  wrap.scrollIntoView({behavior:'smooth', block:'start'});
 }
 
 // Une cadastro de clientes + nomes vistos em orçamentos/OS (mesmo sem cadastro formal)

@@ -1893,11 +1893,8 @@
 
 <!-- ══ PAGE: CLIENTES ══ -->
 <div class="page" id="page-clientes">
-  <div class="wrap" style="max-width:700px">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;padding-top:8px">
-      <button class="btn-voltar" onclick="voltar()" style="margin-bottom:0">← Voltar</button>
-      <span style="font-size:18px;font-weight:800;color:var(--c2)">👥 Clientes</span>
-    </div>
+  <div class="wrap">
+    <button class="btn-voltar" onclick="voltar()">← Voltar</button>
     <!-- A tela de Identidade e uma TAREFA de limpeza, nao uma secao do app: ela
          so faz sentido enquanto houver orcamento sem ficha. Por isso sai do menu
          e aparece aqui, some sozinha quando acabar. -->
@@ -1905,9 +1902,9 @@
     <!-- Fichas duplicadas vazias (clones sem orçamento/OS/vistoria vinculado) —
          mesma lógica de "aparece só enquanto houver o que fazer" do aviso acima. -->
     <div id="cli-dup-aviso" style="display:none"></div>
-    <div id="cli-form-wrap" style="display:none">
+    <div id="cli-form-wrap" style="display:none;margin-bottom:16px">
       <div class="cli-form-inline">
-        <div style="font-size:14px;font-weight:700;color:var(--c2);margin-bottom:14px">＋ Novo Cliente</div>
+        <div style="font-size:14px;font-weight:700;color:var(--c2);margin-bottom:14px" id="cli-form-titulo">＋ Novo Cliente</div>
         <div class="row">
           <div class="fl"><label class="req">Nome</label><input type="text" id="cli-new-nome" placeholder="Nome completo"></div>
           <div class="fl"><label>Telefone</label><input type="tel" id="cli-new-tel" placeholder="(47) 99999-9999"></div>
@@ -1934,15 +1931,40 @@
         </div>
       </div>
     </div>
-    <div class="card">
-      <div class="ct">Cadastro
-        <div style="display:flex;gap:8px">
-          <button class="btn-add" style="font-size:12px;padding:5px 11px;border-width:1.5px" onclick="mostrarFormCliente()">＋ Novo Cliente</button>
-          <button class="btn-add" style="font-size:12px;padding:5px 11px;border-width:1.5px;border-color:var(--blue);color:var(--blue)" onclick="importarClientesDeOrcamentos()" title="Importa clientes de todos os orçamentos existentes">📥 Importar dos orçamentos</button>
+
+    <!-- Fase 8d do redesign (13/08) — lista compacta (380px) + ficha do
+         cliente selecionado ao lado, substituindo o modal
+         verHistoricoCliente() por um painel sempre visível (handoff:
+         "lista e ficha lado a lado"). renderClientes() monta as duas
+         colunas; _renderFichaCliente(id) monta só a direita, chamada ao
+         clicar num cliente da lista (_cliSelecionar). -->
+    <div class="novo-orc-topbar">
+      <div>
+        <div class="novo-orc-titulo">Clientes</div>
+        <div class="novo-orc-sub" id="cli-resumo-sub">—</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button type="button" class="rd-btn rd-btn-secondary" onclick="importarClientesDeOrcamentos()" title="Importa clientes de todos os orçamentos existentes">Importar</button>
+        <button type="button" class="rd-btn rd-btn-primary" onclick="mostrarFormCliente()">+ Novo cliente</button>
+      </div>
+    </div>
+
+    <div class="cli-master-body">
+      <div class="rd-card cli-master-left" style="padding:0;overflow:hidden;display:flex;flex-direction:column">
+        <div style="padding:14px 16px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:10px">
+          <label class="sr-only" for="cli-busca">Buscar cliente por nome ou endereço</label>
+          <input class="rd-field-box" type="text" id="cli-busca" placeholder="🔍 Buscar por nome, telefone, CNPJ ou endereço…" oninput="renderClientes()" style="width:100%">
+          <div id="cli-chips" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+        </div>
+        <div id="clientes-lista" style="overflow-y:auto"></div>
+      </div>
+      <div id="cli-ficha">
+        <div class="rd-empty" style="padding:40px 24px">
+          <div class="rd-empty-ico">👥</div>
+          <div class="rd-empty-title">Selecione um cliente</div>
+          <div class="rd-empty-sub">A ficha completa aparece aqui.</div>
         </div>
       </div>
-      <input class="hsrch" type="text" id="cli-busca" placeholder="🔍 Buscar por nome, telefone ou CNPJ…" oninput="renderClientes()" style="width:100%;margin-bottom:10px">
-      <div id="clientes-lista"></div>
     </div>
   </div>
 </div>

@@ -401,6 +401,22 @@
     .prev-assin-linha{border-top:1px solid #B9C4D3;padding-top:5px}
     .prev-assin-leg{font-size:9px;color:var(--tx3)}
 
+    /* ══════════════════════════════════════════════════════════════════
+       REDESIGN — CLIENTES (Fase 8d, 13/08). Lista compacta + ficha lado a
+       lado (handoff: "lista e ficha lado a lado") — substitui o modal
+       verHistoricoCliente() por um painel sempre visível. */
+    .cli-master-body{display:grid;grid-template-columns:380px 1fr;gap:16px;align-items:start}
+    @media(max-width:1024px){ .cli-master-body{grid-template-columns:1fr} }
+    .cli-master-left{max-height:calc(100vh - 220px);min-height:400px}
+    @media(max-width:1024px){ .cli-master-left{max-height:480px} }
+    .cli-row{padding:13px 16px;border-bottom:1px solid var(--line2);cursor:pointer;display:flex;flex-direction:column;gap:3px;transition:background .1s}
+    .cli-row:hover{background:var(--bg-app)}
+    .cli-row.on{border-left:3px solid var(--c1);background:#F5F9FF;padding-left:13px}
+    .cli-row-top{display:flex;justify-content:space-between;gap:8px}
+    #cli-ficha{display:flex;flex-direction:column;gap:14px;min-width:0}
+    .cli-ficha-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+    @media(max-width:640px){ .cli-ficha-grid{grid-template-columns:1fr} }
+
     /* ── FORM ── */
     .row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
     .row.f1{grid-template-columns:1fr}
