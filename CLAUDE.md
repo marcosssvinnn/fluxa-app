@@ -2,6 +2,35 @@
 
 ---
 
+## Etapa 7 implementada (14/08) — itens 1 e 2 da proposta
+
+O Marcos aprovou a proposta (`docs/crm-etapas-7-8-proposta-2026-08-14.md`,
+"proponham vocês o que fazem sentido") e autorizou seguir sem supervisão.
+Implementados os 2 itens que exigiam código (o 3º já existia — a fila
+"Precisa de você hoje"):
+
+1. **Ligar/WhatsApp na fila agora também abrem "Registrar contato"** no
+   mesmo momento (`_acaoWA()` chama `abrirCrmContato()`; o link "Ligar"
+   ganhou `onclick` junto do `href="tel:..."` — `_acaoItemHTML` agora
+   suporta os dois ao mesmo tempo). "Registrar contato" continua existindo
+   à parte, pra quem contatou por outro canal.
+2. **Sinal "Xd desde o contato" / "sem contato registrado"** no Histórico
+   de Orçamentos, só em orçamento aberto (`_orcSinalContato()`, deriva de
+   `crm_notas`).
+
+Testado no browser local (`dbOk=false`): os 3 casos de `_orcSinalContato`
+(sem nota/8d/hoje), sinal aparece só no pendente (não no aprovado),
+`_acaoWA` abre WhatsApp E o modal com dados corretos, botão Ligar gera
+`href=tel:` com `onclick` junto, fila renderiza sem erro. `sw.js`
+v138→v139.
+
+**Etapa 8** continua exatamente como a proposta define — não é código, é
+remedir o baseline depois que isso gerar `crm_notas`/`proximo_contato`
+de verdade. Sugestão: reexecutar por volta de 21-22/08 (uma semana depois
+desta mudança ir pro ar).
+
+---
+
 ## Fase 9b fechada + bug real achado — outra sessão bateu limite de uso (14/08)
 
 A sessão que revisou o wizard mobile do Novo Orçamento (comentário já
