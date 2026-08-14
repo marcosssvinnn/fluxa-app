@@ -6151,7 +6151,6 @@ async function salvarPagamento(){
   if(dbOk&&db&&!String(modalOrcId||'').startsWith('local_'))
     dbUpdate('orcamentos', {valor_recebido:v}, 'id', modalOrcId).then(()=>{}).catch(()=>{});
   fecharModal(); atualizarDash(); renderTabela();
-  if(document.getElementById('page-produtividade')?.classList.contains('on')) renderContasReceber();
   toast('💰 Pagamento registrado: '+brl(v));
 }
 
@@ -8206,47 +8205,8 @@ async function loadProdutividade(){
     }catch(e){ console.warn('[loadProdutividade]', e?.message||e); }
   }
   renderProd();
-  renderRelatorioFinanceiro();
-  renderContasReceber();
 }
 
-// ── CONTAS A RECEBER ──
-// Consolida os orçamentos aprovados com saldo em aberto (total − recebido).
-function renderContasReceber(){
-  const tbody=document.getElementById('cr-tabela-body'); if(!tbody) return;
-  const resumo=document.getElementById('cr-resumo');
-  const aprov=filtrarPorLoja(todosOrc).filter(o=>o.status==='aprovado');
-  const comSaldo=aprov.map(o=>({o, saldo:(o.total||0)-(o.valor_recebido||0)}))
-                      .filter(x=>x.saldo>0.005)
-                      .sort((a,b)=>b.saldo-a.saldo);
-  const totalReceber=comSaldo.reduce((a,x)=>a+x.saldo,0);
-  const totalRecebido=aprov.reduce((a,o)=>a+(o.valor_recebido||0),0);
-  const totalAprovado=aprov.reduce((a,o)=>a+(o.total||0),0);
-  if(resumo){
-    const chip=(lbl,val,cor)=>`<div style="flex:1;min-width:130px;background:var(--gray-light);border-radius:10px;padding:10px 14px">
-      <div style="font-size:11px;color:var(--gray);font-weight:600;text-transform:uppercase;letter-spacing:.5px">${lbl}</div>
-      <div style="font-size:18px;font-weight:800;color:${cor}">${brl(val)}</div></div>`;
-    resumo.innerHTML=chip('A Receber',totalReceber,'var(--red)')+chip('Já Recebido',totalRecebido,'var(--green)')+chip('Total Aprovado',totalAprovado,'var(--c2)');
-  }
-  if(!comSaldo.length){ tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--gray);padding:18px">✅ Nenhum saldo em aberto — tudo recebido!</td></tr>'; return; }
-  tbody.innerHTML=comSaldo.map(({o,saldo})=>{
-    const num=String(o.numero||'—').padStart(3,'0');
-    const rec=o.valor_recebido||0;
-    const parcial=rec>0;
-    return `<tr>
-      <td><strong>#${num}</strong></td>
-      <td>${esc(o.cliente||'—')}${parcial?' <span style="font-size:10px;background:var(--yellow-bg);color:var(--yellow);padding:1px 6px;border-radius:50px;font-weight:700">parcial</span>':''}</td>
-      <td>${brl(o.total||0)}</td>
-      <td>${rec>0?brl(rec):'—'}</td>
-      <td><strong style="color:var(--red)">${brl(saldo)}</strong></td>
-      <td><button class="tb g" style="font-size:11px" onclick="abrirModalPg('${o.id}',${o.total||0})">💰 Registrar</button></td>
-    </tr>`;
-  }).join('');
-}
-
-// ──────────────────────────────────────────────────
-//  RELATÓRIO FINANCEIRO
-// ──────────────────────────────────────────────────
 // ══════════════════════════════════════════════════════════════════════
 //  DRE GERENCIAL POR UNIDADE
 //  Receita reconhecida − custo direto − despesa, com Camboriú e Itapema em
@@ -8550,40 +8510,6 @@ function renderDRE(){
   }
   avisos.push('Receita = orçamento aprovado no mês. Custo do produto vem do valor gravado na baixa, não do custo de hoje. Despesa entra pela competência.');
   document.getElementById('dre-nota').innerHTML=avisos.map(a=>'• '+a).join('<br>');
-}
-
-function renderRelatorioFinanceiro(){
-  const tbody=document.getElementById('fin-tabela-body'); if(!tbody) return;
-  const periodo=(document.getElementById('fin-periodo')||{value:'6m'}).value;
-  const hoje=new Date();
-  const meses=[];
-  if(periodo==='6m'){for(let i=5;i>=0;i--){const d=new Date(hoje.getFullYear(),hoje.getMonth()-i,1);meses.push({y:d.getFullYear(),m:d.getMonth()});}}
-  else if(periodo==='12m'){for(let i=11;i>=0;i--){const d=new Date(hoje.getFullYear(),hoje.getMonth()-i,1);meses.push({y:d.getFullYear(),m:d.getMonth()});}}
-  else{for(let i=0;i<=hoje.getMonth();i++) meses.push({y:hoje.getFullYear(),m:i});}
-  const orcFilt=filtrarPorLoja(todosOrc);
-  const despFilt=filtrarPorLoja(todasDesp);
-  let totRec=0,totDesp=0;
-  const linhas=meses.map(({y,m})=>{
-    const label=new Date(y,m,1).toLocaleDateString('pt-BR',{month:'short',year:'2-digit'});
-    const rec=orcFilt.filter(o=>{const d=_orcData(o);return d&&!isNaN(d)&&d.getFullYear()===y&&d.getMonth()===m&&o.status==='aprovado';}).reduce((a,o)=>a+(o.total||0),0);
-    const desp=despFilt.filter(d=>{const raw=(d.data||'').split('T')[0];if(!raw)return false;const dt=new Date(raw+'T12:00:00');return dt.getFullYear()===y&&dt.getMonth()===m;}).reduce((a,d)=>a+(d.valor||0),0);
-    const res=rec-desp;
-    totRec+=rec; totDesp+=desp;
-    return `<tr>
-      <td style="font-weight:600">${label}</td>
-      <td class="${rec>0?'fin-pos':'fin-zero'}">${brl(rec)}</td>
-      <td class="${desp>0?'fin-neg':'fin-zero'}">${brl(desp)}</td>
-      <td class="${res>0?'fin-pos':res<0?'fin-neg':'fin-zero'}">${brl(res)}</td>
-    </tr>`;
-  });
-  const totRes=totRec-totDesp;
-  linhas.push(`<tr class="fin-total">
-    <td>Total do período</td>
-    <td class="${totRec>0?'fin-pos':'fin-zero'}">${brl(totRec)}</td>
-    <td class="${totDesp>0?'fin-neg':'fin-zero'}">${brl(totDesp)}</td>
-    <td class="${totRes>0?'fin-pos':totRes<0?'fin-neg':'fin-zero'}">${brl(totRes)}</td>
-  </tr>`);
-  tbody.innerHTML=linhas.join('');
 }
 
 function renderProd(){
