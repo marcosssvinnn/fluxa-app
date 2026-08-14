@@ -564,33 +564,45 @@
 <!-- ══ PAGE: AUDITORIA ══ -->
 <div class="page" id="page-recebiveis">
   <div class="wrap">
-    <button class="tb" onclick="voltar()" style="margin-bottom:12px">← Voltar</button>
-    <h2 style="margin:0 0 4px;font-size:22px;font-weight:800">💰 Contas a Receber</h2>
-    <p style="margin:0 0 16px;font-size:13px;color:var(--gray)">
-      Parcelas registradas na aprovação do orçamento. Marque o que já entrou —
-      é isso que faz o vencido e o prazo médio valerem alguma coisa.</p>
+    <button class="btn-voltar" onclick="voltar()">← Voltar</button>
+    <!-- Fase 8b do redesign (13/08) — topbar título+resumo, gráfico de idade
+         do saldo em aberto + card "Previsto do mês" (handoff), tabela densa
+         de parcelas com chips Vencidas/A vencer/Recebidas. O card de gap
+         (aprovados sem NENHUMA parcela lançada) não está no handoff, mas é
+         o único jeito de ver esse buraco — mantido, só restyled em rd-*. -->
+    <div class="novo-orc-topbar">
+      <div>
+        <div class="novo-orc-titulo">A Receber</div>
+        <div class="novo-orc-sub" id="receb-resumo-sub">—</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button type="button" class="rd-btn rd-btn-primary" onclick="_recebIrParaGap()">Registrar recebimento</button>
+      </div>
+    </div>
 
-    <div class="dash" id="receb-kpis"></div>
-
-    <!-- Aprovado sem NENHUMA parcela lançada: aprovação pelo portal e "Pular"
-         no modal não geram parcela — sem este card o buraco é invisível. -->
-    <div class="card" id="receb-gap-card" style="display:none;border-left:3px solid var(--red)">
-      <div class="ct" style="color:var(--red)">⚠️ Aprovados sem cobrança lançada
-        <span id="receb-gap-contagem" style="font-size:11px;font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0"></span>
+    <div class="rd-card rd-card-warn" id="receb-gap-card" style="display:none;margin-bottom:16px">
+      <div class="rd-card-title" style="color:var(--warn)">⚠️ Aprovados sem cobrança lançada
+        <span id="receb-gap-contagem" style="font-size:11px;font-weight:400;color:var(--tx2);text-transform:none;letter-spacing:0"></span>
       </div>
       <div id="receb-gap-lista"></div>
     </div>
 
-    <div class="card">
-      <div class="ct">Filtrar
-        <span style="font-size:11px;font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0">por situação</span>
+    <div class="novo-orc-body novo-orc-body-340" style="margin-bottom:16px">
+      <div class="rd-card">
+        <div class="rd-card-title">Idade do saldo em aberto</div>
+        <div class="rd-card-sub" id="receb-aging-sub">quanto mais à direita, mais difícil de receber</div>
+        <div id="receb-aging" style="margin-top:14px"></div>
       </div>
-      <div id="receb-filtros" style="display:flex;gap:7px;flex-wrap:wrap"></div>
+      <div class="rd-card rd-card-dark" id="receb-previsto"></div>
     </div>
 
-    <div class="card">
-      <div class="ct">Parcelas <span id="receb-contagem" style="font-size:11px;font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0"></span></div>
+    <div class="rd-card" style="padding:0;overflow:hidden;display:flex;flex-direction:column">
+      <div style="padding:16px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+        <div class="rd-card-title">Parcelas</div>
+        <div id="receb-chips" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+      </div>
       <div id="receb-lista"></div>
+      <div id="receb-rodape"></div>
     </div>
   </div>
 </div>

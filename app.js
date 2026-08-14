@@ -1945,9 +1945,15 @@ async function loadRecebimentos(){
 // A tabela só vira indicador quando alguém marca o que entrou. Sem a baixa,
 // tudo vira "vencido" e o número perde sentido — por isso a ação de marcar é
 // o elemento mais visível da tela.
-let _recebFiltro='aberto';
-const _RECEB_FILTROS=[['aberto','Em aberto'],['vencido','Vencido'],['hoje','Vence hoje'],
-                      ['semana','Próx. 7 dias'],['pago','Recebido'],['todos','Todos']];
+// 'auto' resolve pra 'vencido' na primeira renderização SE houver parcela
+// vencida (mesmo destaque do handoff — "isso precisa de ação agora"), senão
+// cai em 'avencer' (evita abrir a tela numa lista vazia quando está tudo
+// em dia). Depois da 1ª resolução vira escolha normal do usuário.
+let _recebFiltro='auto';
+// Fase 8b do redesign (13/08) — o handoff pede só 3 chips (Vencidas/A
+// vencer/Recebidas), mais enxuto que os 6 filtros antigos. "Vencidas" some
+// como padrão selecionado (mesmo do mock) — é o que precisa de ação agora.
+const _RECEB_FILTROS=[['vencido','Vencidas'],['avencer','A vencer'],['pago','Recebidas']];
 
 function _recebDoDia(){ return _hojeLocal(); }
 function _recebDiasAtraso(r){
@@ -1969,8 +1975,7 @@ function _recebClassifica(r){
   return 'futuro';
 }
 function _recebFiltrar(lista){
-  if(_recebFiltro==='todos') return lista;
-  if(_recebFiltro==='aberto') return lista.filter(r=>!r.data_pagamento);
+  if(_recebFiltro==='avencer') return lista.filter(r=>!r.data_pagamento && _recebClassifica(r)!=='vencido');
   return lista.filter(r=>_recebClassifica(r)===_recebFiltro);
 }
 
@@ -2023,67 +2028,133 @@ function _renderRecebGap(){
     </div>`).join('');
 }
 
+// Vai pro cartão de aprovados-sem-cobrança (não existe um picker genérico de
+// "qualquer orçamento aprovado" — o botão do handoff "Registrar recebimento"
+// aponta pro buraco real que a tela já sabe calcular).
+function _recebIrParaGap(){
+  const card=document.getElementById('receb-gap-card');
+  if(!card || card.style.display==='none'){ toast('Nenhum orçamento aprovado aguardando lançamento no momento.'); return; }
+  card.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function _renderRecebAging(abertas){
+  const el=document.getElementById('receb-aging'); if(!el) return;
+  const buckets=[
+    {lbl:'A vencer',   cor:'#0B62CE', lista:abertas.filter(r=>_recebDiasAtraso(r)<=0)},
+    {lbl:'1 a 15 d',   cor:'#3D82DA', lista:abertas.filter(r=>{const d=_recebDiasAtraso(r); return d>=1&&d<=15;})},
+    {lbl:'16 a 30 d',  cor:'#C98A2E', lista:abertas.filter(r=>{const d=_recebDiasAtraso(r); return d>=16&&d<=30;})},
+    {lbl:'+30 d',      cor:'#9C3A2E', lista:abertas.filter(r=>_recebDiasAtraso(r)>30)},
+  ];
+  const somas=buckets.map(b=>b.lista.reduce((a,r)=>a+(parseFloat(r.valor)||0),0));
+  const max=Math.max(...somas,1);
+  el.innerHTML=`<div style="display:flex;align-items:flex-end;gap:18px;height:130px">
+    ${buckets.map((b,i)=>`
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;height:100%;justify-content:flex-end">
+        <span style="font-size:12px;font-weight:600;color:${somas[i]>0?'var(--c2)':'var(--tx4)'};font-variant-numeric:tabular-nums">${brl(somas[i]).replace('R$','').trim()}</span>
+        <div style="width:100%;height:${Math.max(4,Math.round(somas[i]/max*100))}%;background:${b.cor};border-radius:5px 5px 0 0"></div>
+        <span style="font-size:11px;color:var(--tx2)">${b.lbl}</span>
+      </div>`).join('')}
+  </div>`;
+}
+
+function _renderRecebPrevisto(todas){
+  const el=document.getElementById('receb-previsto'); if(!el) return;
+  const hojeD=new Date();
+  const mesRef=hojeD.getFullYear()+'-'+String(hojeD.getMonth()+1).padStart(2,'0');
+  const doMes=todas.filter(r=>(r.vencimento||'').slice(0,7)===mesRef);
+  const previsto=doMes.reduce((a,r)=>a+(parseFloat(r.valor)||0),0);
+  const recebido=doMes.filter(r=>r.data_pagamento).reduce((a,r)=>a+(parseFloat(r.valor)||0),0);
+  const falta=previsto-recebido;
+  const pct=previsto>0?Math.min(100,Math.round(recebido/previsto*100)):0;
+  const faltantes=doMes.filter(r=>!r.data_pagamento);
+  const todasVencidas=falta>0.01 && faltantes.length>0 && faltantes.every(r=>_recebDiasAtraso(r)>0);
+  const nomeMes=hojeD.toLocaleDateString('pt-BR',{month:'long'});
+  el.innerHTML=`
+    <div class="rd-kpi-lbl">Previsto para ${esc(nomeMes)}</div>
+    <div class="rd-kpi-num" style="margin:4px 0 12px">${brl(previsto)}</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--tx4)"><span>Recebido</span><span style="font-weight:600;color:var(--nav-tx-strong)">${brl(recebido)}</span></div>
+      <div style="height:6px;border-radius:4px;background:#2A3543"><div style="width:${pct}%;height:100%;border-radius:4px;background:#0B62CE"></div></div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--tx4)"><span>Falta</span><span style="font-weight:600;color:var(--nav-tx-strong)">${brl(Math.max(0,falta))}</span></div>
+    </div>
+    ${todasVencidas?`<div style="font-size:12px;color:var(--tx4);line-height:1.45;margin-top:11px">Todo o saldo que falta está vencido — nenhuma parcela nova cai neste mês.</div>`:''}
+  `;
+}
+
 function renderRecebiveis(){
   _renderRecebGap();
   const todas=_recebVisiveis();
   const abertas=todas.filter(r=>!r.data_pagamento);
   const venc=abertas.filter(r=>_recebDiasAtraso(r)>0);
-  const hoje=abertas.filter(r=>_recebDiasAtraso(r)===0);
   const soma=l=>l.reduce((a,r)=>a+(parseFloat(r.valor)||0),0);
   const pmr=_recebPMR(todas);
 
-  const kpis=document.getElementById('receb-kpis');
-  if(kpis) kpis.innerHTML=
-    `<div class="dc o"><div class="dl">A receber</div><div class="dv">${brl(soma(abertas))}</div><div class="ds">${abertas.length} parcela${abertas.length!==1?'s':''}</div></div>`+
-    `<div class="dc ${venc.length?'r':'g'}"><div class="dl">Vencido</div><div class="dv" style="${venc.length?'color:var(--red)':''}">${brl(soma(venc))}</div><div class="ds">${venc.length} parcela${venc.length!==1?'s':''}</div></div>`+
-    `<div class="dc y"><div class="dl">Vence hoje</div><div class="dv">${brl(soma(hoje))}</div><div class="ds">${hoje.length} parcela${hoje.length!==1?'s':''}</div></div>`+
-    `<div class="dc b"><div class="dl">Prazo médio</div><div class="dv">${pmr===null?'—':(pmr>0?'+':'')+pmr+'d'}</div><div class="ds">${pmr===null?'nada recebido ainda':(pmr>0?'depois do vencimento':'em dia ou adiantado')}</div></div>`;
+  const subEl=document.getElementById('receb-resumo-sub');
+  if(subEl) subEl.textContent=`${brl(soma(abertas))} em aberto · ${brl(soma(venc))} vencidos`;
+  const agingSub=document.getElementById('receb-aging-sub');
+  if(agingSub) agingSub.textContent=`quanto mais à direita, mais difícil de receber${pmr!==null?' · prazo médio: '+(pmr>0?'+':'')+pmr+'d':''}`;
 
-  const fl=document.getElementById('receb-filtros');
-  if(fl) fl.innerHTML=_RECEB_FILTROS.map(([k,rot])=>{
-    const qtd = k==='todos'?todas.length
-      : k==='aberto'?abertas.length
+  _renderRecebAging(abertas);
+  _renderRecebPrevisto(todas);
+
+  if(_recebFiltro==='auto') _recebFiltro = venc.length ? 'vencido' : 'avencer';
+
+  const chipsEl=document.getElementById('receb-chips');
+  if(chipsEl) chipsEl.innerHTML=_RECEB_FILTROS.map(([k,rot])=>{
+    const qtd = k==='avencer' ? todas.filter(r=>!r.data_pagamento && _recebClassifica(r)!=='vencido').length
       : todas.filter(r=>_recebClassifica(r)===k).length;
-    return `<button class="tb${_recebFiltro===k?' g':''}" onclick="_recebSetFiltro('${k}')"${_recebFiltro===k?' style="font-weight:700"':''}>${rot} ${qtd}</button>`;
+    const alerta = k==='vencido' && qtd>0;
+    const cls = _recebFiltro===k ? 'rd-chip on' : (alerta ? 'rd-chip rd-chip-alert' : 'rd-chip');
+    return `<button type="button" class="${cls}" onclick="_recebSetFiltro('${k}')">${esc(rot)} ${qtd}</button>`;
   }).join('');
 
   const lista=_recebFiltrar(todas).sort((a,b)=>String(a.vencimento||'').localeCompare(String(b.vencimento||'')));
-  const cont=document.getElementById('receb-contagem');
-  if(cont) cont.textContent=lista.length?`· ${lista.length} de ${todas.length}`:'';
-  const el=document.getElementById('receb-lista');
-  if(!el) return;
+  const el=document.getElementById('receb-lista'); if(!el) return;
+  const rodapeEl=document.getElementById('receb-rodape');
   if(!lista.length){
-    el.innerHTML=`<div class="empty-st"><div class="ei">💰</div><p>${
+    el.innerHTML=`<div class="rd-empty" style="padding:24px"><div class="rd-empty-ico">💰</div><div class="rd-empty-title">${
       todas.length? 'Nada nesta situação.' :
-      'Nenhuma parcela ainda. Elas nascem ao aprovar um orçamento, quando você informa como vai receber.'}</p></div>`;
+      'Nenhuma parcela ainda. Elas nascem ao aprovar um orçamento, quando você informa como vai receber.'}</div></div>`;
+    if(rodapeEl) rodapeEl.innerHTML='';
     return;
   }
-  el.innerHTML=lista.map(r=>{
+
+  const grid='1.5fr 96px 116px 108px 1fr 110px';
+  let h=`<div class="rd-table-wrap" style="border:none;border-radius:0">
+    <div style="overflow-x:auto"><div style="min-width:760px">
+    <div class="rd-thead" style="grid-template-columns:${grid}">
+      <div class="rd-th">Cliente</div><div class="rd-th rd-num">Valor</div>
+      <div class="rd-th">Venc.</div><div class="rd-th">Situação</div>
+      <div class="rd-th">Origem</div><div class="rd-th">Ação</div>
+    </div>`;
+  lista.forEach(r=>{
     const o=_orcDoReceb(r);
     const cls=_recebClassifica(r);
     const d=_recebDiasAtraso(r);
-    const cor = cls==='pago'?'var(--green)' : cls==='vencido'?'var(--red)' : cls==='hoje'?'var(--yellow)':'var(--gray)';
-    const sit = cls==='pago' ? `recebido em ${_dataBR(r.data_pagamento)}`
-      : cls==='vencido' ? `${d} dia${d!==1?'s':''} em atraso`
-      : cls==='hoje' ? 'vence hoje' : `vence em ${Math.abs(d)} dia${Math.abs(d)!==1?'s':''}`;
-    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--gray-light);flex-wrap:wrap">
-      <div style="width:4px;align-self:stretch;border-radius:2px;background:${cor};min-height:34px"></div>
-      <div style="flex:1;min-width:150px">
-        <div style="font-size:13px;font-weight:600;color:var(--c2)">${esc(o?.cliente||'(orçamento removido)')}</div>
-        <div style="font-size:11px;color:var(--gray)">
-          ${o?'#'+String(o.numero||'?').padStart(3,'0')+' · ':''}${r.parcelas_total>1?`parcela ${r.parcela_n}/${r.parcelas_total} · `:''}${_dataBR(r.vencimento)}
-          ${r.forma?' · '+esc(r.forma):''}
-        </div>
-        <div style="font-size:11px;font-weight:700;color:${cor}">${sit}</div>
-      </div>
-      <div style="text-align:right;white-space:nowrap">
-        <div style="font-size:15px;font-weight:700;color:var(--c2)">${brl(parseFloat(r.valor)||0)}</div>
-        ${r.data_pagamento
-          ? `<button class="tb" style="font-size:11px;margin-top:3px" onclick="desmarcarRecebido('${r.id}')">↩ desfazer</button>`
-          : `<button class="tb g" style="font-size:11px;margin-top:3px;font-weight:700" onclick="marcarRecebido('${r.id}')">✓ Recebi</button>`}
-      </div>
+    const badge = cls==='pago' ? {label:'Recebida', c:'rd-badge-ok'}
+      : cls==='vencido' ? {label:'Vencida '+d+'d', c:'rd-badge-bad'}
+      : cls==='hoje' ? {label:'Vence hoje', c:'rd-badge-warn'}
+      : {label:'A vencer', c:'rd-badge-info'};
+    const origem = o ? 'Orç. #'+String(o.numero||'?').padStart(3,'0') : '—';
+    const sub = r.parcelas_total>1 ? `parcela ${r.parcela_n} de ${r.parcelas_total}` : (r.forma||'à vista');
+    h+=`<div class="rd-row${cls==='vencido'?' rd-row-action':''}" style="grid-template-columns:${grid}">
+      <div><div class="rd-cell-strong">${esc(o?.cliente||'(orçamento removido)')}</div><div class="rd-cell-sub">${esc(sub)}</div></div>
+      <div class="rd-cell-num rd-cell-strong">${brl(parseFloat(r.valor)||0).replace('R$','').trim()}</div>
+      <div class="rd-cell-sub">${_dataBR(r.vencimento)}</div>
+      <div><span class="rd-badge ${badge.c}">${esc(badge.label)}</span></div>
+      <div class="rd-cell-sub">${esc(origem)}</div>
+      <div>${r.data_pagamento
+        ? `<button type="button" class="rd-btn rd-btn-link" style="font-size:12px;padding:0" onclick="desmarcarRecebido('${r.id}')">↩ Desfazer</button>`
+        : `<button type="button" class="rd-btn rd-btn-link" style="font-size:12px;padding:0" onclick="marcarRecebido('${r.id}')">✓ Recebi</button>`}</div>
     </div>`;
-  }).join('');
+  });
+  h+='</div></div></div>';
+  el.innerHTML=h;
+
+  if(rodapeEl){
+    const somaLista=lista.reduce((a,r)=>a+(parseFloat(r.valor)||0),0);
+    rodapeEl.innerHTML=`<div class="rd-tfoot"><span>${lista.length} de ${todas.length} · soma ${brl(somaLista)}</span></div>`;
+  }
 }
 function _recebSetFiltro(k){ _recebFiltro=k; renderRecebiveis(); }
 

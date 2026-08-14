@@ -458,11 +458,74 @@ confirmado `docWidth===winWidth===375`). Zero erro novo de console (só
 o ruído de 400 pré-existente, do boot inicial com `dbOk=true` antes de eu
 sobrescrever pra teste local). `sw.js` v131→v132.
 
+### Próximo passo (histórico — Fase 8b já feita, ver entrada abaixo)
+
+---
+
+## REDESIGN — Fase 8b: A Receber (aging + previsto do mês) — 13/08
+
+Mapeamento: `page-recebiveis`/`renderRecebiveis()` — tela já existia com
+KPIs `.dash` antigos, 6 filtros (`_RECEB_FILTROS`) e lista em cards. O
+handoff troca os KPIs por um gráfico de idade do saldo (4 faixas) + card
+escuro "Previsto do mês", e a lista vira tabela densa com só 3 chips.
+
+**O que mudou:**
+- **`_renderRecebAging(abertas)`** (nova) — 4 barras (A vencer/1 a 15d/
+  16 a 30d/+30d), altura proporcional ao maior valor, cores do handoff.
+  Substitui os KPIs "A receber"/"Vencido"/"Vence hoje" — a mesma
+  informação (quanto está aberto, quanto vencido) já está nas barras,
+  só que segmentada por idade em vez de 3 números soltos.
+- **`_renderRecebPrevisto(todas)`** (nova) — card escuro "Previsto para
+  [mês atual]": soma das parcelas com vencimento no mês corrente
+  (pagas+abertas), barra Recebido/Falta, e uma frase condicional ("Todo
+  o saldo que falta está vencido...") **só aparece se for verdade** —
+  não é texto fixo do mock, é calculado (`faltantes.every(diasAtraso>0)`).
+- **Prazo médio (PMR)** não tinha equivalente no handoff — não sumiu,
+  virou uma cláusula no subtítulo do card de aging ("...· prazo médio:
+  +4d"), sem inventar um 5º card.
+- **Chips**: `_RECEB_FILTROS` foi de 6 pra 3 (Vencidas/A vencer/
+  Recebidas — os outros 3 antigos, hoje/semana/todos, não tinham
+  equivalente no handoff e não faziam falta com a tabela mais legível).
+  Filtro inicial resolve pra `'vencido'` SE houver parcela vencida
+  (mesmo destaque do mock), senão cai em `'avencer'` — evitar abrir a
+  tela numa lista vazia quando está tudo em dia.
+- **Tabela densa** `.rd-table-*`: Cliente/Valor/Venc./Situação/Origem/
+  Ação. "Origem" é sempre `Orç. #N` — o handoff mostra também "OS #N" e
+  "Contrato", mas `recebimentos` só liga a `orcamento_id`, não guarda
+  origem por OS/contrato; não fabriquei essa distinção. "Último contato"
+  do handoff **não entrou** — não existe log de contato nas parcelas,
+  mostrar sempre "—" seria pior que não ter a coluna. "Ação" continua
+  sendo a MESMA função de sempre (`marcarRecebido`/`desmarcarRecebido`),
+  só virou link de texto em vez de botão — o handoff usa palavras
+  diferentes por linha ("Cobrar"/"Negociar"/"Enviar Pix"/"Recibo") que
+  exigiriam construir cobrança por WhatsApp e recibo, fora do escopo
+  desta fase de redesign visual.
+- **Botão primário "Registrar recebimento"** (topbar) não abre um
+  formulário novo — não existe um "criar parcela do zero" independente
+  de orçamento no app hoje. Aponta (`_recebIrParaGap`) pro card real que
+  já resolve isso: "Aprovados sem cobrança lançada" (rola até ele, ou
+  avisa que não há nenhum pendente).
+- Card de gap (aprovados sem NENHUMA parcela) não está no handoff, mas
+  continua — é o único jeito de ver esse buraco. Só ganhou moldura
+  `rd-card-warn`.
+
+Testado no browser local (`dbOk=false`, 6 orçamentos + 5 parcelas
+sintéticas cobrindo vencida/a vencer/paga + 1 aprovado sem parcela):
+subtítulo do topbar (`R$ X em aberto · R$ Y vencidos`), gráfico de aging
+com os 4 valores batendo, card previsto com Recebido/Falta corretos,
+chips com contagem e destaque em Vencidas, clique real em "✓ Recebi"
+(não só chamada de função) atualizou toast + tabela + gráfico + previsto
+juntos, "↩ Desfazer" reverte. **Bug pego em teste:** botão de ação sem a
+classe base `.rd-btn` saiu com borda 3D padrão do navegador (só
+`.rd-btn-link` não reseta `border`) — todo outro uso no código já
+combinava as duas classes, corrigido pra seguir o mesmo padrão.
+Responsivo: 1440px (grid 1fr 340px) → 375px (empilha, sem overflow de
+página, `docWidth===winWidth===375` confirmado). Zero erro novo de
+console. `sw.js` v132→v133.
+
 ### Próximo passo
 
-Faltam as outras 4 telas do turno 3: A Receber, Despesas, Clientes,
-Portal do Cliente — specs já lidas (mesma sessão), mapeamento de cada
-uma pro código atual ainda por fazer fase a fase, mesmo padrão desta.
+Faltam 3 telas do turno 3: Despesas, Clientes, Portal do Cliente.
 
 ---
 
