@@ -2,6 +2,53 @@
 
 ---
 
+## Fase 9b fechada + bug real achado — outra sessão bateu limite de uso (14/08)
+
+A sessão que revisou o wizard mobile do Novo Orçamento (comentário já
+documentado no HTML: "wizard literal do handoff mobile") bateu o **limite
+de uso da conta** com o trabalho pronto mas não commitado — `app.js`/
+`index.html`/`styles.css` ficaram modificados no worktree, sem chegar a
+rodar `git commit`. O Marcos pediu pra eu assumir e fechar.
+
+**Antes de commitar, revisei o diff inteiro** (não commitei às cegas por
+cima do trabalho de outra sessão — lição já registrada neste arquivo,
+"Duas sessões de IA escrevendo no MESMO worktree"). O código em si estava
+completo e coerente (`_orcMobileStep`/`_orcApplyMobileStep`/
+`_orcIrParaPasso`/`_orcMobileFinalizar`, chamados nos 3 pontos de entrada
+do form: `novoOrc`/`abrirOrc`/`duplicarOrc`).
+
+**🔴 Testei antes de commitar e achei um bug real:** só esses 3 pontos
+chamavam `_orcApplyMobileStep()`. Quem chegava em `'form'` por qualquer
+OUTRO caminho — o guardrail que redireciona `vendas` pra fora de
+`pagesVendas`, ou os botões "← Voltar" das telas de OS (ambos chamam
+`go('form')` direto) — nunca chamava. Resultado no mobile: a barra fixa
+de ações (`#orc-mobile-acts`) ficava **completamente vazia**, sem Salvar
+nem Gerar PDF, sem forma nenhuma de continuar. Reproduzido no browser
+local antes de mexer em qualquer coisa.
+
+**Fix:** uma chamada a mais, dentro do próprio bloco `if(p==='form')` de
+`go()` — cobre qualquer caminho de entrada, não só os 3 que já existiam.
+Idempotente (chamar de novo não quebra nada).
+
+⚠️ **Achado no processo de debug, não no código:** o primeiro teste no
+browser local deu falso-negativo — parecia que o fix não funcionava. Era
+cache do navegador servindo um `app.js` antigo de um teste anterior nesta
+MESMA sessão, na mesma porta (`localhost:8791`), mesmo sem Service Worker
+registrado (0 registrations, 0 caches — não foi o SW, foi cache HTTP
+comum do `python -m http.server`, que não manda `Cache-Control`). Resolvido
+subindo o servidor de teste numa porta nova (nunca visitada antes nesta
+aba). **Lição pro protocolo:** ao testar localmente na MESMA aba/porta
+usada antes na sessão, ou usar porta nova, ou fazer hard-reload de
+verdade — `navigate()` sozinho não é garantia de bypass de cache.
+
+Testado (mobile 375px + desktop, `dbOk=false`): barra de ações populada
+entrando via `go('form')` direto (o caminho que estava quebrado);
+navegação entre os 3 passos; validação de campo obrigatório volta pro
+passo 1 antes de apontar erro; desktop sem regressão (3 cards sempre
+visíveis). `sw.js` v137→v138.
+
+---
+
 ## REDESIGN — Fases 1-3 (tokens, sidebar, componentes base) — 13/08
 
 Marcos trouxe um handoff de design completo
