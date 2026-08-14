@@ -9469,25 +9469,37 @@ function verDetalhesOS(id){
   document.body.appendChild(m);
 }
 
+// Redesign (14/08) — sem mockup literal (README não cobre esta tela). Cards
+// livres (não tabela: cada contrato tem 3 linhas de detalhe + ações, não
+// colunas fixas) migrados de estilo inline/hex fixo pro padrão .rd-* —
+// mesma estrutura de .rd-q-item, badge de "Plano" vira rd-badge de verdade.
 function renderAgLista(){
   const el=document.getElementById('ag-lista-body'); if(!el) return;
   let ativos=todosAg.filter(a=>a.ativo!==false);
   ativos=filtrarPorLoja(ativos);
-  if(!ativos.length){ el.innerHTML='<div class="empty-st"><div class="ei">📅</div><p>Nenhum agendamento recorrente.</p></div>'; return; }
+  if(!ativos.length){
+    el.innerHTML=`<div class="rd-empty" style="padding:32px">
+      <div class="rd-empty-ico">📅</div>
+      <div class="rd-empty-title">Nenhum agendamento recorrente</div>
+      <div class="rd-empty-sub">Cadastre um contrato pra ele aparecer aqui e no calendário.</div>
+    </div>`;
+    return;
+  }
   const periodos={semanal:'Semanal',quinzenal:'Quinzenal',mensal:'Mensal'};
   el.innerHTML=ativos.map(a=>{
     const isPlano=!!(a.local_id||(a.id&&a.id.startsWith('ag_plano_')));
-    const badge=isPlano?`<span style="display:inline-block;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:700;background:#ede9fe;color:#7c3aed;margin-left:6px">📍 Plano</span>`:'';
+    const badge=isPlano?`<span class="rd-badge" style="background:#EDE9FE;color:#7C3AED;margin-left:6px">📍 Plano</span>`:'';
     return `
-    <div class="agenda-card" style="${isPlano?'border-left:3px solid #7c3aed;':''}" >
-      <div class="agenda-info">
-        <div class="agenda-titulo">${esc(a.cliente||'—')}${badge} <span style="font-size:12px;font-weight:400;color:var(--gray)">— ${esc(a.tipo_servico||'')}</span></div>
-        <div class="agenda-sub">📍 ${esc(a.local_servico||'—')} &nbsp;·&nbsp; 👤 ${esc(a.tecnico||'—')} &nbsp;·&nbsp; ⏰ ${esc(a.horario||'')}</div>
-        <div class="agenda-sub" style="margin-top:2px">🔁 ${periodos[a.periodicidade]||a.periodicidade} &nbsp;·&nbsp; Início: ${a.data_inicio?new Date(a.data_inicio+'T12:00:00').toLocaleDateString('pt-BR'):'—'}</div>
+    <div class="rd-q-item rd-q-expand"${isPlano?' style="border-left-color:#7C3AED"':''}>
+      <div class="rd-q-top">
+        <span class="rd-q-nome">${esc(a.cliente||'—')}${badge}</span>
       </div>
-      <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap">
-        ${isPlano?`<button class="tb" style="background:#ede9fe;color:#7c3aed;border-color:#ddd6fe" onclick="go('visitas')">📍 Ver Plano</button>`:`<button class="tb" style="background:var(--c1-light);color:var(--c1);border-color:var(--c1-mid)" onclick="novaVistoria('${esc(a.cliente||'')}','${esc(a.local_servico||'')}','${esc(a.tecnico||'')}')">🔍 Vistoria</button>`}
-        <button class="tb d" onclick="cancelarSerie('${a.id}')">🚫 Cancelar</button>
+      <div class="rd-q-desc">${esc(a.tipo_servico||'—')}</div>
+      <div class="rd-q-desc">📍 ${esc(a.local_servico||'—')} &nbsp;·&nbsp; 👤 ${esc(a.tecnico||'—')} &nbsp;·&nbsp; ⏰ ${esc(a.horario||'')}</div>
+      <div class="rd-q-desc">🔁 ${periodos[a.periodicidade]||a.periodicidade} &nbsp;·&nbsp; Início: ${a.data_inicio?new Date(a.data_inicio+'T12:00:00').toLocaleDateString('pt-BR'):'—'}</div>
+      <div class="rd-q-acts" style="margin-top:4px">
+        ${isPlano?`<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="go('visitas')">Ver plano</button>`:`<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="novaVistoria('${esc(a.cliente||'')}','${esc(a.local_servico||'')}','${esc(a.tecnico||'')}')">Vistoria</button>`}
+        <button type="button" class="rd-btn rd-btn-link" style="color:var(--bad)" onclick="cancelarSerie('${a.id}')">Cancelar</button>
       </div>
     </div>`;
   }).join('');
