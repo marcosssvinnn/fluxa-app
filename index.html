@@ -2729,16 +2729,21 @@
 <div class="page" id="page-visitas">
   <div class="wrap">
 
-    <!-- Header + tabs -->
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+    <!-- Header + tabs — redesign (14/08): novo-orc-topbar/rd-chip, mesmo
+         padrão das outras telas (sem mockup literal, README não cobre esta
+         tela). Formulário de captura (Nova Vistoria) e os cards de
+         equipamento NÃO mexidos de propósito — mesma cautela já registrada
+         na Fase 9c/Fase B da crítica de design: é a captura de dado real,
+         alto risco pra reescrever sem necessidade. -->
+    <div class="novo-orc-topbar">
       <div style="display:flex;align-items:center;gap:10px">
         <button id="vis-back-os" onclick="go('minhas-os')" style="display:none;background:var(--c1-light);color:var(--c1);border:1.5px solid var(--c1);border-radius:50px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Instrument Sans',sans-serif">← 📋 Minhas OS</button>
-        <div style="font-size:18px;font-weight:800;color:var(--c2)">🔍 Vistorias de Manutenção</div>
+        <div class="novo-orc-titulo">🔍 Vistorias de Manutenção</div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="fb on" id="vis-tab-nova" onclick="visTab('nova');window._visLocalId=null;visEditId=null;_visDraftId=null;_resetCheckinVis();document.getElementById('vis-plano-banner').style.display='none'">📋 Nova Vistoria</button>
-        <button class="fb" id="vis-tab-hist" onclick="visTab('hist')">📜 Histórico</button>
-        <button class="fb" id="vis-tab-locais" onclick="visTab('locais')">📍 Meus Locais</button>
+        <button type="button" class="rd-chip on" id="vis-tab-nova" onclick="visTab('nova');window._visLocalId=null;visEditId=null;_visDraftId=null;_resetCheckinVis();document.getElementById('vis-plano-banner').style.display='none'">📋 Nova Vistoria</button>
+        <button type="button" class="rd-chip" id="vis-tab-hist" onclick="visTab('hist')">📜 Histórico</button>
+        <button type="button" class="rd-chip" id="vis-tab-locais" onclick="visTab('locais')">📍 Meus Locais</button>
       </div>
     </div>
 
@@ -2899,23 +2904,20 @@
       <!-- Filtros -->
       <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
         <label class="sr-only" for="vis-hist-busca">Buscar vistorias por cliente ou local</label>
-        <input type="text" id="vis-hist-busca" placeholder="Buscar cliente ou local…"
-          oninput="renderVisHistorico()"
-          style="flex:1;min-width:160px;padding:9px 12px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:13px;font-family:'Instrument Sans',sans-serif;outline:none;color:var(--c2)">
-        <input type="month" id="vis-hist-mes" onchange="renderVisHistorico()"
-          style="padding:9px 12px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:13px;font-family:'Instrument Sans',sans-serif;outline:none;color:var(--c2)">
-        <select id="vis-hist-tec" onchange="renderVisHistorico()"
-          style="padding:9px 12px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:13px;font-family:'Instrument Sans',sans-serif;outline:none;color:var(--c2)">
+        <input class="rd-field-box" type="text" id="vis-hist-busca" placeholder="🔍 Buscar cliente ou local…"
+          oninput="renderVisHistorico()" style="flex:1;min-width:160px">
+        <input class="rd-field-box" type="month" id="vis-hist-mes" onchange="renderVisHistorico()" style="width:auto">
+        <select class="rd-field-box" id="vis-hist-tec" onchange="renderVisHistorico()" style="width:auto">
           <option value="">Todos os técnicos</option>
         </select>
       </div>
 
       <!-- Filtro por status -->
       <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
-        <button class="fb on" id="vis-fst-todos" onclick="filtVisStatus('')">Todos</button>
-        <button class="fb" id="vis-fst-critico" onclick="filtVisStatus('critico')">🔴 Com Crítico</button>
-        <button class="fb" id="vis-fst-atencao" onclick="filtVisStatus('atencao')">⚠️ Com Atenção</button>
-        <button class="fb" id="vis-btn-backup" onclick="exportarVistoriasBackup()" style="margin-left:auto;display:none" title="Baixa um arquivo JSON com todas as vistorias desta empresa (comprovação/arquivo)">📦 Backup</button>
+        <button type="button" class="rd-chip on" id="vis-fst-todos" onclick="filtVisStatus('')">Todos</button>
+        <button type="button" class="rd-chip" id="vis-fst-critico" onclick="filtVisStatus('critico')">🔴 Com Crítico</button>
+        <button type="button" class="rd-chip" id="vis-fst-atencao" onclick="filtVisStatus('atencao')">⚠️ Com Atenção</button>
+        <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" id="vis-btn-backup" onclick="exportarVistoriasBackup()" style="margin-left:auto;display:none" title="Baixa um arquivo JSON com todas as vistorias desta empresa (comprovação/arquivo)">📦 Backup</button>
       </div>
 
       <!-- Painel de alertas críticos -->
@@ -2939,10 +2941,10 @@
       <div class="loc-page-header" id="loc-page-header">
         <div class="loc-page-title-row">
           <div>
-            <div style="font-size:17px;font-weight:800;color:var(--c2)">📍 Planos de Acompanhamento</div>
-            <div style="font-size:12px;color:var(--gray);margin-top:2px">Clientes com visita recorrente mensal</div>
+            <div class="novo-orc-titulo">📍 Planos de Acompanhamento</div>
+            <div class="novo-orc-sub">Clientes com visita recorrente mensal</div>
           </div>
-          <button class="btn-primary" id="loc-btn-novo" onclick="abrirLocForm()" style="white-space:nowrap">＋ Novo plano</button>
+          <button type="button" class="rd-btn rd-btn-primary" id="loc-btn-novo" onclick="abrirLocForm()" style="white-space:nowrap">＋ Novo plano</button>
         </div>
         <div class="loc-mes-bar">
           <div class="loc-mes-nav">
