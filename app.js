@@ -7282,6 +7282,8 @@ function selecionarCliModal(nome, end, tel, cnpj, id){
     setV('vis-cli', nome);
     if(end) setV('vis-loc', end);
     _visClienteSelecionado = id ? {id, nome} : null;
+    _visPiscinaSelecionadaId = null;
+    _visRenderPiscinas();
     // auto-fill email from client record
     const clis=JSON.parse(ls('fluxa_clientes_full')||'[]');
     const cliVis=clis.find(c=>(c.nome||'')=== nome);
@@ -9602,6 +9604,37 @@ let _eqPiscinaEditId = null; // piscina sendo editada (null = form em modo "nova
 // Mesmo padrão em vistoria — sem isso importarEqDaVistoria() quase nunca
 // tinha cliente_id pra herdar (achado da auditoria: 1 vistoria em 7).
 let _visClienteSelecionado = null;
+// Etapa 5, pendência final (14/08) — liga a vistoria à piscina específica
+// do cliente (recomendação do doc de auditoria, §3, opção c2). Escopo
+// pequeno de propósito: só a referência, não a reescrita maior de puxar
+// equipamentos de `equipamentos` filtrados por piscina (registrada no
+// próprio doc como mudança de fluxo maior, fora desta etapa).
+let _visPiscinaSelecionadaId = null;
+// Lista piscinas do local (quando a vistoria veio de um plano — preferido,
+// per §3 da auditoria) ou do cliente (fallback, quem não tem plano).
+function _visRenderPiscinas(){
+  const sel=document.getElementById('vis-piscina'); if(!sel) return;
+  const localId=window._visLocalId||null;
+  const cliId=_visClienteSelecionado?.id||null;
+  const porLocal=localId?(todasPiscinas||[]).filter(p=>p.local_id===localId && p.ativo!==false):[];
+  const lista=porLocal.length ? porLocal : (cliId?(todasPiscinas||[]).filter(p=>p.cliente_id===cliId && p.ativo!==false):[]);
+  if(!cliId && !localId){
+    sel.innerHTML='<option value="">Selecione o cliente primeiro</option>';
+    sel.disabled=true;
+    return;
+  }
+  sel.disabled=false;
+  if(!lista.length){
+    sel.innerHTML='<option value="">Nenhuma piscina cadastrada pra este cliente</option>';
+    _visPiscinaSelecionadaId=null;
+    return;
+  }
+  sel.innerHTML='<option value="">Não informado</option>'
+    + lista.map(p=>`<option value="${esc(p.id)}"${p.id===_visPiscinaSelecionadaId?' selected':''}>${esc(p.nome||'Piscina')}${p.volume_m3?' — '+p.volume_m3+'m³':''}</option>`).join('');
+  if(_visPiscinaSelecionadaId && !lista.some(p=>p.id===_visPiscinaSelecionadaId)) _visPiscinaSelecionadaId=null;
+  sel.value=_visPiscinaSelecionadaId||'';
+}
+function _visPiscinaSelect(val){ _visPiscinaSelecionadaId=val||null; }
 
 function abrirFormEq(id){
   eqEditId = id || null;
@@ -11272,6 +11305,8 @@ function iniciarVistoriaPlena(locId){
   _visDraftId=null;
   window._visLocalId=locId;
   _visClienteSelecionado = loc.cliente_id ? {id:loc.cliente_id, nome:loc.cliente} : null;
+  _visPiscinaSelecionadaId=null;
+  _visRenderPiscinas();
 
   // Navega para a aba Nova Vistoria
   visTab('nova');
@@ -12188,10 +12223,12 @@ function mostrarSugestoesCliVis(val){
   sug.style.display='block';
 }
 function hideSugCliVis(){ const el=document.getElementById('vis-cli-suggestions'); if(el) el.style.display='none'; }
-function _visClienteEditado(){ _visClienteSelecionado=null; }
+function _visClienteEditado(){ _visClienteSelecionado=null; _visPiscinaSelecionadaId=null; _visRenderPiscinas(); }
 function selecionarCliVis(nome, local, id){
   const inp=document.getElementById('vis-cli'); if(inp) inp.value=nome;
   _visClienteSelecionado = id ? {id, nome} : null;
+  _visPiscinaSelecionadaId=null;
+  _visRenderPiscinas();
   const loc=document.getElementById('vis-loc'); if(loc&&local&&!loc.value) loc.value=local;
   // Auto-fill email from client record
   const clientes=JSON.parse(ls('fluxa_clientes_full')||'[]');
@@ -12313,6 +12350,7 @@ function _montarRecVistoria(){
     local_id: window._visLocalId||'',
     cliente:_cli,
     cliente_id:_cliId,
+    piscina_id:_visPiscinaSelecionadaId||null,
     local:(document.getElementById('vis-loc')?.value||'').trim(),
     data: document.getElementById('vis-data')?.value||_hojeLocal(),
     hora,
@@ -12471,9 +12509,11 @@ function _limparFormVistoria(){
   visEditId = null;
   _visDraftId = null;
   _visClienteSelecionado = null;
+  _visPiscinaSelecionadaId = null;
   if(visCheckinInterval){ clearInterval(visCheckinInterval); visCheckinInterval = null; }
   _resetCheckinVis();
   window._visLocalId = null;
+  _visRenderPiscinas();
   const banner=document.getElementById('vis-plano-banner'); if(banner) banner.style.display='none';
   // Limpa campos do form
   ['vis-cli','vis-loc','vis-hora','vis-obs','vis-recom','vis-email-resp'].forEach(id=>{
@@ -13301,6 +13341,8 @@ function editarVistoria(id){
   visEditId=id; _visDraftId=id;            // edita o mesmo registro
   window._visLocalId=vis.local_id||null;   // mantém vínculo com o plano (e a empresa)
   _visClienteSelecionado = vis.cliente_id ? {id:vis.cliente_id, nome:vis.cliente} : null;
+  _visPiscinaSelecionadaId = vis.piscina_id||null;
+  _visRenderPiscinas();
   go('visitas'); visTab('nova');
   // Esconde banners de plano/pré-carga (estamos editando algo existente)
   const pb=document.getElementById('vis-plano-banner'); if(pb) pb.style.display='none';

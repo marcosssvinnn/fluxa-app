@@ -2790,6 +2790,19 @@
           </div>
           <div class="fl"><label>Local / Endereço</label><input type="text" id="vis-loc" placeholder="Endereço do local"></div>
         </div>
+        <!-- Etapa 5, pendência final (14/08) — liga a vistoria à piscina
+             específica do cliente (relevante pra condomínio com piscina
+             adulto + infantil: volume/dosagem diferentes). Lista piscinas
+             do LOCAL (plano de vistoria) quando existe, senão do cliente —
+             recomendação do doc de auditoria §3. Opcional: cliente sem
+             piscina cadastrada continua vistoriando normalmente. -->
+        <div class="row" id="vis-piscina-row">
+          <div class="fl"><label>Piscina <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--gray)">(opcional — cadastrada em Equipamentos)</span></label>
+            <select id="vis-piscina" onchange="_visPiscinaSelect(this.value)" disabled>
+              <option value="">Selecione o cliente primeiro</option>
+            </select>
+          </div>
+        </div>
         <div class="row f4">
           <div class="fl"><label>Data da Vistoria</label><input type="date" id="vis-data"></div>
           <div class="fl"><label>Horário</label><input type="time" id="vis-hora" value="08:00"></div>
