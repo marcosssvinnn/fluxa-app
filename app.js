@@ -10128,6 +10128,20 @@ async function loadEquipamentos(){
 function buscarEq(v){ eqBusca=v.toLowerCase(); renderEqGrid(); }
 function filtrarTipoEq(v){ eqFiltroTipo=v; renderEqGrid(); }
 
+// Redesign (14/08) — sem mockup literal do handoff pra esta tela (README só
+// cobre Insights/Orçamentos/Estoque/OS/A Receber/Despesas/Clientes/Portal);
+// segue o mesmo padrão .rd-* já estabelecido nelas (tabela densa, badge de
+// status, ação por botão — não a linha inteira, porque o QR Code e o ✏️
+// Editar precisam conviver sem clique ambíguo).
+function _eqGarantiaBadge(eq){
+  if(!eq.garantia_vencimento) return null;
+  const hoje=new Date(); hoje.setHours(0,0,0,0);
+  const venc=new Date(eq.garantia_vencimento+'T12:00:00');
+  const diff=Math.ceil((venc-hoje)/(1000*60*60*24));
+  if(diff<0) return {label:'Vencida', cls:'rd-badge-bad'};
+  if(diff<=30) return {label:diff+'d restantes', cls:'rd-badge-warn'};
+  return {label:'Em dia', cls:'rd-badge-ok'};
+}
 function renderEqGrid(){
   let lista=[...todosEq];
   lista=filtrarPorLoja(lista);
@@ -10136,38 +10150,40 @@ function renderEqGrid(){
   const el=document.getElementById('eq-grid');
   const count=document.getElementById('eq-count');
   if(count) count.textContent=lista.length+' equipamento'+(lista.length!==1?'s':'');
-  if(!lista.length){ el.innerHTML='<div class="empty-st"><div class="ei">🔧</div><p>Nenhum equipamento encontrado.</p><button class="btn-primary" style="margin-top:12px" onclick="abrirFormEq()">＋ Cadastrar Equipamento</button></div>'; return; }
-  const hoje=new Date(); hoje.setHours(0,0,0,0);
-  el.innerHTML='';
+  if(!lista.length){
+    el.innerHTML=`<div class="rd-empty" style="padding:32px">
+      <div class="rd-empty-ico">🔧</div>
+      <div class="rd-empty-title">Nenhum equipamento encontrado</div>
+      <div class="rd-empty-sub">Cadastre o primeiro equipamento pra começar a acompanhar garantia e histórico.</div>
+      <button type="button" class="rd-btn rd-btn-primary" style="margin-top:6px" onclick="abrirFormEq()">＋ Cadastrar Equipamento</button>
+    </div>`;
+    return;
+  }
+  const grid='1.3fr 1.1fr 110px 130px 170px';
+  let h=`<div class="rd-table-wrap" style="border:none;border-radius:0">
+    <div style="overflow-x:auto"><div style="min-width:760px">
+    <div class="rd-thead" style="grid-template-columns:${grid};gap:12px">
+      <div class="rd-th">Equipamento</div><div class="rd-th">Cliente</div>
+      <div class="rd-th">Série</div><div class="rd-th">Garantia</div><div class="rd-th">Ações</div>
+    </div>`;
   lista.forEach(eq=>{
-    let gClass='garantia-ok', gTxt='';
-    if(eq.garantia_vencimento){
-      const venc=new Date(eq.garantia_vencimento+'T12:00:00');
-      const diff=Math.ceil((venc-hoje)/(1000*60*60*24));
-      if(diff<0){ gClass='garantia-vencida'; gTxt='<span class="eq-alerta vencida">⚠️ Garantia vencida</span>'; }
-      else if(diff<=30){ gClass='garantia-alerta'; gTxt=`<span class="eq-alerta">⚠️ Garantia vence em ${diff} dias</span>`; }
-    }
-    const card=document.createElement('div');
-    card.className='eq-card '+gClass;
-    card.innerHTML=`
-      <div class="eq-tipo">${esc(eq.tipo||'')}</div>
-      <div class="eq-nome">${esc(eq.marca||'')} ${esc(eq.modelo||'')}</div>
-      <div class="eq-cli">👤 ${esc(eq.cliente_nome||'—')}</div>
-      ${gTxt}
-      <div class="eq-info">
-        ${eq.potencia?`<div class="eq-inf"><span>Potência</span><strong>${esc(eq.potencia)}</strong></div>`:''}
-        ${eq.numero_serie?`<div class="eq-inf"><span>Série</span><strong>${esc(eq.numero_serie)}</strong></div>`:''}
-        ${eq.data_instalacao?`<div class="eq-inf"><span>Instalação</span><strong>${new Date(eq.data_instalacao+'T12:00:00').toLocaleDateString('pt-BR')}</strong></div>`:''}
-        ${eq.garantia_vencimento?`<div class="eq-inf"><span>Garantia até</span><strong>${new Date(eq.garantia_vencimento+'T12:00:00').toLocaleDateString('pt-BR')}</strong></div>`:''}
+    const gb=_eqGarantiaBadge(eq);
+    const instalStr=eq.data_instalacao?new Date(eq.data_instalacao+'T12:00:00').toLocaleDateString('pt-BR'):'';
+    h+=`<div class="rd-row${gb&&gb.cls==='rd-badge-bad'?' rd-row-warn':''}" style="grid-template-columns:${grid};gap:12px">
+      <div><div class="rd-cell-strong">${esc(eq.tipo||'—')}</div><div class="rd-cell-sub">${esc([eq.marca,eq.modelo].filter(Boolean).join(' ')||'—')}</div></div>
+      <div>${esc(eq.cliente_nome||'—')}</div>
+      <div><div>${esc(eq.numero_serie||'—')}</div>${instalStr?`<div class="rd-cell-sub">instalado ${instalStr}</div>`:''}</div>
+      <div>${gb?`<span class="rd-badge ${gb.cls}">${esc(gb.label)}</span>`:'<span class="rd-cell-sub">—</span>'}</div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap">
+        <button type="button" class="rd-btn rd-btn-link" onclick="verQR('${eq.id}')">QR</button>
+        <button type="button" class="rd-btn rd-btn-link" onclick="abrirFormEq('${eq.id}')">Editar</button>
+        <button type="button" class="rd-btn rd-btn-link" title="Notif. garantia" onclick='copiarNotif(notifGarantia(${JSON.stringify(eq)}))'>Notif.</button>
+        <button type="button" class="rd-btn rd-btn-link" style="color:var(--bad)" onclick="excluirEq('${eq.id}')">Excluir</button>
       </div>
-      <div class="eq-acts">
-        <button class="tb" onclick="verQR('${eq.id}')">🔳 QR Code</button>
-        <button class="tb" onclick="abrirFormEq('${eq.id}')">✎ Editar</button>
-        <button class="tb" title="Notif. garantia" onclick='copiarNotif(notifGarantia(${JSON.stringify(eq)}))'>⚠️💬</button>
-        <button class="tb d" onclick="excluirEq('${eq.id}')">🗑</button>
-      </div>`;
-    el.appendChild(card);
+    </div>`;
   });
+  h+='</div></div></div>';
+  el.innerHTML=h;
 }
 
 function verificarAlertasGarantia(){

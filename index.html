@@ -1488,30 +1488,35 @@
       <button class="btn-primary" onclick="salvarEquipamento()">💾 Salvar Equipamento</button>
     </div>
 
-    <!-- Header da listagem -->
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+    <!-- Header da listagem — redesign (14/08): mesmo padrão .novo-orc-topbar/
+         rd-* já usado em Clientes/Estoque/OS (sem mockup literal, README não
+         cobre esta tela). -->
+    <div class="novo-orc-topbar">
       <div>
-        <div style="font-size:18px;font-weight:800;color:var(--c2)">🔧 Equipamentos</div>
-        <div style="font-size:12px;color:var(--gray)" id="eq-count">Carregando…</div>
+        <div class="novo-orc-titulo">🔧 Equipamentos</div>
+        <div class="novo-orc-sub" id="eq-count">Carregando…</div>
       </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <label class="sr-only" for="eq-busca-input">Buscar equipamentos</label>
-        <input type="text" id="eq-busca-input" placeholder="🔍 Buscar…" oninput="buscarEq(this.value)" style="padding:7px 13px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:13px;font-family:'Instrument Sans',sans-serif;outline:none;width:160px">
-        <select onchange="filtrarTipoEq(this.value)" style="padding:7px 12px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Instrument Sans',sans-serif;outline:none">
+        <input class="rd-field-box" type="text" id="eq-busca-input" placeholder="🔍 Buscar…" oninput="buscarEq(this.value)" style="width:170px">
+        <select class="rd-field-box" onchange="filtrarTipoEq(this.value)" style="width:auto">
           <option value="">Todos os tipos</option>
           <option>Motobomba</option><option>Filtro</option><option>Trocador de Calor</option>
           <option>Gerador de Cloro</option><option>LED Subaquático</option>
           <option>Spa / Hidro</option><option>Sauna</option><option>Automação</option><option>Outro</option>
         </select>
-        <button class="btn-primary" style="padding:8px 16px;font-size:13px;white-space:nowrap" onclick="abrirFormEq()">＋ Equipamento</button>
+        <button type="button" class="rd-btn rd-btn-primary" onclick="abrirFormEq()">＋ Equipamento</button>
       </div>
     </div>
 
     <!-- Alertas de garantia -->
     <div id="eq-alertas" style="margin-bottom:12px"></div>
 
-    <!-- Grid de equipamentos -->
-    <div id="eq-grid" class="eq-grid">
+    <!-- Tabela de equipamentos (redesign 14/08) — renderEqGrid() monta o
+         rd-table-wrap completo; id mantido "eq-grid" por compatibilidade
+         com o resto do código, mas a classe .eq-grid (display:grid de
+         cards) foi removida — conflitava com o layout de tabela novo. -->
+    <div id="eq-grid">
       <div class="load"><div class="spin"></div> Carregando equipamentos…</div>
     </div>
   </div>
