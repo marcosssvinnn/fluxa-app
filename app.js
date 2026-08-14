@@ -8600,57 +8600,74 @@ function renderProd(){
   const _ip=document.getElementById('prod-comissao-pct'); if(_ip&&document.activeElement!==_ip) _ip.value=comPct||'';
   const _im=document.getElementById('prod-meta-tec'); if(_im&&document.activeElement!==_im) _im.value=meta||'';
 
+  // Redesign (14/08) — cards em .rd-card com .rd-kpi-num pro número principal
+  // (mesmo idioma dos KPIs de Insights/Estoque), badge de taxa em vez de
+  // texto colorido solto. Barra de progresso (.prod-bar-*) mantida — não
+  // tem equivalente .rd-* pronto e o visual já funciona.
+  const taxaCls=t=>t>=70?'rd-badge-ok':t>=40?'rd-badge-warn':'rd-badge-bad';
   cardsEl.innerHTML=tecs.map(tec=>{
     const m=metricasTec(tec,inicio,fim);
     const mAnt=ant?metricasTec(tec,ant.inicio,ant.fim):null;
     let vs=''; if(mAnt){
       const diff=m.conc-mAnt.conc;
-      if(diff>0) vs=`<div class="prod-vs prod-up">▲ ${diff} vs período ant.</div>`;
-      else if(diff<0) vs=`<div class="prod-vs prod-down">▼ ${Math.abs(diff)} vs período ant.</div>`;
-      else vs=`<div class="prod-vs prod-eq">= igual ao período ant.</div>`;
+      vs = diff>0 ? `<div class="rd-kpi-apoio" style="color:var(--ok)">▲ ${diff} vs período ant.</div>`
+         : diff<0 ? `<div class="rd-kpi-apoio" style="color:var(--bad)">▼ ${Math.abs(diff)} vs período ant.</div>`
+         : `<div class="rd-kpi-apoio">= igual ao período ant.</div>`;
     }
     const pct=maxConc>0?Math.round(m.conc/maxConc*100):0;
     const comissao=m.faturamento*comPct/100;
-    // Progresso da meta (faturamento vs meta mensal)
     let metaHtml='';
     if(meta>0){
       const mp=Math.min(100,Math.round(m.faturamento/meta*100));
-      const cor=mp>=100?'var(--green)':mp>=60?'var(--yellow)':'var(--red)';
-      metaHtml=`<div style="margin-top:8px;font-size:11px;color:var(--gray)">Meta: <strong style="color:${cor}">${mp}%</strong> de ${brl(meta)}</div>
+      const cor=mp>=100?'var(--ok)':mp>=60?'var(--warn)':'var(--bad)';
+      metaHtml=`<div style="margin-top:8px;font-size:11px;color:var(--tx3)">Meta: <strong style="color:${cor}">${mp}%</strong> de ${brl(meta)}</div>
         <div class="prod-bar-bg"><div class="prod-bar" style="width:${mp}%;background:${cor}"></div></div>`;
     }
-    return `<div class="prod-card">
-      <div class="prod-tec-nome">👤 ${esc(tec)}</div>
-      <div class="prod-num">${m.conc}</div>
-      <div class="prod-label">OS Concluídas</div>
-      <div class="prod-bar-bg"><div class="prod-bar" style="width:${pct}%"></div></div>
+    return `<div class="rd-card" style="text-align:center;padding:16px">
+      <div class="rd-cell-strong" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:10px">👤 ${esc(tec)}</div>
+      <div class="rd-kpi-num">${m.conc}</div>
+      <div class="rd-kpi-lbl">OS concluídas</div>
+      <div class="prod-bar-bg" style="margin-top:8px"><div class="prod-bar" style="width:${pct}%"></div></div>
       ${vs}
-      <div style="margin-top:10px;font-size:12px;color:var(--gray)">Taxa: <strong style="color:${m.taxa>=70?'var(--green)':m.taxa>=40?'var(--yellow)':'var(--red)'}">${m.taxa}%</strong></div>
-      <div style="font-size:12px;color:var(--gray)">Faturamento: <strong>${brl(m.faturamento)}</strong></div>
-      ${comPct>0?`<div style="font-size:12px;color:var(--green);font-weight:700">Comissão: ${brl(comissao)}</div>`:''}
-      <div style="font-size:12px;color:var(--gray)">Despesas: <strong>${brl(m.desp)}</strong></div>
+      <div style="margin-top:10px;font-size:12px;color:var(--tx2)">Taxa: <span class="rd-badge ${taxaCls(m.taxa)}" style="margin-left:2px">${m.taxa}%</span></div>
+      <div style="font-size:12px;color:var(--tx2);margin-top:4px">Faturamento: <strong style="color:var(--c2)">${brl(m.faturamento)}</strong></div>
+      ${comPct>0?`<div style="font-size:12px;color:var(--ok);font-weight:600;margin-top:2px">Comissão: ${brl(comissao)}</div>`:''}
+      <div style="font-size:12px;color:var(--tx2);margin-top:2px">Despesas: <strong style="color:var(--c2)">${brl(m.desp)}</strong></div>
       ${metaHtml}
     </div>`;
   }).join('');
 
-  // Tabela
-  const tbody=document.getElementById('prod-tabela-body');
-  tbody.innerHTML=tecs.map(tec=>{
+  // Tabela — rd-table-wrap denso, mesmo idioma do Histórico de
+  // Orçamentos/Equipamentos (grid de divs, não <table>, pra manter
+  // consistência de coluna com scroll horizontal em telas estreitas).
+  const tabEl=document.getElementById('prod-tabela');
+  const gridTec='1.2fr 90px 90px 90px 90px 1fr 1fr 100px 80px';
+  let th=`<div style="overflow-x:auto"><div style="min-width:900px">
+    <div class="rd-thead" style="grid-template-columns:${gridTec};gap:10px;padding:9px 18px">
+      <div class="rd-th">Técnico</div><div class="rd-th rd-num">Concl.</div>
+      <div class="rd-th rd-num">Canc.</div><div class="rd-th rd-num">Taxa</div>
+      <div class="rd-th rd-num">Tempo méd.</div><div class="rd-th rd-num">Faturamento</div>
+      <div class="rd-th rd-num">Comissão</div><div class="rd-th rd-num">Despesas</div>
+      <div class="rd-th rd-num">Clientes</div>
+    </div>`;
+  th+=tecs.map(tec=>{
     const m=metricasTec(tec,inicio,fim);
     const tempoStr=m.tempoMed>0?(m.tempoMed>=60?Math.floor(m.tempoMed/60)+'h '+(m.tempoMed%60)+'min':m.tempoMed+' min'):'—';
     const comissao=m.faturamento*comPct/100;
-    return `<tr>
-      <td><strong>${esc(tec)}</strong></td>
-      <td><span style="color:var(--green);font-weight:700">${m.conc}</span></td>
-      <td><span style="color:var(--red)">${m.canc}</span></td>
-      <td><span style="font-weight:700;color:${m.taxa>=70?'var(--green)':m.taxa>=40?'var(--yellow)':'var(--red)'}">${m.taxa}%</span></td>
-      <td>${tempoStr}</td>
-      <td><strong>${brl(m.faturamento)}</strong></td>
-      <td>${comPct>0?`<span style="color:var(--green);font-weight:700">${brl(comissao)}</span>`:'—'}</td>
-      <td>${brl(m.desp)}</td>
-      <td>${m.clientes}</td>
-    </tr>`;
+    return `<div class="rd-row" style="grid-template-columns:${gridTec};gap:10px;padding:11px 18px">
+      <div class="rd-cell-strong">${esc(tec)}</div>
+      <div class="rd-cell-num" style="color:var(--ok);font-weight:600">${m.conc}</div>
+      <div class="rd-cell-num" style="color:var(--bad)">${m.canc}</div>
+      <div class="rd-cell-num"><span class="rd-badge ${taxaCls(m.taxa)}">${m.taxa}%</span></div>
+      <div class="rd-cell-num">${tempoStr}</div>
+      <div class="rd-cell-num rd-cell-strong">${brl(m.faturamento)}</div>
+      <div class="rd-cell-num" style="${comPct>0?'color:var(--ok);font-weight:600':''}">${comPct>0?brl(comissao):'—'}</div>
+      <div class="rd-cell-num">${brl(m.desp)}</div>
+      <div class="rd-cell-num">${m.clientes}</div>
+    </div>`;
   }).join('');
+  th+='</div></div>';
+  tabEl.innerHTML=th;
 }
 
 // ══════════════════════════════════════════════════
