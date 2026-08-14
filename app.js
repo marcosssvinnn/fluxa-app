@@ -1618,6 +1618,12 @@ function go(p){
     // Garante base de clientes atualizada para o autocomplete
     carregarClientesRemoto();
     if(typeof renderPrevSheet==='function') renderPrevSheet();
+    // Wizard mobile (Fase 9b): novoOrc()/abrirOrc()/duplicarOrc() já chamam
+    // isso, mas quem chega em 'form' por outro caminho (guardrail de vendas
+    // em pagesVendasOk, botão "← Voltar" das telas de OS) pulava essa
+    // chamada — a barra de ações mobile ficava vazia (sem Salvar/Gerar PDF
+    // nenhum), sem forma de continuar. Idempotente, seguro chamar sempre.
+    if(typeof _orcApplyMobileStep==='function') _orcApplyMobileStep();
   }
   if(p==='os-history') loadOSHist();
   if(p==='clientes'){
@@ -2837,6 +2843,7 @@ function novoOrc(){
   limparRascunho('form'); window._skipDraftForm=true; // novo orçamento = começar do zero, sem rascunho antigo
   _limparCamposOrc();
   go('form');
+  _orcMobileStep=1; _orcApplyMobileStep();
 }
 
 // ──────────────────────────────────────────────────
@@ -3198,6 +3205,56 @@ function formatPagamento(pag, total){
   }
   return pag;
 }
+// Wizard mobile do Novo Orçamento (Fase 9b, revisado 13/08 a pedido do
+// Marcos) — abaixo de 900px, só um dos 3 cards fica visível por vez.
+// Os campos NUNCA saem do DOM (só style.display), então tudo que lê
+// .value direto — rascunho automático, prévia ao vivo — continua
+// funcionando igual em qualquer passo.
+let _orcMobileStep=1;
+function _orcIsMobileWizard(){ return window.innerWidth<=900 && !!document.getElementById('novo-orc-steps'); }
+const _ORC_STEP_GRUPOS={
+  1:['orc-step-cliente'],
+  2:['orc-step-servicos-card'],
+  3:['orc-step-final','card-os-toggle']
+};
+function _orcApplyMobileStep(){
+  const mobile=_orcIsMobileWizard();
+  Object.keys(_ORC_STEP_GRUPOS).forEach(k=>{
+    const show=!mobile||Number(k)===_orcMobileStep;
+    _ORC_STEP_GRUPOS[k].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display=show?'':'none'; });
+  });
+  const botoes=document.querySelectorAll('#novo-orc-steps button');
+  botoes.forEach((btn,i)=>{
+    btn.classList.toggle('on', (i+1)===_orcMobileStep);
+    btn.classList.toggle('done', (i+1)<_orcMobileStep);
+  });
+  const acts=document.getElementById('orc-mobile-acts'); if(!acts) return;
+  const voltar=_orcMobileStep>1?`<button type="button" class="rd-btn rd-btn-secondary" style="flex:1" onclick="_orcIrParaPasso(${_orcMobileStep-1})">← Voltar</button>`:'';
+  const proximo=_orcMobileStep<3
+    ?`<button type="button" class="rd-btn rd-btn-primary" style="flex:1.4" onclick="_orcIrParaPasso(${_orcMobileStep+1})">Próximo →</button>`
+    :`<button type="button" class="rd-btn rd-btn-primary" style="flex:1.4" onclick="_orcMobileFinalizar()">Gerar PDF →</button>`;
+  acts.innerHTML=voltar+proximo;
+}
+function _orcIrParaPasso(n){
+  _orcMobileStep=Math.min(3,Math.max(1,n));
+  _orcApplyMobileStep();
+  const wrap=document.querySelector('#page-form .wrap'); if(wrap) wrap.scrollTo?.({top:0,behavior:'smooth'});
+  window.scrollTo({top:document.getElementById('novo-orc-steps')?.offsetTop-70||0, behavior:'smooth'});
+}
+// Confirma os campos obrigatórios do passo 1 (cliente/local/origem — os 3
+// que salvarApenas()/gerarPDF() já validam) ANTES de chamar a função real:
+// se faltar algo, volta pro passo 1 primeiro, senão o toast de erro
+// apontaria (scrollIntoView) pra um campo escondido nos passos 2/3.
+function _orcMobileFinalizar(){
+  if(!gV('cli')||!gV('loc')||!gV('origem-cli')){
+    _orcIrParaPasso(1);
+    toast('⚠️ Complete os dados do cliente antes de gerar o PDF');
+    return;
+  }
+  gerarPDF();
+}
+window.addEventListener('resize', ()=>{ if(document.getElementById('page-form')?.classList.contains('on')) _orcApplyMobileStep(); });
+
 function upd(){
   const s=sub(),d=disc(s),t=Math.max(0,s-d);
   setV_el('d-tot',brl(t),'textContent');
@@ -5929,6 +5986,7 @@ function abrirOrc(id){
   const btnContato=document.getElementById('form-btn-contato');
   if(btnContato) btnContato.style.display='';
   _renderFormAcoesEdit(o);
+  _orcMobileStep=1; _orcApplyMobileStep();
   toast('✏️ Editando Orçamento #'+String(o.numero).padStart(3,'0'));
 }
 
@@ -5981,6 +6039,7 @@ function duplicarOrc(id){
   const btnContato=document.getElementById('form-btn-contato'); if(btnContato) btnContato.style.display='none';
   _renderFormAcoesEdit(null);
   setV_el('novo-orc-titulo','Novo orçamento','textContent');
+  _orcMobileStep=1; _orcApplyMobileStep();
   toast('📋 Orçamento duplicado — edite e salve como novo');
 }
 

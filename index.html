@@ -695,22 +695,23 @@
       </div>
     </div>
 
-    <!-- Fase 9b do redesign (13/08) — versão mobile do handoff ("Turno 1 ·
-         Proposta A"): indicador de passos (Cliente/Serviços/Finalizar —
-         renomeado de "Pagamento" porque a forma de pagamento já mora no
-         card Cliente aqui, não virou um 3º card separado) rola até a
-         seção em vez de esconder campos. Decisão consciente: NÃO
-         implementei um wizard que esconde/mostra cards — a Fase 6 já
-         registrou que os componentes internos do formulário (vincular
-         item ao estoque, checkbox "não é produto", preset com preço
-         editável) são interações reais demais pra arriscar sem
-         necessidade; esconder cards inteiros por trás de "passos" podia
-         quebrar o rascunho automático e a prévia ao vivo, que dependem
-         de tudo estar no DOM. Some no desktop. -->
+    <!-- Fase 9b do redesign, revisada (13/08) — wizard literal do handoff
+         mobile ("Turno 1 · Proposta A"): abaixo de 900px, só o passo atual
+         fica visível (_orcApplyMobileStep esconde os outros via
+         style.display, sem tirar do DOM) — Cliente/Serviços/Finalizar
+         (renomeado de "Pagamento": a forma de pagamento já mora no card
+         Cliente aqui, não virou um 3º card separado). Os campos continuam
+         no DOM o tempo todo (só escondidos), então o rascunho automático e
+         a prévia ao vivo — que leem os inputs direto, não a visibilidade —
+         continuam funcionando iguais. Validação de campo obrigatório
+         (cliente/local/origem, todos no passo 1) é protegida por
+         _orcMobileFinalizar(): se faltar algo, volta pro passo 1 ANTES de
+         chamar a validação real, pra nunca apontar pra um campo escondido.
+         Some no desktop (lá os 3 cards ficam sempre visíveis, como antes). -->
     <div class="novo-orc-steps" id="novo-orc-steps">
-      <button type="button" onclick="document.getElementById('orc-step-cliente').scrollIntoView({behavior:'smooth',block:'start'})"><span></span>Cliente</button>
-      <button type="button" onclick="document.getElementById('orc-step-servicos').scrollIntoView({behavior:'smooth',block:'start'})"><span></span>Serviços</button>
-      <button type="button" onclick="document.getElementById('orc-step-final').scrollIntoView({behavior:'smooth',block:'start'})"><span></span>Finalizar</button>
+      <button type="button" onclick="_orcIrParaPasso(1)"><span></span>Cliente</button>
+      <button type="button" onclick="_orcIrParaPasso(2)"><span></span>Serviços</button>
+      <button type="button" onclick="_orcIrParaPasso(3)"><span></span>Finalizar</button>
     </div>
 
     <div class="novo-orc-body">
@@ -809,7 +810,7 @@
     </div>
 
     <!-- SERVIÇOS -->
-    <div class="card">
+    <div class="card" id="orc-step-servicos-card">
       <div class="ct" id="orc-step-servicos">Serviços</div>
       <div class="presets-hd">Adicionar rápido:</div>
       <div class="presets" id="presets"></div>
@@ -932,18 +933,18 @@
 
     <!-- Barra fixa de total (Fase 9b, 13/08) — "total sempre visível" do
          handoff mobile. Mesmos botões/valor de sempre (Salvar rascunho/
-         Gerar PDF, #d-tot espelhado por upd()), só reposicionados fixos
-         no rodapé pra não precisar rolar até o card de Serviços pra ver
-         quanto está cobrando. Some no desktop. -->
+         Gerar PDF, #d-tot espelhado por upd()) navega entre os passos —
+         "Salvar rascunho"/"Gerar PDF e enviar" de verdade continuam
+         sempre acessíveis na barra superior (nunca escondida), então
+         sair do wizard pra salvar não depende de estar no passo certo.
+         id="orc-mobile-acts" é populado por _orcApplyMobileStep(). Some
+         no desktop. -->
     <div class="novo-orc-mobile-bar" id="novo-orc-mobile-bar">
       <div class="novo-orc-mobile-tot">
         <span>Total</span>
         <span id="orc-mobile-tot">R$ 0,00</span>
       </div>
-      <div style="display:flex;gap:8px">
-        <button type="button" class="rd-btn rd-btn-secondary" style="flex:1" onclick="salvarApenas()">Salvar</button>
-        <button type="button" class="rd-btn rd-btn-primary" style="flex:1.4" onclick="gerarPDF()">Gerar PDF →</button>
-      </div>
+      <div id="orc-mobile-acts" style="display:flex;gap:8px"></div>
     </div>
   </div>
 </div>
