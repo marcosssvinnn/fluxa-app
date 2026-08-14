@@ -2,6 +2,32 @@
 
 ---
 
+## Etapa 5 fechada de ponta a ponta — piscina ligada ao fluxo de vistoria (14/08)
+
+Última pendência da Etapa 5 (roadmap de CRM). Seguida a recomendação do
+próprio doc de auditoria (`docs/etapa5-ficha-tecnica-piscina-auditoria-
+2026-08-12.md`, §3, opção c2): vistoria referencia a piscina do LOCAL
+(plano de vistoria, `window._visLocalId`) quando existe, senão do CLIENTE.
+Migração `vistorias.piscina_id text` (aditiva, já rodada em produção).
+
+Escopo pequeno de propósito, igual o doc já registrava: só a referência.
+**Não inclui** a reescrita maior de puxar equipamentos de `equipamentos`
+filtrados por piscina em vez do jsonb duplicado — isso o próprio doc já
+apontava como "mudança de fluxo maior", fora desta etapa.
+
+Novo select `#vis-piscina` em "Dados da Visita", opcional, populado/
+resetado em todos os pontos que trocam cliente/local (busca, autocomplete,
+abrir de um plano, nova vistoria em branco, reabrir vistoria salva —
+restaura o `piscina_id` gravado). Testado com dados sintéticos (filtro por
+local e por cliente, reset, reabertura, cliente sem piscina cadastrada,
+mobile) — sem erro no console.
+
+**Com isso, as 8 etapas do roadmap de CRM propostas em 12-14/08 estão
+todas endereçadas** (1-6 e a Etapa 7 itens 1-2 fechadas; Etapa 8 é só
+remedir o baseline depois, sem código pendente).
+
+---
+
 ## Redesign das 4 telas restantes — em andamento (14/08)
 
 O Marcos autorizou continuar sem supervisão ("Você está expressamente
