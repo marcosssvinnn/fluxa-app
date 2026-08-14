@@ -4969,6 +4969,13 @@ function _acaoWA(orcId){
   const telFull=tel.startsWith('55')?tel:'55'+tel;
   const msg=`Olá${o.cliente?', '+o.cliente.split(' ')[0]:''}! Sobre o orçamento #${String(o.numero||'?').padStart(3,'0')} (${brl(parseFloat(o.total)||0)}) — ainda faz sentido pra vocês? Fico à disposição.`;
   window.open(`https://wa.me/${telFull}?text=${encodeURIComponent(msg)}`,'_blank');
+  // Etapa 7 do roadmap de CRM (14/08): oferece registrar o que ficou combinado
+  // no MESMO momento do contato, não como 3º clique separado depois — o
+  // baseline de atribuição mediu 0% de proximo_contato/crm_notas preenchidos
+  // em toda a base porque "Registrar contato" vivia isolado. "Registrar
+  // contato" continua existindo à parte (abaixo), pra quem contatou por outro
+  // canal sem passar por aqui.
+  abrirCrmContato(orcId);
 }
 const ACAO_TETO=7;
 function _acaoQueue(){
@@ -4987,8 +4994,11 @@ function _acaoQueue(){
     if(_crmFaixaFiltro) cands=cands.filter(c=>_crmFaixaDe(c.dias)===_crmFaixaFiltro);
     cands.slice(0,10).forEach(c=>{
       const tel=(c.orc.tel_cliente||'').replace(/\D/g,'');
+      // Ligar mantém o href tel: (preserva o comportamento nativo do link —
+      // copiar número, preview no desktop) e GANHA um onclick que também abre
+      // o registro de contato, mesmo mecanismo do WhatsApp em _acaoWA().
       const acoes=tel
-        ? [{label:'Ligar', href:'tel:'+tel}, {label:'WhatsApp', fn:`_acaoWA('${c.orc.id}')`}, {label:'Registrar contato', fn:`abrirCrmContato('${c.orc.id}')`}]
+        ? [{label:'Ligar', href:'tel:'+tel, fn:`abrirCrmContato('${c.orc.id}')`}, {label:'WhatsApp', fn:`_acaoWA('${c.orc.id}')`}, {label:'Registrar contato', fn:`abrirCrmContato('${c.orc.id}')`}]
         : [{label:'Registrar contato', fn:`abrirCrmContato('${c.orc.id}')`}, {label:'Ver orçamento', fn:`verOrcPDF('${c.orc.id}')`}];
       const urg=c.atrasado?96:(c.diasDecisao!==null&&c.diasDecisao<=7?92:(40+Math.min(20,c.score)));
       out.push({
@@ -5033,8 +5043,11 @@ function _acaoItemHTML(item, expandido){
   const acoesArr = item.acoes || [{label:item.acao, fn:item.fn, href:item.href}];
   const botao=(a,i)=>{
     const cls = expandido ? (i===0?'rd-btn rd-btn-primary rd-btn-sm':'rd-btn rd-btn-secondary rd-btn-sm') : 'rd-btn rd-btn-link';
+    // href+fn juntos (Etapa 7): o link tel:/mailto navega normalmente E o
+    // onclick roda também — não descarrega a página, então os dois convivem.
+    const onAttr = a.fn ? ` onclick="${a.fn}"` : '';
     return a.href
-      ? `<a class="${cls}" href="${esc(a.href)}">${esc(a.label)}</a>`
+      ? `<a class="${cls}" href="${esc(a.href)}"${onAttr}>${esc(a.label)}</a>`
       : `<button type="button" class="${cls}" onclick="${a.fn}">${esc(a.label)}</button>`;
   };
   if(expandido){
@@ -5611,6 +5624,21 @@ function _orcProximaAcao(o){
   if(dias>=10) return {txt:'Ligar hoje', urgente:true};
   return {txt:'Aguarda retorno', urgente:false};
 }
+// Etapa 7 do roadmap de CRM (14/08) — sinal de "há quanto tempo sem NENHUM
+// contato registrado", diferente de _orcProximaAcao (que é o que fazer
+// DEPOIS). O baseline de atribuição (docs/crm-baseline-atribuicao-2026-08-
+// 12.md) mediu 0% de crm_notas preenchido em toda a base — o vazio de dado
+// não aparecia em lugar nenhum do dia a dia, só pra quem abria a fila de
+// Insights. Só chamado pra orçamento ABERTO (pendente/vencido) — aprovado/
+// recusado já teve decisão, não faz sentido cobrar contato.
+function _orcSinalContato(o){
+  const notas=Array.isArray(o.crm_notas)?o.crm_notas:[];
+  if(!notas.length) return 'sem contato registrado';
+  const ultima=notas.reduce((max,n)=>{ const t=new Date(n.em).getTime(); return (isNaN(t)||t<=max)?max:t; },0);
+  if(!ultima) return 'sem contato registrado';
+  const dias=Math.max(0, Math.round((Date.now()-ultima)/86400000));
+  return dias===0 ? 'contato hoje' : dias+'d desde o contato';
+}
 function _orcExportarCSV(){
   const lista=_orcListaFiltrada();
   const linhas=[['Nº','Cliente','Valor','Situação','Idade (dias)','Próxima ação','Origem']];
@@ -5704,13 +5732,17 @@ function renderTabela(){
     const sit=_orcSituacao(o);
     const acao=_orcProximaAcao(o);
     const pendSync=String(o.id).startsWith('local_');
+    // Etapa 7: sinal de contato só em orçamento aberto — aprovado/recusado
+    // já teve decisão, cobrar contato ali não ajuda.
+    const aberto=o.status==='pendente'||o.status==='vencido';
+    const sinalContato=aberto?`<div class="rd-cell-sub">${esc(_orcSinalContato(o))}</div>`:'';
     h+=`<div class="rd-row${acao.urgente?' rd-row-action':''}" style="grid-template-columns:${grid};gap:12px;cursor:pointer" tabindex="0" onclick="abrirOrc('${o.id}')" onkeydown="if(event.key==='Enter')abrirOrc('${o.id}')">
       <div><span class="rd-cell-strong" style="color:var(--c1)">#${num}</span>${pendSync?'<div class="rd-cell-sub" style="color:var(--bad)">⚠ pend.</div>':''}</div>
       <div><div class="rd-cell-strong">${esc(o.cliente||'—')}${lojaAtiva?'':getLojaBadge(o.loja_id)}</div><div class="rd-cell-sub" title="${esc(svs)}">${esc(svs)}</div></div>
       ${ocultarFinanceiro?'':'<div class="rd-cell-num rd-cell-strong">'+brl(o.total||0).replace('R$','').trim()+'</div>'}
       <div><span class="rd-badge ${sit.cls}">${esc(sit.label)}</span></div>
       <div class="rd-cell-num" style="${dias>30?'color:var(--warn);font-weight:600':''}">${dias===0?'hoje':dias+'d'}</div>
-      <div style="${acao.urgente?'color:var(--c1);font-weight:600':'color:var(--tx2)'}">${esc(acao.txt)}</div>
+      <div><div style="${acao.urgente?'color:var(--c1);font-weight:600':'color:var(--tx2)'}">${esc(acao.txt)}</div>${sinalContato}</div>
       <div class="rd-cell-sub">${esc(o.origem_cliente||'—')}</div>
     </div>`;
   });
