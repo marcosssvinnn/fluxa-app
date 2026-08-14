@@ -2,6 +2,47 @@
 
 ---
 
+## ⚠️ Achado, precisa de decisão do Marcos: dois sistemas de recebimento coexistindo (14/08)
+
+Ao investigar o achado de ontem ("`#cr-card` em Produtividade pode ser
+duplicação"), confirmei que é mais sério do que "tela repetida":
+**existem dois sistemas de recebimento desconectados, ativos ao mesmo
+tempo.**
+
+- **Antigo:** `orcamentos.valor_recebido` — um número escalar por
+  orçamento, sem parcela/vencimento/data de pagamento. Escrito pelo botão
+  **"💰 Pagamento" que ainda existe no Histórico de Orçamentos**
+  (`abrirModalPg`/`salvarPagamento`). Ainda alimenta o KPI "A Receber" do
+  Insights (`d-rec`).
+- **Novo (Fase 1 do roadmap de indicadores, depois Fase 8b do redesign):**
+  tabela `recebimentos` — uma linha por PARCELA, com vencimento/data de
+  pagamento/aging/PMR. É o que a tela dedicada "A Receber"
+  (`page-recebiveis`) lê. Gerado **só na aprovação** do orçamento (não
+  retroativo — o próprio código documenta por quê: dado de parcelamento
+  real só existe a partir daí pra frente, gerar de trás pra frente
+  inventaria vencimento).
+
+**O problema prático:** se alguém clica no botão antigo "💰 Pagamento" de
+um orçamento aprovado, o valor grava em `valor_recebido` — mas a tela
+"A Receber" (`page-recebiveis`) **não lê esse campo**, só lê
+`recebimentos`. Ou seja, dá pra "registrar" um pagamento que nunca aparece
+na tela feita pra mostrar pagamentos. Removi só a exibição duplicada
+(`#cr-card` dentro de Produtividade, que mostrava o campo antigo) — **não
+mexi no botão nem no campo em si**, porque:
+1. Orçamentos aprovados **antes** da Fase 1 existir nunca vão ganhar uma
+   linha em `recebimentos` (o sistema novo não retroage) — pra esses,
+   `valor_recebido` pode ser a única forma de registrar que foi pago.
+2. Decidir se o botão antigo deve sumir, virar um atalho pro fluxo novo,
+   ou os dois deveriam conviver permanentemente (um pra histórico, outro
+   pra parcela) é decisão de produto — de quem sabe se ainda tem orçamento
+   velho sendo cobrado hoje.
+
+**Pergunta direta pro Marcos:** o botão "💰 Pagamento" do Histórico ainda
+é usado por alguém, ou pode sumir (redirecionando pra abrir o orçamento
+na tela de A Receber, se tiver parcela lá)?
+
+---
+
 ## Etapa 5 fechada de ponta a ponta — piscina ligada ao fluxo de vistoria (14/08)
 
 Última pendência da Etapa 5 (roadmap de CRM). Seguida a recomendação do
