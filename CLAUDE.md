@@ -2,6 +2,45 @@
 
 ---
 
+## Migrados os 3 modais restantes pro shell `.rd-modal` (14/08)
+
+Continuação da Tarefa 3c, que só tinha migrado `confirmar()` de propósito
+("um de cada vez"). Migrados agora: `crm-contato-bg` (registrar contato,
+formulário), `receb-bg` (como vai receber, aparece na aprovação),
+`aprov-os-bg` (criar OS da aprovação) — os 3 que ainda usavam `.modal-bg`/
+`.modal`.
+
+- **`crm-contato-bg`** — sem o bloco ícone+título+mensagem (não é uma
+  confirmação, é formulário puro); título viraram `<h3>` direto dentro do
+  `.rd-modal`, criada regra `.rd-modal>h3`/`.rd-modal-sub` genérica pra
+  cobrir esse caso (não existia antes — só `.rd-modal-headtx h3` do bloco
+  de confirmar()).
+- **`receb-bg`/`aprov-os-bg`** — já tinham o formato ícone-grande+título+
+  subtítulo (emoji solto de 30-32px); esses dois **viraram o bloco real**
+  `.rd-modal-head`/`.rd-modal-ico`/`.rd-modal-headtx` (ícone num quadrado
+  de 36px com cor de fundo, igual ao `confirmar()` já fazia) — mais
+  correto que só trocar `.modal`→`.rd-modal` e deixar o emoji solto.
+- Todos os botões `.btn-sec`/`.btn-pri`/`.btn-primary` (3 nomes de classe
+  diferentes entre os 3 modais!) viraram `.rd-modal-btn`/
+  `-nao`/`-sim`, e o emoji dos botões principais ("💰 Registrar", "📋
+  Criar OS agendada", "📦 Ordem de entrega") saiu — mesmo critério da
+  varredura de emoji já feita.
+- Nenhuma função JS mudou: `abrirModalXxx()`/`fecharXxx()` só fazem
+  `classList.add/remove('on')`, mecanismo idêntico entre `.modal-bg` e
+  `.rd-modal-bg` — confirmado antes de mexer, pra não precisar tocar em
+  `app.js` nesta tarefa.
+- **Não mexido, de propósito** (registrado desde a Tarefa 3c): `.modal-cli-bg`/
+  `.cli-hist-overlay` (busca de cliente, histórico) e os modais montados
+  em string (`#dup-modal-bg`, `#qr-modal-bg`, `#nfe-modal-bg`) — helper
+  `abrirModal()` é a próxima tarefa, ainda não feita.
+
+Testado no browser local (dbOk=true): os 3 modais abertos manualmente via
+`classList.add('on')` — visual bate com `confirmar()` (mesmo raio, sombra,
+animação fade+card); folha com grip no mobile (375px) confirmada no
+`aprov-os-bg`; sem erro novo no console. `sw.js` v157→v158.
+
+---
+
 ## 🔴 Auditoria de segurança do Portal do Cliente — 2 vazamentos reais + 1 bug de conexão (14/08)
 
 A única superfície pública do app nunca tinha tido revisão própria (achado

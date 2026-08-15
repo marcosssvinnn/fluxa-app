@@ -3142,11 +3142,13 @@
   </div>
 </div>
 
-<!-- ══ MODAL: Registrar contato do CRM ══ -->
-<div class="modal-bg" id="crm-contato-bg" role="dialog" aria-modal="true" aria-labelledby="crm-contato-titulo" onclick="if(event.target===this)fecharCrmContato()">
-  <div class="modal" style="max-width:440px">
-    <h3 id="crm-contato-titulo">📞 Registrar contato</h3>
-    <div style="font-size:13px;color:var(--gray);margin-bottom:14px" id="crm-contato-sub"></div>
+<!-- ══ MODAL: Registrar contato do CRM — migrada pro shell .rd-modal
+     (Tarefa 12, 14/08, continuação da Tarefa 3c). ══ -->
+<div class="rd-modal-bg" id="crm-contato-bg" role="dialog" aria-modal="true" aria-labelledby="crm-contato-titulo" onclick="if(event.target===this)fecharCrmContato()">
+  <div class="rd-modal" style="max-width:440px">
+    <div class="rd-modal-grip"></div>
+    <h3 id="crm-contato-titulo">Registrar contato</h3>
+    <p class="rd-modal-sub" id="crm-contato-sub"></p>
 
     <div class="fl" style="margin-bottom:12px">
       <label>Como foi?</label>
@@ -3192,26 +3194,28 @@
       <textarea id="crm-ct-nota" rows="2" placeholder="Ex.: síndico pediu para retornar depois da reunião do dia 15"></textarea>
     </div>
 
-    <div class="modal-acts">
-      <button class="btn-sec" onclick="fecharCrmContato()">Cancelar</button>
-      <button class="btn-pri" onclick="salvarCrmContato()">Salvar</button>
+    <div class="rd-modal-acts">
+      <button type="button" class="rd-modal-btn rd-modal-btn-nao" onclick="fecharCrmContato()">Cancelar</button>
+      <button type="button" class="rd-modal-btn rd-modal-btn-sim" onclick="salvarCrmContato()">Salvar</button>
     </div>
   </div>
 </div>
 
-<!-- ══ MODAL: Criar OS ao aprovar orçamento ══ -->
 <!-- ══ MODAL: como vai receber (contas a receber) ══
      Aparece na aprovação, ANTES do modal de OS. Existe porque 72% dos aprovados
      históricos não têm condição de pagamento definida (`pag_cod` nulo ou
      "A combinar") e `pag_parcelas` vinha do default 2 do formulário — gerar
      parcela a partir disso seria inventar dívida. Aqui o dado é capturado no
      único momento em que alguém sabe a resposta. -->
-<div class="modal-bg" id="receb-bg" onclick="if(event.target===this)pularRecebimento()">
-  <div class="modal" style="max-width:480px">
-    <div style="text-align:center;margin-bottom:16px">
-      <div style="font-size:30px;margin-bottom:4px">💰</div>
-      <h3 id="receb-titulo" style="margin:0 0 4px">Como vai receber?</h3>
-      <p style="font-size:13px;color:var(--gray);margin:0">Total <strong id="receb-total"></strong></p>
+<div class="rd-modal-bg" id="receb-bg" role="dialog" aria-modal="true" aria-labelledby="receb-titulo" onclick="if(event.target===this)pularRecebimento()">
+  <div class="rd-modal" style="max-width:480px">
+    <div class="rd-modal-grip"></div>
+    <div class="rd-modal-head">
+      <div class="rd-modal-ico">R$</div>
+      <div class="rd-modal-headtx">
+        <h3 id="receb-titulo">Como vai receber?</h3>
+        <p>Total <strong id="receb-total"></strong></p>
+      </div>
     </div>
     <input type="hidden" id="receb-orc-id">
     <div class="row f1"><div class="fl"><label>Condição</label>
@@ -3237,21 +3241,25 @@
       <div class="fl"><label class="req">Forma</label>
         <input type="text" id="receb-forma" placeholder="Pix, boleto, cartão, dinheiro..."></div>
     </div>
-    <div id="receb-preview" style="font-size:12.5px;color:var(--gray);margin-bottom:14px"></div>
-    <div style="display:flex;gap:8px">
-      <button class="btn-sec" onclick="pularRecebimento()" style="flex:1">Agora não</button>
-      <button class="btn-primary" id="receb-btn" onclick="salvarRecebimento()" style="flex:2">💰 Registrar</button>
+    <div id="receb-preview" style="font-size:12.5px;color:var(--gray);margin-bottom:2px"></div>
+    <div class="rd-modal-acts">
+      <button type="button" class="rd-modal-btn rd-modal-btn-nao" onclick="pularRecebimento()">Agora não</button>
+      <button type="button" class="rd-modal-btn rd-modal-btn-sim" id="receb-btn" onclick="salvarRecebimento()">Registrar</button>
     </div>
   </div>
 </div>
 
-<!-- ══ MODAL: Criar OS a partir da aprovação ══ -->
-<div class="modal-bg" id="aprov-os-bg" onclick="if(event.target===this)fecharAprovOS()">
-  <div class="modal" style="max-width:460px">
-    <div style="text-align:center;margin-bottom:18px">
-      <div style="font-size:32px;margin-bottom:6px">📋</div>
-      <h3 id="aprov-os-titulo" style="margin:0 0 6px">Orçamento aprovado!</h3>
-      <p style="font-size:13px;color:var(--gray);margin:0">Deseja agendar uma OS? Data e técnico podem ser preenchidos agora ou depois.</p>
+<!-- ══ MODAL: Criar OS a partir da aprovação — migrada pro shell .rd-modal
+     (Tarefa 12, 14/08). ══ -->
+<div class="rd-modal-bg" id="aprov-os-bg" role="dialog" aria-modal="true" aria-labelledby="aprov-os-titulo" onclick="if(event.target===this)fecharAprovOS()">
+  <div class="rd-modal" style="max-width:460px">
+    <div class="rd-modal-grip"></div>
+    <div class="rd-modal-head">
+      <div class="rd-modal-ico" style="background:#E9F3EB;color:#2F7D3A">✓</div>
+      <div class="rd-modal-headtx">
+        <h3 id="aprov-os-titulo">Orçamento aprovado!</h3>
+        <p>Deseja agendar uma OS? Data e técnico podem ser preenchidos agora ou depois.</p>
+      </div>
     </div>
     <input type="hidden" id="aprov-os-orc-id">
     <div style="background:#f8fafc;border-radius:12px;padding:14px;margin-bottom:16px;display:flex;flex-direction:column;gap:10px">
@@ -3267,13 +3275,13 @@
     </div>
     <!-- Venda de produto avulso (químico, peça) não vira OS: o material só é
          entregue. Por isso o atalho da Ordem de Entrega fica aqui, ao lado da OS. -->
-    <div id="aprov-entrega-row" style="display:none;border-top:1px dashed var(--gray-mid);padding-top:12px;margin-bottom:14px">
+    <div id="aprov-entrega-row" style="display:none;border-top:1px dashed var(--gray-mid);padding-top:12px">
       <div style="font-size:12.5px;color:var(--gray);margin-bottom:8px">É entrega de material? Gere o comprovante para o cliente conferir e assinar.</div>
-      <button class="btn-sec" onclick="gerarEntregaDaAprovacao()" style="width:100%;font-weight:700">📦 Ordem de entrega</button>
+      <button type="button" class="rd-modal-btn rd-modal-btn-nao" onclick="gerarEntregaDaAprovacao()" style="width:100%">Ordem de entrega</button>
     </div>
-    <div style="display:flex;gap:8px">
-      <button class="btn-sec" onclick="fecharAprovOS()" style="flex:1">Não por agora</button>
-      <button id="aprov-os-btn" class="btn-primary" onclick="criarOSdeAprovacao()" style="flex:2">📋 Criar OS agendada</button>
+    <div class="rd-modal-acts">
+      <button type="button" class="rd-modal-btn rd-modal-btn-nao" onclick="fecharAprovOS()">Não por agora</button>
+      <button type="button" id="aprov-os-btn" class="rd-modal-btn rd-modal-btn-sim" onclick="criarOSdeAprovacao()">Criar OS agendada</button>
     </div>
   </div>
 </div>

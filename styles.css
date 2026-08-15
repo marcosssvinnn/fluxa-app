@@ -800,6 +800,11 @@
     .rd-modal-btn-sim.destrutivo{background:#9C3A2E}
     .rd-modal-btn-sim.destrutivo:hover{background:#82291F}
     .rd-modal-hint{font-size:11px;color:#6B7686;text-align:center}
+    /* Título/subtítulo genéricos pra modal sem o bloco ícone+título+mensagem
+       de confirmar() — usados nos modais de formulário migrados na
+       Tarefa 12 (crm-contato-bg/receb-bg/aprov-os-bg). */
+    .rd-modal>h3{margin:0;font-size:17px;font-weight:600;color:#101720;letter-spacing:-0.01em;line-height:1.25}
+    .rd-modal-sub{font-size:13px;color:#4E5867;line-height:1.5;margin:0}
     @media(max-width:680px){
       .rd-modal-bg{align-items:flex-end;padding:0}
       .rd-modal{max-width:100%;border-radius:18px 18px 0 0;animation:fx-sheet-in 240ms cubic-bezier(.2,.8,.2,1) both;padding-bottom:calc(22px + env(safe-area-inset-bottom))}
