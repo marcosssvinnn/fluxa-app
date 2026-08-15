@@ -40,6 +40,39 @@ testado) — os 3 SVGs renderizam alinhados dentro do botão (`.rd-btn` já é
 `inline-flex` centralizado, não precisou de CSS novo). Sintaxe validada
 via `new Function` (JXA). Sem erro novo no console. `sw.js` v154→v155.
 
+### Legenda do calendário — cor fixa corrigida sem trocar por `var(--c1)`
+
+A Tarefa 6 tinha achado que mexer só na legenda ("Do orçamento") sem
+também mexer no `app.js` criaria uma inconsistência nova (pontos reais do
+calendário continuariam laranja). **Ao corrigir os dois juntos, achei um
+segundo problema que a análise de usabilidade não previu:** trocar
+`#c45e0a` por `var(--c1)` faria "Do orçamento" colidir visualmente com
+"Serviço avulso" — a categoria `servico` já é azul (`#1d4ed8`/`#2563eb`)
+nos dois lugares (`tipoCor`/legenda), e `var(--c1)` no tema padrão da
+Forthemp **também** resolve pra azul (`#0B62CE`). Duas categorias do
+mesmo seletor ficariam quase idênticas.
+
+**Fix:** não usar `var(--c1)` aqui — trocar o laranja específico da
+Forthemp por um tom que já existe no design system e não colide com as
+outras duas categorias (`vistoria` roxo `#7c3aed`, `servico` azul):
+`#A6521A`/`#FDF3E7` (`--warn`/`--warn-bg`, já usados em toda badge de
+"atenção" do redesign). Os 3 pontos que usavam o hex antigo agora usam o
+mesmo tom, nos 3 lugares — legenda (`index.html`), pílula do dia no
+calendário e badge do modal "detalhes da OS" (`app.js`, `tipoCor`/
+`tipoBg`/`extraStyle`). Emoji das 4 legendas removido de brinde (já
+tinham swatch de cor + texto — mesmo critério da varredura acima).
+**Não mexido:** os emoji dentro das pílulas de dia do calendário
+(`🔧`/`✅`/`🚫`/`🔍`/`📄` antes do nome do cliente) — ali NÃO são
+redundantes: são o único sinal não-cor pra diferenciar 5 tipos de evento
+dentro de uma pílula de 10px, mesmo critério que manteve forma+cor no
+Estoque/Vistoria.
+
+Testado no browser local: legenda com os 4 itens sem emoji e cor
+consistente; pílula de dia sintética (`#A6521A`) confere visualmente com
+a legenda; `verDetalhesOS()` chamado com objeto sintético — badge "Do
+orçamento" no modal com o mesmo tom, claramente diferente do azul de
+"Serviço avulso". Sintaxe validada via `new Function`. `sw.js` v155→v156.
+
 ---
 
 ## Fase 9c-rev ajustada — forma além de cor no dot da Vistoria (14/08, pedido do Marcos)

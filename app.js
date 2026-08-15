@@ -9393,7 +9393,7 @@ function renderCal(){
         if(o.status==='concluido'){ extraStyle='background:#16a34a;'; emoji='✅ '; }
         else if(o.status==='cancelado'){ extraStyle='background:#9ca3af;'; emoji='🚫 '; }
         else if(tipo==='vistoria'){ extraStyle='background:#7c3aed;'; emoji='🔍 '; }
-        else if(tipo==='orcamento'){ extraStyle='background:#c45e0a;'; emoji='📄 '; }
+        else if(tipo==='orcamento'){ extraStyle='background:#A6521A;'; emoji='📄 '; }
         // avulso fica com a classe cal-ev padrão (azul)
         const evLabel=emoji+esc((o.cliente||'').split(' ')[0]);
         const title=`${esc(o.cliente||'')} — ${esc(o.tecnico||'')}${tipo==='vistoria'?' [Vistoria]':tipo==='orcamento'?' [Do orçamento]':' [Avulsa]'}`;
@@ -9415,8 +9415,8 @@ function verDetalhesOS(id){
   if(!o){ toast('OS não encontrada'); return; }
   const tipo=_osTipo(o);
   const statusLabel={agendado:'📋 Agendado',concluido:'✅ Concluído',cancelado:'🚫 Cancelado',em_andamento:'🔧 Em andamento'};
-  const tipoBg={vistoria:'#f3e8ff',orcamento:'#fff7ed',servico:'#eff6ff'};
-  const tipoCor={vistoria:'#7c3aed',orcamento:'#c45e0a',servico:'#1d4ed8'};
+  const tipoBg={vistoria:'#f3e8ff',orcamento:'#FDF3E7',servico:'#eff6ff'};
+  const tipoCor={vistoria:'#7c3aed',orcamento:'#A6521A',servico:'#1d4ed8'};
   const tipoLabel={vistoria:'🔍 Vistoria mensal',orcamento:'📄 Do orçamento',servico:'🔧 Serviço avulso'};
   const dataFmt=o.data_servico?new Date(o.data_servico+'T12:00:00').toLocaleDateString('pt-BR'):'—';
   const svcs=Array.isArray(o.servicos)?o.servicos.map(s=>typeof s==='string'?s:(s.desc||s)).filter(Boolean).join(', '):'—';
