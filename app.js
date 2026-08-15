@@ -2167,10 +2167,27 @@ function _orcDoReceb(r){ return (todosOrc||[]).find(o=>String(o.id)===String(r.o
 // (comentário acima de gerarParcelas): pag_cod não é confiável na maioria dos
 // casos. Em vez disso, ABRE a lacuna para alguém decidir — o mesmo modal que
 // a aprovação manual já usa.
+// Saldo em aberto de UM orçamento — a peça que unifica as duas fontes
+// (Tarefa 4, decisão do Marcos 15/08: "somar as duas", não migrar os dados
+// antigos pra não inventar vencimento/parcela que nunca existiu). Por
+// orçamento, nunca por app inteiro: um orçamento com QUALQUER linha em
+// `recebimentos` já migrou pro sistema novo — usa só essa fonte (mesmo
+// critério de `_orcAprovadosSemReceb`, abaixo). Sem nenhuma linha, cai no
+// campo antigo. Nunca soma os dois pro MESMO orçamento — isso dobraria o
+// valor de quem já tem parcela lançada.
+function _orcSaldoAReceber(o){
+  if(!o || o.status!=='aprovado') return 0;
+  const parcelas=(todosReceb||[]).filter(r=>String(r.orcamento_id)===String(o.id));
+  if(parcelas.length) return parcelas.filter(r=>!r.data_pagamento).reduce((a,r)=>a+(parseFloat(r.valor)||0),0);
+  return Math.max(0,(parseFloat(o.total)||0)-(parseFloat(o.valor_recebido)||0));
+}
 function _orcAprovadosSemReceb(){
   const comReceb=new Set((todosReceb||[]).map(r=>String(r.orcamento_id)));
   return filtrarPorLoja(todosOrc||[])
-    .filter(o=>o.status==='aprovado' && (parseFloat(o.total)||0)>0 && !comReceb.has(String(o.id)))
+    // _orcSaldoAReceber>0 (Tarefa 4, 15/08): sem isso, um aprovado antigo já
+    // quitado via valor_recebido (sistema velho) aparecia pra sempre como
+    // "precisa lançar" — não tem saldo nenhum, não é gap de verdade.
+    .filter(o=>o.status==='aprovado' && (parseFloat(o.total)||0)>0 && !comReceb.has(String(o.id)) && _orcSaldoAReceber(o)>0)
     .sort((a,b)=>String(b.data_aprovacao||b.data_criacao||'').localeCompare(String(a.data_aprovacao||a.data_criacao||'')));
 }
 function _renderRecebGap(){
@@ -2178,7 +2195,9 @@ function _renderRecebGap(){
   const lista=_orcAprovadosSemReceb();
   if(!lista.length){ card.style.display='none'; return; }
   card.style.display='';
-  const total=lista.reduce((a,o)=>a+(parseFloat(o.total)||0),0);
+  // Saldo (não o total bruto) — se já tem valor_recebido parcial no sistema
+  // antigo, o que falta lançar é só a diferença, mesmo critério do resto.
+  const total=lista.reduce((a,o)=>a+_orcSaldoAReceber(o),0);
   const cnt=document.getElementById('receb-gap-contagem');
   if(cnt) cnt.textContent=`${lista.length} orçamento${lista.length!==1?'s':''} · ${brl(total)}`;
   const el=document.getElementById('receb-gap-lista'); if(!el) return;
@@ -2189,7 +2208,7 @@ function _renderRecebGap(){
         <div style="font-size:11px;color:var(--gray)">#${String(o.numero||'?').padStart(3,'0')} · aprovado em ${_dataBR(String(o.data_aprovacao||o.data_criacao||'').slice(0,10))}</div>
       </div>
       <div style="text-align:right;white-space:nowrap">
-        <div style="font-size:14px;font-weight:700;color:var(--c2)">${brl(parseFloat(o.total)||0)}</div>
+        <div style="font-size:14px;font-weight:700;color:var(--c2)">${brl(_orcSaldoAReceber(o))}</div>
         <button class="tb g" style="font-size:11px;margin-top:3px;font-weight:700" onclick="_perguntarRecebimento(todosOrc.find(x=>String(x.id)==='${o.id}'))">💰 Lançar</button>
       </div>
     </div>`).join('');
@@ -2256,8 +2275,13 @@ function renderRecebiveis(){
   const soma=l=>l.reduce((a,r)=>a+(parseFloat(r.valor)||0),0);
   const pmr=_recebPMR(todas);
 
+  // "Em aberto" soma as duas fontes (Tarefa 4): parcelas lançadas + o saldo
+  // de quem ainda nem tem parcela (mesma lista de _renderRecebGap, aqui só
+  // o total). "Vencidos" fica só com recebimentos — o sistema antigo não
+  // tem vencimento pra classificar como atrasado.
+  const semRecebValor=_orcAprovadosSemReceb().reduce((a,o)=>a+_orcSaldoAReceber(o),0);
   const subEl=document.getElementById('receb-resumo-sub');
-  if(subEl) subEl.textContent=`${brl(soma(abertas))} em aberto · ${brl(soma(venc))} vencidos`;
+  if(subEl) subEl.textContent=`${brl(soma(abertas)+semRecebValor)} em aberto · ${brl(soma(venc))} vencidos`;
   const agingSub=document.getElementById('receb-aging-sub');
   if(agingSub) agingSub.textContent=`quanto mais à direita, mais difícil de receber${pmr!==null?' · prazo médio: '+(pmr>0?'+':'')+pmr+'d':''}`;
 
@@ -4938,7 +4962,9 @@ function _itensPainelHoje(){
   // lança um terço) — sem esse item o painel fica cego pra ele.
   const semReceb=(typeof _orcAprovadosSemReceb==='function'? _orcAprovadosSemReceb() : []);
   if(semReceb.length){
-    const totalSemReceb=semReceb.reduce((a,o)=>a+(parseFloat(o.total)||0),0);
+    // Saldo, não total bruto (Tarefa 4) — bate com o mesmo número que o
+    // cartão "Aprovados sem cobrança lançada" da tela A Receber mostra.
+    const totalSemReceb=semReceb.reduce((a,o)=>a+_orcSaldoAReceber(o),0);
     const maisAntigo=semReceb[semReceb.length-1];
     itens.push({id:'aprov-sem-receb', cor:'var(--red)', icone:'🧮',
       titulo:`${brl(totalSemReceb)} aprovado sem cobrança lançada`,
@@ -5354,9 +5380,12 @@ function renderPainelInsights(){
   set('ins-d-fech', brl(s.fechValor));
   const varMes = s.fechValorAnt>0 ? Math.round((s.fechValor-s.fechValorAnt)/s.fechValorAnt*100) : null;
   set('ins-d-fech-q', varMes===null ? s.fechQtd+' orç. neste mês' : (varMes>=0?'+':'')+varMes+'% vs. mês anterior');
+  // Soma as duas fontes (Tarefa 4, 15/08): recebimentos (parcela lançada) +
+  // o saldo dos aprovados que nunca ganharam parcela nenhuma (sistema
+  // antigo) — via _orcSaldoAReceber, nunca conta os dois pro mesmo orçamento.
   const abertosReceb=_recebVisiveis().filter(r=>!r.data_pagamento);
-  const aReceberValor=abertosReceb.reduce((a,r)=>a+(parseFloat(r.valor)||0),0);
   const vencidosValor=abertosReceb.filter(r=>_recebDiasAtraso(r)>0).reduce((a,r)=>a+(parseFloat(r.valor)||0),0);
+  const aReceberValor=filtrarPorLoja(todosOrc||[]).filter(o=>o.status==='aprovado').reduce((a,o)=>a+_orcSaldoAReceber(o),0);
   set('ins-d-receber', brl(aReceberValor));
   set('ins-d-receber-q', vencidosValor>0 ? brl(vencidosValor)+' vencidos' : 'nada vencido');
   set('ins-d-taxa', s.convPct+'%');
@@ -5429,7 +5458,10 @@ function atualizarDash(){
   const tot=orcFiltrado.length, soma=orcFiltrado.reduce((a,o)=>a+(o.total||0),0);
   const aprov=orcFiltrado.filter(o=>o.status==='aprovado');
   const somaA=aprov.reduce((a,o)=>a+(o.total||0),0);
-  const aRec=aprov.reduce((a,o)=>a+(o.total||0)-(o.valor_recebido||0),0);
+  // Soma as duas fontes por orçamento (Tarefa 4, 15/08) — antes lia só
+  // valor_recebido, que fica parado desde que um orçamento ganha parcela em
+  // `recebimentos` (o pagamento passa a ser marcado lá, não mais aqui).
+  const aRec=aprov.reduce((a,o)=>a+_orcSaldoAReceber(o),0);
   const tick=tot>0?soma/tot:0;
   // Sub-label mostra o período
   const periodoSub=orcMesRef?_renderOrcMesLabelStr():'Todos os períodos';
@@ -7061,8 +7093,8 @@ function _renderFichaCliente(cliId){
   const totalVendas=vendasCli.reduce((a,v)=>a+(v.valor_total||0),0);
   const totalGeral=totalFat+totalVendas;
   const osConcluidas=osCli.filter(o=>o.status==='concluido');
-  const orcIds=new Set(orcCli.map(o=>o.id));
-  const emAberto=(todosReceb||[]).filter(r=>orcIds.has(r.orcamento_id)&&!r.data_pagamento).reduce((a,r)=>a+(parseFloat(r.valor)||0),0);
+  // Soma as duas fontes (Tarefa 4, 15/08), mesmo critério do resto do app.
+  const emAberto=orcCli.filter(o=>o.status==='aprovado').reduce((a,o)=>a+_orcSaldoAReceber(o),0);
   const temContrato=_cliTemContratoAtivo(cli.nome);
 
   // "Cliente desde" — ano da transação mais antiga entre os 3 tipos.

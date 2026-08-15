@@ -2,6 +2,70 @@
 
 ---
 
+## Tarefa 4 fechada — "A Receber" unificado, soma as duas fontes (15/08, decisão do Marcos)
+
+Última pendência do plano de acabamento. Pergunta já registrada desde
+14/08 (achado "dois sistemas de recebimento coexistindo"): o Marcos
+escolheu **somar as duas fontes** — não migrar retroativamente
+(inventaria vencimento/parcela pra 93 orçamentos que nunca tiveram isso)
+nem deixar como estava (a maior parte do "A Receber" real ficava invisível).
+
+**`_orcSaldoAReceber(o)`** (nova, `app.js`, perto de `_orcAprovadosSemReceb`)
+é a peça que faz a unificação sem dobrar valor: por ORÇAMENTO, não por
+app inteiro — se tem qualquer linha em `recebimentos`, usa só essa fonte
+(soma das parcelas em aberto); sem nenhuma linha, cai no saldo do campo
+antigo (`total − valor_recebido`). Nunca soma os dois pro mesmo
+orçamento — um orçamento com parcela lançada não deveria contar de novo
+via `valor_recebido` (que fica parado assim que a parcela nasce).
+
+**5 pontos que mostravam "A Receber" com número diferente, agora
+consistentes** (todos somando via `_orcSaldoAReceber`):
+1. KPI "A receber" do Insights (`ins-d-receber`) — antes só `recebimentos`.
+2. Total "X em aberto" da tela A Receber (`receb-resumo-sub`) — antes só
+   `recebimentos`; "vencidos" continua só `recebimentos` de propósito (o
+   sistema antigo não tem vencimento pra classificar como atrasado).
+3. Card "Aprovados sem cobrança lançada" (`_renderRecebGap`, tela A
+   Receber) — já existia desde 14/08, mas somava `o.total` bruto, sem
+   descontar `valor_recebido` parcial; agora usa o saldo real. De quebra,
+   `_orcAprovadosSemReceb()` ganhou o filtro `_orcSaldoAReceber(o)>0` —
+   um aprovado antigo já quitado inteiro via `valor_recebido` não faz
+   mais sentido aparecer como "precisa lançar" pra sempre.
+4. Item "aprovado sem cobrança lançada" da fila "Precisa de você hoje"
+   (`_itensPainelHoje`) — mesmo bug do #3 (`o.total` bruto), agora bate
+   com o número do card #3 na mesma tela.
+5. KPI "Em aberto" da ficha do cliente (`_renderFichaCliente`) — antes só
+   `recebimentos` do cliente.
+6. Card "A Receber" do dashboard antigo do Histórico (`d-rec`,
+   `atualizarDash`) — pior caso: lia **só** `valor_recebido`, que para de
+   ser atualizado assim que um orçamento ganha parcela em `recebimentos`
+   (o pagamento passa a ser marcado lá). Um orçamento aprovado este mês
+   com parcela paga via o sistema novo aparecia como "não recebido" aqui.
+
+**Não mexido, de propósito:** o "Pagamento em aberto" do Portal do
+Cliente (`checkPortalHash`/`renderPortal`) continua só `recebimentos` —
+é uma query já escopada por segurança direto no servidor (achado da
+auditoria de 14/08, não reaproveita o `todosOrc`/`todosReceb` em memória
+que o resto do app usa). Somar o gap do sistema antigo exigiria uma 2ª
+consulta ao servidor num caminho client-facing sensível, pra mostrar ao
+cliente um valor sem vencimento/parcela — decidi não arriscar essa
+superfície por uma consistência que é interna (cobrança do sistema
+antigo é dívida da empresa formalizar, não algo pra jogar sem contexto
+na tela do cliente).
+
+Testado no browser local (`dbOk=true`, dado real de produção, 330
+orçamentos/4 recebimentos carregados): antes do fix, KPI "A receber"
+mostrava R$2.268,30 (só as 4 parcelas já lançadas) — **93 de 96
+aprovados nunca tiveram parcela nenhuma**. Depois do fix: R$122.417,79
+em TODOS os 5 lugares acima, e a matemática bate exata em cascata (gap
+R$120.149,49 + recebimentos em aberto R$2.268,30 = R$122.417,79 —
+conferido por igualdade direta, não só "parece certo"). Gap card caiu de
+93 para 51 orçamentos depois do filtro de saldo zero. Ficha de cliente
+testada com "Edifício Infinity Coast Residence" (2 orçamentos no gap,
+soma R$3.710,25 batendo com a lista). Sintaxe validada via `new
+Function` (JXA). Zero erro novo no console. `sw.js` v160→v161.
+
+---
+
 ## Tarefa 13 — Helper `abrirModal()` + migrados os 3 modais que faltavam (dup/QR/NF-e) (15/08)
 
 Última pendência da migração de modais que a Tarefa 3c tinha deixado pra
