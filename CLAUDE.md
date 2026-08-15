@@ -2,6 +2,32 @@
 
 ---
 
+## Plano de acabamento do redesign — Tarefa 1 fechada: ícones SVG na navegação mobile (14/08)
+
+Segunda leva de feedback pós-implementação (`design_handoff_fluxa_redesign 2/`,
+`ANALISE-USABILIDADE.md` + `PLANO-ACABAMENTO.md`, 6 tarefas por ordem de
+retorno). Iniciando a execução, uma tarefa por commit, como nas fases
+anteriores. **Tarefa 4 (unificar fonte de "A Receber") continua bloqueada —
+precisa de decisão do Marcos entre migração retroativa e soma das duas
+fontes**, já perguntado no achado de 14/08 acima.
+
+**Tarefa 1 — feita.** `.mob-nb` (nav inferior mobile) usava emoji (🔍🗂️☀️＋📋📊☰)
+enquanto a sidebar ao lado já usava SVG de traço desde a Fase 2 — as duas
+navegações principais do produto em idiomas visuais diferentes. Troquei os 7
+emoji pelos mesmos paths SVG do item equivalente da sidebar (mesma rota):
+Vistorias→lupa, Minhas OS/OS→3 linhas, Hoje→pulso, Orçam.→mais, Histórico→
+documento, Mais→hambúrguer novo (`M4 6h16M4 12h16M4 18h16`, não existia
+ícone de sidebar equivalente). `.micon` deixou de ser `font-size` de emoji e
+virou wrapper `19×19` com `display:flex`; o SVG interno herda `currentColor`
+— o estado ativo (`.mob-nb.on{color:var(--c1)}`) continua funcionando sem
+mudança de JS.
+
+Testado no browser local (porta nova, `8912`, evitando o cache de porta
+reaproveitada já registrado neste arquivo): os 7 ícones renderizam em 375px,
+estado ativo "Hoje" em azul, sem emoji residual, sem erro novo no console;
+sidebar desktop (1440px) sem regressão — o seletor `.mob-nb .micon` não
+alcança `.sicon` da sidebar. `sw.js` v146→v147.
+
 ## ✅ RESOLVIDO — botão antigo de Pagamento removido (14/08, decisão do Marcos)
 
 O achado abaixo foi levado direto pro Marcos (com explicação de onde o
