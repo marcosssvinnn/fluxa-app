@@ -2,6 +2,95 @@
 
 ---
 
+## REDESIGN Fase 9b-rev + 9c-rev fechadas — wizard literal + dot colorido (14/08)
+
+Duas sessões trabalharam no MESMO worktree ao mesmo tempo hoje (achado, não
+plano — ver seção logo abaixo). Esta entrada documenta as duas revisões da
+Fase 9 pedidas pelo Marcos depois de ver as 3 telas mobile no ar; a outra
+sessão, em paralelo, fez as Tarefas 1-5 do "plano de acabamento" (ver seção
+seguinte). **Nenhuma sobreposição de arquivo/função entre as duas** — conferido
+commit a commit (`19b9b3f`…`1361cb6`) antes de continuar: nenhum toca
+`page-form`, `#orc-step-*`, `vis-equip-block` ou `renderVisEquipGrid()`.
+
+**Contexto:** a Fase 9 original (ver entrada mais abaixo) tinha ficado
+deliberadamente conservadora — indicador de passos que só rola até a seção
+(Novo Orçamento) e cor de borda já existente sem recriar nada (Vistoria). O
+Marcos perguntou direto por que a captura de dado não tinha sido recriada como
+o mock mostrava, e pediu explicitamente para implementar mesmo com o risco que
+eu tinha levantado ("então preciso que você faça").
+
+**Fase 9b-rev — wizard literal no Novo Orçamento mobile.** Ao reavaliar o
+risco que motivou a versão conservadora original (esconder campos por passo
+quebraria autosave/prévia ao vivo): **falso** — `upd()` e o autosave de
+rascunho leem `.value` direto do input, não dependem de visibilidade/
+`display`. `_orcMobileStep`/`_orcApplyMobileStep`/`_orcIrParaPasso`/
+`_orcMobileFinalizar` (app.js) — 3 grupos de campos (`orc-step-cliente`/
+`orc-step-servicos-card`/`orc-step-final`+`card-os-toggle`) escondidos por
+`style.display` conforme o passo atual, só abaixo de 900px
+(`_orcIsMobileWizard()`). Indicador de passos (`#novo-orc-steps`) ganhou
+estado `.on`/`.done`; barra fixa no rodapé (`#novo-orc-mobile-bar`) troca
+Voltar/Próximo/Gerar PDF dinamicamente. **Validação nunca aponta pra campo
+escondido**: `_orcMobileFinalizar()` checa os 3 campos obrigatórios do Passo 1
+(`cli`/`loc`/`origem-cli`) e força volta ao Passo 1 ANTES de chamar o
+`gerarPDF()` real (não modificado) — os 3 únicos `scrollIntoView`/`focus` de
+validação vivem todos no Passo 1. Reset em `novoOrc()`/`abrirOrc()`/
+`duplicarOrc()`. Escape-hatch: os botões reais "Salvar rascunho"/"Gerar PDF"
+do topbar continuam sempre visíveis, nenhum passo bloqueia salvar.
+
+Esta revisão foi implementada e testada por uma sessão que bateu o **limite de
+uso da conta** com o trabalho pronto no worktree mas sem commitar — outra
+sessão assumiu, revisou o diff inteiro antes de commitar (achou e corrigiu 1
+bug real: só os 3 pontos de entrada originais chamavam
+`_orcApplyMobileStep()`, então chegar em `'form'` por outro caminho —
+guardrail de vendas, botão "← Voltar" de OS — deixava a barra de ações mobile
+vazia; fix: 1 chamada a mais dentro do próprio `if(p==='form')` de `go()`,
+idempotente). Testado (mobile 375px + desktop, `dbOk=false`): barra populada
+em todos os caminhos de entrada, navegação entre os 3 passos, validação volta
+pro passo 1, desktop sem regressão. `sw.js` v137→v138 (nessa sessão anterior).
+
+**Fase 9c-rev — status por dot colorido na Vistoria mobile (agora, sessão
+atual).** Só CSS, aditivo, abaixo de 680px: `.vis-equip-hdr::before` vira um
+círculo de 10px na cor do status (`--green`/`--yellow`/`--red`, mesmas
+variáveis que já coloriam a borda/fundo do card), substituindo visualmente o
+emoji (`.vis-equip-emoji{display:none}`) e a pílula de texto
+(`.vis-equip-badge{display:none}`) — os dois elementos continuam no DOM
+(nada de captura foi reescrito), só ficam ocultos no mobile. Botões de
+status/observação/fotos dentro do card, inalterados. Testado no browser local
+(`dbOk=false`, 3 equipamentos sintéticos bom/atenção/crítico): 375px mostra
+dot verde/âmbar/vermelho + nome, sem emoji/pílula, tanto expandido quanto
+recolhido; 1440px confirma `content:none` no `::before` — emoji e pílula
+voltam a aparecer, zero regressão desktop. `sw.js` v151→v152.
+
+---
+
+## ⚠️ Duas sessões no MESMO worktree ao mesmo tempo — 2ª ocorrência real (14/08)
+
+Aconteceu de novo (1ª vez documentada em 08/08, seção "Duas sessões de IA
+escrevendo no MESMO worktree", mais abaixo). Desta vez foi mais sério: durante
+uma falha de permissão de disco (TCC do macOS) que bloqueou toda leitura/
+escrita de uma sessão por vários minutos, a OUTRA sessão continuou operando no
+mesmo worktree físico e commitou 5 vezes (`19b9b3f`…`1361cb6`, "Tarefas 1-5 do
+plano de acabamento") — e, como as duas sessões compartilham os MESMOS
+arquivos em disco (não são checkouts separados), esses commits também
+arrastaram junto o trabalho não commitado da sessão bloqueada (Fase 9b-rev).
+
+Nenhum dado foi perdido — mas só porque a sessão que recuperou o acesso seguiu
+o protocolo já documentado neste arquivo (seção "🔄 SINCRONIZE COM O
+`origin/main`" mais abaixo) **antes de mexer em qualquer coisa**: confirmou
+working tree limpo (`git diff --quiet`), rodou `git fetch origin`, viu que o
+HEAD local estava 5 commits atrás, e só então `git reset --hard origin/main`.
+Depois conferiu por `grep` que as funções da Fase 9b-rev sobreviveram
+intactas no novo HEAD, e revisou os 5 commits da outra sessão (`git show
+--stat` em cada um) antes de continuar trabalhando, para confirmar zero
+sobreposição de arquivo/função com o que viria a seguir (Fase 9c-rev).
+
+**Lição reforçada:** o protocolo de sincronização não é só "rodar no início
+da sessão" — é rodar de novo **depois de qualquer interrupção longa**
+(falha de ambiente, limite de uso, o que for), porque é exatamente nessa
+janela que a outra sessão tem chance de commitar por baixo.
+
+---
+
 ## Plano de acabamento do redesign — Tarefa 1 fechada: ícones SVG na navegação mobile (14/08)
 
 Segunda leva de feedback pós-implementação (`design_handoff_fluxa_redesign 2/`,

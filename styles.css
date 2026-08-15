@@ -1326,6 +1326,20 @@
       #page-visitas .wrap{padding-bottom:100px}
       #vis-acts-bottom{position:fixed;left:0;right:0;bottom:64px;z-index:40;background:#fff;border-top:1px solid var(--line);padding:12px 14px;margin:0;box-shadow:0 -6px 16px -8px rgba(16,28,48,.18)}
     }
+    /* Vistoria mobile (Fase 9c-rev, 14/08) — status por DOT colorido no
+       cabeçalho recolhido, no lugar do emoji+pílula de texto. Só visual:
+       o emoji/badge de texto continuam existindo no DOM (nada de captura
+       de dado foi tocado), só ficam ocultos abaixo de 680px — desktop
+       intacto. */
+    @media(max-width:680px){
+      .vis-equip-hdr{gap:8px}
+      .vis-equip-emoji{display:none}
+      .vis-equip-badge{display:none}
+      .vis-equip-hdr::before{content:'';width:10px;height:10px;border-radius:50%;flex-shrink:0;background:var(--gray-mid)}
+      .vis-equip-block.status-bom .vis-equip-hdr::before{background:var(--green)}
+      .vis-equip-block.status-atencao .vis-equip-hdr::before{background:var(--yellow)}
+      .vis-equip-block.status-critico .vis-equip-hdr::before{background:var(--red)}
+    }
     .vis-obs-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;margin-bottom:8px}
     .vis-obs-chip{display:inline-block;padding:4px 10px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:11px;cursor:pointer;background:var(--white);color:var(--c2);font-family:'Instrument Sans',sans-serif;transition:all .15s;font-weight:600;user-select:none}
     .vis-obs-chip:hover{background:var(--c1-light);border-color:var(--c1);color:var(--c1)}
