@@ -2639,19 +2639,14 @@ async function abrirRevisaoDuplicatas(){
       <div style="font-size:11.5px;color:var(--gray)">${[g.endereco,g.telefone].filter(Boolean).map(x=>esc(x)).join(' · ')||'sem endereço/telefone cadastrado'}</div>
       <div style="font-size:11.5px;color:#b45309">mantém 1 ficha · remove ${g.qtd} cópia${g.qtd!==1?'s':''}</div>
     </div>`).join('');
-  const m=document.createElement('div');
-  m.className='modal-bg'; m.style.display='flex'; m.id='dup-modal-bg';
-  m.innerHTML=`<div class="modal" style="max-width:520px;max-height:80vh;overflow:auto">
-    <div style="font-size:16px;font-weight:800;color:var(--c2);margin-bottom:6px">🧹 Limpar fichas duplicadas</div>
-    <div style="font-size:12.5px;color:var(--gray);margin-bottom:14px">
-      ${_dupGruposAtual.length} nomes, ${totalFichas} fichas vazias no total. Nenhuma tem orçamento, OS ou vistoria vinculado — o histórico real de cada cliente fica intacto, ligado à ficha que sobra.</div>
+  abrirModal({id:'dup-modal-bg', largura:'wide', corpo:`
+    <h3>Limpar fichas duplicadas</h3>
+    <p class="rd-modal-sub">${_dupGruposAtual.length} nomes, ${totalFichas} fichas vazias no total. Nenhuma tem orçamento, OS ou vistoria vinculado — o histórico real de cada cliente fica intacto, ligado à ficha que sobra.</p>
     ${linhas}
-    <div style="display:flex;gap:10px;margin-top:16px">
-      <button class="btn-primary" style="flex:1" onclick="confirmarLimpezaDuplicatas()">🗑 Confirmar exclusão de ${totalFichas} fichas</button>
-      <button onclick="document.getElementById('dup-modal-bg').remove()" style="flex:1;padding:12px;border:2px solid var(--gray-mid);border-radius:10px;background:var(--white);font-size:14px;font-weight:700;cursor:pointer;font-family:'Instrument Sans',sans-serif">Cancelar</button>
-    </div>
-  </div>`;
-  document.body.appendChild(m);
+    <div class="rd-modal-acts">
+      <button class="rd-modal-btn rd-modal-btn-nao" onclick="fecharModal('dup-modal-bg')">Cancelar</button>
+      <button class="rd-modal-btn rd-modal-btn-sim destrutivo" onclick="confirmarLimpezaDuplicatas()">Confirmar exclusão de ${totalFichas} fichas</button>
+    </div>`});
 }
 
 // Corrida com lote pequeno em paralelo: apagar uma por uma (628 chamadas
@@ -2663,15 +2658,13 @@ async function abrirRevisaoDuplicatas(){
 async function confirmarLimpezaDuplicatas(){
   const grupos=_dupGruposAtual;
   const totalFichas=grupos.reduce((a,g)=>a+g.qtd,0);
-  const m=document.getElementById('dup-modal-bg');
-  if(m) m.innerHTML=`<div class="modal" style="max-width:420px">
-    <div style="font-size:16px;font-weight:800;color:var(--c2);margin-bottom:10px">🧹 Apagando fichas duplicadas…</div>
-    <div id="dup-progresso-txt" style="font-size:13px;color:var(--gray);margin-bottom:10px">0 de ${totalFichas}</div>
+  atualizarModal(`
+    <h3>Apagando fichas duplicadas…</h3>
+    <div id="dup-progresso-txt" style="font-size:13px;color:var(--gray)">0 de ${totalFichas}</div>
     <div style="height:8px;background:var(--gray-light);border-radius:50px;overflow:hidden">
       <div id="dup-progresso-barra" style="height:100%;width:0%;background:var(--c1);transition:width .2s"></div>
     </div>
-    <div style="font-size:11.5px;color:var(--gray);margin-top:10px">Não feche esta aba até terminar.</div>
-  </div>`;
+    <div style="font-size:11.5px;color:var(--gray)">Não feche esta aba até terminar.</div>`, 'dup-modal-bg');
 
   const todos=grupos.flatMap(g=>g.removerIds);
   let cli=lsCliLer();
@@ -2702,11 +2695,12 @@ async function confirmarLimpezaDuplicatas(){
 
   logAcao('limpeza_duplicatas', `${removidas} fichas vazias removidas em ${grupos.length} nomes${falhas?` · ${falhas} falharam`:''}`);
   renderClientes(); renderAvisoDuplicatas();
-  if(m) m.innerHTML=`<div class="modal" style="max-width:420px;text-align:center">
-    <div style="font-size:32px;margin-bottom:8px">${falhas?'⚠️':'✅'}</div>
-    <div style="font-size:15px;font-weight:800;color:var(--c2);margin-bottom:14px">${removidas} fichas duplicadas removidas${falhas?`<br><span style="color:var(--red);font-size:13px">${falhas} falharam — continuam no banco, tente de novo</span>`:''}</div>
-    <button class="btn-primary" style="width:100%" onclick="document.getElementById('dup-modal-bg').remove()">Fechar</button>
-  </div>`;
+  atualizarModal(`
+    <div style="text-align:center">
+      <div style="font-size:32px;margin-bottom:8px">${falhas?'⚠️':'✅'}</div>
+      <div style="font-size:15px;font-weight:800;color:var(--c2);margin-bottom:14px">${removidas} fichas duplicadas removidas${falhas?`<br><span style="color:var(--red);font-size:13px">${falhas} falharam — continuam no banco, tente de novo</span>`:''}</div>
+      <button class="rd-modal-btn rd-modal-btn-sim" style="width:100%" onclick="fecharModal('dup-modal-bg')">Fechar</button>
+    </div>`, 'dup-modal-bg');
   toast(falhas?`⚠️ ${removidas} removidas, ${falhas} falharam`:`✅ ${removidas} fichas duplicadas removidas`);
 }
 
@@ -7810,6 +7804,35 @@ window.addEventListener('beforeunload', function(e){
   document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') setTimeout(_tentarSync,2000); });
 })();
 
+// Modal genérico pra conteúdo montado em JS (Tarefa 13, 15/08) — antes cada
+// modal ad-hoc (limpeza de duplicatas, etc.) montava seu próprio
+// `document.createElement('div')`+`.modal-bg`/`.modal` do zero, na mão.
+// Agora usam o shell `.rd-modal-bg`/`.rd-modal` (mesmo do resto do app) sem
+// duplicar HTML de moldura a cada caso novo. `corpo` é o HTML de dentro do
+// card (título, texto, ações — o chamador decide, isto só monta a moldura).
+function abrirModal({corpo, largura, id}){
+  const modalId = id || 'rd-modal-dinamico';
+  fecharModal(modalId);
+  const bg=document.createElement('div');
+  bg.className='rd-modal-bg on';
+  bg.id=modalId;
+  bg.onclick=(e)=>{ if(e.target===bg) fecharModal(modalId); };
+  bg.innerHTML=`<div class="rd-modal${largura?' rd-modal-'+largura:''}"><div class="rd-modal-grip"></div>${corpo}</div>`;
+  document.body.appendChild(bg);
+  return bg;
+}
+// Troca o conteúdo de um modal já aberto (ex.: lista → progresso → resultado
+// no mesmo card, sem fechar/reabrir) — mantém o grip do topo.
+function atualizarModal(corpo, id){
+  const bg=document.getElementById(id||'rd-modal-dinamico'); if(!bg) return;
+  const card=bg.querySelector('.rd-modal'); if(!card) return;
+  const grip=card.querySelector('.rd-modal-grip');
+  card.innerHTML=(grip?grip.outerHTML:'<div class="rd-modal-grip"></div>')+corpo;
+}
+function fecharModal(id){
+  const bg=document.getElementById(id||'rd-modal-dinamico'); if(bg) bg.remove();
+}
+
 // M-01 — Diálogo de confirmação acessível (substitui window.confirm)
 // Tarefa 3c do plano de acabamento (14/08): shell novo (.rd-modal, ver
 // styles.css) + variante destrutiva. Aceita objeto (novo) OU os argumentos
@@ -10681,7 +10704,7 @@ function abrirModalNFe(orcId){
   // Verifica se já tem nota emitida
   document.getElementById('nfe-status-wrap').style.display='none';
   document.getElementById('nfe-btn-emitir').disabled=false;
-  document.getElementById('nfe-btn-emitir').textContent='⚡ Emitir Nota Fiscal';
+  document.getElementById('nfe-btn-emitir').textContent='Emitir Nota Fiscal';
   verificarNFExistente(orcId);
 
   selecionarTipoNF('nfse');
@@ -10741,7 +10764,7 @@ function mostrarStatusNF(status, nf){
 
   if(status==='autorizada'||status==='rejeitada'||status==='cancelada'){
     document.getElementById('nfe-btn-emitir').disabled=true;
-    document.getElementById('nfe-btn-emitir').textContent=status==='autorizada'?'✅ Já emitida':'Nota '+status;
+    document.getElementById('nfe-btn-emitir').textContent=status==='autorizada'?'Já emitida':'Nota '+status;
   }
 }
 
@@ -10752,7 +10775,7 @@ async function emitirNota(){
   const ref=gV('nfe-ref');
   const ambiente=gV('nfe-ambiente');
   const btn=document.getElementById('nfe-btn-emitir');
-  btn.disabled=true; btn.textContent='⏳ Emitindo…';
+  btn.disabled=true; btn.textContent='Emitindo…';
   document.getElementById('nfe-status-wrap').style.display='block';
   mostrarStatusNF('processando',null);
 
@@ -10843,14 +10866,14 @@ async function emitirNota(){
       const erroMsg=result.mensagem||result.erros?.[0]?.mensagem||JSON.stringify(result);
       if(dbOk&&db&&nfId) dbUpdate('notas_fiscais', {status:'rejeitada',motivo_rejeicao:erroMsg}, 'id', nfId).then(()=>{}).catch(()=>{});
       mostrarStatusNF('rejeitada',{motivo_rejeicao:erroMsg,referencia:ref});
-      btn.disabled=false; btn.textContent='⚡ Tentar novamente';
+      btn.disabled=false; btn.textContent='Tentar novamente';
       toast('❌ Nota rejeitada: '+erroMsg);
     }
   }catch(e){
     console.error('emitirNota erro:',e);
     toast('❌ Erro ao emitir: '+e.message);
     document.getElementById('nfe-status-badge').textContent='❌ Erro de conexão';
-    btn.disabled=false; btn.textContent='⚡ Tentar novamente';
+    btn.disabled=false; btn.textContent='Tentar novamente';
   }
 }
 
@@ -10875,7 +10898,7 @@ function iniciarPollingNF(baseUrl, auth, ref, nfId){
         if(dbOk&&db&&nfId) dbUpdate('notas_fiscais', {status:r.status,motivo_rejeicao:erroMsg}, 'id', nfId).then(()=>{}).catch(()=>{});
         mostrarStatusNF(r.status,{motivo_rejeicao:erroMsg,referencia:ref});
         toast('❌ Nota '+r.status+': '+erroMsg);
-        const btn=document.getElementById('nfe-btn-emitir'); if(btn){btn.disabled=false;btn.textContent='⚡ Tentar novamente';}
+        const btn=document.getElementById('nfe-btn-emitir'); if(btn){btn.disabled=false;btn.textContent='Tentar novamente';}
       }
     }catch(e){ console.warn('polling NF erro:',e.message); }
   },5000); // verifica a cada 5s

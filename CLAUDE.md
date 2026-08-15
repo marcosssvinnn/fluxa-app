@@ -2,6 +2,84 @@
 
 ---
 
+## Tarefa 13 — Helper `abrirModal()` + migrados os 3 modais que faltavam (dup/QR/NF-e) (15/08)
+
+Última pendência da migração de modais que a Tarefa 3c tinha deixado pra
+depois ("os modais montados em string no JS ganharem o helper, ainda não
+feita"). Os 3 (`#dup-modal-bg`, `#qr-modal-bg`, `#nfe-modal-bg`) tinham
+naturezas diferentes — só o primeiro era de fato "montado em string" — e
+foram tratados de acordo, não com a mesma receita.
+
+- **`abrirModal({corpo, largura, id})`/`atualizarModal(corpo, id)`/
+  `fecharModal(id)`** (novas, `app.js`, perto de `confirmar()`) — monta a
+  moldura `.rd-modal-bg`/`.rd-modal` uma vez, o chamador só manda o HTML de
+  dentro do card. `abrirRevisaoDuplicatas()` (que criava
+  `document.createElement('div')`+`.modal-bg`/`.modal` do zero toda vez)
+  agora usa `abrirModal()`; `confirmarLimpezaDuplicatas()` troca o conteúdo
+  do MESMO card três vezes (lista → progresso → resultado) via
+  `atualizarModal()`, sem fechar/reabrir. `id:'dup-modal-bg'` preservado de
+  propósito — nada mais no código referenciava esse id, mas mantive o
+  padrão de nomear por finalidade, não genérico.
+- **`#qr-modal-bg`** (QR code de equipamento) — já era um shell ESTÁTICO no
+  `index.html` (não montado em string; só o conteúdo era preenchido por
+  id), então "migrar" aqui foi trocar `.qr-modal-bg`/`.qr-modal`/`.qr-acts`
+  pelo shell novo. **Importante:** `.qr-modal-bg` (o de fora, cuidando só
+  do fundo escurecido) é uma classe COMPARTILHADA por outros **13** modais
+  do Estoque/Compras (`prod-modal`, `compras-modal`, `venda-modal`,
+  `oc-form-modal`, etc.) — não toquei nessa classe em si, só troquei a
+  classe do elemento `#qr-modal-bg` especificamente pra `rd-modal-bg`. Os
+  outros 13 continuam exatamente como estavam, no sistema antigo — nenhum
+  no escopo desta tarefa. Testado explicitamente abrindo `prod-modal`
+  depois da mudança pra confirmar zero regressão.
+- **`#nfe-modal-bg`** (emitir Nota Fiscal) — mesmo caso do `qr-modal-bg`
+  (shell estático, migração de classe), mas aqui `.nfe-modal-bg`/
+  `.nfe-modal`/`.nfe-acts` eram exclusivas desse modal (não compartilhadas
+  — confirmado por grep antes de decidir), então pude apagar essas 3
+  regras do CSS depois de migrar, em vez de só desalinhar sem remover.
+  `.nfe-tipo-tabs`/`.nfe-tab`/`.nfe-status-badge`/`.nfe-info-row`
+  continuam — são conteúdo específico da NF-e, não moldura de modal.
+  **Achado ao migrar:** o botão "Emitir Nota Fiscal" tem o texto trocado
+  por `textContent=` em 6 pontos do JS (abrir/emitindo/tentar de novo/já
+  emitida), cada um com o emoji (⚡/✅) embutido na própria string — tirar
+  só do HTML estático não bastava, o JS reescrevia o emoji de volta a cada
+  abertura. Os 6 pontos corrigidos junto. **Não mexido, de propósito:** o
+  emoji dos toasts (`❌`/`⚠️`) e do badge de status
+  (`✅ Nota Autorizada`/`⏳ Processando…`/etc.) — é conteúdo dinâmico de
+  fluxo, não moldura, mesmo critério que a varredura de emoji de 14/08 já
+  registrou como "sem pressa".
+- **Larguras novas** (`styles.css`): `.rd-modal-wide` (560px + `max-height:
+  90vh;overflow-y:auto` — o form de NF-e é comprido, precisa rolar dentro
+  do card) e `.rd-modal-narrow` (340px, `text-align:center`, pro QR
+  compacto). **Modificador em classe, não `style=` inline** — inline
+  venceria o `max-width:100%` do media query mobile e travaria a folha
+  numa largura de desktop (mesmo bug já documentado na Fase 7 do
+  redesign, lá com `grid-template-columns`).
+- **Limpeza de CSS morta** — com o `dup-modal-bg` migrado, `.modal-bg`/
+  `.modal`/`.modal-acts`/`.btn-pri` (o sistema de modal ORIGINAL, pré-
+  redesign) ficaram sem nenhum elemento usando — removidos. `.btn-sec`
+  continua (ainda usado em 3 pontos fora deste escopo: download de XML da
+  NF-e, e dois formulários não migrados). `.qr-modal-bg .ct,.nfe-modal-bg
+  .ct` (regra de título sticky dentro de modal com scroll) perdeu a
+  metade `.nfe-modal-bg .ct` (a NF-e não tinha nenhum `.ct` dentro — a
+  regra nunca chegou a valer pra ela; conferido antes de tirar); a metade
+  `.qr-modal-bg .ct` fica, ainda serve os outros 13 modais que
+  compartilham essa classe.
+
+Testado no browser local (dbOk=true, conectado no Supabase real de
+leitura, sessão sintética via `setSessao()`): os 3 modais abertos com
+dado real/sintético — QR (equipamento sintético, imagem gerando,
+Fechar/Imprimir), NF-e (orçamento sintético, abas NFS-e/NF-e trocando,
+scroll interno confirmado via `scrollTop`, botão sem emoji em todos os
+estados simulados), duplicatas (lista→progresso→resultado no mesmo card
+via `atualizarModal`, `fecharModal` remove do DOM limpo); mobile 375px
+(folha com grip nos 3, sem overflow de página) e desktop 1280px; aberto
+`prod-modal` (um dos 13 que ainda usa `.qr-modal-bg` compartilhada) depois
+da mudança — sem regressão. Sintaxe validada via `new Function` (JXA),
+chaves de CSS balanceadas (1278/1278). Zero erro novo no console (só o
+ruído de rede pré-existente já documentado). `sw.js` v159→v160.
+
+---
+
 ## Tarefa 3d — Redesign da tela de login (15/08)
 
 Novo handoff (`design_handoff_fluxa_redesign 3/`, "Fluxa Login.dc.html" +

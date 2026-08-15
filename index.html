@@ -1563,14 +1563,15 @@
 </div>
 
 <!-- ══ MODAL QR CODE ══ -->
-<div class="qr-modal-bg" id="qr-modal-bg" onclick="if(event.target===this)fecharQR()">
-  <div class="qr-modal">
+<div class="rd-modal-bg" id="qr-modal-bg" role="dialog" aria-modal="true" aria-labelledby="qr-eq-nome" onclick="if(event.target===this)fecharQR()">
+  <div class="rd-modal rd-modal-narrow">
+    <div class="rd-modal-grip"></div>
     <h3 id="qr-eq-nome">Equipamento</h3>
-    <p id="qr-eq-info">Cliente — Tipo</p>
+    <p class="rd-modal-sub" id="qr-eq-info">Cliente — Tipo</p>
     <img id="qr-img" src="" alt="QR Code">
-    <div class="qr-acts">
-      <button class="btn-sec" style="flex:none;padding:9px 16px" onclick="fecharQR()">Fechar</button>
-      <button class="btn-pri" style="flex:none;padding:9px 16px" onclick="imprimirQR()">🖨️ Imprimir</button>
+    <div class="rd-modal-acts">
+      <button class="rd-modal-btn rd-modal-btn-nao" onclick="fecharQR()">Fechar</button>
+      <button class="rd-modal-btn rd-modal-btn-sim" onclick="imprimirQR()">Imprimir</button>
     </div>
   </div>
 </div>
@@ -3335,10 +3336,11 @@
 </div>
 
 <!-- ══ MODAL: NF-e / NFS-e ══ -->
-<div class="nfe-modal-bg" id="nfe-modal-bg" onclick="if(event.target===this)fecharModalNFe()">
-  <div class="nfe-modal">
-    <h3>📄 Emitir Nota Fiscal</h3>
-    <div class="nfe-modal-sub" id="nfe-modal-sub">Orçamento #000 — Cliente</div>
+<div class="rd-modal-bg" id="nfe-modal-bg" role="dialog" aria-modal="true" aria-labelledby="nfe-modal-titulo" onclick="if(event.target===this)fecharModalNFe()">
+  <div class="rd-modal rd-modal-wide">
+    <div class="rd-modal-grip"></div>
+    <h3 id="nfe-modal-titulo">Emitir Nota Fiscal</h3>
+    <p class="rd-modal-sub" id="nfe-modal-sub">Orçamento #000 — Cliente</p>
 
     <!-- Tipo -->
     <div class="nfe-tipo-tabs">
@@ -3414,9 +3416,9 @@
       <div id="nfe-download-wrap" style="display:none;margin-top:12px;display:flex;gap:8px;flex-wrap:wrap"></div>
     </div>
 
-    <div class="nfe-acts">
-      <button class="btn-sec" onclick="fecharModalNFe()">Cancelar</button>
-      <button class="btn-primary" id="nfe-btn-emitir" onclick="emitirNota()">⚡ Emitir Nota Fiscal</button>
+    <div class="rd-modal-acts">
+      <button class="rd-modal-btn rd-modal-btn-nao" onclick="fecharModalNFe()">Cancelar</button>
+      <button class="rd-modal-btn rd-modal-btn-sim" id="nfe-btn-emitir" onclick="emitirNota()">Emitir Nota Fiscal</button>
     </div>
   </div>
 </div>
