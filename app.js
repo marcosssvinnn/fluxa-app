@@ -5822,7 +5822,7 @@ async function _mudarStProsseguir(id, sel, st, o, stAnterior){
 }
 
 function excluirOrc(id){
-  confirmar('Excluir este orçamento?', ()=>_excluirOrcVerificarEstoque(id), 'Excluir Orçamento');
+  confirmar({titulo:'Excluir orçamento', msg:'A reserva de estoque vinculada é liberada e as parcelas de recebimento deste orçamento são removidas junto. Não dá para desfazer.', destrutivo:true, labelSim:'Excluir', onSim:()=>_excluirOrcVerificarEstoque(id)});
 }
 function _excluirOrcVerificarEstoque(id){
   // Verificar se houve saídas físicas vinculadas a este orçamento
@@ -6578,7 +6578,7 @@ function _osMatTextoFinal(){
 }
 
 function excluirOS(id){
-  confirmar('Excluir esta OS?', ()=>_excluirOSConfirmado(id), 'Excluir OS');
+  confirmar({titulo:'Excluir OS', msg:'Não dá para desfazer.', destrutivo:true, labelSim:'Excluir', onSim:()=>_excluirOSConfirmado(id)});
 }
 async function _excluirOSConfirmado(id){
   todosOS=todosOS.filter(x=>x.id!==id);
@@ -6974,7 +6974,7 @@ function novaOSParaCliente(id){
 }
 
 function excluirCliente(id){
-  confirmar('Excluir este cliente?', ()=>{
+  confirmar({titulo:'Excluir cliente', msg:'Orçamentos, OS e vistorias já feitos para ele continuam existindo, só a ficha de cadastro some. Não dá para desfazer.', destrutivo:true, labelSim:'Excluir', onSim:()=>{
     const lista=lsCliLer().filter(x=>x.id!==id); lsCliSalvar(lista);
     // Antes só removia local — carregarClientesRemoto ("BD é fonte de
     // verdade") trazia o cliente de volta no próximo sync, sempre, porque
@@ -6984,7 +6984,7 @@ function excluirCliente(id){
       if(dbOk&&db) db.from('clientes').delete().eq('id',id).then(()=>{}).catch(()=>{});
     }
     renderClientes(); toast('🗑 Cliente removido');
-  }, 'Excluir Cliente');
+  }});
 }
 
 let _cliEditId = null;
@@ -7464,14 +7464,44 @@ function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').repla
 function safeKey(s){ return btoa(unescape(encodeURIComponent(s))).replace(/[^a-zA-Z0-9]/g,''); }
 function ls(k){ try{return localStorage.getItem(k);}catch(e){return null;} }
 function lsSet(k,v){ try{localStorage.setItem(k,v);}catch(e){ console.warn('[lsSet] localStorage.setItem falhou (quota cheia ou modo privado?) para',k,':',e?.message||e); } }
+// ── Toast (Tarefa 3c do plano de acabamento, 14/08) — severidade, título,
+// mensagem que quebra linha e ação opcional (desfazer). Referência
+// Fluxa Feedback.dc.html. Assinatura nova, retrocompatível:
+// toast(msg) continua funcionando (~80 chamadas existentes) e cai em
+// tipo 'info'/4000ms — a duração não é mais adivinhada por regex no texto
+// (removida de propósito); só quem passar opts.tipo/opts.ms explícito
+// ganha os 8000ms de erro/atenção. Migração das chamadas antigas fica
+// para quando cada uma for tocada por outro motivo, como o plano registra.
+const TOAST_KIND = {
+  ok:   {border:'#CDE4D2', icoBg:'#E9F3EB', icoFg:'#2F7D3A', ico:'✓', bar:'#2F7D3A'},
+  warn: {border:'#F0DCC2', icoBg:'#FDF3E7', icoFg:'#A6521A', ico:'!', bar:'#C98A2E'},
+  bad:  {border:'#E9C9C3', icoBg:'#FBEAE7', icoFg:'#9C3A2E', ico:'✕', bar:'#9C3A2E'},
+  info: {border:'#CFE0F6', icoBg:'#E7F0FC', icoFg:'#1F5FA8', ico:'i', bar:'#0B62CE'},
+};
 let _toastTimer=null;
-function toast(msg){
+function toast(msg, opts){
   const t=document.getElementById('toast'); if(!t) return;
-  t.textContent=msg; t.classList.add('on');
-  // Erros/avisos ficam mais tempo na tela para dar tempo de ler.
-  const dur=/⚠️|❌|erro|falh|inválid|cheio/i.test(msg)?8500:4000;
-  if(_toastTimer) clearTimeout(_toastTimer); // não deixa um toast anterior cortar o atual
-  _toastTimer=setTimeout(()=>t.classList.remove('on'),dur);
+  opts=opts||{};
+  const tipo=TOAST_KIND[opts.tipo]?opts.tipo:'info';
+  const K=TOAST_KIND[tipo];
+  const ms=opts.ms!=null?opts.ms:((tipo==='bad'||tipo==='warn')?8000:4000);
+  if(_toastTimer){ clearTimeout(_toastTimer); _toastTimer=null; } // não deixa um toast anterior cortar o atual
+  t.style.borderColor=K.border;
+  t.innerHTML=
+    `<div class="toast-ico" style="background:${K.icoBg};color:${K.icoFg}">${K.ico}</div>`+
+    `<div class="toast-tx">${opts.titulo?`<div class="toast-title">${esc(opts.titulo)}</div>`:''}<div class="toast-msg">${esc(msg)}</div></div>`+
+    (opts.acao?`<button type="button" class="toast-acao">${esc(opts.acao.label)}</button>`:'')+
+    `<button type="button" class="toast-close" aria-label="Fechar">✕</button>`+
+    (ms>0?`<div class="toast-bar" style="background:${K.bar};animation-duration:${ms}ms"></div>`:'');
+  // Toast com ação usa aria-live polite — assertive interromperia o leitor de
+  // tela no meio de outra coisa só pra oferecer um botão de desfazer.
+  t.setAttribute('aria-live', opts.acao?'polite':'assertive');
+  t.classList.add('on');
+  const fechar=()=>t.classList.remove('on');
+  const acaoBtn=t.querySelector('.toast-acao');
+  if(acaoBtn) acaoBtn.onclick=()=>{ fechar(); opts.acao.fn&&opts.acao.fn(); };
+  t.querySelector('.toast-close').onclick=fechar;
+  if(ms>0) _toastTimer=setTimeout(fechar, ms);
 }
 function hexA(hex,a){ try{ const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16); return `rgba(${r},${g},${b},${a})`; }catch(e){ return hex; } }
 
@@ -7582,22 +7612,62 @@ window.addEventListener('beforeunload', function(e){
 })();
 
 // M-01 — Diálogo de confirmação acessível (substitui window.confirm)
-function confirmar(msg, cbSim, titulo, cbNao, labelNao, labelSim){
-  const bg = document.getElementById('confirmar-modal-bg');
-  const titEl = document.getElementById('confirmar-titulo');
-  const msgEl = document.getElementById('confirmar-msg');
-  const simBtn = document.getElementById('confirmar-sim');
-  const naoBtn = document.getElementById('confirmar-nao');
-  if(!bg){ cbSim(); return; } // fallback sem modal: confirma direto (PWA nunca cai aqui)
-  titEl.textContent = titulo || 'Confirmar';
-  msgEl.textContent = msg;
-  naoBtn.textContent = labelNao || 'Cancelar';
-  simBtn.textContent = labelSim || 'Confirmar';
+// Tarefa 3c do plano de acabamento (14/08): shell novo (.rd-modal, ver
+// styles.css) + variante destrutiva. Aceita objeto (novo) OU os argumentos
+// posicionais de sempre (~35 chamadas existentes, todas continuam
+// funcionando sem mudança):
+//   confirmar({titulo, msg, detalhe:[{k,v}], destrutivo, labelSim, labelNao, onSim, onNao})
+//   confirmar(msg, cbSim, titulo, cbNao, labelNao, labelSim)  ← forma antiga
+// Sem `destrutivo`, o comportamento é idêntico ao de antes (foco no botão
+// de confirmar). Com `destrutivo:true`: ícone e botão de confirmar em
+// vermelho, foco inicial no CANCELAR — a correção do bug real registrado
+// na análise de usabilidade (Enter apagava, porque o foco ia sempre para
+// "Confirmar"). Escape e clique no fundo fecham cancelando; o foco volta
+// para quem abriu o diálogo.
+function confirmar(a, cbSim, titulo, cbNao, labelNao, labelSim){
+  const o = (a && typeof a==='object') ? a : {msg:a, onSim:cbSim, titulo, onNao:cbNao, labelNao, labelSim};
+  const bg=document.getElementById('confirmar-modal-bg');
+  if(!bg){ o.onSim&&o.onSim(); return; } // fallback sem modal: confirma direto (PWA nunca cai aqui)
+  const titEl=document.getElementById('confirmar-titulo');
+  const msgEl=document.getElementById('confirmar-msg');
+  const icoEl=document.getElementById('confirmar-ico');
+  const detEl=document.getElementById('confirmar-detalhe');
+  const hintEl=document.getElementById('confirmar-hint');
+  const simBtn=document.getElementById('confirmar-sim');
+  const naoBtn=document.getElementById('confirmar-nao');
+  const destrutivo=!!o.destrutivo;
+  titEl.textContent = o.titulo || 'Confirmar';
+  msgEl.textContent = o.msg || '';
+  naoBtn.textContent = o.labelNao || (destrutivo?'Manter':'Cancelar');
+  simBtn.textContent = o.labelSim || (destrutivo?'Excluir':'Confirmar');
+  simBtn.classList.toggle('destrutivo', destrutivo);
+  naoBtn.classList.toggle('destrutivo', destrutivo);
+  icoEl.textContent = destrutivo?'!':'?';
+  icoEl.style.background = destrutivo?'#FBEAE7':'#E7F0FC';
+  icoEl.style.color = destrutivo?'#9C3A2E':'#1F5FA8';
+  if(o.detalhe&&o.detalhe.length){
+    detEl.style.display='';
+    detEl.classList.toggle('destrutivo', destrutivo);
+    detEl.innerHTML=o.detalhe.map(d=>`<div class="rd-modal-detail-row"><span>${esc(d.k)}</span><span>${esc(d.v)}</span></div>`).join('');
+  } else { detEl.style.display='none'; detEl.innerHTML=''; }
+  if(destrutivo){
+    hintEl.style.display='';
+    hintEl.textContent=`O foco começa em "${naoBtn.textContent}" — Enter não confirma.`;
+  } else { hintEl.style.display='none'; }
   bg.classList.add('on');
-  const fechar = () => { bg.classList.remove('on'); simBtn.onclick = null; naoBtn.textContent='Cancelar'; simBtn.textContent='Confirmar'; };
-  naoBtn.onclick = () => { fechar(); if(cbNao) cbNao(); };
-  simBtn.onclick = () => { fechar(); cbSim(); };
-  setTimeout(()=>simBtn.focus(), 50);
+  const focoAnterior=document.activeElement;
+  const onKey=(e)=>{ if(e.key==='Escape') fechar(o.onNao); };
+  const fechar=(cb)=>{
+    bg.classList.remove('on');
+    simBtn.onclick=null; naoBtn.onclick=null;
+    document.removeEventListener('keydown', onKey);
+    if(focoAnterior&&focoAnterior.focus) setTimeout(()=>focoAnterior.focus(),0);
+    cb&&cb();
+  };
+  document.addEventListener('keydown', onKey);
+  naoBtn.onclick=()=>fechar(o.onNao);
+  simBtn.onclick=()=>fechar(o.onSim);
+  setTimeout(()=>(destrutivo?naoBtn:simBtn).focus(), 50);
 }
 
 // ══════════════════════════════════════════════════
@@ -8721,14 +8791,14 @@ async function reembolsarDesp(id){
 }
 
 function excluirDesp(id){
-  confirmar('Excluir esta despesa?', ()=>{
+  confirmar({titulo:'Excluir despesa', msg:'Sai do resultado e das análises do período. Não dá para desfazer.', destrutivo:true, labelSim:'Excluir', onSim:()=>{
     todasDesp=todasDesp.filter(x=>x.id!==id); lsDespSalvar(todasDesp);
     if(!String(id).startsWith('desp_')){
       _tombAdd('fluxa_desp_tombstones', id); // protege contra ressuscitar se o delete abaixo falhar
       if(dbOk&&db) db.from('despesas').delete().eq('id',id).then(()=>{}).catch(()=>{});
     }
     renderDespesas(); toast('🗑 Despesa excluída');
-  }, 'Excluir Despesa');
+  }});
 }
 
 function lsDespLer(){ try{ return JSON.parse(ls('fluxa_despesas')||'[]'); }catch(e){ return []; } }
@@ -9153,7 +9223,7 @@ async function _gerarProximaOSdoAg(agId, dataConcluidaStr){
 }
 
 function cancelarSerie(agId){
-  confirmar('Cancelar TODAS as OS futuras deste agendamento?', ()=>_cancelarSerieConfirmado(agId), 'Cancelar Série');
+  confirmar({titulo:'Cancelar série', msg:'Todas as OS futuras deste agendamento são canceladas de uma vez. As que já foram concluídas não são afetadas.', destrutivo:true, labelSim:'Cancelar série', onSim:()=>_cancelarSerieConfirmado(agId)});
 }
 async function _cancelarSerieConfirmado(agId){
   todosAg=todosAg.map(a=>a.id===agId?{...a,ativo:false}:a); lsAgSalvar(todosAg);
@@ -9844,14 +9914,14 @@ async function salvarEquipamento(){
 }
 
 function excluirEq(id){
-  confirmar('Excluir este equipamento?', ()=>{
+  confirmar({titulo:'Excluir equipamento', msg:'Sai do cadastro e da ficha da piscina do cliente. Não dá para desfazer.', destrutivo:true, labelSim:'Excluir', onSim:()=>{
     todosEq=todosEq.filter(x=>x.id!==id); lsEqSalvar(todosEq);
     if(!String(id).startsWith('eq_')){
       _tombAdd('fluxa_eq_tombstones', id); // protege contra ressuscitar se o delete abaixo falhar
       if(dbOk&&db) db.from('equipamentos').delete().eq('id',id).then(()=>{}).catch(()=>{});
     }
     renderEqGrid(); toast('🗑 Equipamento excluído');
-  }, 'Excluir Equipamento');
+  }});
 }
 
 // localStorage para equipamentos
@@ -10340,7 +10410,7 @@ async function salvarUsuario(){
 }
 
 function excluirUsuario(id){
-  confirmar('Desativar este usuário?', ()=>_excluirUsuarioConfirmado(id), 'Desativar Usuário');
+  confirmar({titulo:'Desativar usuário', msg:'A pessoa perde o acesso ao sistema imediatamente. O histórico de ações continua no lugar.', destrutivo:true, labelSim:'Desativar', onSim:()=>_excluirUsuarioConfirmado(id)});
 }
 async function _excluirUsuarioConfirmado(id){
   const alvo=todosUsuarios.find(x=>x.id===id);
@@ -11088,7 +11158,7 @@ async function salvarLocal(){
 function _locTombLer(){ try{ return JSON.parse(ls('fluxa_loc_tombstones')||'[]'); }catch(e){ return []; } }
 function _locTombAdd(id){ const t=_locTombLer(); if(!t.includes(id)){ t.push(id); lsSet('fluxa_loc_tombstones', JSON.stringify(t.slice(-500))); } }
 function excluirLocal(id){
-  confirmar('Remover este local da lista de recorrentes?',async ()=>{
+  confirmar({titulo:'Remover local', msg:'O agendamento recorrente vinculado é desativado e as OS ainda agendadas são canceladas junto. As vistorias já feitas neste local continuam no histórico.', destrutivo:true, labelSim:'Remover', onSim:async ()=>{
     _locTombAdd(id);
     const loc=locaisVistoria.find(x=>x.id===id);
     // Desativa o agendamento vinculado
@@ -11108,7 +11178,7 @@ function excluirLocal(id){
     await saveLocais();
     renderLocaisTab();
     toast('Local removido');
-  });
+  }});
 }
 
 async function toggleLocalAtivo(id){
@@ -12402,12 +12472,19 @@ function descartarVistoriaEmAndamento(){
   const msg = emEdicao
     ? 'As alterações feitas nesta edição serão descartadas. A vistoria já salva não será apagada.'
     : 'Tudo que foi preenchido nesta vistoria (equipamentos, status, observações, fotos) será descartado e não poderá ser recuperado.';
-  confirmar(msg, ()=>{
-    const voltaPra = emEdicao ? 'hist' : 'nova';
-    _limparFormVistoria();
-    toast(emEdicao ? '↩️ Edição descartada' : '🗑️ Vistoria descartada');
-    visTab(voltaPra);
-  }, emEdicao?'Descartar edição?':'Descartar vistoria?', null, 'Continuar preenchendo', emEdicao?'Descartar edição':'Descartar tudo');
+  confirmar({
+    titulo: emEdicao?'Descartar edição':'Descartar vistoria',
+    msg,
+    destrutivo: !emEdicao, // edição descartada volta pro que já estava salvo — só a vistoria nova em branco é perda de verdade
+    labelNao: 'Continuar preenchendo',
+    labelSim: emEdicao?'Descartar edição':'Descartar tudo',
+    onSim: ()=>{
+      const voltaPra = emEdicao ? 'hist' : 'nova';
+      _limparFormVistoria();
+      toast(emEdicao ? '↩️ Edição descartada' : '🗑️ Vistoria descartada');
+      visTab(voltaPra);
+    }
+  });
 }
 
 // ── Finalizar vistoria: salva, limpa o form e navega para o histórico ──
@@ -12786,7 +12863,7 @@ async function exportarVistoriasBackup(){
 }
 
 function excluirVistoria(id){
-  confirmar('Excluir esta vistoria?', ()=>{ _visTombAdd(id); lsVisSalvar(lsVisLer().filter(x=>x.id!==id)); _excluirVistoriaBanco(id); renderVisHistorico(); toast('Vistoria excluída'); }, 'Excluir Vistoria');
+  confirmar({titulo:'Excluir vistoria', msg:'O relatório e as fotos desta vistoria somem. Não dá para desfazer.', destrutivo:true, labelSim:'Excluir', onSim:()=>{ _visTombAdd(id); lsVisSalvar(lsVisLer().filter(x=>x.id!==id)); _excluirVistoriaBanco(id); renderVisHistorico(); toast('Vistoria excluída'); }});
 }
 
 // Desfaz a visita do mês de um plano: apaga a vistoria (aparelho + banco) e o
@@ -15573,13 +15650,13 @@ async function salvarFornecedor(){
   cancelarFornecedorForm(); renderFornecList(); toast(editId?'✅ Fornecedor atualizado':'✅ Fornecedor cadastrado');
 }
 async function deletarFornecedor(id){
-  confirmar('Remover este fornecedor?', async ()=>{
+  confirmar({titulo:'Remover fornecedor', msg:'Ordens de compra já feitas com ele continuam no histórico, só o cadastro some. Não dá para desfazer.', destrutivo:true, labelSim:'Remover', onSim:async ()=>{
     todosFornecedores=todosFornecedores.filter(f=>f.id!==id);
     lsFornecSalvar(todosFornecedores);
     _tombAdd('fluxa_fornec_tombstones', id); // protege contra ressuscitar se o delete abaixo falhar
     if(dbOk&&db){ try{ await db.from('fornecedores').delete().eq('id',id); }catch(e){ console.warn('[fornecDel]',e?.message||e); } }
     renderFornecList(); toast('Fornecedor removido');
-  }, 'Remover fornecedor');
+  }});
 }
 
 function enviarListaComprasWhatsApp(fornecId){
@@ -15842,13 +15919,19 @@ function confirmarBalanco(){
   if(!lojaAlvo){ toast('⚠️ Selecione a unidade no topo antes de fechar o balanço'); return; }
   const comDiff=Object.entries(_balancoContagem).filter(([id,v])=>{ if(v==null) return false; const fis=_fisicaProdutoNaLoja(id,lojaAlvo); return Math.abs((v||0)-fis)>0.001; });
   if(!comDiff.length){ toast('Nenhuma diferença encontrada.'); fecharBalancoModal(); return; }
-  confirmar(`Registrar ${comDiff.length} ajuste${comDiff.length!==1?'s':''} de inventário em ${esc(getLojaNome(lojaAlvo)||lojaAlvo)}? Esta ação não pode ser desfeita.`, ()=>{
-    comDiff.forEach(([id,v])=>{
-      const fis=_fisicaProdutoNaLoja(id,lojaAlvo); const diff=(v||0)-fis;
-      registrarMovimento({produto_id:id, tipo:'ajuste', quantidade:diff, custo_unit:produtoById(id)?.custo||0, motivo:'Balanço de inventário '+new Date().toLocaleDateString('pt-BR'), motivoCod:'inventario', lojaId:lojaAlvo});
-    });
-    fecharBalancoModal(); renderEstoque(); toast(`✅ ${comDiff.length} ajuste${comDiff.length!==1?'s':''} registrado${comDiff.length!==1?'s':''}`);
-  }, 'Confirmar balanço');
+  confirmar({
+    titulo: 'Confirmar balanço',
+    msg: `Registrar ${comDiff.length} ajuste${comDiff.length!==1?'s':''} de inventário em ${getLojaNome(lojaAlvo)||lojaAlvo}? Esta ação não pode ser desfeita.`,
+    destrutivo: true,
+    labelSim: 'Registrar ajustes',
+    onSim: ()=>{
+      comDiff.forEach(([id,v])=>{
+        const fis=_fisicaProdutoNaLoja(id,lojaAlvo); const diff=(v||0)-fis;
+        registrarMovimento({produto_id:id, tipo:'ajuste', quantidade:diff, custo_unit:produtoById(id)?.custo||0, motivo:'Balanço de inventário '+new Date().toLocaleDateString('pt-BR'), motivoCod:'inventario', lojaId:lojaAlvo});
+      });
+      fecharBalancoModal(); renderEstoque(); toast(`✅ ${comDiff.length} ajuste${comDiff.length!==1?'s':''} registrado${comDiff.length!==1?'s':''}`);
+    }
+  });
 }
 
 // ══════════════════════════════════════════════════

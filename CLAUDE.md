@@ -121,6 +121,89 @@ sintética confirma o auto-hide de grupo vazio; modo colapsado (desktop) e
 sidebar mobile (375px, `openSidebar()`) sem regressão; header sem vão onde
 o `<select>` antigo ficava; sem erro novo no console. `sw.js` v148→v149.
 
+**Tarefa 3c — feita** (a maior das 6, ~35 pontos de chamada de `confirmar()`
+e ~80 de `toast()` no app inteiro). Referência `Fluxa Feedback.dc.html`.
+Escopo desta sessão: reescrever os DOIS componentes-base (`toast()` e
+`confirmar()`) com assinatura nova retrocompatível, migrar **só**
+`#confirmar-modal-bg` para o shell novo, e marcar `destrutivo:true` nos
+pontos de exclusão/ação irreversível — deixando o resto para depois, como
+o próprio plano manda ("migrar por uso, não de uma vez").
+
+- **`toast(msg, opts)`** — `opts={tipo:'ok'|'warn'|'bad'|'info', titulo, ms,
+  acao:{label,fn}}`. `toast('msg')` (as ~80 chamadas existentes) continua
+  funcionando, cai em `info`. Ícone à esquerda por severidade, título+
+  mensagem que **quebra linha** (`max-width:min(560px,calc(100vw-32px))` —
+  antes era `white-space:nowrap`, estourava a tela no celular), botão de
+  ação opcional (ex.: "Desfazer"), ✕ de fechar, barra de tempo na cor do
+  estado. `pointer-events:none` **removido** — só existia porque nada no
+  toast era clicável; agora o botão de ação precisa funcionar.
+  **Duração:** 4000 padrão, 8000 para `bad`/`warn`, `ms:0` fica permanente.
+  **A regex que adivinhava severidade pelo texto (`/⚠️|❌|erro|falh|.../`)
+  foi removida, como o plano pedia** — consequência real: chamadas antigas
+  não migradas (as ~80) agora mostram 4s mesmo quando o texto tem "erro" ou
+  "falhou" (antes ganhavam 8,5s pela regex). Aceito de propósito, registrado
+  aqui pra não parecer regressão silenciosa — resolve conforme cada chamada
+  for migrada para passar `opts.tipo` (mesmo padrão do "emoji duplicado" do
+  plano). `aria-live` vira `polite` quando o toast tem ação (`assertive`
+  interromperia o leitor de tela no meio de outra coisa).
+- **`confirmar()`** — aceita objeto novo
+  (`{titulo,msg,detalhe:[{k,v}],destrutivo,labelSim,labelNao,onSim,onNao}`)
+  **ou** os argumentos posicionais de sempre
+  (`confirmar(msg,cbSim,titulo,cbNao,labelNao,labelSim)`), que continuam
+  funcionando sem mudar nenhuma das ~35 chamadas restantes. Sem
+  `destrutivo`, o comportamento é idêntico ao de antes (foco no "Confirmar",
+  igual sempre foi). Com `destrutivo:true`: ícone e botão de confirmar em
+  vermelho, **foco inicial no botão de CANCELAR** — a correção do bug real
+  que a análise de usabilidade achou (`setTimeout(()=>simBtn.focus(),50)`
+  focava sempre o botão de confirmar; num diálogo de exclusão, Enter
+  apagava). Bloco `detalhe` opcional (fundo cinza, vermelho-claro se
+  destrutivo) pra mostrar os números afetados. Escape e clique no fundo
+  fecham cancelando; foco volta pra quem abriu o diálogo ao fechar.
+- **Shell novo só em `#confirmar-modal-bg`** (`.rd-modal-bg`/`.rd-modal`,
+  raio 14, sombra unificada, animação fade+card 160/200ms, vira folha com
+  grip abaixo de 680px). Os outros 3 modais que usam `.modal-bg`/`.modal`
+  (`crm-contato-bg`, `receb-bg`, `aprov-os-bg`) **não foram tocados** —
+  migração deles é próxima tarefa, "um de cada vez" como o plano pede.
+  IDs do modal (`confirmar-modal-bg/titulo/msg/nao/sim`) mantidos
+  **exatamente iguais**: `_excluirOrcVerificarEstoque()` clona
+  `#confirmar-nao` em tempo de execução pra adicionar um 3º botão
+  ("Não estornar") — testado manualmente contra o shell novo, o hack
+  continua funcionando sem mudança.
+- **9 pontos de exclusão/ação irreversível upgradados para
+  `destrutivo:true`**, com mensagem honesta sobre a consequência real
+  (verificada lendo a função que executa, não copiada do mock): excluir
+  orçamento (libera reserva de estoque + remove parcelas), excluir OS,
+  excluir cliente, excluir despesa, excluir equipamento, desativar usuário,
+  remover local recorrente (desativa agendamento + cancela OS agendadas),
+  excluir vistoria, remover fornecedor, cancelar série de OS, confirmar
+  balanço de inventário (já dizia "não pode ser desfeita"). Descartar
+  vistoria em andamento ganhou `destrutivo` **condicional**: só quando é
+  vistoria nova (perda real) — descartar uma *edição* continua não-
+  destrutivo, porque a vistoria já salva não é apagada, só as edições da
+  sessão. **Não upgradado, de propósito:** desativar produto (a própria
+  mensagem já diz "pode reativar depois" — não é destrutivo de verdade),
+  recusar orçamento/check-out/marcar OS concluída/confirmar recebimento de
+  OC (ações de fluxo normal, reversíveis, não perda de dado).
+- **Não fiz** (registrado no `PLANO-ACABAMENTO.md` como "depois"): migrar
+  `crm-contato-bg`/`receb-bg`/`aprov-os-bg` para o shell novo; os modais
+  montados em string no JS (`#dup-modal-bg`, `#qr-modal-bg`,
+  `#nfe-modal-bg`) ganharem o helper `abrirModal({titulo,corpo,acoes})`;
+  variante de progresso do `confirmar()` pra operação em lote (a barra
+  já existe em CSS/spec, só não foi ligada em nenhum fluxo real); tirar
+  emoji das ~80 chamadas de `toast()` restantes.
+
+Testado no browser local (dbOk=true, só leitura): as 4 severidades de toast
+(ok/warn/bad/info, ícone e cor certos); `toast('msg')` antigo sem título,
+quebrando linha, sem estourar; diálogo destrutivo real (`excluirOrc` com id
+inexistente) — ícone/botão vermelhos, foco confirmado em `confirmar-nao`
+via `document.activeElement`, hint visível; Escape fecha cancelando; clique
+no fundo fecha cancelando; diálogo não-destrutivo com bloco `detalhe`
+renderizando linhas; hack de clonagem do botão (`_excluirOrcVerificarEstoque`)
+simulado manualmente contra o shell novo — 3 botões, sem erro; folha mobile
+(375px) com grip, ancorada no rodapé; os 3 outros `.modal-bg` conferidos
+sem classe alterada; sintaxe do `app.js` validada via `new Function` (JXA);
+sem erro novo no console. `sw.js` v149→v150.
+
 ## ✅ RESOLVIDO — botão antigo de Pagamento removido (14/08, decisão do Marcos)
 
 O achado abaixo foi levado direto pro Marcos (com explicação de onde o

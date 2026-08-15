@@ -718,19 +718,68 @@
     .sb p{font-size:13px;color:var(--gray);line-height:1.5}
     .sb code{background:var(--gray-light);border:1px solid var(--gray-mid);border-radius:5px;padding:2px 6px;font-size:12px;font-family:monospace;color:var(--c1);display:block;margin-top:7px;word-break:break-all;white-space:pre-wrap}
 
-    /* ── TOAST ── */
-    .toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--c2);color:white;padding:11px 24px;border-radius:50px;font-size:13px;font-weight:600;opacity:0;transition:all .3s ease;z-index:9999;white-space:nowrap;pointer-events:none}
+    /* ── TOAST (Tarefa 3c, 14/08) — severidade/título/ação, referência
+       Fluxa Feedback.dc.html. toast(msg) sem opts continua funcionando
+       (~80 chamadas existentes, cai em tipo 'info'). ── */
+    .toast{position:fixed;bottom:26px;left:50%;opacity:0;transform:translate(-50%,14px) scale(.97);background:#FFFFFF;border:1px solid #DFE5EE;border-radius:12px;box-shadow:0 16px 32px -18px rgba(16,28,48,.45);padding:13px 15px;display:flex;align-items:flex-start;gap:11px;min-width:280px;max-width:min(560px,calc(100vw - 32px));z-index:9999;pointer-events:none;overflow:hidden}
     @media(max-width:680px){.toast{bottom:72px}}
-    .toast.on{transform:translateX(-50%) translateY(0);opacity:1}
+    .toast.on{animation:fx-toast-in 220ms cubic-bezier(.2,.8,.2,1) both;pointer-events:auto}
+    .toast-ico{width:22px;height:22px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;font-size:13px;font-weight:700;line-height:1}
+    .toast-tx{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0}
+    .toast-title{font-size:13px;font-weight:600;color:#101720;line-height:1.35}
+    .toast-msg{font-size:12px;color:#4E5867;line-height:1.45;text-wrap:pretty;overflow-wrap:break-word}
+    .toast-acao{font-family:'Instrument Sans',sans-serif;font-size:12px;font-weight:600;color:#0B62CE;background:#E7F0FC;border:none;border-radius:8px;padding:7px 11px;cursor:pointer;flex-shrink:0;align-self:center}
+    .toast-close{font-family:'Instrument Sans',sans-serif;font-size:15px;line-height:1;color:#8D99A9;background:none;border:none;cursor:pointer;padding:3px;flex-shrink:0;align-self:flex-start}
+    .toast-bar{position:absolute;left:0;right:0;bottom:0;height:2px;transform-origin:left;animation:fx-bar linear both}
+
+    /* ── SHELL DE JANELA (Tarefa 3c, 14/08) — confirmar() migrado primeiro
+       (~35 chamadas, é o mais usado); os outros modais (.modal-bg/.modal,
+       abaixo) migram depois, um de cada vez, como o plano de acabamento
+       registra. ── */
+    .rd-modal-bg{position:fixed;inset:0;background:rgba(16,28,48,.42);z-index:900;display:none;align-items:center;justify-content:center;padding:20px}
+    .rd-modal-bg.on{display:flex;animation:fx-fade-in 160ms ease-out both}
+    .rd-modal{width:100%;max-width:440px;background:#FFFFFF;border-radius:14px;box-shadow:0 24px 60px -24px rgba(16,28,48,.5);padding:22px 24px;display:flex;flex-direction:column;gap:14px;animation:fx-card-in 200ms cubic-bezier(.2,.8,.2,1) both}
+    .rd-modal-grip{display:none}
+    .rd-modal-head{display:flex;align-items:flex-start;gap:13px}
+    .rd-modal-ico{width:36px;height:36px;border-radius:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:17px;font-weight:700;line-height:1;background:#E7F0FC;color:#1F5FA8}
+    .rd-modal-headtx{display:flex;flex-direction:column;gap:5px;flex:1;min-width:0}
+    .rd-modal-headtx h3{margin:0;font-size:17px;font-weight:600;color:#101720;letter-spacing:-0.01em;line-height:1.25}
+    .rd-modal-headtx p{margin:0;font-size:13px;color:#4E5867;line-height:1.5;text-wrap:pretty}
+    .rd-modal-detail{background:#F7F9FC;border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:7px}
+    .rd-modal-detail.destrutivo{background:#FBEAE7}
+    .rd-modal-detail-row{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+    .rd-modal-detail-row span:first-child{font-size:12px;color:#4E5867}
+    .rd-modal-detail-row span:last-child{font-size:13px;font-weight:600;color:#101720;font-variant-numeric:tabular-nums;text-align:right}
+    .rd-modal-acts{display:flex;gap:9px;margin-top:2px}
+    .rd-modal-btn{flex:1;font-family:'Instrument Sans',sans-serif;font-size:14px;font-weight:600;border-radius:10px;padding:12px;cursor:pointer;transition:background .12s,border-color .12s}
+    .rd-modal-btn-nao{background:#FFFFFF;color:#333C4A;border:1px solid #DFE5EE}
+    .rd-modal-btn-nao:hover{background:#F7F9FC}
+    .rd-modal-btn-nao:focus-visible,.rd-modal-btn-nao:focus{outline:none;border-color:#0B62CE;box-shadow:0 0 0 3px rgba(11,98,206,.18)}
+    .rd-modal-btn-nao.destrutivo{border-color:#0B62CE}
+    .rd-modal-btn-sim{background:#0B62CE;color:#FFFFFF;border:none}
+    .rd-modal-btn-sim:hover{background:#084C9F}
+    .rd-modal-btn-sim:focus-visible{outline:2px solid #0B62CE;outline-offset:2px}
+    .rd-modal-btn-sim.destrutivo{background:#9C3A2E}
+    .rd-modal-btn-sim.destrutivo:hover{background:#82291F}
+    .rd-modal-hint{font-size:11px;color:#6B7686;text-align:center}
+    @media(max-width:680px){
+      .rd-modal-bg{align-items:flex-end;padding:0}
+      .rd-modal{max-width:100%;border-radius:18px 18px 0 0;animation:fx-sheet-in 240ms cubic-bezier(.2,.8,.2,1) both;padding-bottom:calc(22px + env(safe-area-inset-bottom))}
+      .rd-modal-grip{display:block;width:38px;height:4px;border-radius:999px;background:#DFE5EE;align-self:center;margin-bottom:-4px}
+    }
+
+    @keyframes fx-toast-in{from{opacity:0;transform:translate(-50%,14px) scale(.97)}to{opacity:1;transform:translate(-50%,0) scale(1)}}
+    @keyframes fx-fade-in{from{opacity:0}to{opacity:1}}
+    @keyframes fx-card-in{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
+    @keyframes fx-sheet-in{from{transform:translateY(100%)}to{transform:translateY(0)}}
+    @keyframes fx-bar{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+    @media(prefers-reduced-motion:reduce){
+      .toast.on,.rd-modal-bg.on,.rd-modal,.toast-bar{animation-duration:.01ms!important}
+    }
 
     /* ── MODAL RECEBIMENTO ── */
     .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;display:none;align-items:center;justify-content:center}
     .modal-bg.on{display:flex}
-    /* confirmar() é o "tem certeza?" genérico — precisa ficar por CIMA de
-       qualquer outro modal que o tenha chamado (produto z600, cliente/NF-e
-       z800), senão fica invisível e inclicável atrás deles. Achado testando
-       o aviso de "salvar produto sem custo" (QA runtime, 08/08). */
-    #confirmar-modal-bg{z-index:900}
     .modal{background:var(--white);border-radius:var(--r);padding:24px;width:100%;max-width:380px;box-shadow:0 8px 32px rgba(0,0,0,.18)}
     .modal h3{font-size:17px;font-weight:800;margin-bottom:16px}
     .modal-acts{display:flex;gap:10px;margin-top:18px}
