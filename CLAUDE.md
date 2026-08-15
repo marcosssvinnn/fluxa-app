@@ -67,6 +67,60 @@ real, não o bug de canvas 0px que o handoff avisava) e origem dos clientes
 com dados reais; mobile 375px sem regressão; sem erro novo no console.
 `sw.js` v147→v148.
 
+**Tarefas 3 e 3b — feitas (mesmo commit, como o plano pedia).** Sidebar
+reorganizada por frequência de uso real informada pelo Marcos (14/08), não
+mais por "o que a tela é" — referência `Fluxa Nav v2.dc.html`.
+
+- **Botão primário fixo no topo**, acima do seletor de unidade:
+  `.snav-primary-btn`, mesma cor/hover de `.rd-btn-primary` (`var(--c1)` /
+  `var(--c1-hover)`). Herdou o `onclick="novoOrc();go('form')"` do antigo
+  `snb-form`, que foi removido — assim como `snb-os` (+ OS), ambos marcados
+  `<!-- temporário -->` desde a Fase 2: a condição que os segurava (botão
+  primário ainda não existia nas listas) foi satisfeita pelas Fases 5/6.
+  `novaOS()`/`novoOrc()` continuam com outros chamadores (barra de OS,
+  nav mobile), não viraram código morto.
+- **3 grupos novos**, substituindo Operação/Comercial/Recursos: **Dia a
+  dia** (Hoje, Orçamentos, Estoque, A Receber, Vistorias — e Minhas OS,
+  visível só pro técnico), **Operação** (Ordens de Serviço, Agenda, Venda
+  Rápida), **Cadastros e análise** (Clientes, Equipamentos, Despesas,
+  Produtividade). Cada grupo virou um `<div class="snav-group">` para a
+  regra abaixo conseguir mirar por container.
+- **Rótulo de grupo vazio some sozinho.** Com um perfil que esconde todos os
+  itens de um grupo (ex.: técnico não vê nada de "Cadastros e análise"),
+  o `<span class="snav-group-lbl">` ficaria sozinho, sem lista embaixo —
+  `aplicarPermissoesPerfil()` agora varre cada `.snav-group` depois de
+  aplicar `snbRules` e esconde o rótulo se nenhum `.snb` ali dentro ficou
+  visível. Testado com sessão técnico sintética: "Dia a dia" sobra só com
+  Vistorias + Minhas OS (rótulo fica), "Operação" só com Venda Rápida
+  (rótulo fica), "Cadastros e análise" fica 100% oculto, rótulo incluso.
+- **Seletor de unidade da sidebar virou o seletor real** (Tarefa 3b): antes
+  eram DOIS controles de unidade na mesma tela — `#hdr-loja-select` no
+  header (que funcionava) e `.snav-unit` na sidebar (que só abria o menu de
+  Configurações via `toggleGear()`, parecia seletor e não era). Removido
+  `#hdr-loja-select` do header (junto a `.loja-select` morta em
+  `styles.css`, sem outro uso). No lugar: `<select id="snav-unit-select">`
+  nativo, transparente (`opacity:0`), posicionado por cima do bloco visual
+  `.snav-unit` — abre a lista nativa do sistema operacional e dispara
+  `trocarLojaAtiva(this.value)` direto, sem depender de JS pra desenhar um
+  popover. `populaLojaSelect()` (app.js) passou a escrever nesse select, não
+  mais no do header. Acessibilidade de graça: é um `<select>` de verdade,
+  então tab/setas do teclado já funcionam (o `<div onclick>` antigo não
+  tinha nenhum dos dois). Critério de exibição não mudou: só
+  `isMainGestor()`, controlado por `atualizarHeaderLoja()` como já era.
+- **Modo colapsado:** botão primário vira quadrado só com o ícone
+  (`.sidebar.collapsed .snav-primary-label{opacity:0}`); seletor de unidade
+  continua oculto no colapsado, como já era.
+
+Testado no browser local (dbOk=true, só leitura): sessão master sintética —
+estrutura completa bate com o mock (`+Novo orçamento` → Unidade → Dia a
+dia/Operação/Cadastros e análise, badges reais 21/1/! chegando com o
+carregamento); troquei de unidade pelo select da sidebar de verdade
+(`dispatchEvent('change')`) e confirmei `trocarLojaAtiva()` rodou — header,
+KPIs e nome da unidade recalcularam para Fortemp Camboriú; sessão técnico
+sintética confirma o auto-hide de grupo vazio; modo colapsado (desktop) e
+sidebar mobile (375px, `openSidebar()`) sem regressão; header sem vão onde
+o `<select>` antigo ficava; sem erro novo no console. `sw.js` v148→v149.
+
 ## ✅ RESOLVIDO — botão antigo de Pagamento removido (14/08, decisão do Marcos)
 
 O achado abaixo foi levado direto pro Marcos (com explicação de onde o

@@ -100,12 +100,10 @@ function aplicarPermissoesPerfil(){
   // ── Sidebar nav ──
   const snbRules = {
     'snb-insights'     : gestor,
-    'snb-form'         : gestor||vendas,
     'snb-venda-balcao' : gestor||vendas||tecnico,
     'snb-history'      : gestor||vendas,
     'snb-clientes'     : gestor||vendas,
     'snb-agendamentos' : gestor||vendas,
-    'snb-os'           : gestor||vendas,
     'snb-os-history'   : gestor,
     'snb-minhas-os'    : tecnico,
     'snb-equipamentos' : gestor,
@@ -118,6 +116,18 @@ function aplicarPermissoesPerfil(){
   Object.entries(snbRules).forEach(([id,pode])=>{
     const el=document.getElementById(id); if(el) el.style.display=pode?'':'none';
   });
+  // Botão primário "Novo orçamento" (Tarefa 3) — mesma regra de acesso que o
+  // antigo snb-form tinha antes de virar botão fixo no topo da sidebar.
+  const primaryWrap=document.getElementById('snav-primary-wrap');
+  if(primaryWrap) primaryWrap.style.display=(gestor||vendas)?'':'none';
+  // Com os itens escondidos por papel, um grupo pode ficar sem nenhum item
+  // visível (ex.: técnico não vê nada de "Cadastros e análise") — esconde o
+  // rótulo do grupo junto, senão sobra um título sozinho sem lista embaixo.
+  document.querySelectorAll('.snav-group').forEach(g=>{
+    const algumVisivel=Array.from(g.querySelectorAll('.snb')).some(el=>el.style.display!=='none');
+    const lbl=g.querySelector('.snav-group-lbl');
+    if(lbl) lbl.style.display=algumVisivel?'':'none';
+  });
   // Botão "← Minhas OS" no topo da página de Vistorias (só técnico precisa)
   const visBack=document.getElementById('vis-back-os'); if(visBack) visBack.style.display=tecnico?'':'none';
   // Reveal sidebar now that user is logged in
@@ -126,13 +136,9 @@ function aplicarPermissoesPerfil(){
   document.body.classList.remove('no-sbar');
   initSidebar();
 
-  // ── Seletor de loja no header — só gestor principal ──
-  const lojaSelEl=document.getElementById('hdr-loja-select');
-  if(lojaSelEl){
-    const mostrarSelect=isMainGestor();
-    lojaSelEl.style.display=mostrarSelect?'':'none';
-    if(mostrarSelect) populaLojaSelect();
-  }
+  // ── Seletor de unidade da sidebar — só gestor principal (Tarefa 3b:
+  // substituiu o <select> do header, que foi removido) ──
+  if(isMainGestor()) populaLojaSelect();
   // Sino de notificações — fontes de dado (recebíveis, estoque, despesas, fila,
   // cadência) são todas telas de gestor; pra vendas/técnico o sino ficaria
   // sempre vazio e só confundiria.
@@ -394,9 +400,10 @@ function getOrigemBadge(origem){
   return `<span class="origem-badge" title="Origem do cliente">${emoji} ${esc(origem)}</span>`;
 }
 
-// Preenche o <select> do header com todas as lojas (gestor principal vê tudo)
+// Preenche o <select> real da sidebar (Tarefa 3b) com todas as lojas
+// (gestor principal vê tudo) — antes populava o <select> do header, removido.
 function populaLojaSelect(){
-  const sel=document.getElementById('hdr-loja-select'); if(!sel) return;
+  const sel=document.getElementById('snav-unit-select'); if(!sel) return;
   const principais=LOJAS.filter(l=>GRUPO_FORTHEMP.includes(l.id));
   // Empresas separadas (ex.: Aquamotor) só entram se o usuário tiver acesso ao grupo
   const outros=LOJAS.filter(l=>!GRUPO_FORTHEMP.includes(l.id) && podeAcessarGrupo(l.grupo));

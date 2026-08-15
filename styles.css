@@ -119,26 +119,39 @@
     .snav-brand-sub{font-size:11px;color:var(--nav-tx2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .sidebar.collapsed .snav-brand-tx{opacity:0;visibility:hidden}
 
-    .snav-unit-wrap{padding:0 12px 14px;flex-shrink:0}
-    .snav-unit{width:100%;background:var(--nav-item-bg);border:none;border-radius:10px;padding:9px 11px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;color:var(--nav-tx2);font-family:'Instrument Sans',sans-serif;transition:background .12s}
-    .snav-unit:hover{background:#232E3D}
+    /* Ação primária fixa (Tarefa 3, 14/08) — único destino de "criar" da
+       sidebar, mesma cor/hover do .rd-btn-primary do resto do app. */
+    .snav-primary{padding:0 12px 12px;flex-shrink:0}
+    .snav-primary-btn{width:100%;background:var(--c1);border:none;border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:9px;cursor:pointer;font-family:'Instrument Sans',sans-serif;transition:background .12s}
+    .snav-primary-btn:hover{background:var(--c1-hover)}
+    .snav-primary-btn:active{background:var(--c1-press)}
+    .snav-primary-label{font-size:13px;font-weight:600;color:#fff;white-space:nowrap;transition:opacity .15s,visibility .15s}
+    .sidebar.collapsed .snav-primary-btn{justify-content:center;padding:10px}
+    .sidebar.collapsed .snav-primary-label{opacity:0;visibility:hidden;width:0}
+
+    /* Seletor de unidade real (Tarefa 3b) — <select> nativo transparente por
+       cima do bloco visual, do mesmo tamanho; abre a lista nativa de opções
+       e dispara trocarLojaAtiva() direto, sem passar pelo menu de Config. */
+    .snav-unit-wrap{padding:0 12px 14px;flex-shrink:0;position:relative}
+    .snav-unit{width:100%;background:var(--nav-item-bg);border-radius:10px;padding:9px 11px;display:flex;align-items:center;justify-content:space-between;color:var(--nav-tx2);font-family:'Instrument Sans',sans-serif}
+    .snav-unit-wrap:hover .snav-unit{background:#232E3D}
     .snav-unit-tx{display:flex;flex-direction:column;align-items:flex-start}
     .snav-unit-lbl{font-size:10px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--nav-tx2)}
     .snav-unit-val{font-size:13px;font-weight:500;color:var(--nav-tx-strong)}
+    .snav-unit-select{position:absolute;inset:0 12px 14px;opacity:0;border:none;cursor:pointer;appearance:none}
+    .snav-unit-wrap:focus-within .snav-unit{outline:2px solid var(--c1);outline-offset:1px}
     .sidebar.collapsed .snav-unit-wrap{display:none}
 
     .snav{display:flex;flex-direction:column;flex:1;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;min-height:0}
     .snav::-webkit-scrollbar{display:none}
     .snav-group-lbl{font-size:10px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:var(--nav-tx2);padding:8px 12px 4px 23px;white-space:nowrap;transition:opacity .15s,visibility .15s}
-    .snav-group-lbl:first-child{padding-top:0}
+    .snav>.snav-group:first-child>.snav-group-lbl{padding-top:0}
     .sidebar.collapsed .snav-group-lbl{opacity:0;visibility:hidden;height:0;padding:0;overflow:hidden}
 
     .snb{display:flex;align-items:center;gap:10px;margin:0 12px 2px;border-radius:9px;padding:8px 11px;background:transparent;border:none;color:var(--nav-tx);font-size:13px;font-weight:500;font-family:'Instrument Sans',sans-serif;cursor:pointer;transition:background .12s,color .12s;text-align:left;width:calc(100% - 24px);white-space:nowrap}
     .snb:hover{background:var(--nav-item-bg);color:var(--nav-tx-strong)}
     .snb.on{background:var(--c1);color:#fff}
     .snb:focus-visible{outline:2px solid var(--c1);outline-offset:1px}
-    .snb.snb-sub{opacity:.8}
-    .snb.snb-sub .sicon{width:14px;height:14px}
     .sicon{flex-shrink:0}
     .slabel{font-size:13px;font-weight:500;flex:1;overflow:hidden;text-overflow:ellipsis;transition:opacity .15s,visibility .15s}
     .sbadge{font-size:11px;font-weight:600;padding:1px 6px;border-radius:6px;background:var(--nav-item-bg);color:var(--nav-tx);flex-shrink:0}
@@ -1485,11 +1498,6 @@
     .hdr-user-avatar.vendas{background:#f59e0b}
     .hdr-user-nome{font-size:12px;font-weight:600;color:rgba(255,255,255,.7);white-space:nowrap}
     @media(max-width:680px){.hdr-user-nome{display:none}}
-
-    /* ── SELETOR DE LOJA (header) ── */
-    .loja-select{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:white;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:600;font-family:'Instrument Sans',sans-serif;cursor:pointer;outline:none;max-width:160px}
-    .loja-select option{background:var(--c2);color:white}
-    @media(max-width:680px){.loja-select{max-width:110px;font-size:11px;padding:4px 6px}}
 
     /* ── BADGE DE EMPRESA nas listas ── */
     .loja-badge{display:inline-block;padding:2px 7px;border-radius:50px;font-size:10px;font-weight:700;white-space:nowrap}

@@ -105,9 +105,6 @@
   </div>
   <div class="hdr-right">
     <span class="db-dot" id="db-dot" title="Status do banco de dados"></span>
-    <select class="loja-select" id="hdr-loja-select" onchange="trocarLojaAtiva(this.value)" title="Empresa ativa" style="display:none">
-      <option value="">Todas as empresas</option>
-    </select>
     <div class="notif-wrap" id="notif-wrap" style="display:none">
       <button class="btn-sm btn-gear" id="btn-notif" onclick="toggleNotif()" title="Notificações">
         🔔<span class="notif-badge" id="notif-badge" style="display:none">0</span>
@@ -142,15 +139,15 @@
 <!-- ══ SIDEBAR OVERLAY ══ -->
 <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
 
-<!-- ══ SIDEBAR ══ (redesenhada 13/08, handoff design_handoff_fluxa_redesign —
-     fundo escuro fixo, 3 grupos, badges reais, seletor de unidade e rodapé
-     com usuário. IDs mantidos iguais aos de antes de propósito:
-     aplicarPermissoesPerfil() (app.js, snbRules) mostra/esconde por id, não
-     por posição no DOM — não precisou mudar por causa deste redesign.
-     Um grupo temporário fica marcado abaixo: os atalhos de criar Orçamento/
-     OS/Venda Rápida (o handoff os move pra um botão primário na barra
-     superior de cada lista — isso só existe a partir da Fase 5/6; até lá,
-     tirar daqui deixaria a pessoa sem como criar nada). "Resultado" foi
+<!-- ══ SIDEBAR ══ (redesenhada 13/08, handoff design_handoff_fluxa_redesign;
+     reorganizada por frequência de uso 14/08 — Tarefa 3 do plano de
+     acabamento, referência Fluxa Nav v2.dc.html. IDs mantidos iguais aos de
+     antes de propósito: aplicarPermissoesPerfil() (app.js, snbRules) mostra/
+     esconde por id, não por posição no DOM. Os atalhos temporários de criar
+     Orçamento/OS saíram — o botão primário abaixo já cobre "criar orçamento"
+     em qualquer tela, e "Nova OS" já existe na barra de Ordens de Serviço.
+     Grupos por uso real informado pelo Marcos (14/08), não mais por "o que a
+     tela é": Dia a dia / Operação / Cadastros e análise. "Resultado" foi
      absorvido por "Hoje" na Fase 4 (13/08) — Financeiro/DRE/Análise de
      clientes saíram da tela (não estão no handoff) e ficam sem lugar
      definido até uma decisão futura; as funções continuam no código. -->
@@ -163,89 +160,102 @@
     </div>
   </div>
 
+  <!-- Ação primária da sidebar — único destino de "criar" que fica fixo em
+       qualquer tela (Tarefa 3). Mantém o onclick que o antigo snb-form
+       (removido) já tinha. -->
+  <div class="snav-primary" id="snav-primary-wrap">
+    <button class="snav-primary-btn" id="snav-primary-btn" onclick="novoOrc();go('form')" title="Novo orçamento">
+      <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg>
+      <span class="snav-primary-label">Novo orçamento</span>
+    </button>
+  </div>
+
+  <!-- Seletor de unidade real (Tarefa 3b) — antes só o <select> do header
+       funcionava e este bloco só abria o menu de Configurações
+       (onclick="toggleGear()"), dois controles de unidade na mesma tela.
+       Agora o <select> nativo fica por cima, transparente, do mesmo tamanho
+       do bloco visual — populaLojaSelect() (app.js) escreve as opções aqui. -->
   <div class="snav-unit-wrap" id="snav-unit-wrap" style="display:none">
-    <button class="snav-unit" id="snav-unit-btn" onclick="toggleGear()" title="Trocar empresa/unidade">
+    <div class="snav-unit" id="snav-unit-btn" aria-hidden="true">
       <div class="snav-unit-tx">
         <span class="snav-unit-lbl">Unidade</span>
         <span class="snav-unit-val" id="snav-unit-val">—</span>
       </div>
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 10l4 4 4-4"></path></svg>
-    </button>
+    </div>
+    <select class="snav-unit-select" id="snav-unit-select" onchange="trocarLojaAtiva(this.value)" title="Trocar empresa/unidade" aria-label="Trocar empresa/unidade">
+      <option value="">Todas as empresas</option>
+    </select>
   </div>
 
   <nav class="snav">
-    <span class="snav-group-lbl">Operação</span>
-    <button class="snb on" id="snb-insights" onclick="go('insights')">
-      <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13h4l3-7 4 14 3-7h4"></path></svg>
-      <span class="slabel">Hoje</span>
-    </button>
-    <button class="snb" id="snb-history" onclick="go('history')">
-      <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6zM15 3v4h4M9 13h6M9 17h4"></path></svg>
-      <span class="slabel">Orçamentos</span>
-      <span class="sbadge" id="snb-badge-orc"></span>
-    </button>
-    <!-- temporário -->
-    <button class="snb snb-sub" id="snb-form" onclick="novoOrc();go('form')">
-      <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg>
-      <span class="slabel">+ Orçamento</span>
-    </button>
-    <button class="snb" id="snb-os-history" onclick="go('os-history')">
-      <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"></path></svg>
-      <span class="slabel">Ordens de Serviço</span>
-      <span class="sbadge" id="snb-badge-os"></span>
-    </button>
-    <!-- temporário -->
-    <button class="snb snb-sub" id="snb-os" onclick="novaOS();go('os')">
-      <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg>
-      <span class="slabel">+ OS</span>
-    </button>
-    <!-- temporário -->
-    <button class="snb snb-sub" id="snb-venda-balcao" onclick="abrirVendaBalcao();closeSidebar()">
-      <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8l8-4 8 4v8l-8 4-8-4zM4 8l8 4 8-4M12 12v8"></path></svg>
-      <span class="slabel">Venda Rápida</span>
-    </button>
-    <button class="snb" id="snb-agendamentos" onclick="go('agendamentos')">
-      <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v15H4zM8 3v4M16 3v4M4 10h16"></path></svg>
-      <span class="slabel">Agenda</span>
-    </button>
-    <button class="snb" id="snb-visitas" onclick="go('visitas')">
-      <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14M16.5 16.5L21 21"></path></svg>
-      <span class="slabel">Vistorias</span>
-    </button>
-    <button class="snb" id="snb-minhas-os" onclick="go('minhas-os')" style="display:none">
-      <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"></path></svg>
-      <span class="slabel">Minhas OS</span>
-    </button>
+    <div class="snav-group" id="snav-group-diaadia">
+      <span class="snav-group-lbl">Dia a dia</span>
+      <button class="snb on" id="snb-insights" onclick="go('insights')">
+        <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13h4l3-7 4 14 3-7h4"></path></svg>
+        <span class="slabel">Hoje</span>
+      </button>
+      <button class="snb" id="snb-history" onclick="go('history')">
+        <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6zM15 3v4h4M9 13h6M9 17h4"></path></svg>
+        <span class="slabel">Orçamentos</span>
+        <span class="sbadge" id="snb-badge-orc"></span>
+      </button>
+      <button class="snb" id="snb-estoque" onclick="go('estoque')">
+        <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8l8-4 8 4v8l-8 4-8-4zM4 8l8 4 8-4M12 12v8"></path></svg>
+        <span class="slabel">Estoque</span>
+        <span class="sbadge" id="snb-badge-estoque"></span>
+      </button>
+      <button class="snb" id="snb-recebiveis" onclick="go('recebiveis')">
+        <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18v10H3zM3 11h18M7 15h3"></path></svg>
+        <span class="slabel">A Receber</span>
+        <span class="sbadge" id="snb-badge-receber"></span>
+      </button>
+      <button class="snb" id="snb-visitas" onclick="go('visitas')">
+        <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14M16.5 16.5L21 21"></path></svg>
+        <span class="slabel">Vistorias</span>
+      </button>
+      <button class="snb" id="snb-minhas-os" onclick="go('minhas-os')" style="display:none">
+        <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"></path></svg>
+        <span class="slabel">Minhas OS</span>
+      </button>
+    </div>
 
-    <span class="snav-group-lbl">Comercial</span>
-    <button class="snb" id="snb-clientes" onclick="go('clientes')">
-      <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20c0-3.3 3.6-5 8-5s8 1.7 8 5M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8"></path></svg>
-      <span class="slabel">Clientes</span>
-    </button>
-    <button class="snb" id="snb-recebiveis" onclick="go('recebiveis')">
-      <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18v10H3zM3 11h18M7 15h3"></path></svg>
-      <span class="slabel">A Receber</span>
-      <span class="sbadge" id="snb-badge-receber"></span>
-    </button>
-    <button class="snb" id="snb-despesas" onclick="go('despesas')">
-      <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M16.5 7.5C16.5 5.8 14.5 4.7 12 4.7S7.5 5.8 7.5 7.5s2 2.9 4.5 3.4 4.5 1.7 4.5 3.4-2 2.9-4.5 2.9-4.5-1.1-4.5-2.9"></path></svg>
-      <span class="slabel">Despesas</span>
-    </button>
+    <div class="snav-group" id="snav-group-operacao">
+      <span class="snav-group-lbl">Operação</span>
+      <button class="snb" id="snb-os-history" onclick="go('os-history')">
+        <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"></path></svg>
+        <span class="slabel">Ordens de Serviço</span>
+        <span class="sbadge" id="snb-badge-os"></span>
+      </button>
+      <button class="snb" id="snb-agendamentos" onclick="go('agendamentos')">
+        <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v15H4zM8 3v4M16 3v4M4 10h16"></path></svg>
+        <span class="slabel">Agenda</span>
+      </button>
+      <button class="snb" id="snb-venda-balcao" onclick="abrirVendaBalcao();closeSidebar()">
+        <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8l8-4 8 4v8l-8 4-8-4zM4 8l8 4 8-4M12 12v8"></path></svg>
+        <span class="slabel">Venda Rápida</span>
+      </button>
+    </div>
 
-    <span class="snav-group-lbl">Recursos</span>
-    <button class="snb" id="snb-estoque" onclick="go('estoque')">
-      <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8l8-4 8 4v8l-8 4-8-4zM4 8l8 4 8-4M12 12v8"></path></svg>
-      <span class="slabel">Estoque</span>
-      <span class="sbadge" id="snb-badge-estoque"></span>
-    </button>
-    <button class="snb" id="snb-equipamentos" onclick="go('equipamentos')">
-      <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M12 2v3M12 19v3M4 12H2M22 12h-2M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"></path></svg>
-      <span class="slabel">Equipamentos</span>
-    </button>
-    <button class="snb" id="snb-produtividade" onclick="go('produtividade')">
-      <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V10M12 20V4M19 20v-7"></path></svg>
-      <span class="slabel">Produtividade</span>
-    </button>
+    <div class="snav-group" id="snav-group-cadastros">
+      <span class="snav-group-lbl">Cadastros e análise</span>
+      <button class="snb" id="snb-clientes" onclick="go('clientes')">
+        <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20c0-3.3 3.6-5 8-5s8 1.7 8 5M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8"></path></svg>
+        <span class="slabel">Clientes</span>
+      </button>
+      <button class="snb" id="snb-equipamentos" onclick="go('equipamentos')">
+        <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M12 2v3M12 19v3M4 12H2M22 12h-2M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"></path></svg>
+        <span class="slabel">Equipamentos</span>
+      </button>
+      <button class="snb" id="snb-despesas" onclick="go('despesas')">
+        <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M16.5 7.5C16.5 5.8 14.5 4.7 12 4.7S7.5 5.8 7.5 7.5s2 2.9 4.5 3.4 4.5 1.7 4.5 3.4-2 2.9-4.5 2.9-4.5-1.1-4.5-2.9"></path></svg>
+        <span class="slabel">Despesas</span>
+      </button>
+      <button class="snb" id="snb-produtividade" onclick="go('produtividade')">
+        <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V10M12 20V4M19 20v-7"></path></svg>
+        <span class="slabel">Produtividade</span>
+      </button>
+    </div>
   </nav>
 
   <div class="snav-footer">
