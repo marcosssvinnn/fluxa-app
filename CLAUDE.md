@@ -28,6 +28,45 @@ estado ativo "Hoje" em azul, sem emoji residual, sem erro novo no console;
 sidebar desktop (1440px) sem regressão — o seletor `.mob-nb .micon` não
 alcança `.sicon` da sidebar. `sw.js` v146→v147.
 
+**Tarefa 2 — feita.** `#page-history` empilhava 5 blocos de análise (KPIs,
+gráfico de faturamento, origem dos clientes, alerta de estoque, resumo do
+período) **antes** da lista de orçamentos, que era o ponto da tela — a fila
+de trabalho ficava abaixo da dobra em qualquer monitor.
+
+- **Lista sobe ao topo** de `#page-history` (era o último bloco do `.wrap`,
+  virou o primeiro).
+- **`#dash-estoque-card` removido**, não só escondido: duplicava o item
+  `estoque-ruptura` que a fila "Precisa de você hoje" do Insights já mostra
+  (`_itensPainelHoje()`, confirmado por grep antes de decidir). Foram junto,
+  por não terem outro chamador (conferido por grep): `dispensarAlertaEstoque()`,
+  `_estoqueDismissAtivo()`, `renderEstoqueDash()` e a chave `fluxa_estoque_dismiss`
+  do localStorage.
+- **Gráfico de faturamento (`#dash-chart`) e Origem dos Clientes
+  (`#dash-origem-card`) migraram para `page-produtividade`** — o Insights já
+  tem gráfico próprio (`#ins-chart`), e Produtividade é a tela de análise.
+  `renderGraficoDash()`/`renderOrigemDash()` (funções inalteradas) agora
+  disparam em `go('produtividade')` e em `trocarLojaAtiva()` quando a página
+  ativa é produtividade — **não mais** em `go('history')`/`trocarLojaAtiva()`
+  pid `history`. `atualizarDash()` (chamada em ~15 pontos do app sempre que
+  orçamentos mudam, não só na navegação) manteve a chamada a
+  `renderOrigemDash()` — inofensiva mesmo com a página fechada, o dado só
+  fica pronto quando o gestor abrir Produtividade.
+- **"Resumo do período" ganhou uma linha explícita** ("recorte de período só
+  deste resumo — a lista de orçamentos acima mostra todos os orçamentos
+  abertos, não é filtrada por mês") — antes o card ficava acima da lista e a
+  relação entre os dois não estava dita em lugar nenhum.
+- **Não fiz:** remover o card "A Receber" (`#d-rec`) do `.dash` — isso é a
+  Tarefa 4, bloqueada em decisão do Marcos (achado de 14/08 acima).
+
+Testado no browser local (dbOk=true, conectado no Supabase real — só
+leitura, nenhum dado criado/alterado): sessão de teste via `setSessao()`
+para passar o guardrail de perfil. `#page-history` renderiza lista → KPIs →
+resumo, nessa ordem, com 304 orçamentos reais paginados (25/página);
+`#page-produtividade` renderiza o gráfico de faturamento (canvas com largura
+real, não o bug de canvas 0px que o handoff avisava) e origem dos clientes
+com dados reais; mobile 375px sem regressão; sem erro novo no console.
+`sw.js` v147→v148.
+
 ## ✅ RESOLVIDO — botão antigo de Pagamento removido (14/08, decisão do Marcos)
 
 O achado abaixo foi levado direto pro Marcos (com explicação de onde o

@@ -1265,84 +1265,14 @@
 <!-- ══ PAGE: HISTÓRICO ══ -->
 <div class="page" id="page-history">
   <div class="wrap">
-    <div class="dash">
-      <div class="dc o"><div class="dl">Total Emitido</div><div class="dv" id="d-emit">—</div><div class="ds" id="d-emit-q">— orç.</div></div>
-      <div class="dc g"><div class="dl">Aprovados</div><div class="dv" id="d-aprov">—</div><div class="ds" id="d-aprov-q">— aprovados</div></div>
-      <div class="dc y"><div class="dl">A Receber</div><div class="dv" id="d-rec">—</div><div class="ds" id="d-rec-q">aprovado s/ pagto</div></div>
-      <div class="dc b"><div class="dl">Ticket Médio</div><div class="dv" id="d-tick">—</div><div class="ds">por orçamento</div></div>
-    </div>
-
-    <!-- ── Gráfico de faturamento ── -->
-    <div class="dash-chart-card">
-      <div class="dash-chart-hdr">
-        <div class="dash-chart-titulo" id="dash-chart-titulo">📊 Faturamento</div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap">
-          <select id="dash-chart-periodo" onchange="renderGraficoDash()" style="padding:5px 10px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Instrument Sans',sans-serif;outline:none;cursor:pointer">
-            <option value="3">3 meses</option>
-            <option value="6" selected>6 meses</option>
-            <option value="12">12 meses</option>
-            <option value="24">24 meses</option>
-            <option value="ano">Este ano</option>
-            <option value="tudo">Tudo</option>
-          </select>
-          <select id="dash-chart-tipo" onchange="renderGraficoDash()" style="padding:5px 10px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Instrument Sans',sans-serif;outline:none;cursor:pointer">
-            <option value="aprovado">Aprovados</option>
-            <option value="emitido">Total emitido</option>
-          </select>
-        </div>
-      </div>
-      <div class="dash-chart-wrap">
-        <canvas id="dash-chart"></canvas>
-      </div>
-    </div>
-
-    <!-- ── Origem dos clientes ── -->
-    <div class="dash-chart-card" id="dash-origem-card" style="display:none">
-      <div class="dash-chart-hdr">
-        <div class="dash-chart-titulo">📣 Origem dos Clientes</div>
-        <select id="dash-origem-periodo" onchange="renderOrigemDash()" style="padding:5px 10px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Instrument Sans',sans-serif;outline:none;cursor:pointer">
-          <option value="mes" selected>Este mês</option>
-          <option value="3">3 meses</option>
-          <option value="12">12 meses</option>
-          <option value="tudo">Tudo</option>
-        </select>
-      </div>
-      <div id="dash-origem-body"></div>
-    </div>
-
-    <!-- ── Estoque: produtos para repor ── -->
-    <div class="dash-chart-card" id="dash-estoque-card" style="display:none">
-      <div class="dash-chart-hdr">
-        <div class="dash-chart-titulo">📦 Estoque — comprar / repor</div>
-        <div style="display:flex;gap:6px;align-items:center">
-          <button class="ba" style="background:var(--gray-light);color:var(--c2);padding:5px 12px;font-size:12px" onclick="go('estoque')">Abrir estoque →</button>
-          <button class="ba" style="background:transparent;color:var(--gray);padding:5px 8px;font-size:12px;border:1.5px solid var(--gray-mid)" onclick="dispensarAlertaEstoque()" title="Ocultar este aviso por 7 dias">✕ Ignorar 7 dias</button>
-        </div>
-      </div>
-      <div id="dash-estoque-body"></div>
-    </div>
-
-    <!-- Navegação de mês + mini-KPIs (dashboard antigo, não redesenhado ainda —
-         segue orcMesRef, que o dashboard .dash lá em cima também usa). -->
-    <div class="card">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
-        <div style="font-size:17px;font-weight:800;color:var(--c2)">📅 Resumo do período</div>
-        <div class="orc-mes-nav">
-          <button class="orc-mes-btn" onclick="orcNavMes(-1)" title="Mês anterior">◀</button>
-          <span class="orc-mes-lbl" id="orc-mes-label">—</span>
-          <button class="orc-mes-btn" onclick="orcNavMes(1)" title="Próximo mês">▶</button>
-          <button class="orc-todos-btn" id="btn-orc-todos" onclick="orcVerTodos()">Ver todos</button>
-        </div>
-      </div>
-      <div class="orc-mini-kpis" id="orc-mini-kpis"></div>
-    </div>
-
     <!-- ══ Lista de Orçamentos (Fase 5 do redesign, 13/08 — handoff literal:
          linha inteira clicável abre o orçamento; os botões de ação (status,
          OS, entrega, NF, pagamento, WA, excluir) se mudaram pra dentro do
          orçamento aberto — ver #form-acoes-edit em index.html/app.js).
          Não é recortada por mês de propósito: é fila de trabalho, não
-         relatório contábil (isso ficou com o card acima). ══ -->
+         relatório contábil (isso ficou com o "Resumo do período" abaixo).
+         Sobe para o topo da tela (Tarefa 2 do plano de acabamento, 14/08) —
+         era o ponto da tela e ficava abaixo de 5 blocos de análise. ══ -->
     <div class="rd-card" style="padding:0;overflow:hidden;display:flex;flex-direction:column">
       <div style="padding:16px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
         <div>
@@ -1361,6 +1291,29 @@
       </div>
       <div id="hist-body"><div class="load"><div class="spin"></div> Carregando…</div></div>
       <div id="orc-lista-rodape"></div>
+    </div>
+
+    <div class="dash">
+      <div class="dc o"><div class="dl">Total Emitido</div><div class="dv" id="d-emit">—</div><div class="ds" id="d-emit-q">— orç.</div></div>
+      <div class="dc g"><div class="dl">Aprovados</div><div class="dv" id="d-aprov">—</div><div class="ds" id="d-aprov-q">— aprovados</div></div>
+      <div class="dc y"><div class="dl">A Receber</div><div class="dv" id="d-rec">—</div><div class="ds" id="d-rec-q">aprovado s/ pagto</div></div>
+      <div class="dc b"><div class="dl">Ticket Médio</div><div class="dv" id="d-tick">—</div><div class="ds">por orçamento</div></div>
+    </div>
+
+    <!-- Navegação de mês + mini-KPIs (dashboard antigo, não redesenhado ainda —
+         segue orcMesRef, que o dashboard .dash lá em cima também usa). -->
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:10px">
+        <div style="font-size:17px;font-weight:800;color:var(--c2)">📅 Resumo do período</div>
+        <div class="orc-mes-nav">
+          <button class="orc-mes-btn" onclick="orcNavMes(-1)" title="Mês anterior">◀</button>
+          <span class="orc-mes-lbl" id="orc-mes-label">—</span>
+          <button class="orc-mes-btn" onclick="orcNavMes(1)" title="Próximo mês">▶</button>
+          <button class="orc-todos-btn" id="btn-orc-todos" onclick="orcVerTodos()">Ver todos</button>
+        </div>
+      </div>
+      <div class="rd-card-sub" style="margin-bottom:10px">Recorte de período só deste resumo — a lista de orçamentos acima mostra todos os orçamentos abertos, não é filtrada por mês.</div>
+      <div class="orc-mini-kpis" id="orc-mini-kpis"></div>
     </div>
   </div>
 </div>
@@ -2094,6 +2047,46 @@
           <option value="ano">Este ano</option>
         </select>
       </div>
+    </div>
+
+    <!-- ── Gráfico de faturamento (movido de #page-history — Tarefa 2 do
+         plano de acabamento, 14/08: duplicava o #ins-chart do Insights lá,
+         aqui é a tela de análise) ── -->
+    <div class="dash-chart-card">
+      <div class="dash-chart-hdr">
+        <div class="dash-chart-titulo" id="dash-chart-titulo">📊 Faturamento</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <select id="dash-chart-periodo" onchange="renderGraficoDash()" style="padding:5px 10px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Instrument Sans',sans-serif;outline:none;cursor:pointer">
+            <option value="3">3 meses</option>
+            <option value="6" selected>6 meses</option>
+            <option value="12">12 meses</option>
+            <option value="24">24 meses</option>
+            <option value="ano">Este ano</option>
+            <option value="tudo">Tudo</option>
+          </select>
+          <select id="dash-chart-tipo" onchange="renderGraficoDash()" style="padding:5px 10px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Instrument Sans',sans-serif;outline:none;cursor:pointer">
+            <option value="aprovado">Aprovados</option>
+            <option value="emitido">Total emitido</option>
+          </select>
+        </div>
+      </div>
+      <div class="dash-chart-wrap">
+        <canvas id="dash-chart"></canvas>
+      </div>
+    </div>
+
+    <!-- ── Origem dos clientes (movido de #page-history, mesmo motivo acima) ── -->
+    <div class="dash-chart-card" id="dash-origem-card" style="display:none">
+      <div class="dash-chart-hdr">
+        <div class="dash-chart-titulo">📣 Origem dos Clientes</div>
+        <select id="dash-origem-periodo" onchange="renderOrigemDash()" style="padding:5px 10px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Instrument Sans',sans-serif;outline:none;cursor:pointer">
+          <option value="mes" selected>Este mês</option>
+          <option value="3">3 meses</option>
+          <option value="12">12 meses</option>
+          <option value="tudo">Tudo</option>
+        </select>
+      </div>
+      <div id="dash-origem-body"></div>
     </div>
 
     <!-- Config de comissão e meta -->

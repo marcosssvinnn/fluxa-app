@@ -432,12 +432,12 @@ function trocarLojaAtiva(id){
   const paginaAtiva=document.querySelector('.page.on');
   if(!paginaAtiva) return;
   const pid=paginaAtiva.id.replace('page-','');
-  if(pid==='history') { initOrcMes(); atualizarDash(); renderTabela(); renderGraficoDash(); }
+  if(pid==='history') { initOrcMes(); atualizarDash(); renderTabela(); }
   else if(pid==='insights') renderPainelInsights();
   else if(pid==='os-history') renderOSTabela();
   else if(pid==='clientes') renderClientes();
   else if(pid==='despesas') renderDespesas();
-  else if(pid==='produtividade') loadProdutividade();
+  else if(pid==='produtividade') { loadProdutividade(); renderGraficoDash(); renderOrigemDash(); }
   else if(pid==='agendamentos'){ renderAgLista(); renderCal(); }
   else if(pid==='estoque') renderEstoque();
   else if(pid==='auditoria') renderAuditoria();
@@ -1606,7 +1606,7 @@ function go(p){
     });
     renderPainelInsights();
   }
-  if(p==='history'){ initOrcMes(); loadHist(); setTimeout(renderGraficoDash,200); }
+  if(p==='history'){ initOrcMes(); loadHist(); }
   if(p==='form'){
     // Restaura rascunho APENAS quando se navega direto para a tela (nav/menu).
     // Nunca ao editar (abrirOrc), criar novo (novoOrc) ou duplicar — esses fluxos
@@ -1652,7 +1652,11 @@ function go(p){
   if(p==='recebiveis') loadRecebiveisPage();
   if(p==='despesas'){ loadDespesas(); setTimeout(renderAvisoRecorrentes,300); }
   if(p==='estoque'){ loadEstoque(); setTimeout(renderIndicadoresEstoque,400); }
-  if(p==='produtividade') loadProdutividade();   // financeiro migrou para Insights
+  // Gráfico de faturamento + origem de clientes moraram em #page-history até a
+  // Tarefa 2 do plano de acabamento (14/08) — duplicavam o #ins-chart do
+  // Insights lá; setTimeout pelo mesmo motivo do antigo 'history': o canvas do
+  // Chart.js precisa da página já 'on' (largura > 0) antes de medir.
+  if(p==='produtividade'){ loadProdutividade(); setTimeout(()=>{ renderGraficoDash(); renderOrigemDash(); },200); }   // financeiro migrou para Insights
   if(p==='usuarios') loadUsuarios();
   if(p==='auditoria') loadAuditoria();
   if(p==='minhas-os') loadMinhasOS();
@@ -5239,67 +5243,6 @@ function atualizarDash(){
   setV_el('d-rec',brl(Math.max(0,aRec)),'textContent');
   setV_el('d-tick',tick>0?brl(tick):'—','textContent');
   renderOrigemDash();
-  renderEstoqueDash();
-}
-
-function dispensarAlertaEstoque(){
-  // Salva timestamp de dismiss — oculta reposição por 7 dias.
-  // Encomendas urgentes (estoque negativo) sempre aparecem, ignoram o dismiss.
-  lsSet('fluxa_estoque_dismiss', String(Date.now()));
-  const card=document.getElementById('dash-estoque-card');
-  if(card) card.style.display='none';
-  toast('🔕 Alertas de reposição ocultados por 7 dias');
-}
-function _estoqueDismissAtivo(){
-  const t=parseInt(localStorage.getItem('fluxa_estoque_dismiss')||'0');
-  return t>0 && (Date.now()-t) < 7*24*60*60*1000; // 7 dias em ms
-}
-
-// Card de estoque no dashboard: produtos abaixo do mínimo (lista de reposição)
-function renderEstoqueDash(){
-  const card=document.getElementById('dash-estoque-card');
-  const body=document.getElementById('dash-estoque-body');
-  if(!card||!body) return;
-  if(!eGestor()){ card.style.display='none'; return; }
-  const prods=produtosVisiveis();
-  // Encomendas (disponível negativo = vendido/comprometido sem estoque) — sempre visíveis
-  const enc=listaEncomendas();
-  // Reposição (disponível no/abaixo do mínimo, mas ainda positivo)
-  const baixo=prods.filter(p=>{ const m=parseFloat(p.estoque_minimo)||0; const d=disponivelProduto(p.id); return m>0 && d>=0 && d<=m; })
-    .sort((a,b)=>disponivelProduto(a.id)-disponivelProduto(b.id));
-  // Se dismiss ativo: mostra só encomendas urgentes (negativo), oculta reposição
-  const baixoVis = _estoqueDismissAtivo() ? [] : baixo;
-  if(!enc.length && !baixoVis.length){ card.style.display='none'; return; }
-  card.style.display='';
-  let html='';
-  if(enc.length){
-    html+=`<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#b91c1c;margin-bottom:4px">📥 Comprar para entregar (encomendas)</div>`;
-    html+=enc.slice(0,6).map(x=>{
-      return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--gray-light)">
-        <div style="min-width:0"><div style="font-size:13px;font-weight:600;color:var(--c2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(x.p.nome)}</div>
-          <div style="font-size:11px;color:var(--gray)">faltam <span style="color:var(--red);font-weight:700">${fmtQtd(x.falta)}</span> para entregar</div></div>
-        <button class="tb g" style="flex-shrink:0;font-size:11px" onclick="go('estoque');setTimeout(()=>abrirMovModal('${x.p.id}','entrada'),250)">＋ Comprar ${fmtQtd(Math.ceil(x.falta))}</button>
-      </div>`;
-    }).join('')+(enc.length>6?`<div style="font-size:11px;color:var(--gray);padding:6px 0;text-align:right">+${enc.length-6} outros</div>`:'');
-  }
-  if(baixoVis.length){
-    html+=`<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#b45309;margin:${enc.length?'10px':'0'} 0 4px">🔄 Repor (estoque mínimo)</div>`;
-    html+=baixoVis.slice(0,6).map(p=>{
-      const disp=disponivelProduto(p.id), min=parseFloat(p.estoque_minimo)||0;
-      const sugestao=Math.max(1, Math.ceil(min*2 - disp));
-      return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--gray-light)">
-        <div style="min-width:0"><div style="font-size:13px;font-weight:600;color:var(--c2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.nome)}</div>
-          <div style="font-size:11px;color:var(--gray)">disponível <span style="color:var(--yellow);font-weight:700">${fmtQtd(disp)}</span> · mín ${fmtQtd(min)}</div></div>
-        <button class="tb g" style="flex-shrink:0;font-size:11px" onclick="go('estoque');setTimeout(()=>abrirMovModal('${p.id}','entrada'),250)">＋ Repor ${fmtQtd(sugestao)}</button>
-      </div>`;
-    }).join('')+(baixoVis.length>6?`<div style="font-size:11px;color:var(--gray);padding-top:6px;text-align:right">+${baixoVis.length-6} outros</div>`:'');
-  }
-  // Rodapé: aviso de dismiss ativo
-  if(_estoqueDismissAtivo()&&baixo.length){
-    const dias=Math.ceil((7*86400000-(Date.now()-parseInt(localStorage.getItem('fluxa_estoque_dismiss'))))/86400000);
-    html+=`<div style="font-size:11px;color:var(--gray);margin-top:8px;padding-top:8px;border-top:1px solid var(--gray-light)">🔕 ${baixo.length} produto(s) com reposição pendente · oculto por mais ${dias} dia(s) <button class="ba" style="font-size:10px;padding:2px 8px;margin-left:6px" onclick="localStorage.removeItem('fluxa_estoque_dismiss');renderEstoqueDash()">Mostrar</button></div>`;
-  }
-  body.innerHTML=html;
 }
 
 // ── Origem dos clientes (métricas de captação) ──
