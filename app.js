@@ -7827,9 +7827,18 @@ async function checkPortalHash(){
 
   go('portal');
 
-  // Conecta ao banco se não conectado
+  // Conecta ao banco se não conectado — achado na auditoria de segurança do
+  // portal (14/08): só tentava `ls('sb_url')`, que fica gravado no
+  // localStorage pelo boot normal (linha ~1007) DEPOIS de checkPortalHash()
+  // já ter retornado (a função corta o boot cedo pra rota /portal). Num
+  // navegador que nunca logou no app interno — o caso normal de um cliente
+  // de verdade abrindo o link pela primeira vez — o portal inteiro falhava
+  // com "Portal não encontrado", mesmo com token válido. Prioriza
+  // FLUXA_CONFIG (config.js, sempre presente, é o que o boot normal usa),
+  // localStorage fica só como fallback de uma sessão anterior no mesmo
+  // aparelho.
   if(!dbOk||!db){
-    const sbUrl=ls('sb_url'), sbKey=ls('sb_key');
+    const sbUrl=FLUXA_CONFIG.supabaseUrl||ls('sb_url'), sbKey=FLUXA_CONFIG.supabaseKey||ls('sb_key');
     if(sbUrl&&sbKey) await conectarDB(sbUrl,sbKey,false);
   }
 
@@ -7874,7 +7883,11 @@ async function renderPortal(cli){
   let osCliente=osLocal.filter(o=>(o.cliente||'').toLowerCase()===cli.nome.toLowerCase());
   if(dbOk&&db){
     try{
-      const {data}=await db.from('ordens_servico').select('*').ilike('cliente',cli.nome).order('data_servico',{ascending:true});
+      // Colunas explícitas (auditoria de segurança do portal, 14/08) — a
+      // tabela tem obs_tecnica (nota do técnico), materiais (com custo) e as
+      // coordenadas GPS de check-in/check-out do TÉCNICO; nenhum desses é do
+      // cliente ver, e select('*') mandava tudo isso no payload da rede.
+      const {data}=await db.from('ordens_servico').select('id,cliente,data_servico,hora,tecnico,servicos,status,checkin_time,checkout_time,data_criacao').ilike('cliente',cli.nome).order('data_servico',{ascending:true});
       if(data) osCliente=data;
     }catch(e){ console.warn('[portal:OS]', e?.message||e); }
   }
@@ -7966,7 +7979,15 @@ async function renderPortal(cli){
   let orcsCliente=filtrarPorLoja(todosOrc).filter(o=>(o.cliente||'').toLowerCase()===cli.nome.toLowerCase()&&o.status==='pendente');
   if(!orcsCliente.length && dbOk && db){
     try{
-      let qOrc=db.from('orcamentos').select('*').ilike('cliente',cli.nome).eq('status','pendente').order('data_criacao',{ascending:false});
+      // Colunas explícitas, não select('*') — achado na auditoria de segurança
+      // do portal (14/08): a tabela tem nota_interna/crm_notas/motivo_perda/
+      // proximo_contato/decisao_prevista/valor_recebido, nenhum deles pra
+      // cliente ver, e select('*') mandava a linha inteira no payload da rede
+      // mesmo sem aparecer na tela. Lista inclui os campos que o hash
+      // anti-adulteração (_hashDocumentoOrc) e a baixa/reserva de estoque
+      // (sincronizarBaixaOrcamento) precisam na aprovação — não é só o que
+      // a tela mostra.
+      let qOrc=db.from('orcamentos').select('id,numero,cliente,local_servico,tel_cliente,servicos,subtotal,desconto,total,pagamento,validade_dias,validade_data,obs,escopo,status,data_criacao,data_servico,cnpj,loja_id,cliente_id,pag_cod,pag_parcelas,pag_entrada').ilike('cliente',cli.nome).eq('status','pendente').order('data_criacao',{ascending:false});
       if(cli.loja_id) qOrc=qOrc.eq('loja_id',cli.loja_id);
       const {data:orcDb}=await qOrc;
       if(orcDb&&orcDb.length){
@@ -8001,10 +8022,15 @@ async function renderPortal(cli){
   if(secPag){
     let recebCliente=[];
     const orcIdsCliente=new Set(orcsCliente.concat(filtrarPorLoja(todosOrc).filter(o=>(o.cliente||'').toLowerCase()===cli.nome.toLowerCase())).map(o=>o.id));
-    if(dbOk&&db){
+    // Filtra no servidor por orcamento_id — a versão antiga buscava TODOS os
+    // recebimentos em aberto (de TODOS os clientes) e só filtrava depois no
+    // JS: qualquer link de portal válido baixava o valor e vencimento de
+    // parcelas em aberto de outros clientes no payload da rede, mesmo sem
+    // aparecer na tela. Achado na auditoria de segurança do portal (14/08).
+    if(dbOk&&db&&orcIdsCliente.size){
       try{
-        const {data}=await db.from('recebimentos').select('*').is('data_pagamento',null);
-        if(data) recebCliente=data.filter(r=>orcIdsCliente.has(r.orcamento_id));
+        const {data}=await db.from('recebimentos').select('valor,vencimento,orcamento_id').is('data_pagamento',null).in('orcamento_id', Array.from(orcIdsCliente));
+        if(data) recebCliente=data;
       }catch(e){ console.warn('[portal:recebimentos]', e?.message||e); }
     }
     if(!recebCliente.length) recebCliente=(todosReceb||[]).filter(r=>!r.data_pagamento && orcIdsCliente.has(r.orcamento_id));

@@ -2,6 +2,104 @@
 
 ---
 
+## 🔴 Auditoria de segurança do Portal do Cliente — 2 vazamentos reais + 1 bug de conexão (14/08)
+
+A única superfície pública do app nunca tinha tido revisão própria (achado
+da análise de usabilidade, item #9). Auditados os dois pontos que o plano
+pedia — dado interno no payload e registro de aprovação — e achado um
+terceiro problema não previsto (conexão) enquanto testava os outros dois.
+
+### 🔴 `recebimentos` vazava para TODOS os clientes (o mais grave)
+
+`renderPortal()` buscava `db.from('recebimentos').select('*').is(
+'data_pagamento',null)` **sem nenhum filtro por cliente** — trazia as
+parcelas em aberto (valor, vencimento) de **toda a base**, de todas as
+empresas que dividem este banco, e só filtrava pro cliente certo depois,
+no JavaScript. Qualquer link de portal válido, de qualquer cliente,
+baixava no payload da rede o financeiro em aberto de todo mundo — só não
+aparecia na tela porque o filtro rodava depois de a rede já ter
+respondido. **Confirmado com o Management API** (leitura, mesmo PAT desta
+sessão): a tabela tem só `id/orcamento_id/loja_id/parcela_n/
+parcelas_total/vencimento/valor/data_pagamento/forma/obs/origem/
+data_criacao` — nada "inofensivo" ali, é dinheiro de cliente.
+
+**Fix:** filtro `.in('orcamento_id', [...])` no servidor, construído a
+partir dos orçamentos que já são do cliente (`orcIdsCliente`) — a mesma
+lista que already existia, só nunca tinha sido usada na query. Query nem
+roda mais se o cliente não tem nenhum orçamento (`orcIdsCliente.size`).
+
+### 🟡 `orcamentos`/`ordens_servico` mandavam a linha inteira (`select('*')`)
+
+Consultado o schema real das duas tabelas (Management API, só leitura).
+Achados campos claramente internos sendo enviados ao navegador do
+cliente mesmo sem aparecer em nenhuma tela:
+
+- **`orcamentos`**: `nota_interna` (rotulada no form como "Anotações
+  internas, negociação, condições especiais"), `crm_notas`,
+  `motivo_perda`, `proximo_contato`, `decisao_prevista`, `valor_recebido`.
+- **`ordens_servico`**: `obs_tecnica`, `materiais`, e — o mais sensível —
+  `checkin_lat`/`checkin_lng`/`checkout_lat`/`checkout_lng`: a
+  **localização GPS do técnico**, sem relação nenhuma com o que o cliente
+  precisa ver.
+
+**Fix:** `select()` com lista explícita de colunas em vez de `*`, nas duas
+queries. A lista não é só "o que a tela mostra" — inclui também o que
+`_hashDocumentoOrc()` (hash anti-adulteração da assinatura) e
+`sincronizarBaixaOrcamento()`/`sincronizarReservaOrcamento()` (baixa e
+reserva de estoque na aprovação) precisam pra continuar funcionando na
+aprovação. Testado depois do fix: hash gerado normalmente com um
+orçamento real via `select()` restrito, sem `undefined` em nenhum campo.
+**Não mexido:** `vistorias`/`equipamentos`/`clientes` — `vistorias` é
+relatório que o próprio cliente já vê em PDF (os campos "internos" ali
+são o conteúdo do laudo, não algo escondido dele); `equipamentos` e
+`clientes` não têm campo claramente interno no schema; os três já vêm
+filtrados por cliente (sem o vazamento cross-cliente do `recebimentos`).
+
+### 🔴 Achado ao testar os dois de cima: portal não conectava em navegador novo
+
+`checkPortalHash()` só tentava conectar com `ls('sb_url')`/`ls('sb_key')`
+— credenciais que só existem no `localStorage` **depois** do boot normal
+rodar (`conectarDB` grava lá na linha ~1007). Só que `checkPortalHash()`
+roda **antes** disso e corta o boot cedo pra rota `/portal` — nunca
+alcança o código que gravaria essas chaves. Resultado: um navegador que
+nunca logou no app interno (o caso normal de um **cliente de verdade**
+abrindo o link pela primeira vez, no celular dele) caía direto em "Portal
+não encontrado", mesmo com token válido. Reproduzido: limpei localStorage
+e testei um token real — falhou; com o fix, conectou.
+
+**Fix:** usar `FLUXA_CONFIG.supabaseUrl`/`supabaseKey` (do `config.js`,
+sempre presente, é a mesma fonte que o boot normal usa) como prioridade,
+`localStorage` só como fallback. Como cada empresa tem seu próprio
+`config.js` no próprio deploy (arquitetura multi-empresa já documentada
+mais abaixo), isso funciona igual pra Forthemp/Aquamotor/qualquer empresa
+nova — cada uma aponta pro Supabase dela mesma.
+
+### O que já estava certo (não precisou mexer)
+
+O achado #9 também pedia conferir o registro de "quem aprovou, quando, de
+qual IP". **Quem/quando/conteúdo já estava resolvido, e bem** — no fluxo
+de assinatura (`confirmarAssinatura`→`aprovarOrcPortal`): imagem da
+assinatura (`assinatura_base64`), timestamp (`assinatura_data`), hash
+SHA-256 do conteúdo assinado (`assinatura_hash` — recalculável depois pra
+provar se algo mudou) e `navigator.userAgent` do aparelho
+(`assinatura_meta`). **IP não é capturado, e não dá pra fazer direito
+neste ponto** — o app é 100% client-side (sem backend próprio), e obter o
+IP real exigiria uma chamada a um serviço externo de terceiros (novo
+gasto/dependência/trade-off de privacidade) que não é decisão pra tomar
+sozinho. Registrado aqui como limitação de arquitetura, não como bug.
+
+Testado no browser local com **tokens reais de clientes reais** (só
+leitura — nenhuma aprovação/recusa foi clicada, dados de produção
+intocados): cliente sem orçamento (query de recebimentos nem dispara);
+cliente com orçamento pendente real (#350, André) — `select()` restrito
+confirmado via inspeção direta das chaves do objeto retornado (bate
+exato com a lista, sem os campos internos); hash de assinatura gerado
+sem erro com o objeto restrito; conexão funcionando em sessão sem
+`localStorage` prévio. Sintaxe validada via `new Function`. `sw.js`
+v156→v157.
+
+---
+
 ## Continuação do acabamento — itens deixados "sem pressa" agora feitos (14/08, pedido do Marcos)
 
 O Marcos pediu pra fechar os itens que a Tarefa 6 tinha registrado como
