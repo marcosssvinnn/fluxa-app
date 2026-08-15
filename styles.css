@@ -383,9 +383,17 @@
     .ins-mh-stats{display:flex;gap:10px}
     .ins-mh-stats .rd-card{flex:1;padding:12px 13px}
 
-    .ins-body{display:grid;grid-template-columns:1.55fr 1fr;gap:16px;align-items:start}
-    @media(max-width:1180px){ .ins-body{grid-template-columns:1fr} .ins-col-direita{order:-1} }
-    .ins-col-direita{display:flex;flex-direction:column;gap:16px;min-width:0}
+    /* Tarefa 3e.1 (15/08): a fila era a coluna estreita e o gráfico a larga —
+       invertido. "Precisa de você hoje" agora estica (align-items padrão =
+       stretch) pra ocupar a altura real da linha, em vez de terminar cedo e
+       deixar a coluna vizinha com sobra de branco embaixo (o próprio bug que
+       o handoff de ajustes veio corrigir). Grid sem align-items:start de
+       propósito — é o que faz as duas colunas baterem na mesma altura. */
+    .ins-body{display:grid;grid-template-columns:1.42fr 1fr;gap:14px}
+    @media(max-width:1180px){ .ins-body{grid-template-columns:1fr} }
+    .ins-col-direita{display:flex;flex-direction:column;gap:14px;min-width:0}
+    .ins-fila-card{display:flex;flex-direction:column;min-height:0}
+    #ins-fila-corpo{flex:1;display:flex;flex-direction:column;min-height:0}
 
     /* min-width:0 é necessário nos dois: item de grid não encolhe abaixo do
        conteúdo por padrão, e o canvas do Chart.js define uma largura própria
@@ -395,10 +403,16 @@
     .ins-period{display:inline-flex;background:var(--line2);border-radius:8px;padding:3px;gap:2px;flex-shrink:0}
     .ins-period button{border:none;background:none;font-family:'Instrument Sans',sans-serif;font-size:12px;font-weight:500;color:var(--tx2);padding:4px 10px;border-radius:6px;cursor:pointer}
     .ins-period button.on{background:#fff;color:var(--c2);font-weight:600}
-    .ins-chart-wrap{position:relative;height:190px;flex:1;min-width:0}
+    .ins-chart-wrap{position:relative;height:150px;min-width:0}
+    .ins-fat-ritmo{font-size:11px;color:var(--tx3);line-height:1.45;margin-top:12px}
     .ins-fat-footer{border-top:1px solid var(--line2);margin-top:14px;padding-top:14px;display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
     .ins-fat-lbl{font-size:11px;color:var(--tx3)}
     .ins-fat-val{font-size:16px;font-weight:600;color:var(--c2);font-variant-numeric:tabular-nums;margin-top:2px}
+    /* "Despesas não lançadas" — some/aparece junto com #ins-fat-footer,
+       nunca os dois juntos (renderInsightsChart alterna via display). */
+    .ins-desp-vazia{border-style:dashed;display:flex;flex-direction:column;gap:8px}
+    .ins-desp-vazia-hdr{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--c2)}
+    .ins-desp-vazia p{margin:0;font-size:12px;color:var(--tx2);line-height:1.45}
 
     /* Fila de ação unificada ("Precisa de você hoje") */
     .rd-q-item{border:1px solid var(--line);border-radius:10px;padding:11px 13px;margin-bottom:8px}
@@ -412,6 +426,20 @@
     .rd-q-tx{display:flex;flex-direction:column;gap:2px;min-width:0}
     .rd-q-tx .rd-q-nome{font-size:13px}
     .rd-q-sub{font-size:12px;color:var(--tx2)}
+
+    /* Grupo "Recompra atrasada" (Tarefa 3e.1) — grade de 2 colunas em vez de
+       uma linha .rd-q-item por cliente (era "cinco linhas pra uma decisão só"). */
+    .rd-q-cad-grupo{margin-bottom:8px}
+    .rd-q-cad-hdr{display:flex;align-items:center;justify-content:space-between;padding:2px 0 10px;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--tx3)}
+    .rd-q-cad-total{text-transform:none;letter-spacing:normal;color:var(--c2);font-variant-numeric:tabular-nums}
+    .rd-q-cad-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .rd-q-cad-card{border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:5px;min-width:0}
+    .rd-q-cad-top{display:flex;align-items:baseline;justify-content:space-between;gap:8px;min-width:0}
+    .rd-q-cad-nome{flex:1;min-width:0;font-size:13px;font-weight:600;color:var(--c2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .rd-q-cad-valor{flex-shrink:0;font-size:12px;font-weight:600;color:var(--c2);font-variant-numeric:tabular-nums}
+    .rd-q-cad-motivo{font-size:11px;color:var(--tx2)}
+    .rd-q-cad-acao{align-self:flex-start;font-size:12px;font-weight:600;color:var(--c1);background:none;border:none;padding:0;cursor:pointer;font-family:'Instrument Sans',sans-serif}
+    .rd-q-cad-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px;padding-top:10px;border-top:1px solid var(--line2);font-size:12px;color:var(--tx2)}
 
     /* ══════════════════════════════════════════════════════════════════
        REDESIGN — NOVO ORÇAMENTO (Fase 6, 13/08). Formulário + prévia do

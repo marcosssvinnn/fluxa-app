@@ -1215,7 +1215,7 @@
         <div class="rd-kpi-num" id="ins-d-pipe"><span class="rd-skel" style="display:inline-block;width:74px;height:26px;background:rgba(255,255,255,.15)"></span></div>
         <div class="rd-kpi-apoio" id="ins-d-pipe-q"><span class="rd-skel" style="display:inline-block;width:120px;height:13px;background:rgba(255,255,255,.15)"></span></div>
       </div>
-      <div class="rd-card rd-card-dense">
+      <div class="rd-card rd-card-dense" id="ins-d-fech-card">
         <div class="rd-kpi-lbl">Fechado no mês</div>
         <div class="rd-kpi-num" id="ins-d-fech"><span class="rd-skel" style="display:inline-block;width:74px;height:26px"></span></div>
         <div class="rd-kpi-apoio" id="ins-d-fech-q"><span class="rd-skel" style="display:inline-block;width:120px;height:13px"></span></div>
@@ -1268,37 +1268,18 @@
       </div>
     </div>
 
+    <!-- Tarefa 3e.1 (15/08) — a fila manda na tela: "Precisa de você hoje"
+         virou a coluna larga (era o gráfico) e ganhou flex:1 de verdade, o
+         gráfico encolheu pra 1 série só (ver renderInsightsChart). -->
     <div class="ins-body">
-      <!-- Faturamento aprovado — gráfico dedicado (não é o do Histórico:
-           período curto, sempre aprovado+emitido juntos, sem seleção de tipo). -->
-      <div class="rd-card ins-fat-card">
-        <div class="rd-card-hdr">
-          <div>
-            <div class="rd-card-title">Faturamento aprovado</div>
-            <div class="rd-card-sub">linha clara é o total emitido</div>
-          </div>
-          <div class="ins-period">
-            <button type="button" class="on" data-p="6" onclick="_insSetPeriodo('6')">6M</button>
-            <button type="button" data-p="12" onclick="_insSetPeriodo('12')">12M</button>
-            <button type="button" data-p="ano" onclick="_insSetPeriodo('ano')">Ano</button>
-          </div>
-        </div>
-        <div class="ins-chart-wrap"><canvas id="ins-chart"></canvas></div>
-        <div class="ins-fat-footer">
-          <div><div class="ins-fat-lbl">Receita</div><div class="ins-fat-val" id="ins-fat-receita">—</div></div>
-          <div><div class="ins-fat-lbl">Despesas</div><div class="ins-fat-val" id="ins-fat-despesas">—</div></div>
-          <div><div class="ins-fat-lbl">Resultado</div><div class="ins-fat-val" id="ins-fat-resultado">—</div></div>
-        </div>
-      </div>
-
-      <div class="ins-col-direita">
-        <!-- "Precisa de você hoje" — peça central do redesign: junta o painel
-             de sistema (dinheiro/estoque/despesa) com a fila de follow-up e a
-             cadência de recompra num só ranking por urgência. Reaproveita os
-             três motores já existentes (_itensPainelHoje/crmCandidatos/
-             cadenciaCandidatos) — não duplica nenhum cálculo, só ordena. -->
-        <div class="rd-card ins-fila-card">
-          <div class="rd-card-hdr">
+      <!-- "Precisa de você hoje" — peça central do redesign: junta o painel
+           de sistema (dinheiro/estoque/despesa) com a fila de follow-up e a
+           cadência de recompra num só ranking por urgência. Reaproveita os
+           três motores já existentes (_itensPainelHoje/crmCandidatos/
+           cadenciaCandidatos) — não duplica nenhum cálculo, só ordena. -->
+      <div class="rd-card ins-fila-card">
+        <div class="rd-card-hdr" style="align-items:flex-start">
+          <div style="display:flex;flex-direction:column;gap:2px;min-width:0;flex:1">
             <div style="display:flex;align-items:center;gap:8px;min-width:0">
               <div class="rd-card-title">Precisa de você hoje</div>
               <!-- Chip removível quando "Em que fase está" filtra a fila (Tarefa 6,
@@ -1307,32 +1288,62 @@
                    aqui não via nenhum sinal de que a lista estava filtrada. -->
               <button type="button" id="ins-fila-chip-filtro" class="rd-chip on" style="display:none" onclick="crmFiltrarFaixa(_crmFaixaFiltro)"></button>
             </div>
-            <span class="rd-btn rd-btn-link" style="font-size:12px" id="ins-fila-ver"></span>
+            <!-- Agregado (Tarefa 3e.1) — "N grupos", não "N pendências": é o
+                 que dá pra contar sem inventar (cada linha da fila já é 1
+                 decisão agrupada), ver renderAcaoQueue(). -->
+            <div class="rd-card-sub" id="ins-fila-sub"></div>
           </div>
-          <!-- Skeleton na altura de 3 itens de fila (Tarefa 5, 14/08) —
-               .rd-skel existe desde a Fase 3 e nunca tinha sido usado; o
-               spinner tinha altura menor que o conteúdo final e a tela
-               saltava quando os dados chegavam. renderPainelInsights()
-               (app.js) sobrescreve isto com innerHTML assim que a fila
-               calcula, então não precisa de contraparte em JS. -->
-          <div id="ins-fila-corpo">
-            <div class="rd-q-item" aria-hidden="true"><div class="rd-q-compact">
-              <div class="rd-q-tx" style="flex:1;gap:6px"><span class="rd-skel" style="height:13px;width:55%"></span><span class="rd-skel" style="height:11px;width:78%"></span></div>
-              <span class="rd-skel" style="height:24px;width:58px;border-radius:8px;flex-shrink:0"></span>
-            </div></div>
-            <div class="rd-q-item" aria-hidden="true"><div class="rd-q-compact">
-              <div class="rd-q-tx" style="flex:1;gap:6px"><span class="rd-skel" style="height:13px;width:45%"></span><span class="rd-skel" style="height:11px;width:65%"></span></div>
-              <span class="rd-skel" style="height:24px;width:58px;border-radius:8px;flex-shrink:0"></span>
-            </div></div>
-            <div class="rd-q-item" aria-hidden="true"><div class="rd-q-compact">
-              <div class="rd-q-tx" style="flex:1;gap:6px"><span class="rd-skel" style="height:13px;width:60%"></span><span class="rd-skel" style="height:11px;width:70%"></span></div>
-              <span class="rd-skel" style="height:24px;width:58px;border-radius:8px;flex-shrink:0"></span>
-            </div></div>
+          <span class="rd-btn rd-btn-link" style="font-size:12px;flex-shrink:0" id="ins-fila-ver"></span>
+        </div>
+        <!-- Skeleton na altura de 3 itens de fila (Tarefa 5, 14/08) —
+             .rd-skel existe desde a Fase 3 e nunca tinha sido usado; o
+             spinner tinha altura menor que o conteúdo final e a tela
+             saltava quando os dados chegavam. renderPainelInsights()
+             (app.js) sobrescreve isto com innerHTML assim que a fila
+             calcula, então não precisa de contraparte em JS. -->
+        <div id="ins-fila-corpo">
+          <div class="rd-q-item" aria-hidden="true"><div class="rd-q-compact">
+            <div class="rd-q-tx" style="flex:1;gap:6px"><span class="rd-skel" style="height:13px;width:55%"></span><span class="rd-skel" style="height:11px;width:78%"></span></div>
+            <span class="rd-skel" style="height:24px;width:58px;border-radius:8px;flex-shrink:0"></span>
+          </div></div>
+          <div class="rd-q-item" aria-hidden="true"><div class="rd-q-compact">
+            <div class="rd-q-tx" style="flex:1;gap:6px"><span class="rd-skel" style="height:13px;width:45%"></span><span class="rd-skel" style="height:11px;width:65%"></span></div>
+            <span class="rd-skel" style="height:24px;width:58px;border-radius:8px;flex-shrink:0"></span>
+          </div></div>
+          <div class="rd-q-item" aria-hidden="true"><div class="rd-q-compact">
+            <div class="rd-q-tx" style="flex:1;gap:6px"><span class="rd-skel" style="height:13px;width:60%"></span><span class="rd-skel" style="height:11px;width:70%"></span></div>
+            <span class="rd-skel" style="height:24px;width:58px;border-radius:8px;flex-shrink:0"></span>
+          </div></div>
+        </div>
+      </div>
+
+      <div class="ins-col-direita">
+        <!-- Faturamento aprovado — gráfico dedicado (não é o do Histórico:
+             período curto, só a série aprovado — Tarefa 3e.1 tirou a série
+             emitido, que dominava a escala e afundava a barra de aprovado). -->
+        <div class="rd-card ins-fat-card">
+          <div class="rd-card-hdr">
+            <div class="rd-card-title">Aprovado por mês</div>
+            <div class="ins-period">
+              <button type="button" class="on" data-p="6" onclick="_insSetPeriodo('6')">6M</button>
+              <button type="button" data-p="12" onclick="_insSetPeriodo('12')">12M</button>
+              <button type="button" data-p="ano" onclick="_insSetPeriodo('ano')">Ano</button>
+            </div>
+          </div>
+          <div class="ins-chart-wrap"><canvas id="ins-chart"></canvas></div>
+          <!-- Projeção do mês corrente pelo ritmo já observado (Tarefa 3e.1) —
+               substitui o rodapé Receita/Despesas/Resultado quando ele some
+               (ver abaixo) e complementa quando ele fica. -->
+          <div class="ins-fat-ritmo" id="ins-fat-ritmo"></div>
+          <div class="ins-fat-footer" id="ins-fat-footer">
+            <div><div class="ins-fat-lbl">Receita</div><div class="ins-fat-val" id="ins-fat-receita">—</div></div>
+            <div><div class="ins-fat-lbl">Despesas</div><div class="ins-fat-val" id="ins-fat-despesas">—</div></div>
+            <div><div class="ins-fat-lbl">Resultado</div><div class="ins-fat-val" id="ins-fat-resultado">—</div></div>
           </div>
         </div>
 
         <!-- Em que fase está — deriva da idade do orçamento, sem schema novo.
-             Toca numa faixa e filtra a fila acima (mesma tela agora). -->
+             Toca numa faixa e filtra a fila ao lado (mesma tela agora). -->
         <div class="rd-card" id="ins-estagio-card">
           <div class="rd-card-hdr">
             <div class="rd-card-title">Em que fase está</div>
@@ -1340,6 +1351,21 @@
           <div class="rd-card-sub" id="ins-estagio-sub" style="margin-bottom:8px">toque numa faixa pra filtrar a fila ao lado</div>
           <div id="ins-estagio-barra" class="fase-barra"></div>
           <div id="ins-estagio-leg" class="fase-leg"></div>
+        </div>
+
+        <!-- "Despesas não lançadas" (Tarefa 3e.1) — substitui o rodapé
+             Receita/Despesas/Resultado do gráfico quando não há despesa no
+             mês corrente (regra: quando o denominador de um cálculo está
+             vazio, mostra o estado, nunca o resultado). Alternado com
+             #ins-fat-footer em renderInsightsChart(); começa oculto pra não
+             piscar antes do primeiro render. -->
+        <div class="rd-card ins-desp-vazia" id="ins-desp-vazia-card" style="display:none">
+          <div class="ins-desp-vazia-hdr">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6B7686" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v5M12 16.5v.5M10.3 3.9L2.6 17.4A1.6 1.6 0 0 0 4 19.8h16a1.6 1.6 0 0 0 1.4-2.4L13.7 3.9a1.6 1.6 0 0 0-2.8 0z"></path></svg>
+            <span>Despesas não lançadas</span>
+          </div>
+          <p>Sem despesa lançada este mês, o resultado do mês é igual à receita — e não é o seu lucro. Lance para o número valer.</p>
+          <span class="rd-btn rd-btn-link" style="font-size:12px" onclick="go('despesas')">Lançar despesas</span>
         </div>
       </div>
     </div>

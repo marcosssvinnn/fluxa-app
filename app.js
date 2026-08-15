@@ -4949,11 +4949,11 @@ function _itensPainelHoje(){
   if(venc.length) itens.push({id:'receb-vencido', cor:'var(--red)', icone:'💸',
     titulo:`${brl(somaR(venc))} vencido`,
     sub:`${venc.length} parcela${venc.length!==1?'s':''} · a mais antiga há ${Math.max(...venc.map(_recebDiasAtraso))} dias`,
-    acao:'Cobrar', fn:"go('recebiveis')"});
+    acao:'Cobrar', fn:"go('recebiveis')", valor:somaR(venc)});
   if(hoje.length) itens.push({id:'receb-hoje', cor:'var(--yellow)', icone:'📅',
     titulo:`${brl(somaR(hoje))} vence hoje`,
     sub:`${hoje.length} parcela${hoje.length!==1?'s':''} — marque quando entrar`,
-    acao:'Ver', fn:"go('recebiveis')"});
+    acao:'Ver', fn:"go('recebiveis')", valor:somaR(hoje)});
 
   // 1b. Aprovado sem NENHUMA cobrança lançada — diferente do "vencido" acima
   // (que exige uma parcela já criada pra poder vencer): aqui não existe
@@ -4969,7 +4969,21 @@ function _itensPainelHoje(){
     itens.push({id:'aprov-sem-receb', cor:'var(--red)', icone:'🧮',
       titulo:`${brl(totalSemReceb)} aprovado sem cobrança lançada`,
       sub:`${semReceb.length} orçamento${semReceb.length!==1?'s':''} · o mais antigo desde ${_dataBR(String(maisAntigo?.data_aprovacao||maisAntigo?.data_criacao||'').slice(0,10))}`,
-      acao:'Lançar', fn:"go('recebiveis')"});
+      acao:'Lançar', fn:"go('recebiveis')", valor:totalSemReceb});
+  }
+
+  // 1c. OS agendada sem técnico — mesmo critério de _renderOSKPIsNovo (Fase
+  // 8a), reaproveitado aqui pra virar item acionável no painel diário em vez
+  // de só um KPI que só quem abre Ordens de Serviço vê.
+  const _hojeOS=_hojeLocal();
+  const osSemTec=filtrarPorLoja(todosOS||[]).filter(o=>o.status==='agendado' && !(o.tecnico||'').trim());
+  if(osSemTec.length){
+    const atrasadasOS=osSemTec.filter(o=>o.data_servico && o.data_servico<_hojeOS);
+    const maisAntigaOS=[...osSemTec].sort((a,b)=>String(a.data_servico||'').localeCompare(String(b.data_servico||'')))[0];
+    itens.push({id:'os-sem-tec', cor:'var(--red)', icone:'🧑‍🔧',
+      titulo:`${osSemTec.length} OS sem técnico`,
+      sub:(atrasadasOS.length?`${atrasadasOS.length} já atrasada${atrasadasOS.length!==1?'s':''} · `:'')+`a mais antiga de ${_dataBR(maisAntigaOS?.data_servico||'')}`,
+      acao:'Distribuir', fn:"go('os-history')"});
   }
 
   // 2. Material faltando (ruptura aberta) — é venda que não sai
@@ -5202,23 +5216,31 @@ function _acaoQueue(){
       out.push({
         id:'crm-'+c.orc.id, tipo:'follow-up', urgencia:urg,
         titulo:(c.orc.cliente||'—')+' · '+brl(c.valor),
-        sub:crmMotivos(c)[0]||'', acoes,
+        sub:crmMotivos(c)[0]||'', acoes, valor:c.valor,
         acao:acoes[0].label, fn:acoes[0].fn||null, href:acoes[0].href||null
       });
     });
   }catch(e){ console.warn('[acaoQueue:followup]', e?.message||e); }
 
-  // Cadência de recompra atrasada — mesmo motor da Etapa 4.
+  // Cadência de recompra atrasada — mesmo motor da Etapa 4. Agrupada num
+  // item só (Tarefa 3e.1, 15/08): antes eram até 5 linhas individuais na
+  // fila, uma por cliente, pra uma decisão só ("recompra atrasada, ver
+  // quem"). renderAcaoQueue/_acaoItemHTML desenham isto como um cabeçalho +
+  // grade de cartões compactos, não como linha de fila comum.
   try{
-    cadenciaCandidatos().slice(0,5).forEach(c=>{
-      const atraso=Math.max(0,(c.diasDesdeUltima||0)-(c.intervaloMedioDias||c.diasDesdeUltima||0));
+    const cadList=cadenciaCandidatos();
+    if(cadList.length){
       out.push({
-        id:'cad-'+c.chave, tipo:'cadencia', urgencia:60+Math.min(15,atraso),
-        titulo:c.nome+' · '+brl(c.valor),
-        sub:(c.ritmo==='parou'?'parou de comprar':'reduziu o ritmo')+' — recompra atrasada',
-        acao:'Novo orçamento', fn:`novoOrcParaCliente('${c.chave.slice(3)}')`
+        id:'cad-grupo', tipo:'cadencia-grupo', urgencia:65,
+        titulo:`Recompra atrasada · ${cadList.length} cliente${cadList.length!==1?'s':''}`,
+        valorTotal:cadList.reduce((a,c)=>a+(c.valor||0),0),
+        itens:cadList.map(c=>({
+          nome:c.nome, valor:c.valor,
+          motivo:c.ritmo==='parou'?'parou de comprar':'reduziu o ritmo',
+          fn:`novoOrcParaCliente('${c.chave.slice(3)}')`
+        }))
       });
-    });
+    }
   }catch(e){ console.warn('[acaoQueue:cadencia]', e?.message||e); }
 
   // Cadência "chegando" — antecipação, urgência baixa de propósito: só entra
@@ -5229,7 +5251,7 @@ function _acaoQueue(){
         id:'prox-'+c.chave, tipo:'proximo', urgencia:20,
         titulo:c.nome+' · '+brl(c.valor),
         sub:'deve precisar de reposição em breve, pelo próprio ritmo',
-        acao:'Novo orçamento', fn:`novoOrcParaCliente('${c.chave.slice(3)}')`
+        acao:'Novo orçamento', fn:`novoOrcParaCliente('${c.chave.slice(3)}')`, valor:c.valor
       });
     });
   }catch(e){ console.warn('[acaoQueue:proximos]', e?.message||e); }
@@ -5237,7 +5259,34 @@ function _acaoQueue(){
   out.sort((a,b)=>b.urgencia-a.urgencia);
   return out;
 }
+// Grupo "Recompra atrasada" (Tarefa 3e.1, 15/08) — grade de cartões
+// compactos em vez de uma linha de fila por cliente. "Ver todos" expande
+// in-place (não existe uma tela dedicada só de cadência pra linkar).
+let _acaoCadenciaExpandida=false;
+function _acaoCadenciaToggle(){ _acaoCadenciaExpandida=!_acaoCadenciaExpandida; renderAcaoQueue(); }
+function _acaoCadenciaGrupoHTML(item){
+  const TETO=4;
+  const lista = _acaoCadenciaExpandida ? item.itens : item.itens.slice(0,TETO);
+  const cards = lista.map(c=>`
+    <div class="rd-q-cad-card">
+      <div class="rd-q-cad-top">
+        <span class="rd-q-cad-nome">${esc(c.nome)}</span>
+        <span class="rd-q-cad-valor">${brl(c.valor).replace('R$','').trim()}</span>
+      </div>
+      <span class="rd-q-cad-motivo">${esc(c.motivo)}</span>
+      <button type="button" class="rd-q-cad-acao" onclick="${c.fn}">Novo orçamento</button>
+    </div>`).join('');
+  return `<div class="rd-q-cad-grupo">
+    <div class="rd-q-cad-hdr"><span>${esc(item.titulo)}</span><span class="rd-q-cad-total">${brl(item.valorTotal)}</span></div>
+    <div class="rd-q-cad-grid">${cards}</div>
+    <div class="rd-q-cad-foot">
+      <span>Mostrando ${lista.length} de ${item.itens.length} cliente${item.itens.length!==1?'s':''}</span>
+      ${item.itens.length>TETO?`<button type="button" class="rd-btn rd-btn-link" style="font-size:12px" onclick="_acaoCadenciaToggle()">${_acaoCadenciaExpandida?'Ver menos':'Ver todos os '+item.itens.length}</button>`:''}
+    </div>
+  </div>`;
+}
 function _acaoItemHTML(item, expandido){
+  if(item.tipo==='cadencia-grupo') return _acaoCadenciaGrupoHTML(item);
   const acoesArr = item.acoes || [{label:item.acao, fn:item.fn, href:item.href}];
   const botao=(a,i)=>{
     const cls = expandido ? (i===0?'rd-btn rd-btn-primary rd-btn-sm':'rd-btn rd-btn-secondary rd-btn-sm') : 'rd-btn rd-btn-link';
@@ -5267,6 +5316,19 @@ function renderAcaoQueue(){
   const el=document.getElementById('ins-fila-corpo'); if(!el) return;
   const fila=_acaoQueue();
   const linkEl=document.getElementById('ins-fila-ver');
+  // Subtítulo com o agregado (Tarefa 3e.1, 15/08) — "N grupos de atenção",
+  // não "N pendências": o que dá pra contar sem inventar é linha da fila
+  // (cada linha já é 1 decisão, agrupada por tipo), não o total de registros
+  // crus por trás dela. Valor soma só o que cada item já carrega em `valor`/
+  // `valorTotal` — itens sem número monetário natural (ruptura de estoque,
+  // OS sem técnico, orçamento sem identidade) somam 0, não travam a conta.
+  const subEl=document.getElementById('ins-fila-sub');
+  if(subEl){
+    const valorEnvolvido=fila.reduce((a,it)=>a+(it.valorTotal||it.valor||0),0);
+    subEl.textContent = fila.length
+      ? `${fila.length} grupo${fila.length!==1?'s':''} de atenção${valorEnvolvido>0?' · '+brl(valorEnvolvido)+' envolvidos':''}`
+      : '';
+  }
   if(!fila.length){
     el.innerHTML=`<div class="rd-empty" style="padding:8px 0">
       <div class="rd-empty-ico">✅</div>
@@ -5295,33 +5357,64 @@ function renderInsightsChart(){
   const meses=[]; for(let i=qtd-1;i>=0;i--){ const d=new Date(hoje.getFullYear(),hoje.getMonth()-i,1); meses.push({y:d.getFullYear(),m:d.getMonth()}); }
   const orcFilt=filtrarPorLoja(todosOrc||[]);
   const despFilt=filtrarPorLoja(todasDesp||[]);
-  const labels=[], aprovDados=[], emitDados=[];
-  let totRec=0, totDesp=0;
-  meses.forEach(({y,m})=>{
+  const labels=[], aprovDados=[];
+  let totRec=0, totDesp=0, despMesAtual=0;
+  meses.forEach(({y,m},i)=>{
     const d=new Date(y,m,1);
     labels.push(d.toLocaleDateString('pt-BR',{month:'short'}));
     const doMes=orcFilt.filter(o=>{ const dt=_orcData(o); return dt&&!isNaN(dt)&&dt.getFullYear()===y&&dt.getMonth()===m; });
-    const emit=doMes.reduce((a,o)=>a+(o.total||0),0);
     const aprov=doMes.filter(o=>o.status==='aprovado').reduce((a,o)=>a+(o.total||0),0);
-    aprovDados.push(aprov); emitDados.push(emit);
+    aprovDados.push(aprov);
     const desp=despFilt.filter(dd=>{ const raw=(dd.data||'').split('T')[0]; if(!raw) return false; const dt=new Date(raw+'T12:00:00'); return dt.getFullYear()===y&&dt.getMonth()===m; }).reduce((a,dd)=>a+(dd.valor||0),0);
     totRec+=aprov; totDesp+=desp;
+    if(i===meses.length-1) despMesAtual=desp; // último mês do período = mês corrente
   });
   const set=(id,txt)=>{ const e=document.getElementById(id); if(e) e.textContent=txt; };
-  set('ins-fat-receita', brl(totRec));
-  set('ins-fat-despesas', brl(totDesp));
-  const res=totRec-totDesp;
-  const resEl=document.getElementById('ins-fat-resultado');
-  if(resEl){ resEl.textContent=brl(res); resEl.style.color = res>=0?'var(--ok)':'var(--bad)'; }
+
+  // Rodapé Receita/Despesas/Resultado só quando há despesa lançada no mês
+  // corrente (Tarefa 3e.1, 15/08) — "quando o denominador de um cálculo está
+  // vazio, mostra o estado, nunca o resultado": Resultado = Receita − 0 é só
+  // a receita com outro nome, e sair em verde contamina a confiança no resto
+  // do painel. Sem despesa, o card tracejado "Despesas não lançadas" (no
+  // .ins-col-direita) ocupa o lugar do aviso.
+  const footerEl=document.getElementById('ins-fat-footer');
+  const despCard=document.getElementById('ins-desp-vazia-card');
+  if(footerEl) footerEl.style.display = despMesAtual>0 ? '' : 'none';
+  if(despCard) despCard.style.display = despMesAtual>0 ? 'none' : '';
+  if(despMesAtual>0){
+    set('ins-fat-receita', brl(totRec));
+    set('ins-fat-despesas', brl(totDesp));
+    const res=totRec-totDesp;
+    const resEl=document.getElementById('ins-fat-resultado');
+    if(resEl){ resEl.textContent=brl(res); resEl.style.color = res>=0?'var(--ok)':'var(--bad)'; }
+  }
+
+  // Ritmo do mês corrente — projeção linear pelos dias já corridos, comparada
+  // ao mês anterior (mesmo critério de "varMes" do KPI "Fechado no mês").
+  // Guarda dias>0 pra não dividir por zero no dia 1.
+  const diasCorridos=hoje.getDate();
+  const diasNoMes=new Date(hoje.getFullYear(), hoje.getMonth()+1, 0).getDate();
+  const aprovMesAtual=aprovDados[aprovDados.length-1]||0;
+  const aprovMesAnterior=aprovDados.length>=2?aprovDados[aprovDados.length-2]:null;
+  const projecao = diasCorridos>0 ? (aprovMesAtual/diasCorridos)*diasNoMes : aprovMesAtual;
+  const abaixoDoRitmo = aprovMesAnterior!==null && aprovMesAnterior>0 && projecao<aprovMesAnterior;
+  const ritmoEl=document.getElementById('ins-fat-ritmo');
+  if(ritmoEl){
+    const nomeMesAtual=hoje.toLocaleDateString('pt-BR',{month:'long'});
+    ritmoEl.textContent = `${nomeMesAtual.charAt(0).toUpperCase()+nomeMesAtual.slice(1)} tem ${diasCorridos} dia${diasCorridos!==1?'s':''} corrido${diasCorridos!==1?'s':''}. No ritmo atual fecha em ${brl(projecao)}.`;
+    ritmoEl.style.display = (_insPeriodo==='6'||_insPeriodo==='12') ? '' : 'none'; // "Ano" já mostra o mês corrente incompleto, a frase fica redundante
+  }
 
   const cor=(getComputedStyle(document.documentElement).getPropertyValue('--c1')||'#0B62CE').trim();
-  const corClara=(getComputedStyle(document.documentElement).getPropertyValue('--c1-mid')||'#CEE0F5').trim();
+  const corAmbar='#C98A2E';
+  // Barra do mês corrente (última) fica âmbar quando a projeção está abaixo
+  // do mês anterior — "queda não pode ter o mesmo peso visual de um +18%".
+  const cores=aprovDados.map((_,i)=>(i===aprovDados.length-1&&abaixoDoRitmo)?corAmbar:(cor||'#0B62CE'));
   if(_insChart){ try{_insChart.destroy();}catch(e){} _insChart=null; }
   _insChart=new Chart(canvas,{
     type:'bar',
     data:{ labels, datasets:[
-      {label:'Aprovado', data:aprovDados, backgroundColor:cor||'#0B62CE', borderRadius:4, maxBarThickness:22},
-      {label:'Emitido',  data:emitDados,  backgroundColor:corClara||'#CEE0F5', borderRadius:4, maxBarThickness:22}
+      {label:'Aprovado', data:aprovDados, backgroundColor:cores, borderRadius:4, maxBarThickness:34}
     ]},
     options:{
       responsive:true, maintainAspectRatio:false,
@@ -5332,13 +5425,13 @@ function renderInsightsChart(){
         y:{grid:{color:'#EDF1F7'}, border:{display:false}, ticks:{font:{size:10,family:'Instrument Sans'}, color:'#6B7686', callback:v=>v===0?'':(v>=1000?(v/1000)+'k':v)}}
       }
     },
-    // Rótulo de valor abreviado no topo de cada barra de Aprovado (Tarefa 6,
-    // 14/08) — achado da análise de usabilidade: sem eixo visível de verdade
-    // e sem tooltip no toque, duas barras com 8% de diferença ficam
-    // indistinguíveis a olho no celular. Mesmo padrão do gráfico de aging
-    // de A Receber (_renderRecebAging), que já mostra o valor sobre a barra
-    // — só que ali é HTML/CSS puro; aqui precisa de um plugin do Chart.js
-    // porque o gráfico é canvas.
+    // Rótulo de valor abreviado no topo de cada barra (Tarefa 6, 14/08) —
+    // achado da análise de usabilidade: sem eixo visível de verdade e sem
+    // tooltip no toque, barras próximas ficam indistinguíveis a olho no
+    // celular. Mesmo padrão do gráfico de aging de A Receber
+    // (_renderRecebAging), que já mostra o valor sobre a barra — só que ali
+    // é HTML/CSS puro; aqui precisa de um plugin do Chart.js porque o
+    // gráfico é canvas.
     plugins:[{
       id:'rotuloValorAprovado',
       afterDatasetsDraw(chart){
@@ -5346,13 +5439,14 @@ function renderInsightsChart(){
         const {ctx}=chart;
         ctx.save();
         ctx.font="600 10px 'Instrument Sans'";
-        ctx.fillStyle='#101720';
         ctx.textAlign='center';
         ctx.textBaseline='bottom';
         meta.data.forEach((bar,i)=>{
           // Lê de chart.data (não da closure aprovDados) — reflete qualquer
           // atualização feita direto no chart, não só a do render original.
           const v=chart.data.datasets[0].data[i]; if(!v) return;
+          const ultimo=i===chart.data.datasets[0].data.length-1;
+          ctx.fillStyle = (ultimo&&abaixoDoRitmo) ? corAmbar : '#101720';
           const txt=v>=1000?(v/1000).toLocaleString('pt-BR',{maximumFractionDigits:1})+'k':Math.round(v).toString();
           ctx.fillText(txt, bar.x, bar.y-4);
         });
@@ -5379,7 +5473,19 @@ function renderPainelInsights(){
   set('ins-d-pipe-q', s.pipeQtd+' orçamento(s) · ticket '+(s.pipeQtd?brl(s.pipeValor/s.pipeQtd):'—'));
   set('ins-d-fech', brl(s.fechValor));
   const varMes = s.fechValorAnt>0 ? Math.round((s.fechValor-s.fechValorAnt)/s.fechValorAnt*100) : null;
-  set('ins-d-fech-q', varMes===null ? s.fechQtd+' orç. neste mês' : (varMes>=0?'+':'')+varMes+'% vs. mês anterior');
+  // Queda ganha destaque visual — "não pode ter o mesmo peso de um +18%"
+  // (Tarefa 3e.1, 15/08): borda de atenção + seta pra baixo, em vez do
+  // mesmo "+X%" neutro usado pra crescimento.
+  const fechCard=document.getElementById('ins-d-fech-card');
+  const fechQEl=document.getElementById('ins-d-fech-q');
+  if(varMes!==null && varMes<0){
+    const mesAntNome=new Date(new Date().getFullYear(), new Date().getMonth()-1, 1).toLocaleDateString('pt-BR',{month:'long'});
+    if(fechQEl) fechQEl.innerHTML=`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#A6521A" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:3px"><path d="M7 8l5 5 5-5"></path></svg>${Math.abs(varMes)}% abaixo de ${esc(mesAntNome)}`;
+    if(fechCard) fechCard.classList.add('rd-card-warn');
+  } else {
+    set('ins-d-fech-q', varMes===null ? s.fechQtd+' orç. neste mês' : '+'+varMes+'% vs. mês anterior');
+    if(fechCard) fechCard.classList.remove('rd-card-warn');
+  }
   // Soma as duas fontes (Tarefa 4, 15/08): recebimentos (parcela lançada) +
   // o saldo dos aprovados que nunca ganharam parcela nenhuma (sistema
   // antigo) — via _orcSaldoAReceber, nunca conta os dois pro mesmo orçamento.

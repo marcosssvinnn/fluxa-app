@@ -2,6 +2,106 @@
 
 ---
 
+## Tarefa 3e.1 — Hoje: a fila manda na tela (15/08)
+
+Novo handoff (`design_handoff_fluxa_redesign 4/`, `Fluxa Ajustes.dc.html` +
+seção nova "Tarefa 3e" no `PLANO-ACABAMENTO.md`) — desta vez baseado em
+revisão **com dado real de produção**, não mock genérico: 191 orçamentos,
+17 avisos na fila, gráfico com escala dominada pela série "emitido",
+despesas em R$ 0,00. Primeira das 3 subtarefas (3e.2 OS e 3e.3 balcão
+ficam pra próxima sessão).
+
+**Inversão de coluna** — `.ins-body` tinha o gráfico na coluna larga
+(1.55fr) e a fila na estreita (1fr); a fila, mais alta, esticava além do
+gráfico e sobrava branco embaixo dele (`align-items:start` impedia as
+duas de baterem na mesma altura). Trocado: fila agora é a coluna larga
+(1.42fr) com `align-items` padrão (stretch) — as duas colunas alinham na
+mesma altura pela primeira vez. Nenhuma função mudou de lugar, só a
+ordem no DOM e a proporção do grid.
+
+**Fila agrupada por tipo, não por cliente:**
+- **`_itensPainelHoje()` ganhou um item novo**: "N OS sem técnico"
+  (`os-sem-tec`), mesmo critério que `_renderOSKPIsNovo()` já usa
+  (`status==='agendado' && !tecnico`) — antes só quem abria Ordens de
+  Serviço via esse número; agora também aparece na fila com ação
+  "Distribuir". Sub mostra quantas já estão atrasadas (`data_servico` no
+  passado) e a mais antiga.
+- **Cadência de recompra virou UM item agrupado**, não até 5 linhas
+  individuais — `_acaoQueue()` empacota a lista inteira de
+  `cadenciaCandidatos()` num item `tipo:'cadencia-grupo'` com
+  `itens:[{nome,valor,motivo,fn}]`; `_acaoCadenciaGrupoHTML()` (nova)
+  desenha isso como cabeçalho + grade de 2 colunas de cartões compactos
+  (nome com ellipsis, valor, motivo, "Novo orçamento"), 4 visíveis + "Ver
+  todos os N" que expande in-place (`_acaoCadenciaExpandida`, módulo,
+  sem tela dedicada pra linkar). **Fila de follow-up (`crmCandidatos`,
+  motivo diferente — preço expirado, decisão em assembleia etc.) NÃO foi
+  agrupada** — o plano só pede isso explicitamente pra cadência; o mock
+  mistura os dois tipos no mesmo grid visualmente, mas segui a prosa (mais
+  específica que o mock, que usa "dado fictício mas realista" sem rigor
+  de tipo) e mantive follow-up como linha individual, como já era.
+- **Subtítulo com agregado** ("N grupos de atenção · R$ X envolvidos") —
+  **não é literalmente "N pendências" do mock** (esse número mistura
+  contagem de registros crus com contagem de grupos de um jeito que não
+  dá pra recalcular de forma honesta a partir dos dados). Uso "grupos"
+  (= linhas da fila, `_acaoQueue().length`, sempre exato) e "envolvidos"
+  soma só o que cada item já carrega em `valor`/`valorTotal` — adicionei
+  esse campo aos itens de `_itensPainelHoje()`/follow-up/proximos que
+  tinham um total monetário natural (vencido, sem cobrança, follow-up,
+  chegando); os que não têm (ruptura de estoque, OS sem técnico,
+  orçamento sem identidade) somam 0 sem travar a conta.
+
+**Gráfico "Aprovado por mês"** — a barra clara "Emitido" saiu (era o que
+dominava a escala do eixo Y e afundava a barra de "Aprovado" a um traço
+de poucos px quando algum mês tinha proposta grande sem fechar). Só uma
+série agora, `maxBarThickness` subiu de 22→34 pra ocupar o espaço que
+sobrou, altura do wrap 190px→150px. **Alternador PDF/WhatsApp pra
+"Emitido" (sugerido no plano como "se for necessário") não foi
+construído** — sem essa série o problema que motivou a mudança já
+desaparece, e um alternador sem uso claro seria feature especulativa.
+
+- **Projeção do mês corrente** (`Agosto tem N dias corridos. No ritmo
+  atual fecha em R$ X`) — linear pelos dias já passados
+  (`aprovMesAtual/diasCorridos*diasNoMes`), comparada ao mês anterior. Se
+  a projeção fica abaixo do mês anterior, a ÚLTIMA barra (sempre o mês
+  corrente, independente do período 6M/12M/Ano) e seu rótulo de valor
+  ficam âmbar em vez de azul — mesmo princípio do KPI "Fechado no mês"
+  abaixo. Frase de ritmo só aparece em 6M/12M (em "Ano" o mês corrente
+  incompleto já é óbvio pela posição, a frase ficaria redundante).
+- **KPI "Fechado no mês" ganha borda de atenção + seta pra baixo** quando
+  a variação vs. mês anterior é negativa (era sempre neutro/verde-ish,
+  "-73%" tinha o mesmo peso visual que "+18%"). Card ganhou
+  `id="ins-d-fech-card"` pra receber `.rd-card-warn` via JS.
+- **Rodapé Receita/Despesas/Resultado só aparece com despesa lançada NO
+  MÊS CORRENTE** (não no período do gráfico inteiro — o plano fala
+  especificamente de "despesa em agosto"). Sem despesa, um cartão novo
+  tracejado "Despesas não lançadas" (`#ins-desp-vazia-card`, terceiro
+  card do `.ins-col-direita`, abaixo de "Em que fase está") ocupa o
+  lugar do aviso, com link direto pra "Lançar despesas" —
+  `renderInsightsChart()` alterna `display` dos dois, nunca os dois
+  juntos. Regra geral do plano: "quando o denominador de um cálculo está
+  vazio, mostra o estado, nunca o resultado".
+
+**Não implementado, de propósito:** chip "Só urgentes" que aparece no
+mock ao lado do título da fila — a prosa do plano não descreve nenhum
+critério de filtro pra ele (só existe no visual), e um botão sem
+comportamento definido seria pior que não ter o botão. Registrado pra
+alguém decidir o critério antes de construir.
+
+Testado no browser local (`dbOk=true`, dado real de produção, 330
+orçamentos/121 OS/0 despesas — bate com o cenário que o próprio plano
+descreve): KPI "Fechado no mês" com borda de atenção e "-73% abaixo de
+julho"; fila com 16 grupos reais (vencido/sem cobrança/OS sem técnico/
+recompra agrupada/follow-up individual); grupo de recompra testado com
+lista sintética de 6 clientes — 4 visíveis + "Ver todos os 6" expande
+e "Ver menos" recolhe, sem re-render quebrado; gráfico com barra de
+agosto âmbar (projeção R$45.571,92 abaixo de julho) e rótulo de valor
+também âmbar; card "Despesas não lançadas" visível (despesas reais = 0);
+mobile 375px (fila logo após o hero, grid de recompra 2 colunas com
+ellipsis funcionando, gráfico e cards sem overflow) e desktop 1440px;
+zero erro novo no console. `sw.js` v161→v162.
+
+---
+
 ## Tarefa 4 fechada — "A Receber" unificado, soma as duas fontes (15/08, decisão do Marcos)
 
 Última pendência do plano de acabamento. Pergunta já registrada desde
