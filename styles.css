@@ -1519,91 +1519,129 @@
     .notif-vars{font-size:11px;color:var(--gray);margin-top:6px}
     .notif-vars code{background:white;border:1px solid var(--gray-mid);border-radius:4px;padding:1px 5px;font-size:11px;color:var(--c1)}
 
-    /* ── NOVO LOGIN ── */
-    /* ══ LOGIN ══ */
-    /* ══ LOGIN OVERLAY ══ */
-    .login-overlay{position:fixed;inset:0;z-index:9000;display:flex;align-items:stretch;overflow:hidden;background:var(--c2)}
-    /* Painel esquerdo — branding */
-    .login-left{flex:0 0 300px;background:linear-gradient(160deg,var(--c2) 0%,color-mix(in srgb,var(--c2) 80%,black) 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 32px;position:relative;overflow:hidden}
-    .login-left::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 30% 30%,rgba(255,255,255,.07) 0%,transparent 60%)}
-    .login-left::after{content:'';position:absolute;bottom:-80px;right:-80px;width:260px;height:260px;border-radius:50%;background:rgba(255,255,255,.04)}
-    .login-brand{text-align:center;position:relative;z-index:1;display:flex;flex-direction:column;align-items:center}
-    .login-brand-logo{width:80px;height:80px;border-radius:22px;object-fit:cover;margin:0 0 16px;display:block;box-shadow:0 12px 32px rgba(0,0,0,.4)}
-    .login-brand-initials{width:80px;height:80px;border-radius:22px;background:rgba(255,255,255,.13);margin:0 0 16px;display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:900;color:white;border:1.5px solid rgba(255,255,255,.18)}
-    .login-brand-name{font-size:20px;font-weight:800;color:white;letter-spacing:-.3px;line-height:1.2}
-    .login-brand-sub{font-size:12px;color:rgba(255,255,255,.4);margin-top:6px;font-weight:500}
-    .login-brand-tagline{font-size:11px;color:rgba(255,255,255,.25);margin-top:28px;line-height:1.6;font-style:italic;text-align:center;position:relative;z-index:1}
-    /* Painel direito — form */
-    .login-right{flex:1;overflow-y:auto;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:40px 28px;background:#f4f5f7}
-    .login-card{background:white;border-radius:18px;padding:28px;width:100%;max-width:400px;box-shadow:0 4px 24px rgba(0,0,0,.08);border:1px solid #e9ecef}
-    .login-card-title{font-size:18px;font-weight:800;color:var(--c2);margin-bottom:4px}
-    .login-card-sub{font-size:13px;color:var(--gray);margin-bottom:22px;font-weight:400}
-    /* Seção de usuários */
-    .login-section{margin-bottom:16px}
-    .login-section:last-child{margin-bottom:0}
-    .login-section-label{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--gray);margin-bottom:8px;display:flex;align-items:center;gap:8px}
-    .login-section-label::after{content:'';flex:1;height:1px;background:#f0f0f0}
-    /* Card de usuário — horizontal */
-    .login-user-list{display:flex;flex-direction:column;gap:6px}
-    .login-av-btn{display:flex;align-items:center;gap:14px;padding:11px 14px;border:1.5px solid #eef0f3;border-radius:12px;background:#fafbfc;cursor:pointer;font-family:'Instrument Sans',sans-serif;transition:all .15s;text-align:left;width:100%}
-    .login-av-btn:hover{background:var(--c1-light);border-color:var(--c1);transform:translateX(2px)}
-    .login-av-btn:active{transform:translateX(0)}
-    .login-av-btn.selected{background:var(--c1-light);border-color:var(--c1)}
-    .login-av-circle{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:800;color:white;flex-shrink:0;box-shadow:0 3px 10px rgba(0,0,0,.15)}
-    .login-av-info{flex:1;min-width:0}
-    .login-av-nome{font-size:13px;font-weight:700;color:var(--c2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .login-av-sub{font-size:11px;color:var(--gray);font-weight:400;margin-top:1px}
-    .login-av-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;flex-shrink:0;letter-spacing:.2px}
-    .login-av-badge.gestor{background:var(--c1-light);color:var(--c1)}
-    .login-av-badge.vendas{background:#fef3c7;color:#d97706}
-    .login-av-badge.tecnico{background:#eff6ff;color:#2563eb}
-    .login-av-arrow{font-size:14px;color:#d1d5db;flex-shrink:0;transition:color .15s}
-    .login-av-btn:hover .login-av-arrow{color:var(--c1)}
-    /* Versão slim — técnicos */
-    .login-av-btn.slim{padding:9px 12px;border-color:#f0f1f3}
-    .login-av-btn.slim .login-av-circle{width:36px;height:36px;font-size:14px}
-    .login-av-btn.slim .login-av-nome{font-size:12px}
-    .login-av-btn.slim .login-av-sub{font-size:10px}
-    /* Toggle recolher técnicos */
-    .login-tec-toggle{width:100%;display:flex;align-items:center;gap:8px;padding:10px 14px;background:#f8f9fc;border:1.5px solid #eef0f3;border-radius:12px;font-size:13px;font-weight:600;color:var(--c2);cursor:pointer;font-family:'Instrument Sans',sans-serif;transition:all .15s}
-    .login-tec-toggle:hover{border-color:var(--c1);background:var(--c1-light)}
-    /* PIN step */
+    /* ── LOGIN (Tarefa 3d, 15/08) — alinhado ao sistema de design das outras
+       9 fases: peso 600 (não 800/900), raio 14/12/10 (não 18/22), sombra
+       0 20px 44px -28px, sem estilo inline nos campos. Referência
+       Fluxa Login.dc.html. ── */
+    .login-overlay{position:fixed;inset:0;z-index:9000;display:flex;align-items:stretch;overflow:hidden;background:#0D131B}
+    /* Painel esquerdo — mesmo #0D131B da barra lateral, não var(--c2) (que
+       muda por empresa e podia brigar com o azul da marca). */
+    .login-left{flex:0 0 440px;background:#0D131B;display:flex;flex-direction:column;padding:40px 44px;position:relative;overflow:hidden}
+    .login-brand{display:flex;align-items:center;gap:12px;position:relative;z-index:1}
+    .login-brand-logo{width:40px;height:40px;border-radius:12px;object-fit:cover;display:block;flex-shrink:0}
+    .login-brand-initials{width:40px;height:40px;border-radius:12px;background:#0B62CE;display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:700;color:#fff;flex-shrink:0}
+    .login-brand-tx{display:flex;flex-direction:column;min-width:0}
+    .login-brand-name{font-size:17px;font-weight:600;color:#F2F6FB;letter-spacing:-.01em;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .login-brand-sub{font-size:12px;color:#93A1B3;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .login-left-foot{margin-top:auto;display:flex;flex-direction:column;gap:22px;position:relative;z-index:1}
+    .login-brand-tagline{font-size:26px;font-weight:600;color:#F2F6FB;letter-spacing:-.02em;line-height:1.25;text-wrap:pretty}
+    .login-left-feats{display:flex;flex-direction:column;gap:11px}
+    .login-left-feat{display:flex;align-items:center;gap:11px}
+    .login-left-feat svg{flex-shrink:0;stroke:#6FA8E8}
+    .login-left-feat span{font-size:13px;color:#B4C1D1}
+    .login-left-bottom{margin-top:40px;padding-top:18px;border-top:1px solid #1B2430;display:flex;align-items:center;justify-content:space-between;position:relative;z-index:1}
+    .login-left-bottom span{font-size:11px;color:#6B7686}
+    .login-left-bottom a{font-size:11px;color:#93A1B3}
+
+    .login-right{flex:1;overflow-y:auto;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 28px;background:#F7F9FC}
+    .login-card{background:#fff;border-radius:14px;padding:28px;width:100%;max-width:400px;box-shadow:0 20px 44px -28px rgba(16,28,48,.22);border:1px solid #DFE5EE;animation:lg-in 220ms cubic-bezier(.2,.8,.2,1) both}
+    .login-card-title{font-size:20px;font-weight:600;color:#101720;letter-spacing:-.02em;margin-bottom:4px}
+    .login-card-sub{font-size:13px;color:#4E5867;margin-bottom:0;font-weight:400}
+
+    /* Campo com ícone — mesmo padrão de borda/foco do .rd-field-box do
+       resto do app, só mais alto (42px) porque aqui é a única ação da tela. */
+    .login-input-wrap{height:42px;border:1.5px solid #C9D4E2;border-radius:10px;padding:0 13px;display:flex;align-items:center;gap:9px;background:#fff;transition:border-color .12s,box-shadow .12s}
+    .login-input-wrap:focus-within{border-color:#0B62CE;box-shadow:0 0 0 3px rgba(11,98,206,.18)}
+    .login-input-wrap svg{flex-shrink:0;stroke:#8D99A9}
+    .login-input{flex:1;min-width:0;border:none;outline:none;background:none;font-size:15px;color:#101720;font-family:'Instrument Sans',sans-serif}
+
+    .login-suggest{display:none;background:#fff;border:1px solid #DFE5EE;border-radius:10px;overflow:hidden;max-height:200px;overflow-y:auto;margin-top:4px}
+    .login-suggest-item{display:flex;align-items:center;gap:10px;padding:10px 13px;cursor:pointer;border-bottom:1px solid #EDF1F7;transition:background .1s}
+    .login-suggest-item:last-child{border-bottom:none}
+    .login-suggest-item:hover,.login-suggest-item.active{background:#F5F9FF;border-left:3px solid #0B62CE;padding-left:10px}
+    .login-suggest-avatar{width:28px;height:28px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#fff;flex-shrink:0;background:#EDF1F7;color:#41506A}
+    .login-suggest-item.active .login-suggest-avatar{background:#0B62CE;color:#fff}
+    .login-suggest-tx{display:flex;flex-direction:column;flex:1;min-width:0}
+    .login-suggest-nome{font-size:13px;font-weight:600;color:#101720;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .login-suggest-sub{font-size:11px;color:#6B7686}
+
+    .login-pin-lblrow{display:flex;align-items:baseline;justify-content:space-between}
+    .login-pin-hint{font-size:11px;color:#6B7686}
+    .login-pin-boxes{display:flex;gap:8px}
+    .login-pin-boxes.shake{animation:lg-shake 320ms cubic-bezier(.36,.07,.19,.97) both}
+    .login-pin-box{flex:1;height:52px;border:1.5px solid #C9D4E2;border-radius:10px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:600;color:#101720;transition:border-color .12s,box-shadow .12s,background .12s}
+    .login-pin-box.on{border-color:#0B62CE;box-shadow:0 0 0 3px rgba(11,98,206,.18)}
+    .login-pin-boxes.error .login-pin-box{border-color:#E9C9C3;background:#FDF6F5}
+    .login-pin-input{position:absolute;opacity:0;width:1px;height:1px;pointer-events:none}
+
+    .login-err{margin-top:10px;background:#FBEAE7;border-radius:10px;padding:11px 13px;display:none;align-items:flex-start;gap:9px}
+    .login-err.on{display:flex}
+    .login-err-ico{width:20px;height:20px;border-radius:6px;background:#F6D9D4;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;font-weight:700;color:#9C3A2E;line-height:1}
+    .login-err-tx{display:flex;flex-direction:column;gap:2px;flex:1}
+    .login-err-title{font-size:12px;font-weight:600;color:#9C3A2E}
+    .login-err-msg{font-size:12px;color:#4E5867;line-height:1.4}
+
+    .login-remember{margin-top:14px;display:flex;align-items:center;gap:9px;cursor:pointer;user-select:none}
+    .login-remember-box{width:18px;height:18px;border-radius:5px;border:1.5px solid #C9D4E2;background:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .12s,border-color .12s}
+    .login-remember-box svg{opacity:0;stroke:#fff;transition:opacity .1s}
+    .login-remember input:checked~.login-remember-box{background:#0B62CE;border-color:#0B62CE}
+    .login-remember input:checked~.login-remember-box svg{opacity:1}
+    .login-remember input:focus-visible~.login-remember-box{box-shadow:0 0 0 3px rgba(11,98,206,.18)}
+    .login-remember span:last-child{font-size:13px;color:#4E5867}
+
+    .login-btn{margin-top:18px;width:100%;padding:14px;background:#0B62CE;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;font-family:'Instrument Sans',sans-serif;transition:background .12s;display:flex;align-items:center;justify-content:center;gap:9px}
+    .login-btn:hover{background:#084C9F}
+    .login-btn:disabled{background:#084C9F;cursor:default}
+    .login-btn-spinner{display:none;width:15px;height:15px;border-radius:999px;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;animation:lg-spin 700ms linear infinite;flex-shrink:0}
+    .login-btn.busy .login-btn-spinner{display:block}
+
+    .login-forgot{margin-top:16px;padding-top:14px;border-top:1px solid #EDF1F7;display:flex;align-items:center;justify-content:space-between;gap:10px}
+    .login-forgot span:first-child{font-size:12px;color:#6B7686}
+    .login-forgot-link{font-size:12px;font-weight:600;color:#0B62CE;cursor:pointer;background:none;border:none;font-family:'Instrument Sans',sans-serif;padding:0}
+
     .login-pin-step{display:none}
     .login-pin-step.show{display:block}
-    .login-pin-back{background:none;border:none;font-size:12px;color:var(--gray);cursor:pointer;font-family:'Instrument Sans',sans-serif;font-weight:700;padding:0;margin-bottom:20px;display:flex;align-items:center;gap:5px}
-    .login-pin-back:hover{color:var(--c2)}
-    .login-pin-user{display:flex;align-items:center;gap:14px;padding:14px 16px;background:#f8f9fc;border-radius:14px;margin-bottom:24px;border:1.5px solid #eef0f3}
-    .login-pin-user-info .login-av-nome{font-size:14px}
-    .login-pin-user-info .login-av-sub{font-size:12px}
-    /* Dots PIN */
-    .login-pin-dots{display:flex;gap:14px;justify-content:center;margin-bottom:8px}
-    .login-pin-dot{width:14px;height:14px;border-radius:50%;background:#e5e7eb;transition:all .2s}
-    .login-pin-dot.filled{background:var(--c1);transform:scale(1.1)}
-    .login-pin-tap{width:100%;padding:14px;background:#f8f9fc;border:2px solid #e5e7eb;border-radius:12px;font-size:15px;font-weight:700;color:var(--c2);text-align:center;cursor:text;margin-bottom:12px;letter-spacing:10px;font-family:monospace;transition:border-color .15s}
-    .login-pin-tap:focus{border-color:var(--c1);outline:none;background:var(--c1-light)}
-    .login-err{font-size:12px;color:var(--red);font-weight:600;min-height:18px;margin-bottom:10px;text-align:center}
-    .login-btn{width:100%;padding:14px;background:var(--c1);color:white;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;font-family:'Instrument Sans',sans-serif;transition:opacity .15s;letter-spacing:.2px}
-    .login-btn:hover{opacity:.88}
-    .login-btn:disabled{opacity:.4;cursor:default}
-    /* Picker empresa */
+    .login-pin-back{background:none;border:none;font-size:12px;color:#4E5867;cursor:pointer;font-family:'Instrument Sans',sans-serif;font-weight:600;padding:0;margin-bottom:16px;display:flex;align-items:center;gap:6px}
+    .login-pin-back:hover{color:#101720}
+    .login-pin-back svg{stroke:#4E5867}
+
     .login-loja-step{display:none}
     .login-loja-step.show{display:block}
     .login-loja-grid{display:flex;flex-direction:column;gap:8px;margin-top:14px}
-    .login-loja-btn{display:flex;align-items:center;gap:12px;padding:12px 14px;background:#f8f9fc;border:2px solid transparent;border-radius:12px;cursor:pointer;font-family:'Instrument Sans',sans-serif;transition:all .15s;width:100%;text-align:left}
-    .login-loja-btn:hover{border-color:var(--c1);background:var(--c1-light)}
-    .login-loja-circle{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;color:white;flex-shrink:0}
-    .login-loja-info-nome{font-size:13px;font-weight:700;color:var(--c2)}
-    .login-loja-info-sub{font-size:11px;color:var(--gray);margin-top:1px}
-    /* Mobile: empilha */
+    .login-loja-btn{display:flex;align-items:center;gap:12px;padding:13px 14px;background:#fff;border:1px solid #DFE5EE;border-radius:12px;cursor:pointer;font-family:'Instrument Sans',sans-serif;transition:all .12s;width:100%;text-align:left}
+    .login-loja-btn:hover{border-color:#9FC1EC;background:#F7F9FC}
+    .login-loja-btn.current{border:1.5px solid #0B62CE;background:#F5F9FF}
+    .login-loja-check{display:none;flex-shrink:0;stroke:#0B62CE}
+    .login-loja-btn.current .login-loja-check{display:block}
+    .login-loja-circle{width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;color:white;flex-shrink:0}
+    .login-loja-info{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0}
+    .login-loja-info-nome{font-size:14px;font-weight:600;color:#101720}
+    .login-loja-info-sub{font-size:11px;color:#6B7686}
+    /* Rótulo de grupo dentro do picker (ex.: "Outras empresas") — reaproveita
+       o mesmo estilo dos rótulos de grupo da sidebar, só que claro (fundo
+       branco aqui, não escuro). */
+    .login-section-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:#93A1B3;margin-top:14px;margin-bottom:2px}
+
+    @keyframes lg-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes lg-shake{10%,90%{transform:translateX(-2px)}30%,70%{transform:translateX(3px)}50%{transform:translateX(-3px)}}
+    @keyframes lg-spin{to{transform:rotate(360deg)}}
+    @media(prefers-reduced-motion:reduce){
+      .login-card,.login-pin-boxes.shake,.login-btn-spinner{animation-duration:.01ms!important}
+    }
+
+    /* Mobile: empilha, painel escuro vira topo compacto */
     @media(max-width:620px){
       .login-overlay{flex-direction:column}
-      .login-left{flex:0 0 auto;padding:28px 24px 24px;flex-direction:row;gap:16px;justify-content:flex-start}
-      .login-brand{display:flex;flex-direction:row;align-items:center;gap:14px;text-align:left}
-      .login-brand-logo,.login-brand-initials{width:52px;height:52px;border-radius:14px;margin:0;font-size:22px}
-      .login-brand-name{font-size:16px}
-      .login-brand-sub{font-size:11px;margin-top:2px}
-      .login-brand-tagline{display:none}
-      .login-right{padding:20px 16px 40px;justify-content:flex-start}
+      .login-left{flex:0 0 auto;padding:16px 24px 22px}
+      .login-left-foot{display:none}
+      .login-brand-logo,.login-brand-initials{width:36px;height:36px;border-radius:11px;font-size:17px}
+      .login-brand-name{font-size:15px}
+      .login-right{padding:22px 20px;justify-content:flex-start}
+      .login-card{border:none;box-shadow:none;padding:0;animation:none;max-width:none}
+      .login-input-wrap{height:46px}
+      .login-pin-box{height:58px;font-size:24px}
+      .login-remember-box{width:20px;height:20px;border-radius:6px}
+      .login-btn{padding:16px;font-size:16px;border-radius:12px}
     }
 
     /* ── HEADER USER BADGE ── */

@@ -289,6 +289,7 @@ function fazerLogout(){
   closeSidebar();
   document.body.classList.add('no-sbar');
   clearSessao();
+  limparSessaoLembrada();
   loginUserSelecionado=null;
   // Resetar passos
   const su=document.getElementById('login-step-users');
@@ -581,9 +582,28 @@ async function carregarUsuarios(){
 }
 
 
+// PIN em 4 caixas (Tarefa 3d, 15/08) — o input real (#pin-input) continua
+// sendo a única fonte de dado; as caixas são só display. Isso preserva
+// autofill/colar/teclado numérico do Android, que quebram se viram 4
+// inputs de verdade (o handoff já avisava disso).
 function atualizarDotsPIN(val){
-  // No novo formulário não há dots visuais — apenas foco automático ao completar 4 dígitos
-  if(val && val.length === 4) setTimeout(fazerLogin, 80);
+  val = val || '';
+  const boxes = document.querySelectorAll('#login-pin-boxes .login-pin-box');
+  boxes.forEach((b,i)=>{ b.textContent = i < val.length ? '•' : ''; });
+  if(val.length){
+    document.getElementById('login-pin-boxes')?.classList.remove('error');
+    _loginErrLimpar();
+  }
+  _loginPinFocusUI(document.activeElement === document.getElementById('pin-input'));
+  if(val.length === 4) setTimeout(fazerLogin, 80);
+}
+// Caixa "ativa" (próxima a receber dígito) ganha a borda azul — só enquanto
+// o input real está focado, senão nenhuma caixa fica marcada.
+function _loginPinFocusUI(focado){
+  const boxes = document.querySelectorAll('#login-pin-boxes .login-pin-box');
+  const val = document.getElementById('pin-input')?.value || '';
+  const ativo = Math.min(val.length, 3);
+  boxes.forEach((b,i)=>b.classList.toggle('on', focado && i===ativo));
 }
 
 
@@ -601,23 +621,46 @@ function renderLoginUsers(){
   if(inp && inp.value.trim()) loginNomeInput(inp.value);
 }
 
+// Sugestões de nome (Tarefa 3d, 15/08) — inicial colorida, nome, papel +
+// unidade (achado do handoff: antes só mostrava o nome, e em empresa com
+// homônimo não dava pra escolher). Navegável por seta/Enter (loginNomeKeydown).
+const _PERFIL_LABEL={master:'Master',gestor:'Gestor',vendas:'Vendas',tecnico:'Técnico'};
+let _loginSugestaoIdx = -1;
 function loginNomeInput(val){
   const box = document.getElementById('login-nome-sugestoes'); if(!box) return;
   loginUserSelecionado = null; // reset ao digitar
+  _loginSugestaoIdx = -1;
   const q = val.trim().toLowerCase();
   if(q.length < 2){ box.style.display='none'; box.innerHTML=''; return; }
   const matches = _loginUsersCache.filter(u=>u.nome.toLowerCase().includes(q)).slice(0,6);
   if(!matches.length){ box.style.display='none'; box.innerHTML=''; return; }
-  const perfilEmoji={master:'👑',gestor:'🛡️',vendas:'💼',tecnico:'🔧'};
-  box.innerHTML = matches.map(u=>`
-    <button type="button" onclick="loginEscolherSugestao('${u.id}')"
-      style="display:flex;align-items:center;gap:10px;width:100%;padding:9px 14px;border:none;background:none;cursor:pointer;text-align:left;transition:background .1s"
-      onmouseenter="this.style.background='var(--c1-bg)'" onmouseleave="this.style.background='none'">
-      <span style="font-size:16px">${perfilEmoji[u.perfil]||'🔧'}</span>
-      <span style="font-size:14px;font-weight:600;color:var(--c2)">${esc(u.nome)}</span>
-      <span style="font-size:12px;color:var(--gray);margin-left:auto">${u.loja_nome||''}</span>
-    </button>`).join('');
+  box.innerHTML = matches.map((u,i)=>{
+    const iniciais=(u.nome||'').trim().split(/\s+/).slice(0,2).map(p=>p[0]).join('').toUpperCase();
+    const sub=[_PERFIL_LABEL[u.perfil]||u.perfil, u.loja_nome||getLojaNome(u.loja_id)||''].filter(Boolean).join(' · ');
+    return `<div class="login-suggest-item" data-idx="${i}" onclick="loginEscolherSugestao('${u.id}')" onmouseenter="_loginSugestaoHover(${i})">
+      <div class="login-suggest-avatar">${esc(iniciais)}</div>
+      <div class="login-suggest-tx">
+        <span class="login-suggest-nome">${esc(u.nome)}</span>
+        <span class="login-suggest-sub">${esc(sub)}</span>
+      </div>
+    </div>`;
+  }).join('');
   box.style.display='block';
+}
+function _loginSugestaoHover(i){
+  _loginSugestaoIdx=i;
+  document.querySelectorAll('#login-nome-sugestoes .login-suggest-item').forEach((el,idx)=>el.classList.toggle('active', idx===i));
+}
+function loginNomeKeydown(e){
+  const box=document.getElementById('login-nome-sugestoes');
+  const itens=box&&box.style.display!=='none' ? Array.from(box.querySelectorAll('.login-suggest-item')) : [];
+  if(e.key==='ArrowDown' && itens.length){ e.preventDefault(); _loginSugestaoHover(Math.min(_loginSugestaoIdx+1, itens.length-1)); itens[_loginSugestaoIdx].scrollIntoView({block:'nearest'}); }
+  else if(e.key==='ArrowUp' && itens.length){ e.preventDefault(); _loginSugestaoHover(Math.max(_loginSugestaoIdx-1, 0)); itens[_loginSugestaoIdx].scrollIntoView({block:'nearest'}); }
+  else if(e.key==='Enter'){
+    if(itens.length && _loginSugestaoIdx>=0){ e.preventDefault(); itens[_loginSugestaoIdx].click(); }
+    else document.getElementById('pin-input').focus();
+  }
+  else if(e.key==='Escape' && itens.length){ box.style.display='none'; box.innerHTML=''; }
 }
 
 function loginEscolherSugestao(id){
@@ -627,7 +670,7 @@ function loginEscolherSugestao(id){
   if(inp) inp.value = u.nome;
   const box = document.getElementById('login-nome-sugestoes');
   if(box){ box.style.display='none'; box.innerHTML=''; }
-  document.getElementById('login-err').textContent='';
+  _loginErrLimpar();
   setTimeout(()=>document.getElementById('pin-input').focus(), 80);
 }
 
@@ -668,36 +711,92 @@ async function pinValido(input, stored){
 
 function iniciarCountdownLockout(){
   if(lockoutTimer) clearInterval(lockoutTimer);
-  lockoutTimer = setInterval(()=>{
+  const tick=()=>{
     const resto = loginLockedUntil - Date.now();
     if(resto <= 0){
       clearInterval(lockoutTimer); lockoutTimer = null;
-      const e = document.getElementById('login-err'); if(e) e.textContent='';
+      _loginErrLimpar();
     } else {
-      const e = document.getElementById('login-err');
-      if(e) e.textContent = `Muitas tentativas. Aguarde ${Math.ceil(resto/1000)}s.`;
+      _loginErrMostrar('Muitas tentativas', `Aguarde ${Math.ceil(resto/1000)}s para tentar de novo.`);
     }
-  }, 500);
+  };
+  tick();
+  lockoutTimer = setInterval(tick, 500);
 }
 
+// Erro com título + explicação (Tarefa 3d, 15/08) — antes era uma linha de
+// texto vermelho sem dizer quantas tentativas restam nem como resolver.
+// Os números (3 tentativas, 30s de bloqueio) são os REAIS do mecanismo já
+// existente (loginAttempts/loginLockedUntil) — não inventados pro visual.
+function _loginErrMostrar(titulo, msg){
+  const el=document.getElementById('login-err'); if(!el) return;
+  document.getElementById('login-err-title').textContent = titulo;
+  document.getElementById('login-err-msg').textContent = msg;
+  el.classList.add('on');
+}
+function _loginErrLimpar(){
+  document.getElementById('login-err')?.classList.remove('on');
+}
+function _loginBusy(on){
+  const btn=document.getElementById('login-btn'); if(!btn) return;
+  btn.classList.toggle('busy', on);
+  btn.disabled = on;
+  const lbl=document.getElementById('login-btn-label'); if(lbl) lbl.textContent = on?'Entrando…':'Entrar';
+}
+// PIN errado: o bloco de 4 caixas treme e fica vermelho por um instante —
+// mesma curva do handoff (lg-shake, 320ms). Volta ao normal sozinho.
+function _loginPinShake(){
+  const wrap=document.getElementById('login-pin-boxes'); if(!wrap) return;
+  wrap.classList.add('error');
+  wrap.classList.remove('shake'); void wrap.offsetWidth; // reinicia a animação se dois erros seguidos
+  wrap.classList.add('shake');
+  setTimeout(()=>wrap.classList.remove('shake'), 340);
+}
+
+// ── "Manter conectado" (Tarefa 3d, 15/08) — não existia antes: o técnico
+// digitava o PIN toda vez que abria o app em campo. Sessão de verdade
+// continua em sessionStorage (getSessao/setSessao, inalterados); isto é só
+// uma cópia com prazo em localStorage que o boot usa pra restaurar a
+// sessionStorage sozinho, sem pedir PIN de novo, por até 30 dias.
+const LS_REMEMBER_KEY = 'fluxa_remember_session';
+const REMEMBER_DIAS = 30;
+function setSessaoLembrada(sessao){
+  try{ localStorage.setItem(LS_REMEMBER_KEY, JSON.stringify({sessao, exp: Date.now()+REMEMBER_DIAS*24*60*60*1000})); }catch(e){}
+}
+function getSessaoLembrada(){
+  try{
+    const raw=localStorage.getItem(LS_REMEMBER_KEY); if(!raw) return null;
+    const obj=JSON.parse(raw);
+    if(!obj||!obj.sessao||!obj.exp||Date.now()>obj.exp){ localStorage.removeItem(LS_REMEMBER_KEY); return null; }
+    return obj.sessao;
+  }catch(e){ return null; }
+}
+function limparSessaoLembrada(){ try{ localStorage.removeItem(LS_REMEMBER_KEY); }catch(e){} }
+// Capturado no clique de "Entrar" (fazerLogin) e lido depois nos pontos que
+// finalizam a sessão — inclusive os dois que passam pela escolha de
+// empresa (confirmarLojaGestor/confirmarEmpresaTecnico), onde o checkbox
+// já não está mais na tela.
+let _loginManterConectado = false;
+
 async function fazerLogin(){
-  const err = document.getElementById('login-err');
   if(Date.now() < loginLockedUntil){ return; }
 
   // Resolve usuário: sugestão clicada OU busca pelo nome digitado
   if(!loginUserSelecionado){
     const nomeDigitado = (document.getElementById('login-nome-input')?.value||'').trim().toLowerCase();
-    if(!nomeDigitado){ err.textContent='Digite seu nome.'; return; }
+    if(!nomeDigitado){ _loginErrMostrar('Digite seu nome', 'O campo de nome está vazio.'); return; }
     const encontrados = _loginUsersCache.filter(u=>u.nome.toLowerCase()===nomeDigitado);
-    if(!encontrados.length){ err.textContent='Nome não encontrado. Verifique ou selecione da lista.'; return; }
-    if(encontrados.length > 1){ err.textContent='Nome ambíguo — selecione da lista.'; return; }
+    if(!encontrados.length){ _loginErrMostrar('Nome não encontrado', 'Confira a digitação ou selecione um nome da lista de sugestões.'); return; }
+    if(encontrados.length > 1){ _loginErrMostrar('Nome ambíguo', 'Mais de uma pessoa com esse nome — selecione da lista de sugestões.'); return; }
     const u = encontrados[0];
     loginUserSelecionado = {id:u.id, perfil:u.perfil, nome:u.nome, loja_id:u.loja_id};
   }
 
   const pin = document.getElementById('pin-input').value;
-  if(!pin || pin.length < 4){ err.textContent='Digite os 4 dígitos da senha.'; return; }
+  if(!pin || pin.length < 4){ _loginErrMostrar('Senha incompleta', 'Digite os 4 dígitos da senha.'); return; }
 
+  _loginManterConectado = document.getElementById('login-remember')?.checked || false;
+  _loginBusy(true);
   let pinCorreto = false;
   if(loginUserSelecionado.id === '__gestor__'){
     pinCorreto = await pinValido(pin, CFG.pin||'1234');
@@ -712,14 +811,16 @@ async function fazerLogin(){
   if(pinCorreto){
     loginAttempts = 0; loginLockedUntil = 0;
     localStorage.removeItem(LS_LOCKOUT_KEY); localStorage.removeItem(LS_ATTEMPTS_KEY);
-    err.textContent = '';
+    _loginErrLimpar();
     if(loginUserSelecionado.id === '__gestor__'){
       // Gestor principal da Forthemp → escolhe qual unidade gerenciar
+      _loginBusy(false);
       document.getElementById('login-step-pin').classList.remove('show');
       mostrarSelecaoLojaGestor();
     } else if((loginUserSelecionado.perfil==='master'||loginUserSelecionado.perfil==='gestor') && !loginUserSelecionado.loja_id){
       // Master/gestor geral → escolhe a empresa (Forthemp todas/unidade ou Aquamotor)
       // Era aqui que o Marcos caía direto em "Todas" sem ver a opção da Aquamotor.
+      _loginBusy(false);
       document.getElementById('login-step-pin').classList.remove('show');
       mostrarSelecaoLojaGestor();
     } else if(loginUserSelecionado.perfil === 'gestor' && loginUserSelecionado.loja_id){
@@ -728,6 +829,7 @@ async function fazerLogin(){
       sessionStorage.setItem('fluxa_loja_ativa', lojaAtiva);
       const sessao = {perfil:'gestor', loja_id:loginUserSelecionado.loja_id, nome:loginUserSelecionado.nome};
       setSessao(sessao);
+      if(_loginManterConectado) setSessaoLembrada(sessao); else limparSessaoLembrada();
       document.getElementById('login-overlay').style.display = 'none';
       atualizarBadgeUsuario();
       aplicarPermissoesPerfil();
@@ -741,6 +843,7 @@ async function fazerLogin(){
       // Inclui técnico com loja FIXA mas com acesso a empresa separada (ex.:
       // Bruno, fortemp-camboriu, que também faz as vistorias da Aquamotor —
       // sem isto ele caía direto na Fortemp e nunca via os locais da Aquamotor).
+      _loginBusy(false);
       document.getElementById('login-step-pin').classList.remove('show');
       mostrarSelecaoEmpresaTecnico();
     } else {
@@ -748,6 +851,7 @@ async function fazerLogin(){
       lojaAtiva = loginUserSelecionado.loja_id || '';
       const sessao = {perfil:loginUserSelecionado.perfil, loja_id:loginUserSelecionado.loja_id, nome:loginUserSelecionado.nome};
       setSessao(sessao);
+      if(_loginManterConectado) setSessaoLembrada(sessao); else limparSessaoLembrada();
       document.getElementById('login-overlay').style.display = 'none';
       atualizarBadgeUsuario();
       aplicarPermissoesPerfil();
@@ -756,6 +860,7 @@ async function fazerLogin(){
       go(telaInicial(sessao));
     }
   } else {
+    _loginBusy(false);
     loginAttempts++;
     lsSet(LS_ATTEMPTS_KEY, loginAttempts);
     if(loginAttempts >= 3){
@@ -765,13 +870,30 @@ async function fazerLogin(){
       localStorage.removeItem(LS_ATTEMPTS_KEY);
       iniciarCountdownLockout();
     } else {
-      err.textContent = `PIN incorreto. ${3 - loginAttempts} tentativa(s) restante(s).`;
+      _loginErrMostrar('Senha incorreta', `Restam ${3 - loginAttempts} tentativa(s) antes do bloqueio de 30 segundos. Peça para um gestor redefinir sua senha em Usuários.`);
     }
+    _loginPinShake();
     document.getElementById('pin-input').value = '';
     atualizarDotsPIN('');
     document.getElementById('pin-input').focus();
   }
 }
+
+// Conta orçamentos abertos (pendente/vencido) de uma loja — mesma função que
+// já alimenta a fila de follow-up, sem duplicar cálculo. '' = grupo Forthemp inteiro.
+// Retorna null (não 0) quando `todosOrc` ainda não carregou — o login acontece
+// ANTES do boot buscar orçamentos (loadHist só roda ao entrar em Histórico/
+// Insights), então mostrar "0 orçamentos" aqui seria sempre falso, não real.
+function _loginOrcAbertosLoja(lojaId){
+  try{
+    if(!(todosOrc||[]).length) return null;
+    return todosOrc.filter(o=>{
+      if(!orcAbertoNoPipeline(o)) return false;
+      return lojaId ? o.loja_id===lojaId : GRUPO_FORTHEMP.includes(o.loja_id||'');
+    }).length;
+  }catch(e){ return null; }
+}
+const _LOGIN_CHECK_SVG='<svg class="login-loja-check" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
 
 function mostrarSelecaoLojaGestor(){
   const list=document.getElementById('login-loja-list');
@@ -780,25 +902,33 @@ function mostrarSelecaoLojaGestor(){
   // Empresas separadas só aparecem para quem tem acesso (ex.: Aquamotor → Marcos/Tamara)
   const outros=LOJAS.filter(l=>l.grupo!=='forthemp' && podeAcessarGrupo(l.grupo, _nomeLogin));
   const corGrupo={aquamotor:'#16a34a'};
+  const atual=sessionStorage.getItem('fluxa_loja_ativa')||'';
 
   function lojaBtn(id, cor, icon, nome, sub){
-    return `<button class="login-loja-btn" onclick="confirmarLojaGestor('${id}')">
+    const cur = id===atual;
+    return `<button class="login-loja-btn${cur?' current':''}" onclick="confirmarLojaGestor('${id}')">
       <div class="login-loja-circle" style="background:${cor}">${icon}</div>
-      <div>
+      <div class="login-loja-info">
         <div class="login-loja-info-nome">${nome}</div>
         <div class="login-loja-info-sub">${sub}</div>
       </div>
+      ${_LOGIN_CHECK_SVG}
     </button>`;
   }
 
-  let html = lojaBtn('','var(--c1)','📊','Todas as unidades','Camboriú + Itapema consolidado');
+  function subAberto(n, fallback){ return n===null ? fallback : `${n} orçamento(s) aberto(s)`; }
+
+  const nAbertoTodos=_loginOrcAbertosLoja('');
+  let html = lojaBtn('','var(--c1)','📊','Todas as unidades',subAberto(nAbertoTodos,'Camboriú + Itapema consolidado'));
   forthemp.forEach(l=>{
-    html += lojaBtn(l.id,'var(--c2)',l.nome.replace('Fortemp ','').charAt(0),esc(l.nome),'Gerenciar esta unidade');
+    const n=_loginOrcAbertosLoja(l.id);
+    html += lojaBtn(l.id,'var(--c2)',l.nome.replace('Fortemp ','').charAt(0),esc(l.nome),subAberto(n,'Gerenciar esta unidade'));
   });
   if(outros.length){
     html += `<div class="login-section-label" style="margin-top:14px">Outras empresas</div>`;
     outros.forEach(l=>{
-      html += lojaBtn(l.id,corGrupo[l.grupo]||'var(--blue)',l.nome.charAt(0),esc(l.nome),'Gerenciar empresa');
+      const n=_loginOrcAbertosLoja(l.id);
+      html += lojaBtn(l.id,corGrupo[l.grupo]||'var(--blue)',l.nome.charAt(0),esc(l.nome),subAberto(n,'Gerenciar empresa'));
     });
   }
 
@@ -819,6 +949,7 @@ function confirmarLojaGestor(lojaId){
   const nome=ehReal&&u.nome?u.nome:(loja?'Gestor '+loja.nome:'Gestor');
   const sessao={perfil,loja_id:null,nome};
   setSessao(sessao);
+  if(_loginManterConectado) setSessaoLembrada(sessao); else limparSessaoLembrada();
   document.getElementById('login-overlay').style.display='none';
   document.getElementById('login-step-loja').classList.remove('show');
   atualizarBadgeUsuario();
@@ -831,13 +962,16 @@ function confirmarLojaGestor(lojaId){
 function mostrarSelecaoEmpresaTecnico(){
   const list=document.getElementById('login-loja-list');
   const corGrupo={forthemp:'var(--c1)',aquamotor:'#16a34a'};
+  const atual=sessionStorage.getItem('fluxa_vis_empresa_tec')||'';
   function empBtn(grupo,icon,nome,sub){
-    return `<button class="login-loja-btn" onclick="confirmarEmpresaTecnico('${grupo}')">
+    const cur = grupo===atual;
+    return `<button class="login-loja-btn${cur?' current':''}" onclick="confirmarEmpresaTecnico('${grupo}')">
       <div class="login-loja-circle" style="background:${corGrupo[grupo]}">${icon}</div>
-      <div>
+      <div class="login-loja-info">
         <div class="login-loja-info-nome">${nome}</div>
         <div class="login-loja-info-sub">${sub}</div>
       </div>
+      ${_LOGIN_CHECK_SVG}
     </button>`;
   }
   // Aquamotor só para técnicos com acesso. Se só sobrar Fortemp, entra direto (sem picker).
@@ -862,6 +996,7 @@ function confirmarEmpresaTecnico(grupo){
   const _lojaSessao = (grupo==='aquamotor') ? null : (loginUserSelecionado.loja_id||null);
   const sessao={perfil:'tecnico', loja_id:_lojaSessao, nome:loginUserSelecionado.nome, empresa_tec:grupo};
   setSessao(sessao);
+  if(_loginManterConectado) setSessaoLembrada(sessao); else limparSessaoLembrada();
   document.getElementById('login-overlay').style.display='none';
   document.getElementById('login-step-loja').classList.remove('show');
   atualizarBadgeUsuario();
@@ -982,7 +1117,13 @@ function lsOrcProxNum(){ return lsOrcLer().reduce((a,o)=>Math.max(a,o.numero||0)
   seedTecnicosIniciais();
 
   // ── Login check ──
-  const sessaoExistente = getSessao();
+  // "Manter conectado" (Tarefa 3d): sem sessão de aba (sessionStorage, some ao
+  // fechar), tenta a sessão lembrada de até 30 dias antes de exigir PIN de novo.
+  let sessaoExistente = getSessao();
+  if(!sessaoExistente){
+    const lembrada = getSessaoLembrada();
+    if(lembrada){ setSessao(lembrada); sessaoExistente = lembrada; }
+  }
   if(sessaoExistente){
     // Restaura loja ativa: gestor específico usa loja_id da sessão;
     // gestor principal usa o valor salvo no sessionStorage (persiste em F5)
@@ -999,6 +1140,15 @@ function lsOrcProxNum(){ return lsOrcLer().reduce((a,o)=>Math.max(a,o.numero||0)
     try{ todosUsuarios=JSON.parse(ls('fluxa_usuarios')||'[]'); }catch(e){ todosUsuarios=[]; }
     renderLoginUsers();
     document.getElementById('login-overlay').style.display='flex';
+    // Celular = o mesmo aparelho de campo do técnico o dia inteiro → "manter
+    // conectado" já vem marcado. Desktop (mesa, pode ser compartilhado) começa
+    // desmarcado — o gestor decide por sessão. `requestAnimationFrame` porque
+    // `window.innerWidth` pode não estar assentado ainda neste ponto do boot
+    // síncrono (pego em teste: lia 0 e marcava até em tela larga).
+    requestAnimationFrame(()=>{
+      const _remCk=document.getElementById('login-remember');
+      if(_remCk) _remCk.checked = window.innerWidth < 680;
+    });
   }
 
   // ── Credenciais do Supabase (vêm do config.js da empresa; fallback nos defaults) ──

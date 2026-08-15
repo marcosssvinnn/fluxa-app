@@ -2,6 +2,107 @@
 
 ---
 
+## Tarefa 3d — Redesign da tela de login (15/08)
+
+Novo handoff (`design_handoff_fluxa_redesign 3/`, "Fluxa Login.dc.html" +
+seção nova no `PLANO-ACABAMENTO.md`) pedindo pra refazer a tela de login do
+zero: painel de branding à esquerda + card de formulário à direita, PIN em
+caixas visuais, sugestão de nome com avatar, erro com título+explicação,
+"manter conectado", e o seletor de empresa/unidade redesenhado.
+
+**Reaproveitado, não recriado:** o mecanismo de lockout real (3 tentativas,
+30s — `loginAttempts`/`loginLockedUntil`) já existia e é o que a UI nova
+mostra; o hash de PIN (`pinValido()`, SHA-256 + fallback legado) não mudou;
+`fazerLogin()` continua com os mesmos 4 ramos de sucesso (gestor principal,
+master/gestor sem loja, gestor com loja, técnico multi-empresa, técnico/
+vendas fixo) — só o que cada ramo faz na tela mudou, não a lógica de quem
+vai pra onde.
+
+- **CSS/HTML** (`styles.css`/`index.html`): painel esquerdo escuro com
+  logo/tagline/versão; card de login com campo de nome + PIN em 4 caixas
+  decorativas sobre um `<input type="password">` real e invisível (mesmo
+  padrão de sempre nesse tipo de UI — o input real garante autofill/colar/
+  teclado numérico; as caixas só refletem o valor). Bloco de erro
+  ícone+título+mensagem (`.login-err`/`-title`/`-msg`, era uma linha de
+  texto vermelho sem contexto). Checkbox "Manter conectado neste aparelho".
+- **`_loginErrMostrar(titulo,msg)`/`_loginErrLimpar()`** (novas) — todo
+  ponto que antes fazia `err.textContent='...'` (dentro de `fazerLogin` e
+  em `iniciarCountdownLockout`) passou a usar essas duas. Números reais do
+  mecanismo (não inventados pro visual): "restam N tentativas" e "bloqueio
+  de 30 segundos" — o mock tinha um placeholder de 5 minutos, descartado.
+  "Esqueceu a senha" também não nomeia uma pessoa específica — qualquer
+  gestor pode redefinir, então o texto é genérico ("peça a um gestor").
+- **🔴 Bug real achado e corrigido no próprio teste:** `iniciarCountdownLockout()`
+  ainda escrevia direto em `#login-err.textContent` — código de antes da
+  troca pro bloco ícone+título+mensagem. Sem a classe `.on` (que o CSS
+  novo exige pra mostrar o bloco) o contador de bloqueio **nunca aparecia
+  na tela**, e pior: escrever texto solto no container apagava a estrutura
+  interna (ícone + spans de título/mensagem) — o próximo erro normal (não
+  de lockout) ficaria quebrado depois de um bloqueio acontecer uma vez.
+  Corrigido pra usar `_loginErrMostrar`/`_loginErrLimpar` como todo o
+  resto. Reproduzido e confirmado corrigido no browser: 3 tentativas
+  erradas → bloco vermelho aparece na hora com "Muitas tentativas /
+  Aguarde Ns…", contador atualiza a cada 500ms, some sozinho ao zerar.
+- **Estado ocupado do botão** (`_loginBusy`) — `.login-btn.busy` + spinner
+  + rótulo "Entrando…" durante a checagem do PIN (`pinValido`, é rápido
+  mas assíncrono — `crypto.subtle.digest`), desligado antes de navegar ou
+  no erro.
+- **PIN errado treme** (`_loginPinShake`) — `.login-pin-boxes.shake`
+  (320ms) + `.error` (tom vermelho nas 4 caixas) até o próximo dígito
+  (`atualizarDotsPIN` limpa as duas classes e o bloco de erro assim que
+  `val.length` > 0 — testado que digitar de novo limpa mesmo com erro
+  ainda visível).
+- **"Manter conectado"** (`setSessaoLembrada`/`getSessaoLembrada`/
+  `limparSessaoLembrada`, `localStorage`, 30 dias) — não existia antes: a
+  sessão sempre foi só `sessionStorage` (some ao fechar a aba/app), então
+  o técnico digitava o PIN toda vez que reabria em campo. Boot (linha
+  ~1121) tenta a sessão lembrada quando não há `sessionStorage` ativa,
+  ANTES de mostrar o login — e grava de volta em `sessionStorage` via
+  `setSessao()`, então o resto do app não precisou mudar (continua lendo
+  só `getSessao()`). Capturado no clique de "Entrar"
+  (`_loginManterConectado`) e usado nos 4 pontos que finalizam sessão —
+  inclusive os 2 que passam pela escolha de empresa
+  (`confirmarLojaGestor`/`confirmarEmpresaTecnico`), guardado numa
+  variável de módulo porque o checkbox já não está mais na tela nesse
+  momento. `fazerLogout()` limpa. Desktop começa desmarcado (mesa
+  compartilhada); celular começa marcado (aparelho de campo do técnico o
+  dia inteiro) — decisão via `window.innerWidth<680` no boot.
+  **🔴 Achado em teste:** ler `window.innerWidth` de forma síncrona no
+  meio do boot voltava `0` neste ambiente de teste (headless), marcando o
+  checkbox mesmo em tela larga — corrigido com `requestAnimationFrame`
+  antes de checar a largura, sem custo perceptível.
+- **Seletor de empresa/unidade** (`mostrarSelecaoLojaGestor`/
+  `mostrarSelecaoEmpresaTecnico`, já usavam as classes `.login-loja-*` de
+  antes do redesign — só precisaram do `<svg>` de check e do wrapper
+  `.login-loja-info` que o CSS novo espera) — cartão da unidade/empresa
+  atual ganha destaque (`.current`, borda azul + check), calculado contra
+  `sessionStorage('fluxa_loja_ativa'/'fluxa_vis_empresa_tec')`.
+  "N orçamentos abertos" por unidade (`_loginOrcAbertosLoja`, reusa
+  `orcAbertoNoPipeline` sem duplicar cálculo) — **só aparece se `todosOrc`
+  já carregou** (retorna `null`, não `0`): o login acontece ANTES do boot
+  buscar orçamentos (`loadHist` só roda ao entrar em Histórico/Insights),
+  então mostrar "0 orçamentos" aqui seria sempre falso — caiu no
+  subtítulo genérico de antes ("Gerenciar esta unidade") nesse caso.
+- **Não implementado, de propósito:** `#login-versao`/`#login-suporte-tel`
+  não têm fonte de dado real no app (não existe controle de versão nem
+  campo de telefone de suporte no `FLUXA_CONFIG`) — versão ficou como
+  texto estático no HTML (não é rastreada em lugar nenhum hoje) e o link
+  de telefone continua oculto (`style="display:none"` já era o default).
+
+Testado inteiramente no browser local (`dbOk=true`, conectado no Supabase
+real de leitura — nenhuma escrita disparada: falha de PIN só mexe em
+`localStorage`/contador local, nunca chama `logAcao`/rede): nome não
+encontrado, PIN errado com número real de tentativas restantes, sequência
+completa até o bloqueio (contador ao vivo, caixas vermelhas, unlock
+automático), digitar de novo limpa erro e tremor, "manter conectado" —
+sessão restaurada sozinha numa recarga sem `sessionStorage`, `fazerLogout`
+limpa, sessão expirada (`exp` no passado) não restaura — seletor de
+unidade (gestor) e de empresa (técnico) com o cartão atual destacado em
+mobile 375px e desktop 1280px, zero erro novo no console (só o ruído de
+rede pré-existente já documentado). `sw.js` v158→v159.
+
+---
+
 ## Migrados os 3 modais restantes pro shell `.rd-modal` (14/08)
 
 Continuação da Tarefa 3c, que só tinha migrado `confirmar()` de propósito

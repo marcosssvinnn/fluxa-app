@@ -24,20 +24,38 @@
 <body class="no-sbar">
 <a class="skip-link" href="#main-content">Pular para o conteúdo principal</a>
 
-<!-- ══ LOGIN OVERLAY ══ -->
+<!-- ══ LOGIN OVERLAY (Tarefa 3d, 15/08) ══ -->
 <div class="login-overlay" id="login-overlay">
 
-  <!-- Esquerda: branding -->
+  <!-- Esquerda: branding — mesmo #0D131B da sidebar, frase legível no lugar
+       da tagline em itálico a 25% de opacidade (achado da análise de
+       usabilidade: não passa em nenhum critério de contraste). -->
   <div class="login-left">
     <div class="login-brand">
       <img id="login-logo-img" class="login-brand-logo" alt="" style="display:none">
       <div class="login-brand-initials" id="login-brand-initials">F</div>
-      <div>
-        <div class="login-brand-name" id="login-brand-name">Fluxa</div>
-        <div class="login-brand-sub">Sistema de gestão</div>
+      <div class="login-brand-tx">
+        <span class="login-brand-name" id="login-brand-name">Fluxa</span>
+        <span class="login-brand-sub" id="login-brand-sub">Sistema de gestão</span>
       </div>
     </div>
-    <div class="login-brand-tagline" id="login-brand-tagline"></div>
+    <div class="login-left-foot">
+      <div class="login-brand-tagline" id="login-brand-tagline">Orçamento, ordem de serviço e vistoria no mesmo lugar.</div>
+      <div class="login-left-feats">
+        <div class="login-left-feat">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg>
+          <span>Funciona offline e sincroniza sozinho</span>
+        </div>
+        <div class="login-left-feat">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg>
+          <span>PDF e cobrança direto do celular</span>
+        </div>
+      </div>
+    </div>
+    <div class="login-left-bottom">
+      <span>Versão <span id="login-versao">2.4.1</span></span>
+      <a href="#" id="login-suporte-tel" onclick="return false" style="display:none"></a>
+    </div>
   </div>
 
   <!-- Direita: form -->
@@ -46,46 +64,76 @@
 
       <!-- Formulário único: nome + PIN -->
       <div id="login-step-users">
-        <div class="login-card-title">Bem-vindo 👋</div>
-        <div class="login-card-sub">Entre com seu nome e senha para continuar</div>
+        <div class="login-card-title">Entrar</div>
+        <div class="login-card-sub">Seu nome e a senha de 4 dígitos.</div>
 
-        <div style="margin-top:18px;display:flex;flex-direction:column;gap:12px">
-          <div>
-            <label style="font-size:12px;font-weight:600;color:var(--gray);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:5px">Seu nome</label>
-            <input id="login-nome-input" type="text" autocomplete="off" autocapitalize="words"
+        <div style="margin-top:18px;display:flex;flex-direction:column;gap:5px">
+          <span class="rd-field-lbl">Seu nome</span>
+          <div class="login-input-wrap" id="login-nome-wrap">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20c0-3.3 3.6-5 8-5s8 1.7 8 5M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8"></path></svg>
+            <input id="login-nome-input" class="login-input" type="text" autocomplete="off" autocapitalize="words"
               placeholder="Digite seu nome…"
-              style="width:100%;box-sizing:border-box;padding:11px 14px;border:1.5px solid var(--gray-mid);border-radius:10px;font-size:15px;font-family:'Instrument Sans',sans-serif;outline:none;transition:border .15s"
               oninput="loginNomeInput(this.value)"
-              onkeydown="if(event.key==='Enter')document.getElementById('pin-input').focus()">
-            <!-- sugestões -->
-            <div id="login-nome-sugestoes" style="display:none;background:white;border:1.5px solid var(--gray-mid);border-top:none;border-radius:0 0 10px 10px;overflow:hidden;max-height:160px;overflow-y:auto;margin-top:-2px"></div>
+              onkeydown="loginNomeKeydown(event)">
           </div>
+          <!-- sugestões -->
+          <div id="login-nome-sugestoes" class="login-suggest"></div>
+        </div>
 
-          <div>
-            <label style="font-size:12px;font-weight:600;color:var(--gray);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:5px">Senha (4 dígitos)</label>
-            <div style="position:relative">
-              <input id="pin-input" type="password" inputmode="numeric" maxlength="4"
-                placeholder="••••" autocomplete="off"
-                aria-label="Senha PIN de 4 dígitos"
-                style="width:100%;box-sizing:border-box;padding:11px 14px;border:1.5px solid var(--gray-mid);border-radius:10px;font-size:22px;letter-spacing:.25em;font-family:'Instrument Sans',sans-serif;outline:none;transition:border .15s"
-                oninput="atualizarDotsPIN(this.value)"
-                onkeydown="if(event.key==='Enter')fazerLogin()">
-            </div>
+        <div style="margin-top:14px;display:flex;flex-direction:column;gap:5px">
+          <div class="login-pin-lblrow">
+            <span class="rd-field-lbl">Senha</span>
+            <span class="login-pin-hint">4 dígitos</span>
           </div>
+          <div class="login-pin-boxes" id="login-pin-boxes" onclick="document.getElementById('pin-input').focus()">
+            <div class="login-pin-box" data-i="0"></div>
+            <div class="login-pin-box" data-i="1"></div>
+            <div class="login-pin-box" data-i="2"></div>
+            <div class="login-pin-box" data-i="3"></div>
+          </div>
+          <input id="pin-input" class="login-pin-input" type="password" inputmode="numeric" maxlength="4"
+            autocomplete="off" aria-label="Senha PIN de 4 dígitos"
+            oninput="atualizarDotsPIN(this.value)"
+            onfocus="_loginPinFocusUI(true)" onblur="_loginPinFocusUI(false)"
+            onkeydown="if(event.key==='Enter')fazerLogin()">
+        </div>
 
-          <div class="login-err" id="login-err" style="margin-top:-4px"></div>
-          <button class="login-btn" onclick="fazerLogin()" style="margin-top:2px">Entrar →</button>
+        <div class="login-err" id="login-err">
+          <div class="login-err-ico">!</div>
+          <div class="login-err-tx">
+            <span class="login-err-title" id="login-err-title">Senha incorreta</span>
+            <span class="login-err-msg" id="login-err-msg"></span>
+          </div>
+        </div>
+
+        <label class="login-remember">
+          <input type="checkbox" id="login-remember" class="sr-only">
+          <span class="login-remember-box"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg></span>
+          <span>Manter conectado neste aparelho</span>
+        </label>
+
+        <button class="login-btn" id="login-btn" onclick="fazerLogin()">
+          <span class="login-btn-spinner"></span>
+          <span id="login-btn-label">Entrar</span>
+        </button>
+
+        <div class="login-forgot">
+          <span>Esqueceu a senha?</span>
+          <button type="button" class="login-forgot-link" onclick="alert('Peça para um gestor redefinir sua senha em Configurações → Usuários.')">Pedir ao gestor</button>
         </div>
       </div>
 
       <!-- PASSO 2 — gestor seleciona empresa (mantido para compatibilidade) -->
       <div class="login-pin-step" id="login-step-pin" style="display:none"></div>
 
-      <!-- PASSO 3 — escolha de empresa (gestor principal) -->
+      <!-- PASSO 3 — escolha de empresa (gestor principal / técnico multi-empresa) -->
       <div class="login-loja-step" id="login-step-loja">
-        <button class="login-pin-back" onclick="voltarParaPin()">← Voltar</button>
+        <button class="login-pin-back" onclick="voltarParaPin()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 6l-6 6 6 6"></path></svg>
+          Voltar
+        </button>
         <div class="login-card-title" style="margin-bottom:4px">Qual empresa?</div>
-        <div class="login-card-sub">Escolha a empresa para gerenciar</div>
+        <div class="login-card-sub" id="login-loja-sub">Escolha a empresa para gerenciar.</div>
         <div class="login-loja-grid" id="login-loja-list"></div>
       </div>
 
