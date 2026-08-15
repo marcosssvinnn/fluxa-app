@@ -4709,6 +4709,12 @@ function _crmRenderEstagio(s){
   const total=s.pipeQtd;
   if(!total){ // empresa nova / nada aberto — não mostra barra vazia
     if(card) card.style.display='none';
+    // Sem pipeline, não há faixa pra filtrar — limpa qualquer filtro/chip
+    // que tenha sobrado de uma sessão com dado (senão o chip fica preso
+    // mostrando um filtro que não existe mais pra limpar).
+    _crmFaixaFiltro='';
+    const chipVazio=document.getElementById('ins-fila-chip-filtro');
+    if(chipVazio){ chipVazio.style.display='none'; chipVazio.textContent=''; }
     return;
   }
   if(card) card.style.display='';
@@ -4730,9 +4736,20 @@ function _crmRenderEstagio(s){
     </button>`;
   }).join('');
   const sub=document.getElementById('ins-estagio-sub');
+  // Texto neutro quanto à posição (achado da análise de usabilidade, 14/08):
+  // "ao lado" só é verdade em telas largas — abaixo de 1180px .ins-col-direita
+  // recebe order:-1 e a fila fica ACIMA, não ao lado.
   if(sub) sub.textContent=_crmFaixaFiltro
     ? 'filtrando "Precisa de você hoje" — toque de novo aqui pra limpar'
-    : 'toque numa faixa pra filtrar a fila ao lado';
+    : 'toque numa faixa pra filtrar a fila';
+  // Chip removível no cabeçalho da fila — sinal de filtro ativo visível
+  // mesmo sem reler o subtítulo deste card (ver comentário no index.html).
+  const chip=document.getElementById('ins-fila-chip-filtro');
+  if(chip){
+    const faixaAtiva=_crmFaixaFiltro&&CRM_FAIXAS_IDADE.find(f=>f.id===_crmFaixaFiltro);
+    if(faixaAtiva){ chip.style.display=''; chip.textContent=esc(faixaAtiva.nome)+' ✕'; }
+    else{ chip.style.display='none'; chip.textContent=''; }
+  }
 }
 // Mapeia a cor (CSS var) já atribuída a cada item pra uma classe de badge —
 // reaproveitada no painel "hoje" e no painel de notificações (2026-08-13,
@@ -5138,12 +5155,40 @@ function renderInsightsChart(){
     ]},
     options:{
       responsive:true, maintainAspectRatio:false,
+      layout:{padding:{top:14}}, // espaço pro rótulo de valor não cortar no topo
       plugins:{ legend:{display:false}, tooltip:{callbacks:{label:ctx=>ctx.dataset.label+': '+brl(ctx.raw)}} },
       scales:{
         x:{grid:{display:false}, ticks:{font:{size:11,family:'Instrument Sans'}, color:'#6B7686'}},
         y:{grid:{color:'#EDF1F7'}, border:{display:false}, ticks:{font:{size:10,family:'Instrument Sans'}, color:'#6B7686', callback:v=>v===0?'':(v>=1000?(v/1000)+'k':v)}}
       }
-    }
+    },
+    // Rótulo de valor abreviado no topo de cada barra de Aprovado (Tarefa 6,
+    // 14/08) — achado da análise de usabilidade: sem eixo visível de verdade
+    // e sem tooltip no toque, duas barras com 8% de diferença ficam
+    // indistinguíveis a olho no celular. Mesmo padrão do gráfico de aging
+    // de A Receber (_renderRecebAging), que já mostra o valor sobre a barra
+    // — só que ali é HTML/CSS puro; aqui precisa de um plugin do Chart.js
+    // porque o gráfico é canvas.
+    plugins:[{
+      id:'rotuloValorAprovado',
+      afterDatasetsDraw(chart){
+        const meta=chart.getDatasetMeta(0); // Aprovado
+        const {ctx}=chart;
+        ctx.save();
+        ctx.font="600 10px 'Instrument Sans'";
+        ctx.fillStyle='#101720';
+        ctx.textAlign='center';
+        ctx.textBaseline='bottom';
+        meta.data.forEach((bar,i)=>{
+          // Lê de chart.data (não da closure aprovDados) — reflete qualquer
+          // atualização feita direto no chart, não só a do render original.
+          const v=chart.data.datasets[0].data[i]; if(!v) return;
+          const txt=v>=1000?(v/1000).toLocaleString('pt-BR',{maximumFractionDigits:1})+'k':Math.round(v).toString();
+          ctx.fillText(txt, bar.x, bar.y-4);
+        });
+        ctx.restore();
+      }
+    }]
   });
 }
 
@@ -5686,7 +5731,7 @@ function renderTabela(){
     // já teve decisão, cobrar contato ali não ajuda.
     const aberto=o.status==='pendente'||o.status==='vencido';
     const sinalContato=aberto?`<div class="rd-cell-sub">${esc(_orcSinalContato(o))}</div>`:'';
-    h+=`<div class="rd-row${acao.urgente?' rd-row-action':''}" style="grid-template-columns:${grid};gap:12px;cursor:pointer" tabindex="0" onclick="abrirOrc('${o.id}')" onkeydown="if(event.key==='Enter')abrirOrc('${o.id}')">
+    h+=`<div class="rd-row${acao.urgente?' rd-row-action':''}" style="grid-template-columns:${grid};gap:12px;cursor:pointer" tabindex="0" role="button" aria-label="Abrir orçamento #${num}" onclick="abrirOrc('${o.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();abrirOrc('${o.id}')}">
       <div><span class="rd-cell-strong" style="color:var(--c1)">#${num}</span>${pendSync?'<div class="rd-cell-sub" style="color:var(--bad)">⚠ pend.</div>':''}</div>
       <div><div class="rd-cell-strong">${esc(o.cliente||'—')}${lojaAtiva?'':getLojaBadge(o.loja_id)}</div><div class="rd-cell-sub" title="${esc(svs)}">${esc(svs)}</div></div>
       ${ocultarFinanceiro?'':'<div class="rd-cell-num rd-cell-strong">'+brl(o.total||0).replace('R$','').trim()+'</div>'}
@@ -6264,7 +6309,7 @@ function renderOSTabela(){
       : {label:'Agendada', cls:'rd-badge-neutral'};
     const acao=_osProximaAcao(o, atrasado);
     const svc=(o.servicos||[]).map(s=>typeof s==='string'?s:s.desc).filter(Boolean).join(', ')||o.local_servico||'—';
-    h+=`<div class="rd-row${acao.urgente?' rd-row-action':''}" style="grid-template-columns:${grid};cursor:pointer" tabindex="0" onclick="editarOS('${o.id}')" onkeydown="if(event.key==='Enter')editarOS('${o.id}')">
+    h+=`<div class="rd-row${acao.urgente?' rd-row-action':''}" style="grid-template-columns:${grid};cursor:pointer" tabindex="0" role="button" aria-label="Abrir OS de ${esc(o.cliente||'cliente')}" onclick="editarOS('${o.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();editarOS('${o.id}')}">
       <div class="rd-cell-sub">${dt}${o.hora?' · '+esc(o.hora):''}</div>
       <div><div class="rd-cell-strong">${esc(o.cliente||'—')}${lojaAtiva?'':getLojaBadge(o.loja_id)}</div><div class="rd-cell-sub" title="${esc(svc)}">${esc(svc)}</div></div>
       <div class="rd-cell-sub">${esc(o.tecnico||'—')}</div>
@@ -6926,8 +6971,12 @@ function _renderFichaCliente(cliId){
       <div style="display:flex;flex-direction:column;gap:14px">
         <div class="rd-card">
           <div class="rd-card-title" style="margin-bottom:11px">Equipamentos no local</div>
-          ${eqCli.length?`<div style="display:flex;flex-direction:column;gap:9px">${eqCli.map(e=>`
-            <div style="display:flex;align-items:center;gap:10px"><span style="width:7px;height:7px;border-radius:999px;background:${e.garantia_ate&&new Date(e.garantia_ate)<new Date()?'var(--warn-dot)':'var(--ok)'}"></span><span style="font-size:12px;color:var(--c2);flex:1">${esc(e.tipo||'')} ${esc(e.marca||'')} ${esc(e.modelo||'')}</span></div>`).join('')}</div>`
+          ${eqCli.length?`<div style="display:flex;flex-direction:column;gap:9px">${eqCli.map(e=>{
+            const garVencida=e.garantia_ate&&new Date(e.garantia_ate)<new Date();
+            // Forma além de cor (achado da análise de usabilidade, 14/08): anel = garantia vencida, círculo cheio = ok.
+            const dotStyle=garVencida?'border-radius:999px;background:transparent;box-sizing:border-box;border:2px solid var(--warn-dot)':'border-radius:999px;background:var(--ok)';
+            return `<div style="display:flex;align-items:center;gap:10px"><span style="width:7px;height:7px;flex-shrink:0;${dotStyle}" title="${garVencida?'garantia vencida':'garantia em dia'}"></span><span style="font-size:12px;color:var(--c2);flex:1">${esc(e.tipo||'')} ${esc(e.marca||'')} ${esc(e.modelo||'')}</span></div>`;
+          }).join('')}</div>`
             :'<div class="rd-cell-sub">Nenhum equipamento cadastrado.</div>'}
         </div>
         <div class="rd-card">
@@ -9206,7 +9255,7 @@ async function _reorganizarCalConfirmado(btn){
     renderCal();
     toast('✅ Calendário reorganizado');
   }catch(e){ console.warn('[reorganizar]', e?.message||e); toast('⚠️ Falha ao reorganizar'); }
-  if(btn){ btn.disabled=false; btn.textContent='🔧 Reorganizar'; }
+  if(btn){ btn.disabled=false; btn.textContent='Reorganizar'; }
 }
 // Ao concluir uma OS de agendamento recorrente, gera a ocorrência seguinte.
 // dataConcluidaStr = data_servico da OS recém concluída (YYYY-MM-DD).
@@ -12961,9 +13010,15 @@ async function baixarPDFVistoria(id, btn){
 
 function filtVisStatus(st){
   visHistStatusFilt = st;
+  const sel=st||'todos';
+  // Mesmo padrão do chip "Vencido" do Histórico de Orçamentos: on (escuro)
+  // quando selecionado, cor de severidade quando não — nunca as duas juntas
+  // (empatariam na especificidade do CSS e a ordem no arquivo decidiria).
+  const corSeveridade={critico:'rd-chip-crit',atencao:'rd-chip-alert'};
   ['todos','critico','atencao'].forEach(s=>{
     const btn=document.getElementById('vis-fst-'+s);
-    if(btn) btn.classList.toggle('on', s===(st||'todos'));
+    if(!btn) return;
+    btn.className='rd-chip'+(s===sel?' on':(corSeveridade[s]?' '+corSeveridade[s]:''));
   });
   renderVisHistorico();
 }
@@ -14444,12 +14499,20 @@ function renderEstoque(){
       const baixo=!encomenda && min>0 && disp<=min;
       const giro=giroProduto(p.id,90);
       const parado=!ehInativo && produtoParado(p.id);
-      let dotCor='var(--ok)';
-      if(!ehInativo){ if(encomenda||baixo) dotCor='var(--warn-dot)'; else if(parado) dotCor='var(--tx4)'; }
+      // Ponto de status não pode depender só da cor (achado da análise de
+      // usabilidade, 14/08) — um daltônico não distingue verde de âmbar.
+      // Forma muda por estado: círculo cheio = normal, anel = abaixo do
+      // mínimo/encomenda, quadrado = sem giro.
+      let dotCor='var(--ok)', dotEstilo='border-radius:999px';
+      if(!ehInativo){
+        if(encomenda||baixo){ dotCor='var(--warn-dot)'; dotEstilo='border-radius:999px;background:transparent;box-sizing:border-box;border:2px solid '+dotCor; }
+        else if(parado){ dotCor='var(--tx4)'; dotEstilo='border-radius:2px'; }
+      }
+      const dotBg=dotEstilo.includes('border:')?'':';background:'+dotCor;
       const rowWarn=!ehInativo && (encomenda||baixo);
-      h+=`<div class="rd-row${rowWarn?' rd-row-warn':''}" style="grid-template-columns:${grid};cursor:pointer${ehInativo?';opacity:.55':''}" tabindex="0" onclick="abrirProdutoModal('${p.id}')" onkeydown="if(event.key==='Enter')abrirProdutoModal('${p.id}')">
+      h+=`<div class="rd-row${rowWarn?' rd-row-warn':''}" style="grid-template-columns:${grid};cursor:pointer${ehInativo?';opacity:.55':''}" tabindex="0" role="button" aria-label="Abrir produto ${esc(p.nome)}" onclick="abrirProdutoModal('${p.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();abrirProdutoModal('${p.id}')}">
         <div style="display:flex;align-items:center;gap:8px;min-width:0">
-          <span style="width:7px;height:7px;border-radius:999px;flex-shrink:0;background:${dotCor}"></span>
+          <span style="width:7px;height:7px;flex-shrink:0;${dotEstilo}${dotBg}" title="${ehInativo?'inativo':encomenda||baixo?'abaixo do mínimo':parado?'sem giro':'normal'}"></span>
           <span class="rd-cell-strong" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.nome)}</span>
         </div>
         <div class="rd-cell-sub" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.codigo||'—')}</div>
@@ -14970,7 +15033,7 @@ function _renderProdAcoesEdit(p){
     <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="abrirMovModal('${p.id}','ajuste')" title="Corrigir saldo / Inventário">⚖️ Corrigir</button>
     <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="abrirResvModal('${p.id}')" title="Conferir/corrigir a quantidade reservada em orçamentos">🔒 Reserva</button>
     ${LOJAS.length>1?`<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="abrirTransfModal('${p.id}')" title="Transferir para outra unidade">🔄 Transferir</button>`:''}
-    <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="abrirHistProduto('${p.id}')" title="Ver histórico de movimentos">📜 Histórico</button>
+    <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="abrirHistProduto('${p.id}')" title="Ver histórico de movimentos">Histórico</button>
     ${porLojaHtml}
   `;
   el.style.display='flex';

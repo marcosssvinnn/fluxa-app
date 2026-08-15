@@ -257,6 +257,7 @@
     .rd-chip:hover{background:var(--bg-app)}
     .rd-chip.on{background:var(--c2);border-color:var(--c2);color:#fff;font-weight:600}
     .rd-chip.rd-chip-alert{background:var(--warn-bg);border-color:var(--warn-border);color:var(--warn);font-weight:600}
+    .rd-chip.rd-chip-crit{background:var(--bad-bg);border-color:var(--bad);color:var(--bad);font-weight:600}
 
     /* Pílula de atalho (ex.: "+ Manutenção mensal" no orçamento) */
     .rd-pill{font-size:12px;font-weight:500;padding:5px 11px;border-radius:var(--r-pill);border:1px solid var(--line);color:#333C4A;background:#fff;cursor:pointer;font-family:'Instrument Sans',sans-serif}

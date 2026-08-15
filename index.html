@@ -968,9 +968,9 @@
         <!-- O técnico é quem consome material em campo, mas não tem acesso à tela
              de Estoque. Sem este atalho não existia caminho nenhum para ele dar
              baixa — era a origem das 303 entradas contra 40 saídas. -->
-        <button class="ba" style="background:var(--c1);color:white;padding:8px 12px;font-size:12.5px;font-weight:700" onclick="abrirBaixaRapida()">⚡ Dar baixa</button>
+        <button class="ba" style="background:var(--c1);color:white;padding:8px 12px;font-size:12.5px;font-weight:700" onclick="abrirBaixaRapida()">Dar baixa</button>
         <button class="fb on" data-tec-st="pendente" onclick="filtStatusMinhasOS(this)">⏳ Agendadas</button>
-        <button class="fb" data-tec-st="concluido" onclick="filtStatusMinhasOS(this)">✅ Concluídas</button>
+        <button class="fb" data-tec-st="concluido" onclick="filtStatusMinhasOS(this)">Concluídas</button>
         <button class="fb" data-tec-st="todos" onclick="filtStatusMinhasOS(this)">Todas</button>
       </div>
     </div>
@@ -1033,7 +1033,7 @@
         <select id="os-tec-checkin" style="padding:9px 12px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:14px;font-family:'Instrument Sans',sans-serif;outline:none;flex:1">
           <option value="">Selecione o técnico…</option>
         </select>
-        <button class="ba" style="background:var(--green);color:white;padding:10px 18px;font-size:13px" onclick="fazerCheckin()">📍 Check-in</button>
+        <button class="ba" style="background:var(--green);color:white;padding:10px 18px;font-size:13px" onclick="fazerCheckin()">Check-in</button>
       </div>
       <div id="checkin-info" style="font-size:12px;color:var(--gray);margin-top:8px;min-height:16px"></div>
     </div>
@@ -1251,7 +1251,14 @@
              cadenciaCandidatos) — não duplica nenhum cálculo, só ordena. -->
         <div class="rd-card ins-fila-card">
           <div class="rd-card-hdr">
-            <div class="rd-card-title">Precisa de você hoje</div>
+            <div style="display:flex;align-items:center;gap:8px;min-width:0">
+              <div class="rd-card-title">Precisa de você hoje</div>
+              <!-- Chip removível quando "Em que fase está" filtra a fila (Tarefa 6,
+                   14/08) — antes só o subtítulo do card de fases avisava; no mobile
+                   a fila fica ACIMA das fases (order:-1), então quem chegava direto
+                   aqui não via nenhum sinal de que a lista estava filtrada. -->
+              <button type="button" id="ins-fila-chip-filtro" class="rd-chip on" style="display:none" onclick="crmFiltrarFaixa(_crmFaixaFiltro)"></button>
+            </div>
             <span class="rd-btn rd-btn-link" style="font-size:12px" id="ins-fila-ver"></span>
           </div>
           <!-- Skeleton na altura de 3 itens de fila (Tarefa 5, 14/08) —
@@ -1316,7 +1323,10 @@
       <div style="padding:12px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
         <div id="orc-chips" style="display:flex;gap:6px;flex-wrap:wrap;flex:1"></div>
         <label class="sr-only" for="hist-busca-input">Buscar orçamentos por cliente ou número</label>
-        <input class="rd-field-box" style="width:240px" type="text" id="hist-busca-input" placeholder="🔍 Cliente ou número…" oninput="buscar(this.value)">
+        <div style="position:relative;width:240px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8D99A9" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:11px;top:50%;transform:translateY(-50%);pointer-events:none"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14M16.5 16.5L21 21"></path></svg>
+          <input class="rd-field-box" style="width:100%;padding-left:30px" type="text" id="hist-busca-input" placeholder="Cliente ou número…" oninput="buscar(this.value)">
+        </div>
       </div>
       <div id="hist-body"><div class="load"><div class="spin"></div> Carregando…</div></div>
       <div id="orc-lista-rodape"></div>
@@ -2517,7 +2527,7 @@
       </div>
     </div></div>
     <div style="margin:-6px 0 12px">
-      <button class="tb" id="venda-sem-cliente-btn" onclick="_vendaSemCliente()" style="font-size:11.5px;padding:5px 10px">🚫 Balcão — sem cliente identificado</button>
+      <button class="tb" id="venda-sem-cliente-btn" onclick="_vendaSemCliente()" style="font-size:11.5px;padding:5px 10px">Balcão — sem cliente identificado</button>
     </div>
 
     <div class="row f1"><div class="fl">
@@ -2684,7 +2694,7 @@
     <div class="ct">📄 Ordens de Compra <button onclick="fecharOCListModal()" aria-label="Fechar" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;line-height:1;margin-left:auto;padding:0 4px">×</button></div>
     <div style="display:flex;gap:8px;margin-bottom:10px">
       <button class="btn-primary" onclick="criarOCManual()" style="font-size:12px;padding:7px 12px">＋ Nova OC</button>
-      <button class="ba" onclick="criarOCDaListaCompras()" style="font-size:12px;padding:7px 12px;background:var(--gray-light);color:var(--c2)">🛒 Gerar da lista</button>
+      <button class="ba" onclick="criarOCDaListaCompras()" style="font-size:12px;padding:7px 12px;background:var(--gray-light);color:var(--c2)">Gerar da lista</button>
     </div>
     <div id="oc-list-body"></div>
   </div>
@@ -2711,7 +2721,7 @@
     <div id="oc-total-row" style="text-align:right;font-size:14px;font-weight:700;color:var(--c2);padding-top:10px;border-top:1.5px solid var(--gray-light);margin-top:8px"></div>
     <div style="display:flex;gap:8px;margin-top:10px">
       <button class="btn-primary" onclick="salvarOC('rascunho')" style="flex:1;font-size:13px">💾 Salvar rascunho</button>
-      <button class="ba" onclick="enviarOCWhatsApp()" style="flex:1;font-size:13px;background:var(--green);color:white;border-color:var(--green)">📲 Enviar WhatsApp</button>
+      <button class="ba" onclick="enviarOCWhatsApp()" style="flex:1;font-size:13px;background:var(--green);color:white;border-color:var(--green)">Enviar WhatsApp</button>
     </div>
     <input type="hidden" id="oc-edit-id">
   </div>
@@ -2749,9 +2759,9 @@
         <div class="novo-orc-titulo">🔍 Vistorias de Manutenção</div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button type="button" class="rd-chip on" id="vis-tab-nova" onclick="visTab('nova');window._visLocalId=null;visEditId=null;_visDraftId=null;_resetCheckinVis();document.getElementById('vis-plano-banner').style.display='none'">📋 Nova Vistoria</button>
-        <button type="button" class="rd-chip" id="vis-tab-hist" onclick="visTab('hist')">📜 Histórico</button>
-        <button type="button" class="rd-chip" id="vis-tab-locais" onclick="visTab('locais')">📍 Meus Locais</button>
+        <button type="button" class="rd-chip on" id="vis-tab-nova" onclick="visTab('nova');window._visLocalId=null;visEditId=null;_visDraftId=null;_resetCheckinVis();document.getElementById('vis-plano-banner').style.display='none'">Nova Vistoria</button>
+        <button type="button" class="rd-chip" id="vis-tab-hist" onclick="visTab('hist')">Histórico</button>
+        <button type="button" class="rd-chip" id="vis-tab-locais" onclick="visTab('locais')">Meus Locais</button>
       </div>
     </div>
 
@@ -2844,7 +2854,7 @@
         </div>
         <div id="vis-checkin-form" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
           <div style="font-size:13px;color:var(--gray);flex:1">Registre sua chegada ao local para iniciar o relatório.</div>
-          <button class="ba" style="background:var(--green);color:white;padding:10px 18px;font-size:13px" onclick="visCheckin()">📍 Check-in</button>
+          <button class="ba" style="background:var(--green);color:white;padding:10px 18px;font-size:13px" onclick="visCheckin()">Check-in</button>
         </div>
         <div id="vis-checkin-info" style="font-size:12px;color:var(--gray);margin-top:8px;min-height:16px"></div>
       </div>
@@ -2936,9 +2946,14 @@
       <!-- Filtro por status -->
       <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
         <button type="button" class="rd-chip on" id="vis-fst-todos" onclick="filtVisStatus('')">Todos</button>
-        <button type="button" class="rd-chip" id="vis-fst-critico" onclick="filtVisStatus('critico')">🔴 Com Crítico</button>
-        <button type="button" class="rd-chip" id="vis-fst-atencao" onclick="filtVisStatus('atencao')">⚠️ Com Atenção</button>
-        <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" id="vis-btn-backup" onclick="exportarVistoriasBackup()" style="margin-left:auto;display:none" title="Baixa um arquivo JSON com todas as vistorias desta empresa (comprovação/arquivo)">📦 Backup</button>
+        <!-- Cor de severidade explícita (Tarefa 6, 14/08) — o 🔴/⚠️ que saiu
+             daqui era o único sinal visual além do texto; sem ele os chips
+             ficariam idênticos aos neutros. rd-chip-crit/rd-chip-alert
+             seguem o mesmo padrão do chip "Vencido" do Histórico de
+             Orçamentos (Fase 5). -->
+        <button type="button" class="rd-chip rd-chip-crit" id="vis-fst-critico" onclick="filtVisStatus('critico')">Com Crítico</button>
+        <button type="button" class="rd-chip rd-chip-alert" id="vis-fst-atencao" onclick="filtVisStatus('atencao')">Com Atenção</button>
+        <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" id="vis-btn-backup" onclick="exportarVistoriasBackup()" style="margin-left:auto;display:none" title="Baixa um arquivo JSON com todas as vistorias desta empresa (comprovação/arquivo)">Backup</button>
       </div>
 
       <!-- Painel de alertas críticos -->
@@ -3051,8 +3066,8 @@
     <div class="novo-orc-topbar">
       <div class="novo-orc-titulo">📅 Agendamentos</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-        <button type="button" class="rd-chip on" id="ag-tab-cal" onclick="agTab('cal')">📆 Calendário</button>
-        <button type="button" class="rd-chip" id="ag-tab-lista" onclick="agTab('lista')">📋 Contratos</button>
+        <button type="button" class="rd-chip on" id="ag-tab-cal" onclick="agTab('cal')">Calendário</button>
+        <button type="button" class="rd-chip" id="ag-tab-lista" onclick="agTab('lista')">Contratos</button>
         <button type="button" class="rd-btn rd-btn-primary" onclick="abrirFormAg()">＋ Novo</button>
       </div>
     </div>
@@ -3069,7 +3084,7 @@
         <select id="cal-filtro-tec" class="rd-field-box" onchange="renderCal()" style="margin-left:auto;width:auto">
           <option value="">Todos os técnicos</option>
         </select>
-        <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" id="btn-reorganizar-cal" onclick="reorganizarCalendarioPlanos(this)" title="Reorganiza as visitas dos planos conforme o dia escolhido em cada um (limpa visitas antigas empilhadas)">🔧 Reorganizar</button>
+        <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" id="btn-reorganizar-cal" onclick="reorganizarCalendarioPlanos(this)" title="Reorganiza as visitas dos planos conforme o dia escolhido em cada um (limpa visitas antigas empilhadas)">Reorganizar</button>
       </div>
       <div class="cal-wrap"><table class="cal" id="cal-tabela"></table></div>
       <div style="display:flex;gap:12px;flex-wrap:wrap;padding:10px 4px 0;font-size:11px;color:var(--tx3)">
@@ -3372,7 +3387,7 @@ window.onerror = function(msg, src, line, col, err){
   <div style="font-size:20px;font-weight:800;color:#2B3244;margin-bottom:8px">Algo deu errado</div>
   <div style="font-size:14px;color:#6b7280;margin-bottom:6px">O app encontrou um erro inesperado.</div>
   <div id="fluxa-error-detail" style="font-size:11px;color:#9ca3af;background:#e5e7eb;border-radius:8px;padding:8px 14px;margin-bottom:24px;max-width:480px;word-break:break-word"></div>
-  <button onclick="window.location.reload()" style="background:#C45E0A;color:white;border:none;border-radius:10px;padding:12px 28px;font-size:15px;font-weight:700;cursor:pointer;font-family:'Instrument Sans',sans-serif">🔄 Recarregar o app</button>
+  <button onclick="window.location.reload()" style="background:var(--c1,#0B62CE);color:white;border:none;border-radius:10px;padding:12px 28px;font-size:15px;font-weight:700;cursor:pointer;font-family:'Instrument Sans',sans-serif">🔄 Recarregar o app</button>
   <div style="margin-top:12px;font-size:12px;color:#9ca3af">Seus dados estão salvos — nada foi perdido.</div>
 </div>
 

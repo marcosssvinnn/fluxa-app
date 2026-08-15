@@ -338,6 +338,97 @@ telas largas. Skeleton renderizado com a mesma altura dos itens reais
 (visual, screenshot), shimmer herda `.rd-skel::after` já existente.
 `sw.js` v150→v151.
 
+**Tarefa 6 — feita (acabamento, um commit só).** Última do plano — só a
+Tarefa 4 continua bloqueada (decisão do Marcos sobre "A Receber").
+
+- **Emoji em botões/abas** — removidos dos itens que o plano citava
+  nominalmente (Nova Vistoria/Histórico/Meus Locais, Calendário/Contratos,
+  Com Crítico/Com Atenção, Backup, Check-in ×2, Concluídas, Dar baixa,
+  Gerar da lista, Enviar WhatsApp, Balcão, Reorganizar) + o botão
+  "Histórico" do modal de produto do Estoque, mesmo padrão. **Achado no
+  caminho:** os chips "Com Crítico"/"Com Atenção" de Vistorias não tinham
+  NENHUM outro sinal visual além do 🔴/⚠️ — removendo o emoji cru, ficariam
+  idênticos aos chips neutros. Criada `.rd-chip-crit`/`.rd-chip-alert`
+  (a segunda já existia, usada no chip "Vencido" do Histórico de
+  Orçamentos) e `filtVisStatus()` (app.js) reescrita pra alternar `on`
+  (selecionado) ↔ cor de severidade (não selecionado) — nunca as duas
+  juntas, mesmo padrão dos chips "Vencido"/"Repor" já usados em
+  Orçamentos/OS/A Receber. **Não fiz:** varredura completa das ~23
+  ocorrências — só as citadas + 1 achada no mesmo padrão; o resto continua
+  pendente, como o plano já previa ("sem pressa").
+- **Emoji no placeholder** — só `#hist-busca-input` (único citado
+  nominalmente). Vira ícone de lupa posicionado dentro do campo
+  (`position:absolute` + `padding-left` no input), placeholder sem emoji.
+  Os outros 11 campos de busca do app com o mesmo padrão (`🔍 Buscar...`)
+  não foram tocados — fora do escopo que o plano definiu.
+- **Hex laranja fixo** — só 2 dos "3 pontos" que o plano listava. Botão da
+  tela de erro (`#fluxa-error-screen`) virou `var(--c1,#0B62CE)`, sem
+  dependência — feito. Swatch da legenda do calendário ("📄 Do orçamento",
+  `#c45e0a`) **não mexido**: achado no caminho — mudar só o swatch sem
+  também mudar `app.js` (`tipoCor.orcamento` nas linhas ~9370/9347, usado
+  nos pontos do calendário E no modal de detalhes da OS) criaria uma
+  inconsistência NOVA (legenda de uma cor, pontos de outra) pior que a que
+  existe hoje. Registrado para quando alguém tocar o sistema de cores do
+  calendário como um todo — não é um ponto isolado como o plano estimou.
+  3º ponto (default do seletor de cor em Configurações) meio deixado de
+  propósito pelo próprio plano ("pode continuar laranja se for
+  intencional").
+- **Rótulo de valor no `#ins-chart`** — plugin do Chart.js
+  (`afterDatasetsDraw`) desenha o valor abreviado ("62,4k") no topo de
+  cada barra de Aprovado, mesma ideia do gráfico de aging de A Receber
+  (que é HTML/CSS puro — aqui precisou de plugin porque é canvas).
+  **Bug pego no próprio teste:** a primeira versão lia o valor de uma
+  variável (`aprovDados`) capturada no closure do render — funciona no
+  fluxo normal (a função sempre roda de novo antes do plugin desenhar),
+  mas eu testei mutando `chart.data` direto + `.update()` pra simular
+  dado sintético, e os rótulos não apareciam (closure desatualizado,
+  ainda via zeros). Corrigido pra ler de `chart.data.datasets[0].data[i]`
+  em vez do closure — mais robusto de qualquer forma, não depende de quem
+  chama `.update()`.
+- **Chip de filtro ativo em "Em que fase está"** — dois ajustes. (1) texto
+  do subtítulo virou neutro quanto à posição ("toque numa faixa pra
+  filtrar a fila", sem "ao lado" — abaixo de 1180px a fila fica ACIMA,
+  não ao lado). (2) chip removível novo no cabeçalho de "Precisa de você
+  hoje" (`#ins-fila-chip-filtro`), mostra o nome da fase + ✕, clicar limpa
+  o filtro. **Bug pego no próprio teste:** quando o pipeline está vazio
+  (`pipeQtd=0`), `_crmRenderEstagio()` sempre teve um `return` antecipado
+  que esconde o card inteiro — meu código do chip vinha DEPOIS desse
+  return, então clicar no chip pra limpar o filtro nunca escondia o
+  próprio chip (ficava preso mostrando um filtro que a função nunca
+  chegava a recalcular). Corrigido: o `return` antecipado agora também
+  zera `_crmFaixaFiltro` e esconde o chip.
+- **`role="button"` + teclado nas linhas clicáveis** — as 3 tabelas com
+  `.rd-row` clicável (Orçamentos, OS, Estoque) ganharam `role="button"`,
+  `aria-label` e handler de **Espaço** (só tinham Enter). De brinde,
+  Estoque ganhou forma além de cor no ponto de status (achado #10 da
+  análise): círculo cheio = normal, **anel** = abaixo do mínimo/encomenda,
+  quadrado = sem giro — mesma correção aplicada ao ponto de garantia de
+  equipamento na ficha do cliente (só esse, achado no mesmo padrão; o
+  "e Vistoria" que a análise citava não existe mais como ponto de 7px —
+  o histórico de vistoria já usa emoji distinto por status, não só cor).
+
+**Achado à parte, não corrigido (pré-existente, não é desta tarefa):**
+navegar para "Hoje" repetidas vezes em sequência rápida (múltiplos
+`go('insights')` no mesmo tick) pode disparar "Canvas is already in use"
+no `#ins-chart` — `go()` chama `renderPainelInsights()` de forma síncrona
+E de novo dentro de um `.then()` do carregamento de dados; sob navegação
+rápida o `Chart.destroy()`/`new Chart()` de `renderInsightsChart()` corre
+risco de sobrepor. **Confirmado com `git stash` que o bug já existia antes
+desta sessão** (reproduz igual no código anterior à Tarefa 6) — não é
+regressão desta tarefa. Não acontece em uso normal (testado à exaustão
+nesta sessão com navegação única); só sob clique/chamada repetida na
+mesma tela em milissegundos.
+
+Testado no browser local (dbOk=true, só leitura): os 4 achados acima
+(closure do gráfico, chip preso, chips de severidade sem cor) pegos e
+corrigidos DURANTE o próprio teste, não só depois; anel âmbar visível em
+produtos reais abaixo do mínimo (filtro "Repor"); chip "Quente ✕"
+aparecendo/sumindo corretamente com dado sintético (pipeline vazio nos
+dados reais desta sessão); campo de busca com ícone; tela de erro em
+azul; chips de vistoria alternando on↔cor; sintaxe validada via
+`new Function` (JXA) duas vezes (antes e depois do fix do closure); sem
+erro novo no console em navegação normal. `sw.js` v151→v152.
+
 ## ✅ RESOLVIDO — botão antigo de Pagamento removido (14/08, decisão do Marcos)
 
 O achado abaixo foi levado direto pro Marcos (com explicação de onde o
