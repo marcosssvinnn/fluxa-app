@@ -2,6 +2,34 @@
 
 ---
 
+## Fase 9c-rev ajustada — forma além de cor no dot da Vistoria (14/08, pedido do Marcos)
+
+O Marcos pediu pra conferir se o dot novo da Fase 9c-rev (logo abaixo) e a
+correção de acessibilidade que a Tarefa 6 do plano de acabamento tinha
+acabado de fazer em Estoque eram "a mesma coisa" — e eram: os dois são o
+achado #10 da análise de usabilidade ("pontos de status de 7px em Estoque
+e Vistoria comunicam apenas por cor"). Só que a Fase 9c-rev (commit
+`605ca42`) resolveu o `.vis-equip-hdr::before` como um dot **só de cor**
+(verde/âmbar/vermelho) — reintroduzindo, sem querer, o exato problema que
+a Tarefa 6 tinha corrigido em Estoque horas antes na mesma sessão.
+
+**As duas não eram excludentes** — a ideia de esconder emoji+pílula no
+mobile pra descongestionar o cabeçalho recolhido é boa e ficou; só faltava
+a forma. Ajustado em cima do `.vis-equip-hdr::before` já existente, mesmo
+vocabulário do Estoque: **círculo cheio** = bom, **anel** (`border`,
+fundo transparente) = atenção, **triângulo** (`clip-path`) = crítico —
+literalmente as 3 formas que a análise de usabilidade sugeriu. "Não
+avaliado" (sem `status-*`) fica cinza cheio — não é severidade, não
+precisava de forma própria.
+
+Testado no browser local (`dbOk=false`, 4 blocos sintéticos injetados
+direto no DOM — bom/atenção/crítico/não avaliado, mesmo markup real de
+`buildEquipBlock()`): 375px mostra círculo verde, anel âmbar, triângulo
+vermelho e círculo cinza, emoji/pílula ocultos; 1440px sem nenhuma
+mudança (emoji+pílula de volta, media query não vaza). `sw.js` v153→v154.
+
+---
+
 ## REDESIGN Fase 9b-rev + 9c-rev fechadas — wizard literal + dot colorido (14/08)
 
 Duas sessões trabalharam no MESMO worktree ao mesmo tempo hoje (achado, não
