@@ -2,6 +2,110 @@
 
 ---
 
+## Tarefa 3e.3 — Venda Rápida vira balcão (15/08) — fecha o plano de ajustes (3e)
+
+Última das 3 subtarefas do handoff `design_handoff_fluxa_redesign 4/`.
+**Decisão do Marcos antes de codar** (perguntada explicitamente, como o
+plano pedia): venda de balcão **dá baixa real no estoque E entra no
+faturamento do mês** — conta como qualquer orçamento aprovado no KPI
+"Fechado no mês" e no gráfico "Aprovado por mês" do Insights, e nas
+Movimentações do Estoque (isso já acontecia via `registrarMovimento`).
+
+**Era modal (`#venda-modal`), virou página cheia (`#page-venda-balcao`)**
+— sem sidebar/header/nav inferior: "cliente esperando no balcão" não tem
+espaço pra cromo do app admin. O toggle mora dentro de `go()` (roda em
+TODO `go()`, não só ao entrar — é o que garante que sair da tela devolve
+sidebar/header sozinho, não importa por qual caminho saiu), então
+`fecharVendaBalcao()` virou só `voltar()`. `abrirVendaBalcao()` continua
+existindo (chamada pela sidebar e pelo atalho novo em Estoque) — só que
+agora faz `go('venda-balcao')` em vez de abrir overlay. **`pagesVendas`/
+`pagesTecnico` em `go()` ganharam `'venda-balcao'`** — sem isso os 2
+perfis que já tinham o atalho na sidebar (`snbRules: gestor||vendas||
+tecnico`) ficariam bloqueados com "sem acesso" na primeira vez que
+clicassem, porque a tela virou rota de verdade sujeita ao guardrail de
+perfil (o modal antigo nunca passava por `go()`, então nunca era barrado).
+
+**Reaproveitado quase inteiro**: todo o motor de carrinho que já existia
+como modal (`_vendaCarrinho`, `_vendaAddItem`, `vendaRemoverItem`,
+`confirmarVendaBalcao`, busca de cliente via `abrirBuscaCli('venda')`) —
+zero reescrita da lógica de negócio, só a moldura.
+
+**Novo nesta tarefa:**
+- **Grade de produtos por categoria** (`_vbRenderGrade`) — abas vêm dos
+  valores reais de `produtos.categoria` (não inventadas); "Mais vendidos"
+  (aba padrão) usa a mesma régua da curva ABC (`curvaABC().ordenados`,
+  giro×custo 180 dias) — não fiz uma contagem de vendas nova só pra esta
+  tela, reaproveitei o que já existe e já é a medida real de "o que sai
+  mais".
+- **Busca com leitor de código de barras** — `vendaBuscarProduto()` agora
+  testa match EXATO de código a cada tecla (não só substring) e soma na
+  hora, sem esperar Enter — leitor físico dispara `oninput` rápido demais
+  pra confiar em `keydown`.
+- **Stepper +/- de 30×30px** (`_vendaMudarQtd`) — alvo de dedo, não de
+  mouse; zerar a quantidade remove o item.
+- **"Item livre"** (`_vendaAbrirItemLivre`/`_vendaConfirmarItemLivre`,
+  via `abrirModal()` da Tarefa 13) — item com `produto_id:null`, entra na
+  venda mas `confirmarVendaBalcao()` pula ele no laço de
+  `registrarMovimento` (sem baixa de estoque, como o card já avisa).
+- **Desconto** (`_vendaAbrirDesconto`) — abate do subtotal, nunca passa
+  do subtotal (`Math.min`); vira parte do `valor_total` líquido gravado —
+  **não criei uma coluna `desconto` nova** no schema de `vendas_balcao`
+  (não existe hoje, e `dbInsert` resiliente descartaria em silêncio
+  qualquer coluna que eu inventasse sem rodar migração primeiro).
+- **Pagamento em grade de 4 botões** (Pix/Cartão/Dinheiro/A prazo) — troca
+  o `<select>` antigo; clicar de novo no mesmo desmarca (nenhuma forma
+  também é uma opção válida, "A prazo" sem dado de cobrança não é
+  diferente de deixar em branco por enquanto).
+- **"Salvar" ≠ "Finalizar venda"** — decisão de propósito, não implementação
+  parcial: não existe no schema um conceito de venda pendente/rascunho, e
+  fazer "Salvar" gravar em `vendas_balcao` (mesmo que "sem finalizar")
+  deixaria os dois botões fazendo a MESMA coisa — clicar nos dois em
+  sequência dobraria a venda e a baixa de estoque. "Salvar"
+  (`vendaSalvarRascunho`) guarda o carrinho só em `localStorage`
+  (sobrevive a F5/queda de conexão no meio do atendimento, sem tocar
+  banco nem estoque); ao reabrir a tela com um rascunho salvo,
+  `_vbRestaurarRascunho()` pergunta via `confirmar()` se quer retomar ou
+  começar do zero — nunca restaura sozinho (evitaria cobrar o cliente
+  errado pelo carrinho de quem passou antes).
+- **Wiring do faturamento** (decisão do Marcos) — `_crmPipelineStats()`
+  (`fechValor`/`fechQtd`/`fechValorAnt`) e `renderInsightsChart()` (bucket
+  mensal do gráfico) agora somam `todasVendasBalcao` do mês junto com os
+  orçamentos aprovados, filtrado por loja/mês do mesmo jeito. A baixa de
+  estoque já era real desde antes desta tarefa (`registrarMovimento`, já
+  existia no modal antigo) — só faltava a parte do faturamento.
+- **Atalho na barra de Estoque** (pedido explícito do plano) — botão
+  "Venda Rápida" ao lado de "Balanço"/"Dar baixa".
+
+Testado no browser local (`dbOk=true` pra navegar com dado real; `dbOk=
+false` temporário só na hora de clicar "Finalizar venda" de verdade, pra
+não escrever em produção): grade com categorias reais (Acessório/Bomba/
+Equipamento/Filtro/Peça de Piscina/.../Trocador de Calor); produto
+adicionado via clique no card (badge de contagem aparecendo no próprio
+card); leitor de código simulado (`vendaBuscarProduto('30200401021')`)
+somou direto, sem precisar de Enter; stepper +1; desconto de R$58
+aplicado (subtotal R$7.826 → total R$7.768, conferido linha a linha);
+item livre "Serviço de instalação" R$150 adicionado com `produto_id:
+null`; pagamento Pix selecionado; **rascunho salvo → recarregado a tela →
+diálogo "Retomar venda em aberto?" apareceu, "Retomar" restaurou os 3
+itens exatos** (conferido por igualdade de array); "Finalizar venda" com
+loja selecionada (o guard "selecione a unidade" — já existia, não é bug
+novo — bloqueou corretamente quando testei com "Todas as unidades")
+gravou a venda local (`dbOk=false`), zerou o carrinho, apagou o
+rascunho, e **2 movimentos de estoque reais foram criados (só pros 2
+itens com produto_id — o item livre corretamente não gerou nenhum)**;
+`_crmPipelineStats().fechValor` e a última barra do gráfico bateram
+exatos com o valor da venda de teste, confirmando o wiring do
+faturamento; "Sair do balcão" devolveu sidebar/header e voltou pra tela
+anterior. Tablet 1024px (grade 3 colunas, carrinho 360px — o breakpoint
+que o plano pede explicitamente) e mobile 375px (empilha, sem quebrar)
+sem overflow. Zero erro novo no console. `sw.js` v163→v164.
+
+**Com isso, as 3 subtarefas da Tarefa 3e (Hoje/OS/Balcão) e o plano de
+ajustes inteiro do handoff `design_handoff_fluxa_redesign 4/` estão
+fechados.**
+
+---
+
 ## Tarefa 3e.2 — OS: o atraso vira o assunto (15/08)
 
 Segunda das 3 subtarefas da revisão com dado real (3e.3, balcão, fica pra

@@ -1731,8 +1731,12 @@ function go(p){
   const _vendas  = eVendas();
   const _tecnico = eTecnico();
   const _gestor  = eGestor();
-  const pagesVendas  = ['form','history','clientes','agendamentos','os'];
-  const pagesTecnico = ['minhas-os','visitas','os']; // 'os' para abrir/preencher a OS atribuída
+  // 'venda-balcao' entra nas duas (Tarefa 3e.3): antes era modal, sem
+  // guardrail de go() nenhum — virou página de verdade, então precisa
+  // aparecer aqui pros 2 perfis que já tinham o atalho na sidebar
+  // (snbRules: gestor||vendas||tecnico).
+  const pagesVendas  = ['form','history','clientes','agendamentos','os','venda-balcao'];
+  const pagesTecnico = ['minhas-os','visitas','os','venda-balcao']; // 'os' para abrir/preencher a OS atribuída
   if(_vendas  && !pagesVendas.includes(p))  { toast('Você não tem acesso a essa área.'); return; }
   if(_tecnico && !pagesTecnico.includes(p)) { toast('Você não tem acesso a essa área.'); return; }
   if(!_gestor && !_vendas && !_tecnico &&
@@ -1752,6 +1756,17 @@ function go(p){
   document.querySelectorAll('.snb').forEach(x=>{ x.classList.remove('on'); x.removeAttribute('aria-current'); });
   const snb=document.getElementById('snb-'+p); if(snb){ snb.classList.add('on'); snb.setAttribute('aria-current','page'); }
   closeSidebar();
+  // Tela cheia do balcão (Tarefa 3e.3) — sem sidebar/header/nav inferior,
+  // "cliente esperando no balcão" não tem espaço pra cromo do app admin.
+  // Roda em TODO go(), não só ao entrar em 'venda-balcao': é o que garante
+  // que sair da tela (pra qualquer destino) devolve sidebar/header sozinho,
+  // sem precisar de um "fecharTelaCheia()" espalhado em cada botão de saída.
+  const _telaCheia = p==='venda-balcao';
+  const _hdrEl=document.querySelector('.hdr'); if(_hdrEl) _hdrEl.style.display=_telaCheia?'none':'';
+  const _mobNavEl=document.getElementById('mob-nav'); if(_mobNavEl) _mobNavEl.style.display=_telaCheia?'none':'';
+  const _sbEl=document.getElementById('sidebar'); if(_sbEl) _sbEl.classList.toggle('s-hidden', _telaCheia);
+  document.body.classList.toggle('no-sbar', _telaCheia);
+  if(p==='venda-balcao') _vbAbrir();
   if(p==='portal') { /* página gerenciada por checkPortalHash */ }
   // "Insights" (rótulo "Hoje") — de volta a UMA tela só em 13/08 (handoff de
   // design substitui o desdobramento "Hoje"/"Resultado" feito mais cedo hoje:
@@ -4830,6 +4845,17 @@ function _crmPipelineStats(){
   const fechados=doMes.filter(o=>o.status==='aprovado');
   const convPct=doMes.length>0?Math.round(fechados.length/doMes.length*100):0;
 
+  // Venda de balcão soma no "Fechado no mês" (Tarefa 3e.3, decisão do
+  // Marcos 15/08: é venda de verdade, conta como orçamento aprovado —
+  // aparece aqui, no gráfico "Aprovado por mês" e nas Movimentações do
+  // Estoque, que já recebem a baixa via registrarMovimento).
+  const _vendasDoMes=mRef=>filtrarPorLoja(todasVendasBalcao||[]).filter(v=>{
+    const d=v.data_criacao?new Date(v.data_criacao):null;
+    return d&&!isNaN(d)&&d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')===mRef;
+  });
+  const vendasMes=_vendasDoMes(mesRef);
+  const vendasValorMes=vendasMes.reduce((a,v)=>a+(parseFloat(v.valor_total)||0),0);
+
   // Mês anterior — só pro comparativo do KPI "Fechado no mês" (card 2 do
   // Insights, handoff pede "+18% vs. mês anterior").
   const anteriorRef=new Date(hoje.getFullYear(), hoje.getMonth()-1, 1);
@@ -4838,7 +4864,7 @@ function _crmPipelineStats(){
     if(o.status!=='aprovado') return false;
     const ref=o.data_aprovacao?new Date(o.data_aprovacao):_orcData(o);
     return ref&&!isNaN(ref)&&ref.getFullYear()+'-'+String(ref.getMonth()+1).padStart(2,'0')===mesAntRef;
-  }).reduce((a,o)=>a+val(o),0);
+  }).reduce((a,o)=>a+val(o),0) + _vendasDoMes(mesAntRef).reduce((a,v)=>a+(parseFloat(v.valor_total)||0),0);
 
   // Dias médios até o "sim" — só entre quem tem as duas datas (emissão e
   // aprovação); vira o apoio do KPI "Taxa de fechamento".
@@ -4857,7 +4883,7 @@ function _crmPipelineStats(){
     pipeQtd, pipeValor,
     paradoQtd:parados.length, paradoValor:parados.reduce((a,o)=>a+val(o),0), paradoPct,
     vencQtd:vencendo.length, vencValor:vencendo.reduce((a,o)=>a+val(o),0),
-    fechQtd:fechados.length, fechValor:fechados.reduce((a,o)=>a+val(o),0), emitidosMes:doMes.length, convPct,
+    fechQtd:fechados.length+vendasMes.length, fechValor:fechados.reduce((a,o)=>a+val(o),0)+vendasValorMes, emitidosMes:doMes.length, convPct,
     fechValorAnt, diasMedioFechar,
     faixas, idadeDe:idade,
     mesLabel:hoje.toLocaleDateString('pt-BR',{month:'long',year:'numeric'})
@@ -5368,11 +5394,15 @@ function renderInsightsChart(){
   const despFilt=filtrarPorLoja(todasDesp||[]);
   const labels=[], aprovDados=[];
   let totRec=0, totDesp=0, despMesAtual=0;
+  const vendasFilt=filtrarPorLoja(todasVendasBalcao||[]);
   meses.forEach(({y,m},i)=>{
     const d=new Date(y,m,1);
     labels.push(d.toLocaleDateString('pt-BR',{month:'short'}));
     const doMes=orcFilt.filter(o=>{ const dt=_orcData(o); return dt&&!isNaN(dt)&&dt.getFullYear()===y&&dt.getMonth()===m; });
-    const aprov=doMes.filter(o=>o.status==='aprovado').reduce((a,o)=>a+(o.total||0),0);
+    // Venda de balcão soma junto (Tarefa 3e.3, decisão do Marcos) — mesmo
+    // critério do KPI "Fechado no mês" em _crmPipelineStats().
+    const vendasMesChart=vendasFilt.filter(v=>{ const dt=v.data_criacao?new Date(v.data_criacao):null; return dt&&!isNaN(dt)&&dt.getFullYear()===y&&dt.getMonth()===m; }).reduce((a,v)=>a+(parseFloat(v.valor_total)||0),0);
+    const aprov=doMes.filter(o=>o.status==='aprovado').reduce((a,o)=>a+(o.total||0),0)+vendasMesChart;
     aprovDados.push(aprov);
     const desp=despFilt.filter(dd=>{ const raw=(dd.data||'').split('T')[0]; if(!raw) return false; const dt=new Date(raw+'T12:00:00'); return dt.getFullYear()===y&&dt.getMonth()===m; }).reduce((a,dd)=>a+(dd.valor||0),0);
     totRec+=aprov; totDesp+=desp;
@@ -15854,19 +15884,36 @@ function confirmarBaixaRapida(){
 //  (ver docs/crm-insights-plano-etapa1.md se existir, ou o recado no
 //  CLAUDE.md sobre o roadmap de 8 etapas).
 // ══════════════════════════════════════════════════════════════════════════════
-let _vendaCarrinho=[];          // [{produto_id, nome, unidade, qtd, preco_unit, custo_unit}]
+let _vendaCarrinho=[];          // [{produto_id, nome, unidade, qtd, preco_unit, custo_unit}] — produto_id null = item livre (sem baixa de estoque)
 let _vendaClienteSelecionado=null; // {id, nome} quando veio da busca — null se digitado à mão ou anônimo
 let _vendaAnonimo=false;
+let _vendaFormaPgto='';
+let _vendaDesconto=0;
+let _vbCategoriaAtiva='__maisvendidos__';
 
-function abrirVendaBalcao(){
+// Tarefa 3e.3 (15/08) — vira tela cheia (sem sidebar/header), não modal.
+// abrirVendaBalcao() continua existindo como o ponto de entrada (chamado
+// pela sidebar/atalho do Estoque), só que agora navega em vez de abrir
+// overlay — o toggle de sidebar/header mora em go() (ver _vbTelaCheia).
+function abrirVendaBalcao(){ go('venda-balcao'); }
+function _vbAbrir(){
   _vendaCarrinho=[]; _vendaClienteSelecionado=null; _vendaAnonimo=false;
-  setV('venda-cli',''); setV('venda-busca',''); setV('venda-forma-pgto','');
-  document.getElementById('venda-sugestoes').innerHTML='';
+  _vendaFormaPgto=''; _vendaDesconto=0; _vbCategoriaAtiva='__maisvendidos__';
+  setV('venda-cli',''); setV('venda-busca','');
+  document.querySelectorAll('.vb-pgto-btn').forEach(b=>b.classList.remove('on'));
+  const sug=document.getElementById('venda-sugestoes'); if(sug) sug.innerHTML='';
+  _vbRenderGrade();
   _vendaRenderCarrinho();
-  document.getElementById('venda-modal').style.display='flex';
+  const s=getSessao();
+  const lojaEl=document.getElementById('vb-topbar-loja');
+  if(lojaEl) lojaEl.textContent = lojaAtiva ? getLojaNome(lojaAtiva) : (CFG.todasLabel||'Todas as unidades');
+  const avEl=document.getElementById('vb-topbar-avatar');
+  if(avEl) avEl.textContent = (s?.nome||'').trim().split(/\s+/).slice(0,2).map(p=>p[0]).join('').toUpperCase()||'—';
   setTimeout(()=>document.getElementById('venda-busca')?.focus(), 80);
+  _vbRestaurarRascunho();
 }
-function fecharVendaBalcao(){ document.getElementById('venda-modal').style.display='none'; }
+// Sair do balcão volta pra última tela — mesmo histórico de voltar() do resto do app.
+function fecharVendaBalcao(){ voltar(); }
 
 // Qualquer edição manual no campo de cliente invalida o id que veio da busca
 // (não dá pra garantir que o texto editado ainda corresponde ao cadastro) —
@@ -15877,14 +15924,49 @@ function _vendaSemCliente(){
   _vendaClienteSelecionado=null; _vendaAnonimo=true;
 }
 
+// Categorias reais do catálogo (Tarefa 3e.3) — "Mais vendidos" usa a mesma
+// régua da curva ABC (giro×custo, 180 dias), não é feito de propósito uma
+// contagem nova só pra esta tela.
+function _vbCategorias(){ return [...new Set(produtosVisiveis().map(p=>(p.categoria||'').trim()).filter(Boolean))].sort(); }
+function _vbSetCategoria(cat){ _vbCategoriaAtiva=cat; _vbRenderGrade(); }
+function _vbRenderGrade(){
+  const tabsEl=document.getElementById('vb-tabs');
+  if(tabsEl){
+    const tabs=[['__maisvendidos__','Mais vendidos'], ...(_vbCategorias().map(c=>[c,c]))];
+    tabsEl.innerHTML=tabs.map(([id,rot])=>`<button type="button" class="vb-tab${_vbCategoriaAtiva===id?' on':''}" onclick="_vbSetCategoria('${esc(id).replace(/'/g,"\\'")}')">${esc(rot)}</button>`).join('');
+  }
+  const el=document.getElementById('vb-grade'); if(!el) return;
+  const lista = _vbCategoriaAtiva==='__maisvendidos__'
+    ? curvaABC().ordenados.slice(0,16)
+    : produtosVisiveis().filter(p=>(p.categoria||'').trim()===_vbCategoriaAtiva);
+  if(!lista.length){ el.innerHTML='<div class="rd-empty" style="grid-column:1/-1;padding:24px"><div class="rd-empty-title">Nenhum produto aqui</div></div>'; return; }
+  el.innerHTML=lista.map(p=>{
+    const disp=disponivelProduto(p.id);
+    const noCarrinho=_vendaCarrinho.find(i=>i.produto_id===p.id);
+    const baixo = disp>0 && disp<=(parseFloat(p.estoque_min)||0);
+    return `<button type="button" class="vb-card${noCarrinho?' on':''}${baixo?' vb-card-baixo':''}" onclick="_vendaAddItem('${p.id}')">
+      <div class="vb-card-top"><span class="vb-card-nome">${esc(p.nome)}</span>${noCarrinho?`<span class="vb-card-badge">${fmtQtd(noCarrinho.qtd)}</span>`:''}</div>
+      <span class="vb-card-sub${baixo?' vb-card-sub-baixo':''}">${p.codigo?esc(p.codigo)+' · ':''}${baixo?'só '+fmtQtd(disp)+' restam':fmtQtd(disp)+' em estoque'}</span>
+      <span class="vb-card-preco">${brl(parseFloat(p.preco_venda)||0)}</span>
+    </button>`;
+  }).join('');
+}
+
 function vendaBuscarProduto(termo){
   const el=document.getElementById('venda-sugestoes'); if(!el) return;
-  const t=(termo||'').trim().toLowerCase();
+  const t=(termo||'').trim();
+  if(!t){ el.innerHTML=''; return; }
+  // Código de barras (Tarefa 3e.3): casa exato com o SKU e soma na hora, sem
+  // esperar Enter — um leitor de código dispara oninput rápido demais pra
+  // confiar em keydown, e "sem Enter" é o que o handoff pede.
+  const exato=produtosVisiveis().find(p=>(p.codigo||'').toLowerCase()===t.toLowerCase());
+  if(exato){ _vendaAddItem(exato.id); return; }
   if(t.length<2){ el.innerHTML=''; return; }
+  const tl=t.toLowerCase();
   const achados=produtosVisiveis().filter(p=>
-    (p.nome||'').toLowerCase().includes(t) || (p.codigo||'').toLowerCase().includes(t)
+    (p.nome||'').toLowerCase().includes(tl) || (p.codigo||'').toLowerCase().includes(tl)
   ).slice(0,8);
-  if(!achados.length){ el.innerHTML='<div style="font-size:12px;color:var(--gray);padding:8px">Nenhum produto encontrado.</div>'; return; }
+  if(!achados.length){ el.innerHTML='<div style="font-size:12px;color:var(--tx3);padding:8px">Nenhum produto encontrado.</div>'; return; }
   el.innerHTML=achados.map(p=>{
     const disp=disponivelProduto(p.id);
     return `<button class="tb" style="display:block;width:100%;text-align:left;margin-bottom:5px;padding:9px 11px" onclick="_vendaAddItem('${p.id}')">
@@ -15903,58 +15985,119 @@ function _vendaAddItem(pid){
       qtd:1, preco_unit:parseFloat(p.preco_venda)||0, custo_unit:parseFloat(p.custo)||0
     });
   }
-  setV('venda-busca',''); document.getElementById('venda-sugestoes').innerHTML='';
+  setV('venda-busca',''); const sug=document.getElementById('venda-sugestoes'); if(sug) sug.innerHTML='';
   _vendaRenderCarrinho();
+  _vbRenderGrade(); // o card do produto ganha o contador de qtd no carrinho
   document.getElementById('venda-busca')?.focus();
 }
-function vendaRemoverItem(idx){ _vendaCarrinho.splice(idx,1); _vendaRenderCarrinho(); }
+function vendaRemoverItem(idx){ _vendaCarrinho.splice(idx,1); _vendaRenderCarrinho(); _vbRenderGrade(); }
 function vendaAtualizarItem(idx, campo, val){
   const it=_vendaCarrinho[idx]; if(!it) return;
   it[campo]=parseFloat(String(val).replace(',','.'))||0;
   _vendaRenderCarrinho(true); // true: não perde o foco do campo que está sendo digitado
 }
+// Stepper +/- (Tarefa 3e.3) — alvo de 30px, pensado pro dedo, não pro mouse.
+function _vendaMudarQtd(idx, delta){
+  const it=_vendaCarrinho[idx]; if(!it) return;
+  const novaQtd=(parseFloat(it.qtd)||0)+delta;
+  if(novaQtd<=0){ _vendaCarrinho.splice(idx,1); } else { it.qtd=novaQtd; }
+  _vendaRenderCarrinho();
+  _vbRenderGrade();
+}
 function _vendaTotais(){
-  return _vendaCarrinho.reduce((a,i)=>({
+  const {total:subtotal, custo}=_vendaCarrinho.reduce((a,i)=>({
     total: a.total+(i.qtd*i.preco_unit),
     custo: a.custo+(i.qtd*i.custo_unit)
   }), {total:0, custo:0});
+  const desconto=Math.min(_vendaDesconto||0, subtotal);
+  return {subtotal, desconto, total:subtotal-desconto, custo};
+}
+function _vendaSetFormaPgto(f){
+  _vendaFormaPgto = _vendaFormaPgto===f ? '' : f;
+  document.querySelectorAll('.vb-pgto-btn').forEach(b=>b.classList.toggle('on', b.dataset.f===_vendaFormaPgto));
+}
+function _vendaAbrirDesconto(){
+  abrirModal({id:'vb-desc-modal', corpo:`
+    <h3>Desconto</h3>
+    <div class="fl" style="margin:14px 0 4px"><label>Valor do desconto (R$)</label><input type="text" inputmode="decimal" id="vb-desc-valor" value="${_vendaDesconto?String(_vendaDesconto).replace('.',','):''}"></div>
+    <div class="rd-modal-acts">
+      <button class="rd-modal-btn rd-modal-btn-nao" onclick="fecharModal('vb-desc-modal')">Cancelar</button>
+      <button class="rd-modal-btn rd-modal-btn-sim" onclick="_vendaConfirmarDesconto()">Aplicar</button>
+    </div>`});
+}
+function _vendaConfirmarDesconto(){
+  _vendaDesconto=Math.max(0, parseFloat((gV('vb-desc-valor')||'').replace(',','.'))||0);
+  fecharModal('vb-desc-modal');
+  _vendaRenderCarrinho();
+}
+// Item fora do catálogo (Tarefa 3e.3) — entra na venda, nunca dá baixa de
+// estoque (produto_id fica null; confirmarVendaBalcao() pula esses no laço
+// de registrarMovimento).
+function _vendaAbrirItemLivre(){
+  abrirModal({id:'vb-livre-modal', corpo:`
+    <h3>Item que não está no catálogo</h3>
+    <p class="rd-modal-sub">Entra na venda sem baixa de estoque.</p>
+    <div class="fl" style="margin:14px 0 10px"><label>Descrição</label><input type="text" id="vb-livre-desc" placeholder="Ex: Serviço avulso"></div>
+    <div class="fl" style="margin-bottom:4px"><label>Valor (R$)</label><input type="text" inputmode="decimal" id="vb-livre-valor" placeholder="0,00"></div>
+    <div class="rd-modal-acts">
+      <button class="rd-modal-btn rd-modal-btn-nao" onclick="fecharModal('vb-livre-modal')">Cancelar</button>
+      <button class="rd-modal-btn rd-modal-btn-sim" onclick="_vendaConfirmarItemLivre()">Adicionar</button>
+    </div>`});
+}
+function _vendaConfirmarItemLivre(){
+  const desc=(gV('vb-livre-desc')||'').trim();
+  const valor=parseFloat((gV('vb-livre-valor')||'').replace(',','.'))||0;
+  if(!desc||valor<=0){ toast('Preencha descrição e valor'); return; }
+  fecharModal('vb-livre-modal');
+  _vendaCarrinho.push({produto_id:null, nome:desc, unidade:'un', qtd:1, preco_unit:valor, custo_unit:0});
+  _vendaRenderCarrinho();
 }
 function _vendaRenderCarrinho(soTotais){
-  const totEl=document.getElementById('venda-total');
-  const {total}=_vendaTotais();
-  if(totEl) totEl.textContent = _vendaCarrinho.length ? `Total: ${brl(total)}` : '';
+  const {subtotal, desconto, total}=_vendaTotais();
+  const contEl=document.getElementById('venda-cont');
+  if(contEl) contEl.textContent = _vendaCarrinho.length ? `${_vendaCarrinho.length} ${_vendaCarrinho.length!==1?'itens':'item'} · ${fmtQtd(_vendaCarrinho.reduce((a,i)=>a+(parseFloat(i.qtd)||0),0))} unidades` : 'carrinho vazio';
+  const subEl=document.getElementById('venda-subtotal'); if(subEl) subEl.textContent=brl(subtotal);
+  const descLinha=document.getElementById('venda-desconto-linha');
+  if(descLinha) descLinha.style.display = desconto>0 ? 'flex' : 'none';
+  const descEl=document.getElementById('venda-desconto-val'); if(descEl) descEl.textContent='− '+brl(desconto);
+  const totEl=document.getElementById('venda-total'); if(totEl) totEl.textContent=brl(total);
   if(soTotais) return; // evita re-renderizar as linhas e perder o foco do input enquanto digita
   const el=document.getElementById('venda-carrinho'); if(!el) return;
-  if(!_vendaCarrinho.length){ el.innerHTML=''; return; }
+  if(!_vendaCarrinho.length){ el.innerHTML='<div class="rd-empty" style="padding:24px 12px"><div class="rd-empty-title" style="font-size:13px">Carrinho vazio</div><div class="rd-empty-sub">Toque num produto à esquerda ou leia o código de barras.</div></div>'; return; }
   el.innerHTML = _vendaCarrinho.map((i,idx)=>`
-    <div style="display:flex;gap:6px;align-items:center;padding:7px 0;border-bottom:1px solid var(--line,#e5e7eb)">
-      <div style="flex:1;min-width:0">
-        <div style="font-weight:700;color:var(--c2);font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(i.nome)}</div>
-        <div style="font-size:11px;color:var(--gray)">${brl(i.preco_unit)} / ${esc(i.unidade)}</div>
+    <div class="vb-item">
+      <div class="vb-item-tx">
+        <span class="vb-item-nome">${esc(i.nome)}</span>
+        <span class="vb-item-sub">${fmtQtd(i.qtd)} × ${brl(i.preco_unit)}</span>
       </div>
-      <input type="text" inputmode="decimal" value="${i.qtd}" style="width:52px;text-align:center;padding:6px 4px" onchange="vendaAtualizarItem(${idx},'qtd',this.value)">
-      <div style="width:70px;text-align:right;font-weight:700;font-size:12.5px">${brl(i.qtd*i.preco_unit)}</div>
-      <button onclick="vendaRemoverItem(${idx})" aria-label="Remover" style="background:none;border:none;cursor:pointer;color:var(--red);font-size:16px;font-weight:700;padding:0 4px">×</button>
+      <div class="vb-item-stepper">
+        <button type="button" class="vb-step" onclick="_vendaMudarQtd(${idx},-1)" aria-label="Diminuir">−</button>
+        <span class="vb-step-qtd">${fmtQtd(i.qtd)}</span>
+        <button type="button" class="vb-step" onclick="_vendaMudarQtd(${idx},1)" aria-label="Aumentar">+</button>
+      </div>
+      <div class="vb-item-val">${brl(i.qtd*i.preco_unit)}</div>
     </div>`).join('');
 }
 
 async function confirmarVendaBalcao(){
-  if(!_vendaCarrinho.length){ toast('⚠️ Adicione ao menos um produto'); return; }
+  if(!_vendaCarrinho.length){ toast('Adicione ao menos um produto'); return; }
   const loja=_lojaParaMovimento();
-  if(!loja){ toast('⚠️ Selecione a unidade no topo da tela'); return; }
+  if(!loja){ toast('Selecione a unidade no topo da tela'); return; }
   const {total, custo}=_vendaTotais();
   const clienteNome=(gV('venda-cli')||'').trim();
   const s=getSessao();
   // dados SEM id: vendas_balcao.id é uuid gerado pelo banco — mesmo cuidado
   // de despesas/equipamentos (mandar id texto local derruba o insert inteiro,
-  // 22P02, sem coluna pra reportar).
+  // 22P02, sem coluna pra reportar). valor_total já é líquido do desconto —
+  // não existe coluna própria de desconto no schema, e forçar uma via
+  // dbInsert resiliente só derrubaria o campo em silêncio.
   const dados={
     loja_id:loja,
     cliente_id:_vendaClienteSelecionado?.id||null,
     cliente_nome:clienteNome||(_vendaAnonimo?'Balcão (sem cliente identificado)':null),
     itens:_vendaCarrinho.map(i=>({produto_id:i.produto_id,nome:i.nome,qtd:i.qtd,preco_unit:i.preco_unit,custo_unit:i.custo_unit})),
     valor_total:total, custo_total:custo,
-    forma_pagamento:gV('venda-forma-pgto')||null,
+    forma_pagamento:_vendaFormaPgto||null,
     vendedor:s?.nome||'',
     observacao:null,
     data_criacao:new Date().toISOString()
@@ -15963,6 +16106,7 @@ async function confirmarVendaBalcao(){
   if(btn){ btn.disabled=true; btn.textContent='Registrando…'; }
   const vendaIdRef='venda_'+Date.now(); // só pra referenciar nos movimentos de estoque — não é o id real da venda
   _vendaCarrinho.forEach(i=>{
+    if(!i.produto_id) return; // item livre — sem baixa de estoque
     registrarMovimento({
       produto_id:i.produto_id, tipo:'saida', quantidade:-Math.abs(i.qtd),
       custo_unit:i.custo_unit,
@@ -15977,12 +16121,49 @@ async function confirmarVendaBalcao(){
     try{
       const {data:ins}=await dbInsert('vendas_balcao', dados);
       if(ins){ todasVendasBalcao=todasVendasBalcao.filter(x=>x.id!==vendaIdRef); todasVendasBalcao.unshift(ins); lsVendaSalvar(todasVendasBalcao); }
-    }catch(e){ console.warn('[confirmarVendaBalcao]', e?.message||e); toast('⚠️ Venda registrada aqui, mas não sincronizou ainda'); }
+    }catch(e){ console.warn('[confirmarVendaBalcao]', e?.message||e); toast('Venda registrada aqui, mas não sincronizou ainda', {tipo:'warn'}); }
   }
-  if(btn){ btn.disabled=false; btn.textContent='✅ Fechar Venda'; }
-  fecharVendaBalcao();
+  if(btn){ btn.disabled=false; btn.textContent='Finalizar venda'; }
+  localStorage.removeItem(LS_VB_RASCUNHO);
+  toast(`Venda de ${brl(total)} registrada${clienteNome&&!_vendaAnonimo?' — '+clienteNome:''}`, {tipo:'ok'});
   if(typeof renderEstoque==='function' && document.getElementById('page-estoque')?.classList.contains('on')) renderEstoque();
-  toast(`✅ Venda de ${brl(total)} registrada${clienteNome&&!_vendaAnonimo?' — '+clienteNome:''}`);
+  _vbAbrir(); // limpa o carrinho e mantém na tela — o próximo cliente já está esperando
+}
+// "Salvar" (Tarefa 3e.3) — NÃO é sinônimo de "Finalizar venda". Não existe
+// no schema um conceito de venda pendente/rascunho, então "Salvar" não pode
+// gravar em `vendas_balcao` nem dar baixa de estoque — isso é o que
+// "Finalizar venda" faz, e os dois fariam a mesma coisa duas vezes se
+// clicados em sequência (venda dobrada, estoque baixado duas vezes). Em vez
+// disso, guarda o carrinho em localStorage — sobrevive a um F5/queda de
+// conexão no meio do atendimento, sem tocar em banco nem estoque.
+const LS_VB_RASCUNHO='fluxa_venda_balcao_rascunho';
+function vendaSalvarRascunho(){
+  if(!_vendaCarrinho.length){ toast('Carrinho vazio — nada para salvar'); return; }
+  try{
+    lsSet(LS_VB_RASCUNHO, JSON.stringify({
+      carrinho:_vendaCarrinho, clienteNome:gV('venda-cli')||'',
+      clienteSelecionado:_vendaClienteSelecionado, anonimo:_vendaAnonimo,
+      formaPgto:_vendaFormaPgto, desconto:_vendaDesconto, salvoEm:new Date().toISOString()
+    }));
+    toast('Rascunho salvo neste aparelho', {tipo:'ok'});
+  }catch(e){ console.warn('[vendaSalvarRascunho]', e?.message||e); }
+}
+function _vbRestaurarRascunho(){
+  let r; try{ r=JSON.parse(ls(LS_VB_RASCUNHO)||'null'); }catch(e){ r=null; }
+  if(!r || !r.carrinho?.length) return;
+  confirmar({
+    titulo:'Retomar venda em aberto?',
+    msg:`Tem um carrinho salvo neste aparelho (${r.carrinho.length} ite${r.carrinho.length!==1?'ns':'m'}) que ainda não foi finalizado.`,
+    labelSim:'Retomar', labelNao:'Começar do zero',
+    onSim:()=>{
+      _vendaCarrinho=r.carrinho; _vendaClienteSelecionado=r.clienteSelecionado||null; _vendaAnonimo=!!r.anonimo;
+      _vendaFormaPgto=r.formaPgto||''; _vendaDesconto=r.desconto||0;
+      setV('venda-cli', r.clienteNome||'');
+      document.querySelectorAll('.vb-pgto-btn').forEach(b=>b.classList.toggle('on', b.dataset.f===_vendaFormaPgto));
+      _vendaRenderCarrinho(); _vbRenderGrade();
+    },
+    onNao:()=>{ localStorage.removeItem(LS_VB_RASCUNHO); }
+  });
 }
 
 let todasVendasBalcao=[];
