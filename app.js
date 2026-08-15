@@ -5956,23 +5956,23 @@ function _renderFormAcoesEdit(o){
   const osVinc=(todosOS||[]).find(x=>x.orcamento_id===o.id);
   const btnOS = osVinc
     ? (()=>{ const stOS=osVinc.status||'agendado'; const stLabel={agendado:'agendada',em_andamento:'em andamento',concluido:'concluída'}[stOS]||stOS;
-        return `<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="OS #${String(osVinc.numero||'').padStart(3,'0')} — ${stLabel}" onclick="verDetalhesOS('${osVinc.id}')">✅ OS#${String(osVinc.numero||'').padStart(3,'0')}</button>`; })()
+        return `<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="OS #${String(osVinc.numero||'').padStart(3,'0')} — ${stLabel}" onclick="verDetalhesOS('${osVinc.id}')">OS#${String(osVinc.numero||'').padStart(3,'0')}</button>`; })()
     : (o.status==='aprovado'
-        ? `<button type="button" class="rd-btn rd-btn-primary rd-btn-sm" onclick="gerarOS_deOrc('${o.id}')">📋 Gerar OS</button>`
-        : `<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Gerar OS" onclick="gerarOS_deOrc('${o.id}')">📋 OS</button>`);
+        ? `<button type="button" class="rd-btn rd-btn-primary rd-btn-sm" onclick="gerarOS_deOrc('${o.id}')">Gerar OS</button>`
+        : `<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Gerar OS" onclick="gerarOS_deOrc('${o.id}')">OS</button>`);
   el.innerHTML=`
     <select class="ss ${o.status||'pendente'}" style="flex-shrink:0" onchange="mudarSt('${o.id}',this)">${sopts(o.status||'pendente')}</select>
-    ${orcPrecoARevalidar(o)?'<span class="rd-badge rd-badge-warn">⏳ preço a revalidar</span>':''}
+    ${orcPrecoARevalidar(o)?'<span class="rd-badge rd-badge-warn">preço a revalidar</span>':''}
     <span style="flex:1"></span>
-    <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Ver PDF" onclick="verOrcPDF('${o.id}')">👁 PDF</button>
-    <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Duplicar" onclick="duplicarOrc('${o.id}')">⧉ Duplicar</button>
+    <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Ver PDF" onclick="verOrcPDF('${o.id}')">PDF</button>
+    <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Duplicar" onclick="duplicarOrc('${o.id}')">Duplicar</button>
     ${btnOS}
-    ${orcTemEntregaPendente(o)?`<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Marcar como entregue (baixa do estoque)" onclick="entregarOrcamento(getNC('${o.id}'),'manual')">📦 Entregar</button>`:''}
-    ${o.status==='aprovado'&&_orcTemItens(o)?`<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Comprovante de entrega" onclick="gerarOrdemEntrega('${o.id}')">🧾 Entrega</button>`:''}
-    ${o.status==='aprovado'?`<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Corrigir mês de aprovação" onclick="corrigirDataAprovacao('${o.id}')">📅 Mês</button>`:''}
+    ${orcTemEntregaPendente(o)?`<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Marcar como entregue (baixa do estoque)" onclick="entregarOrcamento(getNC('${o.id}'),'manual')">Entregar</button>`:''}
+    ${o.status==='aprovado'&&_orcTemItens(o)?`<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Comprovante de entrega" onclick="gerarOrdemEntrega('${o.id}')">Entrega</button>`:''}
+    ${o.status==='aprovado'?`<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Corrigir mês de aprovação" onclick="corrigirDataAprovacao('${o.id}')">Mês</button>`:''}
     ${!ocultarFinanceiro&&o.status==='aprovado'?`<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Emitir Nota Fiscal" onclick="abrirModalNFe('${o.id}')">NF</button>`:''}
-    <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Enviar no WhatsApp" onclick="enviarNotifWA(notifOrcamento(getNC('${o.id}')), '${o.tel_cliente||''}')">💬 WA</button>
-    ${ocultarFinanceiro?'':`<button type="button" class="rd-btn rd-btn-danger-text rd-btn-sm" title="Excluir" onclick="excluirOrc('${o.id}')">🗑 Excluir</button>`}
+    <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Enviar no WhatsApp" onclick="enviarNotifWA(notifOrcamento(getNC('${o.id}')), '${o.tel_cliente||''}')">WA</button>
+    ${ocultarFinanceiro?'':`<button type="button" class="rd-btn rd-btn-danger-text rd-btn-sm" title="Excluir" onclick="excluirOrc('${o.id}')">Excluir</button>`}
   `;
   el.style.display='flex';
 }
@@ -6397,15 +6397,15 @@ function _renderOSAcoesEdit(o){
   if(!o){ el.style.display='none'; el.innerHTML=''; return; }
   const _hoje=_hojeLocal();
   const atrasado=o.status==='agendado'&&o.data_servico&&o.data_servico<_hoje;
-  const stTx=o.status==='concluido'?'✅ Concluída':o.status==='cancelado'?'Cancelada':atrasado?'⚠️ Atrasada':'📅 Agendada';
+  const stTx=o.status==='concluido'?'Concluída':o.status==='cancelado'?'Cancelada':atrasado?'Atrasada':'Agendada';
   el.innerHTML=`
     <span class="rd-badge ${o.status==='concluido'?'rd-badge-ok':o.status==='cancelado'?'rd-badge-neutral':atrasado?'rd-badge-warn':'rd-badge-neutral'}">${stTx}</span>
     <span style="flex:1"></span>
-    <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Gerar PDF desta OS" onclick="_gerarPDFdaOS('${o.id}')">📄 PDF</button>
-    ${o.status!=='concluido'&&o.status!=='cancelado'?`<button type="button" class="rd-btn rd-btn-primary rd-btn-sm" title="Marcar como concluída (baixa de estoque automática)" onclick="concluirOSHistorico('${o.id}')">✅ Concluir</button>`:''}
-    ${o.status==='concluido'?`<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Notif. OS concluída" onclick="enviarNotifWA(notifConcluida(getNC('${o.id}')), '${o.tel_cliente||''}')">💬 Concluída</button>`:''}
-    ${o.status==='agendado'||atrasado?`<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Lembrete de visita" onclick="enviarNotifWA(notifVisita(getNC('${o.id}')), '${o.tel_cliente||''}')">💬 Lembrete</button>`:''}
-    <button type="button" class="rd-btn rd-btn-danger-text rd-btn-sm" title="Excluir" onclick="excluirOS('${o.id}')">🗑 Excluir</button>
+    <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Gerar PDF desta OS" onclick="_gerarPDFdaOS('${o.id}')">PDF</button>
+    ${o.status!=='concluido'&&o.status!=='cancelado'?`<button type="button" class="rd-btn rd-btn-primary rd-btn-sm" title="Marcar como concluída (baixa de estoque automática)" onclick="concluirOSHistorico('${o.id}')">Concluir</button>`:''}
+    ${o.status==='concluido'?`<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Notif. OS concluída" onclick="enviarNotifWA(notifConcluida(getNC('${o.id}')), '${o.tel_cliente||''}')">Concluída</button>`:''}
+    ${o.status==='agendado'||atrasado?`<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Lembrete de visita" onclick="enviarNotifWA(notifVisita(getNC('${o.id}')), '${o.tel_cliente||''}')">Lembrete</button>`:''}
+    <button type="button" class="rd-btn rd-btn-danger-text rd-btn-sm" title="Excluir" onclick="excluirOS('${o.id}')">Excluir</button>
   `;
   el.style.display='flex';
 }
@@ -6987,9 +6987,9 @@ function _renderFichaCliente(cliId){
     </div>
 
     <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:12px">
-      <button type="button" class="rd-btn rd-btn-link" style="font-size:12px" onclick="editarCliente('${cli.id}')">✏️ Editar cadastro</button>
-      <button type="button" class="rd-btn rd-btn-link" style="font-size:12px" onclick="novaOSParaCliente('${cli.id}')">🔧 Nova OS</button>
-      <button type="button" class="rd-btn rd-btn-danger-text" style="font-size:12px" onclick="excluirCliente('${cli.id}')">🗑 Excluir cliente</button>
+      <button type="button" class="rd-btn rd-btn-link" style="font-size:12px" onclick="editarCliente('${cli.id}')">Editar cadastro</button>
+      <button type="button" class="rd-btn rd-btn-link" style="font-size:12px" onclick="novaOSParaCliente('${cli.id}')">Nova OS</button>
+      <button type="button" class="rd-btn rd-btn-danger-text" style="font-size:12px" onclick="excluirCliente('${cli.id}')">Excluir cliente</button>
     </div>
   `;
 }
@@ -9041,9 +9041,9 @@ function renderDespesas(){
       <div style="display:flex;align-items:center;gap:8px;justify-content:space-between">
         <span class="rd-badge ${d.foto_base64?'rd-badge-ok':'rd-badge-warn'}">${d.foto_base64?'Anexado':'Falta'}</span>
         <div style="display:flex;gap:4px">
-          ${d.status==='pendente'&&d.categoria!=='empresa'?`<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Marcar como reembolsado" onclick="reembolsarDesp('${d.id}')">✅</button>`:''}
-          ${d.foto_base64?`<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Ver comprovante" onclick="verFotoDesp('${d.id}')">🧾</button>`:''}
-          <button type="button" class="rd-btn rd-btn-danger-text rd-btn-sm" title="Excluir" onclick="excluirDesp('${d.id}')">🗑</button>
+          ${d.status==='pendente'&&d.categoria!=='empresa'?`<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Marcar como reembolsado" onclick="reembolsarDesp('${d.id}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></button>`:''}
+          ${d.foto_base64?`<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Ver comprovante" onclick="verFotoDesp('${d.id}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6zM15 3v4h4M9 13h6M9 17h4"></path></svg></button>`:''}
+          <button type="button" class="rd-btn rd-btn-danger-text rd-btn-sm" title="Excluir" onclick="excluirDesp('${d.id}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M7 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13"></path></svg></button>
         </div>
       </div>
     </div>`;
@@ -15030,9 +15030,9 @@ function _renderProdAcoesEdit(p){
   el.innerHTML=`
     <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="abrirMovModal('${p.id}','entrada')" title="Registrar entrada de mercadoria">＋ Entrada</button>
     <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="abrirMovModal('${p.id}','saida')" title="Registrar saída">− Saída</button>
-    <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="abrirMovModal('${p.id}','ajuste')" title="Corrigir saldo / Inventário">⚖️ Corrigir</button>
-    <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="abrirResvModal('${p.id}')" title="Conferir/corrigir a quantidade reservada em orçamentos">🔒 Reserva</button>
-    ${LOJAS.length>1?`<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="abrirTransfModal('${p.id}')" title="Transferir para outra unidade">🔄 Transferir</button>`:''}
+    <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="abrirMovModal('${p.id}','ajuste')" title="Corrigir saldo / Inventário">Corrigir</button>
+    <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="abrirResvModal('${p.id}')" title="Conferir/corrigir a quantidade reservada em orçamentos">Reserva</button>
+    ${LOJAS.length>1?`<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="abrirTransfModal('${p.id}')" title="Transferir para outra unidade">Transferir</button>`:''}
     <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="abrirHistProduto('${p.id}')" title="Ver histórico de movimentos">Histórico</button>
     ${porLojaHtml}
   `;

@@ -2,6 +2,46 @@
 
 ---
 
+## Continuação do acabamento — itens deixados "sem pressa" agora feitos (14/08, pedido do Marcos)
+
+O Marcos pediu pra fechar os itens que a Tarefa 6 tinha registrado como
+adiados de propósito — exceto as pendências antigas (CNPJs, tokens Focus
+NFe, etc., que dependem dele). Um item de cada vez, mesmo protocolo.
+
+### Varredura completa de emoji em `.rd-btn`/`.rd-chip` — feita
+
+A Tarefa 6 só tinha tocado os ~15 citados nominalmente pela análise de
+usabilidade. Varredura em Python (regex de blocos Unicode de emoji,
+excluindo setas/✓ — glyphs tipográficos simples, não pictogramas
+coloridos, mesmo critério da Tarefa 6) achou mais 24 ocorrências em
+`.rd-btn`, zero em `.rd-chip` (já limpo). Todas removidas.
+
+- **Com texto ao lado** (maioria — barra de ações do orçamento aberto, OS,
+  ficha de cliente, produto no Estoque): emoji removido, texto fica
+  sozinho. Ex.: "📋 Gerar OS" → "Gerar OS".
+- **Badges dinâmicos com emoji embutido no texto** (2 achados no caminho):
+  `stTx` da barra de ações da OS (✅/⚠️/📅 Concluída/Atrasada/Agendada) e
+  o aviso "⏳ preço a revalidar" do orçamento — removido também, o badge já
+  comunica por cor.
+- **Ícone sozinho, sem texto** (3 botões de ação da tabela de Despesas —
+  reembolsar/ver comprovante/excluir, espaço de coluna não cabe texto):
+  emoji trocado por SVG de traço 1.8 (mesmo padrão da Tarefa 1), não
+  "simplesmente removido" — apagar deixaria o botão vazio. Ícones novos:
+  check (reembolsar), documento (ver comprovante, reaproveita o path já
+  usado em Orçamentos/Histórico), lixeira (excluir).
+- **Não mexido:** "✓ Recebi" (A Receber) — glyph tipográfico simples
+  (U+2713), mesmo critério das setas já excluídas na Tarefa 1/6.
+
+Testado no browser local (dbOk=true): orçamento aberto (PDF/Duplicar/OS/
+WA/Excluir), produto do Estoque (+Entrada/−Saída/Corrigir/Reserva/
+Transferir/Histórico) — ambos com dado real, sem emoji; botões de ícone
+de Despesas testados com linha sintética injetada (sem despesa no mês
+testado) — os 3 SVGs renderizam alinhados dentro do botão (`.rd-btn` já é
+`inline-flex` centralizado, não precisou de CSS novo). Sintaxe validada
+via `new Function` (JXA). Sem erro novo no console. `sw.js` v154→v155.
+
+---
+
 ## Fase 9c-rev ajustada — forma além de cor no dot da Vistoria (14/08, pedido do Marcos)
 
 O Marcos pediu pra conferir se o dot novo da Fase 9c-rev (logo abaixo) e a
