@@ -2019,11 +2019,13 @@
 <div class="page" id="page-os-history">
   <div class="wrap">
     <button class="btn-voltar" onclick="voltar()">← Voltar</button>
-    <!-- Fase 8 do redesign (13/08) — quadro de OS: topbar título+resumo do dia,
-         4 KPIs (renderOSKPIs), tabela densa "Agenda" (handoff literal: linha
-         inteira clicável abre a OS — botões que viviam na linha (PDF/WA/
-         Concluir/Excluir) se mudaram pra dentro da OS aberta, ver
-         #os-acoes-edit em page-os). Coluna direita: carga por técnico hoje. -->
+    <!-- Tarefa 3e.2 (15/08) — o atraso vira o assunto: os 4 KPIs (0/0/24/—
+         num dia sem nada agendado) viraram um cartão escuro único
+         (#os-kpis-novo, ver _renderOSHero) que mostra o maior problema do
+         dia. Tabela densa "Agenda" continua clique-só (botões que viviam
+         na linha se mudaram pra dentro da OS, #os-acoes-edit em page-os),
+         ganhou checkbox+seleção em lote (#os-lote-barra). Coluna direita:
+         carga por técnico hoje. -->
     <div class="novo-orc-topbar">
       <div>
         <div class="novo-orc-titulo">Ordens de Serviço</div>
@@ -2035,7 +2037,7 @@
       </div>
     </div>
 
-    <div class="ins-kpis" id="os-kpis-novo" style="margin-bottom:16px"></div>
+    <div id="os-kpis-novo" style="margin-bottom:16px"></div>
 
     <div class="novo-orc-body novo-orc-body-340">
     <div class="novo-orc-left">
@@ -2049,6 +2051,10 @@
         </select>
       </div>
       <div id="osh-body"><div class="load"><div class="spin"></div> Carregando…</div></div>
+      <!-- Barra de ação em lote (Tarefa 3e.2) — só aparece com seleção ativa,
+           ver _osRenderBarraLote(). Fica ENTRE a lista e o rodapé de
+           contagem, mesmo lugar de qualquer rodapé fixo de tabela. -->
+      <div id="os-lote-barra" class="os-lote-barra" style="display:none"></div>
       <div id="os-lista-rodape"></div>
     </div>
     </div><!-- /novo-orc-left -->

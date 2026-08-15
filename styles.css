@@ -298,6 +298,37 @@
     .rd-cell-strong{font-weight:600}
     .rd-cell-sub{font-size:11px;color:var(--tx3);margin-top:2px}
     .rd-tfoot{margin-top:auto;padding:12px 18px;border-top:1px solid var(--line);background:var(--bg-app);display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--tx2)}
+    /* Linha concluída/cancelada recua (Tarefa 3e.2) — some no meio da fila
+       do que ainda precisa de atenção, sem sumir de vez. */
+    .rd-row.rd-row-dim .rd-cell-strong{font-weight:500;color:var(--tx2)}
+
+    /* Cartão escuro único "Fila sem dono" / "Em atendimento agora" (Tarefa
+       3e.2) — substitui os 4 KPIs da OS que travavam em zero. Estado calmo
+       (nada em campo, nada sem técnico) vira cartão claro, não escuro —
+       problema nenhum não merece o mesmo peso visual de "24 OS na fila". */
+    .os-hero{background:#101720;border-radius:12px;padding:16px 20px;display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+    .os-hero-calm{background:#fff;border:1px solid var(--line)}
+    .os-hero-calm .os-hero-lbl{color:var(--tx3)}
+    .os-hero-calm .os-hero-num{color:var(--c2)}
+    .os-hero-calm .os-hero-sub{color:var(--tx2)}
+    .os-hero-calm .os-hero-tec span{color:var(--tx3)}
+    .os-hero-calm .os-hero-tec strong{color:var(--c2)}
+    .os-hero-main{display:flex;flex-direction:column;gap:3px;flex:1;min-width:180px}
+    .os-hero-lbl{font-size:11px;font-weight:600;letter-spacing:.10em;text-transform:uppercase;color:#8D99A9}
+    .os-hero-num-row{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+    .os-hero-num{font-size:27px;font-weight:600;color:#F2F6FB;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+    .os-hero-sub{font-size:13px;color:#8D99A9;font-weight:500}
+    .os-hero-sub-warn{color:#E8A15C;font-weight:600}
+    .os-hero-tecs{display:flex;align-items:center;gap:22px;flex-wrap:wrap}
+    .os-hero-tec{display:flex;flex-direction:column;gap:2px}
+    .os-hero-tec span{font-size:11px;color:#8D99A9}
+    .os-hero-tec strong{font-size:15px;font-weight:600;color:#F2F6FB;font-variant-numeric:tabular-nums}
+    .os-hero .rd-btn-primary{white-space:nowrap}
+
+    /* Checkbox + barra de ação em lote (Tarefa 3e.2) */
+    .os-check{width:15px;height:15px;cursor:pointer;accent-color:var(--c1)}
+    .os-lote-barra{padding:11px 18px;border-top:1px solid var(--line);background:var(--row-hl);display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+    .os-lote-cnt{font-size:12px;font-weight:600;color:var(--c2)}
 
     /* Primeira coluna fixa nas tabelas densas (Tarefa 5 do plano de
        acabamento, 14/08) — ficou registrado na Fase 5 como "fica pra depois
@@ -313,26 +344,31 @@
         position:sticky;left:0;z-index:1;box-shadow:2px 0 4px rgba(16,28,48,.06);
       }
       #hist-body .rd-row>:nth-child(1),#hist-body .rd-thead>:nth-child(1),
-      #osh-body .rd-row>:nth-child(1),#osh-body .rd-thead>:nth-child(1),
       #desp-lista .rd-row>:nth-child(1),#desp-lista .rd-thead>:nth-child(1){
         position:sticky;left:0;z-index:1;
       }
       #hist-body .rd-row>:nth-child(2),#hist-body .rd-thead>:nth-child(2){position:sticky;left:64px;z-index:1;box-shadow:2px 0 4px rgba(16,28,48,.06)}
-      #osh-body .rd-row>:nth-child(2),#osh-body .rd-thead>:nth-child(2){position:sticky;left:100px;z-index:1;box-shadow:2px 0 4px rgba(16,28,48,.06)}
       #desp-lista .rd-row>:nth-child(2),#desp-lista .rd-thead>:nth-child(2){position:sticky;left:84px;z-index:1;box-shadow:2px 0 4px rgba(16,28,48,.06)}
+      /* #osh-body ganhou uma coluna de checkbox na frente (Tarefa 3e.2) —
+         ela não fixa (só 28px, não identifica a linha); quem fixa agora é
+         a 2ª (Agendada) e 3ª (Cliente) colunas, não mais 1ª/2ª. */
+      #osh-body .rd-row>:nth-child(2),#osh-body .rd-thead>:nth-child(2){position:sticky;left:0;z-index:1}
+      #osh-body .rd-row>:nth-child(3),#osh-body .rd-thead>:nth-child(3){position:sticky;left:90px;z-index:1;box-shadow:2px 0 4px rgba(16,28,48,.06)}
       /* Fundo sólido — sem isso, o conteúdo das outras colunas passa por
          baixo da coluna fixa ao rolar. Um valor por estado da linha. */
-      #hist-body .rd-thead>:nth-child(-n+2),#osh-body .rd-thead>:nth-child(-n+2),
+      #hist-body .rd-thead>:nth-child(-n+2),#osh-body .rd-thead>:nth-child(n+2):nth-child(-n+3),
       #desp-lista .rd-thead>:nth-child(-n+2),#receb-lista .rd-thead>:first-child,
       #estoque-body .rd-thead>:first-child{background:var(--bg-app)}
-      #hist-body .rd-row>:nth-child(-n+2),#osh-body .rd-row>:nth-child(-n+2),
+      #hist-body .rd-row>:nth-child(-n+2),#osh-body .rd-row>:nth-child(n+2):nth-child(-n+3),
       #desp-lista .rd-row>:nth-child(-n+2),#receb-lista .rd-row>:first-child,
       #estoque-body .rd-row>:first-child{background:#fff}
-      #hist-body .rd-row:hover>:nth-child(-n+2),#osh-body .rd-row:hover>:nth-child(-n+2),
+      #hist-body .rd-row:hover>:nth-child(-n+2),#osh-body .rd-row:hover>:nth-child(n+2):nth-child(-n+3),
       #desp-lista .rd-row:hover>:nth-child(-n+2),#receb-lista .rd-row:hover>:first-child,
       #estoque-body .rd-row:hover>:first-child{background:var(--bg-app)}
-      #hist-body .rd-row.rd-row-action>:nth-child(-n+2),#osh-body .rd-row.rd-row-action>:nth-child(-n+2),
-      #receb-lista .rd-row.rd-row-action>:first-child{background:var(--row-hl)}
+      #hist-body .rd-row.rd-row-action>:nth-child(-n+2),
+      #receb-lista .rd-row.rd-row-action>:first-child,
+      #osh-body .rd-row.rd-row-action>:nth-child(n+2):nth-child(-n+3){background:var(--row-hl)}
+      #osh-body .rd-row.rd-row-warn>:nth-child(n+2):nth-child(-n+3),
       #estoque-body .rd-row.rd-row-warn>:first-child{background:var(--warn-row)}
     }
 

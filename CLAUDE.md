@@ -2,6 +2,100 @@
 
 ---
 
+## Tarefa 3e.2 — OS: o atraso vira o assunto (15/08)
+
+Segunda das 3 subtarefas da revisão com dado real (3e.3, balcão, fica pra
+próxima sessão). Mesmo achado de fundo da 3e.1: com 0 agendadas hoje, os 4
+KPIs de `_renderOSKPIsNovo` mostravam `0/0/24/—` — dois zeros e um
+travessão em 520×130px pra dizer "nada acontecendo agora, mas tem gente
+esperando".
+
+- **`_renderOSHero(base)`** (renomeada de `_renderOSKPIsNovo`) — cartão
+  escuro único com 3 estados, nessa ordem de prioridade (a regra do
+  plano: "mostra o MAIOR problema do dia"):
+  1. **Em atendimento agora** (alguém em campo) — número + nomes dos
+     técnicos, "Concluídas hoje"/"Tempo médio" como stats secundárias.
+  2. **Fila sem dono** (sem ninguém em campo, mas tem OS sem técnico) —
+     total + quantas já atrasadas + a mais antiga, carga por técnico
+     (top 2) + "Livres hoje: N técnicos" (da lista real de técnicos da
+     loja/grupo, `LOJAS`), botão "Distribuir as N".
+  3. **Calmo** (nem um nem outro) — só "Hoje: N concluídas · tempo
+     médio X", cartão claro, não escuro — problema nenhum não merece o
+     mesmo peso visual de "24 OS na fila".
+- **🔴 Bug real achado e corrigido no próprio teste**: "a mais antiga de"
+  saía **sem data nenhuma** (`"13 já atrasadas · a mais antiga de "`). A
+  causa: `[...semTecnico].sort((a,b)=>(a.data_servico||'').localeCompare(...))`
+  ordenava TODO o conjunto sem-técnico, e um registro com `data_servico:
+  null` vence esse sort (string vazia vem antes de qualquer data real) —
+  a "mais antiga" virava a que não tem data nenhuma. Corrigido nos 2
+  lugares que tinham o mesmo padrão (`_renderOSHero` e o item "OS sem
+  técnico" que a Tarefa 3e.1 adicionou em `_itensPainelHoje`): ordenar só
+  quem TEM data, nunca a lista bruta.
+- **Chips reordenados** (`OS_CHIPS`) — Atrasado passou a vir primeiro (era
+  Todos); contagem zero some da tela (`.filter` antes do `.map` em
+  `_osRenderChips`), exceto "Todos" e o chip que está ativo no momento
+  (senão o botão pra voltar pro filtro ativo desaparecia).
+- **Coluna "Cliente e serviço"** — `_osTratarServico(svc)` (nova) trata o
+  separador `;,` que vem do orçamento de origem (cada item de
+  `o.servicos[]` já carrega um `;` de sobra no fim; `.join(', ')` produz
+  exatamente `;,` entre eles). Mostra os 2 primeiros itens + "+N itens"
+  em azul quando sobra; a `.rd-cell-sub` ganhou
+  `overflow:hidden;text-overflow:ellipsis;white-space:nowrap`, então vira
+  1 linha mesmo sem o tratamento pegar 100% dos casos (achado no teste:
+  alguns itens do array não têm o `;` final, então o split não separa
+  ESSA junção específica — degrada bem, só mostra um pouco mais de texto
+  na primeira linha, não quebra). Badge de unidade (`getLojaBadge`) passou
+  a aparecer sempre, não só quando "Todas as unidades" está selecionado.
+- **Coluna "Duração" virou "Atraso"** — mesma célula, papel por status:
+  dias de atraso (vermelho) pra atrasada, duração real pra concluída, "—"
+  pro resto. Não é coluna nova — o grid do handoff (7 colunas) não tinha
+  espaço pras duas.
+- **Checkbox + seleção em lote** — `osSelecionadas` (Set, só em memória,
+  nunca persiste). Barra no rodapé (`#os-lote-barra`, `_osRenderBarraLote`)
+  com "Atribuir técnico"/"Remarcar"/"Cancelar", cada um abrindo um modal
+  pequeno via `abrirModal()` (o helper da Tarefa 13) e gravando com
+  `dbUpdate` por OS selecionada — pulando quem já está concluída/cancelada
+  (defesa dentro de cada ação, não deixa o clique errado reabrir uma OS
+  fechada). "Distribuir as N" do cartão escuro seleciona toda a fila sem
+  dono e já abre o picker de técnico — um clique, não dois.
+- **Linha atrasada ganha fundo `--warn-row`** (reaproveita `.rd-row-warn`,
+  já existia pro Estoque); concluída/cancelada recua (`.rd-row-dim`, nome
+  em peso 500 em vez de 600).
+- **Coluna fixa no mobile (Tarefa 5) ajustada** — o checkbox novo entrou
+  como 1ª coluna do grid, empurrando Data/Cliente pra 2ª/3ª; o
+  `nth-child(1)/(2)` que a Tarefa 5 tinha fixado agora é `nth-child(2)/(3)`
+  só pra `#osh-body` (as outras 4 tabelas com coluna fixa não mudaram).
+
+**Não implementado, de propósito:**
+- **Alternador Lista/Dia/Semana** que aparece no mock — não existe hoje
+  nenhuma visão de calendário pra OS (Dia/Semana), só a lista; construir
+  isso do zero é uma tela nova, fora do que a prosa do plano pede
+  explicitamente (ela só fala em "a visão padrão vira Lista", como se
+  Dia já existisse). A ordenação da lista (mais atrasada primeiro) já
+  era o comportamento real antes desta tarefa — conferido, não precisou
+  mudar.
+- Botão "Selecionar todos" no cabeçalho existe e funciona
+  (`_osToggleTodos`), mas só afeta as linhas **visíveis na página atual**
+  (a tabela não pagina hoje, então na prática é "todas as que passam pelo
+  filtro"). Registrado caso a paginação seja adicionada depois.
+
+Testado no browser local (`dbOk=true` pra ver os dados reais; `dbOk=false`
+temporário só na hora de clicar de verdade em "Atribuir"/confirmar, pra
+não escrever em produção — mesmo padrão já usado nesta sessão): cartão
+"Fila sem dono" com 24 OS reais, 13 atrasadas, data certa depois do fix;
+chips reordenados com contagem batendo (Atrasado 17/Agendado 28/
+Concluído 1/Todos 29 — os MESMOS números do mock, confirma que o handoff
+foi feito em cima deste banco); "+N itens" funcionando com serviço real
+de 7 itens; checkbox selecionando sem abrir a OS (`stopPropagation`
+confirmado via clique programático); modal de "Atribuir técnico" abrindo,
+preenchendo e confirmando com `dbOk=false` — `tecnico` do registro em
+memória mudou de "Bruno" pra "Marcos", seleção limpa depois; clique na
+linha (fora do checkbox) ainda abre a OS normalmente; mobile 375px (cartão
+escuro empilha, chips quebram linha, sem overflow de página) e desktop
+1440px. Zero erro novo no console. `sw.js` v162→v163.
+
+---
+
 ## Tarefa 3e.1 — Hoje: a fila manda na tela (15/08)
 
 Novo handoff (`design_handoff_fluxa_redesign 4/`, `Fluxa Ajustes.dc.html` +

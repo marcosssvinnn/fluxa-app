@@ -1049,6 +1049,10 @@ let histOrdem = 'recente';
 // podem rodar durante o boot — declarar junto da função daria TDZ (já aconteceu).
 let _orcRemotoOk = false, _estoqueRemotoOk = false;
 let todosOS = [], filtroOSSt = localStorage.getItem('fluxa_filtroOSSt')||'todos', buscaOS = '', filtroOSTec = '';
+// Seleção em lote da tabela de OS (Tarefa 3e.2, 15/08) — nunca persiste
+// entre navegações (Set em memória só), limpa sozinha ao trocar de filtro
+// já que renderOSTabela() descarta ids que saíram da lista visível.
+let osSelecionadas = new Set();
 let osEditId = null; // id da OS sendo editada (null = nova) — evita duplicar ao salvar
 // Etapa 2 do roadmap de CRM (2026-08-12): cliente_id real em orçamento/OS,
 // mesmo padrão já usado em vendas_balcao. {id,nome} só quando o cliente foi
@@ -4979,10 +4983,15 @@ function _itensPainelHoje(){
   const osSemTec=filtrarPorLoja(todosOS||[]).filter(o=>o.status==='agendado' && !(o.tecnico||'').trim());
   if(osSemTec.length){
     const atrasadasOS=osSemTec.filter(o=>o.data_servico && o.data_servico<_hojeOS);
-    const maisAntigaOS=[...osSemTec].sort((a,b)=>String(a.data_servico||'').localeCompare(String(b.data_servico||'')))[0];
+    // Só ordena quem TEM data (Tarefa 3e.2, achado em teste): sem esse
+    // filtro, `''||'').localeCompare` fazia registro com data_servico nulo
+    // vencer o sort por vir "antes" de qualquer data real — a OS mais
+    // antiga virava uma sem data nenhuma, e o texto saía "de " vazio.
+    const comData=osSemTec.filter(o=>o.data_servico);
+    const maisAntigaOS=comData.length ? [...comData].sort((a,b)=>a.data_servico.localeCompare(b.data_servico))[0] : null;
     itens.push({id:'os-sem-tec', cor:'var(--red)', icone:'🧑‍🔧',
       titulo:`${osSemTec.length} OS sem técnico`,
-      sub:(atrasadasOS.length?`${atrasadasOS.length} já atrasada${atrasadasOS.length!==1?'s':''} · `:'')+`a mais antiga de ${_dataBR(maisAntigaOS?.data_servico||'')}`,
+      sub:(atrasadasOS.length?`${atrasadasOS.length} já atrasada${atrasadasOS.length!==1?'s':''}`:'')+(maisAntigaOS?(atrasadasOS.length?' · ':'')+`a mais antiga de ${_dataBR(maisAntigaOS.data_servico)}`:''),
       acao:'Distribuir', fn:"go('os-history')"});
   }
 
@@ -6461,7 +6470,9 @@ async function loadOSHist(){
 // Chips com contagem ao vivo (mesmo padrão de ORC_CHIPS, Fase 5) — "Atrasado"
 // não é status gravado, é agendado com data_servico passada (mesmo cálculo
 // que já colorapria a linha antes da Fase 8).
-const OS_CHIPS=[['todos','Todos'],['agendado','Agendado'],['atrasado','Atrasado'],['concluido','Concluído'],['cancelado','Cancelado']];
+// Ordem por relevância (Tarefa 3e.2, 15/08) — atrasado primeiro, chip de
+// alerta; "Todos" foi pro fim, é o menos acionável dos 5.
+const OS_CHIPS=[['atrasado','Atrasado'],['agendado','Agendado'],['concluido','Concluído'],['cancelado','Cancelado'],['todos','Todos']];
 function _osSetFiltro(s){
   filtroOSSt=s; lsSet('fluxa_filtroOSSt', filtroOSSt);
   renderOSTabela();
@@ -6470,7 +6481,14 @@ function _osRenderChips(baseSemStatus){
   const el=document.getElementById('os-chips'); if(!el) return;
   const _hoje=_hojeLocal();
   const atrasadas=baseSemStatus.filter(o=>o.status==='agendado'&&o.data_servico&&o.data_servico<_hoje);
-  el.innerHTML=OS_CHIPS.map(([id,rot])=>{
+  // Esconde contagem zero (Tarefa 3e.2) — "Cancelado 0" não precisa de
+  // espaço; "Todos" e o chip ativo (mesmo com 0) nunca somem, senão o botão
+  // que filtra pra ele mesmo desaparecia da tela.
+  el.innerHTML=OS_CHIPS.filter(([id])=>{
+    if(id==='todos'||id===filtroOSSt) return true;
+    const qtd = id==='atrasado' ? atrasadas.length : baseSemStatus.filter(o=>o.status===id).length;
+    return qtd>0;
+  }).map(([id,rot])=>{
     const qtd = id==='todos' ? baseSemStatus.length
       : id==='atrasado' ? atrasadas.length
       : baseSemStatus.filter(o=>o.status===id).length;
@@ -6519,6 +6537,17 @@ function _fmtDuracaoMin(min){
   if(m<60) return m+'min';
   return Math.floor(m/60)+'h '+String(m%60).padStart(2,'0');
 }
+// Trata o separador ";," que vem do orçamento de origem (Tarefa 3e.2,
+// 15/08) — a descrição concatenada chegava crua na tela, virando uma linha
+// de ~200px ("01 Balde de cloro Genco...;, 15 Pastilhas...;, ..."). Limpa,
+// mostra os 2 primeiros itens + "+N itens" quando sobra; texto sem esse
+// separador passa direto (a elipse do CSS cuida do resto).
+function _osTratarServico(svc){
+  if(!svc) return {texto:'—', resto:0};
+  const partes = svc.includes(';,') ? svc.split(';,').map(s=>s.trim()).filter(Boolean) : [svc];
+  if(partes.length<=2) return {texto:partes.join(', '), resto:0};
+  return {texto:partes.slice(0,2).join(', '), resto:partes.length-2};
+}
 // Barra de ações se move pro detalhe (Fase 8, mesmo padrão de #form-acoes-edit):
 // o texto de "Próxima ação" da linha é só leitura — não repete os botões.
 function _osProximaAcao(o, atrasado){
@@ -6539,7 +6568,7 @@ function renderOSTabela(){
     String(o.numero||'').includes(buscaOS.replace('#',''))
   );
   _osRenderChips(baseSemStatus);
-  _renderOSKPIsNovo(baseSemStatus);
+  _renderOSHero(baseSemStatus);
   _renderCargaTecnico(baseSemStatus);
 
   const _hoje=_hojeLocal();
@@ -6571,19 +6600,30 @@ function renderOSTabela(){
     return da<db2?-1:da>db2?1:0;
   });
 
-  const grid='100px 1.6fr 110px 120px 90px 1fr';
+  // Seleção sobrevive ao re-render, mas nunca a itens que saíram da lista
+  // filtrada (senão o contador da barra de lote mentiria).
+  const idsVisiveis=new Set(lista.map(o=>o.id));
+  osSelecionadas.forEach(id=>{ if(!idsVisiveis.has(id)) osSelecionadas.delete(id); });
+
+  // Grade nova (Tarefa 3e.2): checkbox + Atraso substituindo Duração — a
+  // coluna vira "quantos dias de atraso" pra agendada/atrasada, só volta a
+  // mostrar duração real quando concluída (é a mesma célula, papéis diferentes
+  // por status, não duas colunas — não cabia mais uma no grid do handoff).
+  const grid='28px 90px 1.5fr 100px 110px 76px 1fr';
   let h=`<div class="rd-table-wrap" style="border:none;border-radius:0">
-    <div style="overflow-x:auto"><div style="min-width:780px">
+    <div style="overflow-x:auto"><div style="min-width:860px">
     <div class="rd-thead" style="grid-template-columns:${grid}">
-      <div class="rd-th">Data</div><div class="rd-th">Cliente</div>
+      <div class="rd-th"><input type="checkbox" class="os-check" id="os-check-todos" title="Selecionar todos" onclick="_osToggleTodos()"></div>
+      <div class="rd-th">Agendada</div><div class="rd-th">Cliente e serviço</div>
       <div class="rd-th">Técnico</div><div class="rd-th">Situação</div>
-      <div class="rd-th rd-num">Duração</div><div class="rd-th">Próxima ação</div>
+      <div class="rd-th rd-num">Atraso</div><div class="rd-th">Próxima ação</div>
     </div>`;
   lista.forEach(o=>{
     _nc[o.id]=o;
     const dt=o.data_servico?new Date(o.data_servico+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'}):'—';
     const atrasado=o.status==='agendado'&&o.data_servico&&o.data_servico<_hoje;
     const emCampo=o.checkin_time && !o.checkout_time && o.status!=='concluido' && o.status!=='cancelado';
+    const concluidaOuCancelada=o.status==='concluido'||o.status==='cancelado';
     const sit = o.status==='concluido' ? {label:'Concluída', cls:'rd-badge-ok'}
       : o.status==='cancelado' ? {label:'Cancelada', cls:'rd-badge-neutral'}
       : emCampo ? {label:'Em campo', cls:'rd-badge-info'}
@@ -6591,12 +6631,19 @@ function renderOSTabela(){
       : {label:'Agendada', cls:'rd-badge-neutral'};
     const acao=_osProximaAcao(o, atrasado);
     const svc=(o.servicos||[]).map(s=>typeof s==='string'?s:s.desc).filter(Boolean).join(', ')||o.local_servico||'—';
-    h+=`<div class="rd-row${acao.urgente?' rd-row-action':''}" style="grid-template-columns:${grid};cursor:pointer" tabindex="0" role="button" aria-label="Abrir OS de ${esc(o.cliente||'cliente')}" onclick="editarOS('${o.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();editarOS('${o.id}')}">
+    const svcInfo=_osTratarServico(svc);
+    let atrasoCel;
+    if(o.status==='concluido') atrasoCel=`<span style="color:var(--tx2)">${_fmtDuracaoMin(o.duracao_min)}</span>`;
+    else if(atrasado) atrasoCel=`<span style="color:var(--bad);font-weight:600">${Math.round((new Date(_hoje+'T12:00:00')-new Date(o.data_servico+'T12:00:00'))/86400000)} d</span>`;
+    else atrasoCel=`<span style="color:var(--tx2)">—</span>`;
+    const rowCls=[atrasado?'rd-row-warn':(acao.urgente?'rd-row-action':''), concluidaOuCancelada?'rd-row-dim':''].filter(Boolean).join(' ');
+    h+=`<div class="rd-row${rowCls?' '+rowCls:''}" style="grid-template-columns:${grid};cursor:pointer" tabindex="0" role="button" aria-label="Abrir OS de ${esc(o.cliente||'cliente')}" onclick="editarOS('${o.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();editarOS('${o.id}')}">
+      <input type="checkbox" class="os-check" data-os-check="${o.id}" onclick="event.stopPropagation()" onchange="_osToggleSelecao('${o.id}')" ${osSelecionadas.has(o.id)?'checked':''}>
       <div class="rd-cell-sub">${dt}${o.hora?' · '+esc(o.hora):''}</div>
-      <div><div class="rd-cell-strong">${esc(o.cliente||'—')}${lojaAtiva?'':getLojaBadge(o.loja_id)}</div><div class="rd-cell-sub" title="${esc(svc)}">${esc(svc)}</div></div>
+      <div><div class="rd-cell-strong">${esc(o.cliente||'—')}${getLojaBadge(o.loja_id)}</div><div class="rd-cell-sub" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(svc)}">${esc(svcInfo.texto)}${svcInfo.resto>0?` <span style="color:var(--c1);font-weight:600">+${svcInfo.resto} itens</span>`:''}</div></div>
       <div class="rd-cell-sub">${esc(o.tecnico||'—')}</div>
       <div><span class="rd-badge ${sit.cls}">${esc(sit.label)}</span></div>
-      <div class="rd-cell-num">${_fmtDuracaoMin(o.duracao_min)}</div>
+      <div class="rd-cell-num">${atrasoCel}</div>
       <div style="${acao.urgente?'color:var(--c1);font-weight:600':'color:var(--tx2)'}">${esc(acao.txt)}</div>
     </div>`;
   });
@@ -6606,41 +6653,225 @@ function renderOSTabela(){
   if(rodapeEl){
     rodapeEl.innerHTML=`<div class="rd-tfoot"><span>Mostrando ${lista.length} de ${baseSemStatus.length}</span></div>`;
   }
+  _osRenderBarraLote();
 }
-function _renderOSKPIsNovo(base){
+// Cartão escuro único (Tarefa 3e.2, 15/08) — substitui os 4 KPIs que, num
+// dia sem nada agendado, mostravam "0 / 0 / 24 / —" (dois zeros e um
+// travessão ocupando 520×130px). A regra do plano: o cartão escuro mostra
+// o MAIOR problema do dia — em campo primeiro (é o que está acontecendo
+// agora), depois fila sem dono (o que precisa de decisão), só then o
+// estado calmo (nada pegando fogo).
+function _renderOSHero(base){
   const el=document.getElementById('os-kpis-novo'); if(!el) return;
   const _hoje=_hojeLocal();
-  const emAtendimento=base.filter(o=>o.checkin_time && !o.checkout_time && o.status!=='concluido' && o.status!=='cancelado').length;
+  const emAtendimento=base.filter(o=>o.checkin_time && !o.checkout_time && o.status!=='concluido' && o.status!=='cancelado');
   const concluidasHoje=base.filter(o=>{
     if(o.status!=='concluido') return false;
     const dt=o.checkout_time ? String(o.checkout_time).slice(0,10) : o.data_servico;
     return dt===_hoje;
   }).length;
-  const semTecnico=base.filter(o=>o.status==='agendado'&&!( (o.tecnico||'').trim() )).length;
+  const semTecnico=base.filter(o=>o.status==='agendado'&&!( (o.tecnico||'').trim() ));
+  const atrasadasSemTec=semTecnico.filter(o=>o.data_servico&&o.data_servico<_hoje);
   const duracoesHoje=base.filter(o=>{
     if(o.status!=='concluido'||!(parseInt(o.duracao_min)>0)) return false;
     const dt=o.checkout_time ? String(o.checkout_time).slice(0,10) : o.data_servico;
     return dt===_hoje;
   }).map(o=>parseInt(o.duracao_min));
   const tempoMedio=duracoesHoje.length ? Math.round(duracoesHoje.reduce((a,b)=>a+b,0)/duracoesHoje.length) : 0;
-  el.innerHTML=`
-    <div class="rd-card rd-card-dense${emAtendimento?' rd-card-dark':''}">
-      <div class="rd-kpi-lbl">Em atendimento agora</div>
-      <div class="rd-kpi-num rd-kpi-num-sm">${emAtendimento}</div>
-    </div>
-    <div class="rd-card rd-card-dense">
-      <div class="rd-kpi-lbl">Concluídas hoje</div>
-      <div class="rd-kpi-num rd-kpi-num-sm">${concluidasHoje}</div>
-    </div>
-    <div class="rd-card rd-card-dense${semTecnico?' rd-card-warn':''}">
-      <div class="rd-kpi-lbl">Sem técnico</div>
-      <div class="rd-kpi-num rd-kpi-num-sm"${semTecnico?' style="color:var(--warn)"':''}>${semTecnico}</div>
-    </div>
-    <div class="rd-card rd-card-dense">
-      <div class="rd-kpi-lbl">Tempo médio</div>
-      <div class="rd-kpi-num rd-kpi-num-sm">${tempoMedio?_fmtDuracaoMin(tempoMedio):'—'}</div>
-      <div class="rd-kpi-apoio">concluídas hoje</div>
+
+  if(emAtendimento.length){
+    const nomes=[...new Set(emAtendimento.map(o=>o.tecnico||'—'))];
+    el.innerHTML=`<div class="os-hero">
+      <div class="os-hero-main">
+        <span class="os-hero-lbl">Em atendimento agora</span>
+        <div class="os-hero-num-row">
+          <span class="os-hero-num">${emAtendimento.length} OS</span>
+          <span class="os-hero-sub">${esc(nomes.slice(0,3).join(', '))}${nomes.length>3?' +'+(nomes.length-3):''}</span>
+        </div>
+      </div>
+      <div class="os-hero-tecs">
+        <div class="os-hero-tec"><span>Concluídas hoje</span><strong>${concluidasHoje}</strong></div>
+        ${tempoMedio?`<div class="os-hero-tec"><span>Tempo médio</span><strong>${_fmtDuracaoMin(tempoMedio)}</strong></div>`:''}
+      </div>
     </div>`;
+    return;
+  }
+  if(semTecnico.length){
+    // Ordena só quem já venceu (Tarefa 3e.2, achado em teste) — dentro de
+    // `semTecnico` puro, `''.localeCompare` fazia um registro sem
+    // data_servico vencer o sort por "data vazia" vir antes de qualquer
+    // data real, e "a mais antiga de" saía sem data nenhuma.
+    const maisAntiga=atrasadasSemTec.length ? [...atrasadasSemTec].sort((a,b)=>a.data_servico.localeCompare(b.data_servico))[0] : null;
+    const hojeComTec=base.filter(o=>o.data_servico===_hoje && o.status!=='cancelado' && (o.tecnico||'').trim());
+    const porTec={};
+    hojeComTec.forEach(o=>{ const t=(o.tecnico||'').trim(); porTec[t]=(porTec[t]||0)+1; });
+    const tecsTop=Object.entries(porTec).sort((a,b)=>b[1]-a[1]).slice(0,2);
+    const tecsLoja = lojaAtiva ? (getLoja(lojaAtiva)?.tecs||[]) : [...new Set(LOJAS.flatMap(l=>l.tecs||[]))];
+    const livres=tecsLoja.filter(t=>!porTec[t]).length;
+    el.innerHTML=`<div class="os-hero">
+      <div class="os-hero-main">
+        <span class="os-hero-lbl">Fila sem dono</span>
+        <div class="os-hero-num-row">
+          <span class="os-hero-num">${semTecnico.length} OS</span>
+          ${atrasadasSemTec.length?`<span class="os-hero-sub os-hero-sub-warn">${atrasadasSemTec.length} já atrasada${atrasadasSemTec.length!==1?'s':''} · a mais antiga de ${_dataBR(maisAntiga?.data_servico||'')}</span>`:''}
+        </div>
+      </div>
+      <div class="os-hero-tecs">
+        ${tecsTop.map(([n,q])=>`<div class="os-hero-tec"><span>${esc(n)}</span><strong>${q} OS</strong></div>`).join('')}
+        ${livres>0?`<div class="os-hero-tec"><span>Livres hoje</span><strong>${livres} técnico${livres!==1?'s':''}</strong></div>`:''}
+      </div>
+      <button type="button" class="rd-btn rd-btn-primary" onclick="_osDistribuirTodas()">Distribuir as ${semTecnico.length}</button>
+    </div>`;
+    return;
+  }
+  el.innerHTML=`<div class="os-hero os-hero-calm">
+    <div class="os-hero-main">
+      <span class="os-hero-lbl">Hoje</span>
+      <div class="os-hero-num-row">
+        <span class="os-hero-num">${concluidasHoje} concluída${concluidasHoje!==1?'s':''}</span>
+        ${tempoMedio?`<span class="os-hero-sub">tempo médio ${_fmtDuracaoMin(tempoMedio)}</span>`:''}
+      </div>
+    </div>
+  </div>`;
+}
+
+// Seleção em lote — checkbox por linha, "selecionar todos" e barra de ação
+// no rodapé (Tarefa 3e.2). Nunca mexe em OS já concluída/cancelada mesmo
+// que tenha sido marcada (defesa dentro de cada ação, não aqui).
+function _osToggleSelecao(id){
+  if(osSelecionadas.has(id)) osSelecionadas.delete(id); else osSelecionadas.add(id);
+  _osRenderBarraLote();
+}
+function _osToggleTodos(){
+  const boxes=document.querySelectorAll('[data-os-check]');
+  const todosMarcados = boxes.length>0 && [...boxes].every(b=>osSelecionadas.has(b.dataset.osCheck));
+  boxes.forEach(b=>{
+    const id=b.dataset.osCheck;
+    if(todosMarcados) osSelecionadas.delete(id); else osSelecionadas.add(id);
+    b.checked=!todosMarcados;
+  });
+  _osRenderBarraLote();
+}
+function _osLimparSelecao(){
+  osSelecionadas.clear();
+  document.querySelectorAll('.os-check').forEach(b=>b.checked=false);
+  _osRenderBarraLote();
+}
+function _osRenderBarraLote(){
+  const el=document.getElementById('os-lote-barra'); if(!el) return;
+  if(!osSelecionadas.size){ el.style.display='none'; el.innerHTML=''; return; }
+  el.style.display='flex';
+  el.innerHTML=`
+    <span class="os-lote-cnt">${osSelecionadas.size} selecionada${osSelecionadas.size!==1?'s':''}</span>
+    <button type="button" class="rd-btn rd-btn-primary rd-btn-sm" onclick="_osLoteAtribuirTecnico()">Atribuir técnico</button>
+    <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="_osLoteRemarcar()">Remarcar</button>
+    <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="_osLoteCancelar()">Cancelar</button>
+    <span class="rd-btn rd-btn-link" style="font-size:12px;margin-left:auto" onclick="_osLimparSelecao()">Limpar seleção</span>`;
+}
+// Atalho do cartão escuro: seleciona toda a fila sem dono e já abre o
+// picker de técnico — "Distribuir as N" é um clique só, não dois.
+function _osDistribuirTodas(){
+  const _hoje=_hojeLocal();
+  const semTec=filtrarPorLoja(todosOS||[]).filter(o=>o.status==='agendado'&&!(o.tecnico||'').trim());
+  if(!semTec.length) return;
+  osSelecionadas=new Set(semTec.map(o=>o.id));
+  renderOSTabela();
+  _osLoteAtribuirTecnico();
+}
+function _osLoteAtribuirTecnico(){
+  if(!osSelecionadas.size) return;
+  const tecsLoja = lojaAtiva ? (getLoja(lojaAtiva)?.tecs||[]) : [...new Set(LOJAS.flatMap(l=>l.tecs||[]))];
+  abrirModal({id:'os-lote-modal', corpo:`
+    <h3>Atribuir técnico</h3>
+    <p class="rd-modal-sub">${osSelecionadas.size} OS selecionada${osSelecionadas.size!==1?'s':''}</p>
+    <div class="fl" style="margin:14px 0 4px">
+      <label>Técnico</label>
+      <select id="os-lote-tec-select">
+        <option value="">Selecione…</option>
+        ${tecsLoja.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join('')}
+      </select>
+    </div>
+    <div class="rd-modal-acts">
+      <button class="rd-modal-btn rd-modal-btn-nao" onclick="fecharModal('os-lote-modal')">Cancelar</button>
+      <button class="rd-modal-btn rd-modal-btn-sim" onclick="_osLoteAtribuirConfirmar()">Atribuir</button>
+    </div>`});
+}
+async function _osLoteAtribuirConfirmar(){
+  const tec=gV('os-lote-tec-select');
+  if(!tec){ toast('Selecione um técnico'); return; }
+  const ids=[...osSelecionadas];
+  fecharModal('os-lote-modal');
+  let ok=0;
+  for(const id of ids){
+    const o=todosOS.find(x=>x.id===id);
+    if(!o || o.status==='concluido' || o.status==='cancelado') continue;
+    o.tecnico=tec;
+    if(dbOk&&db&&!String(id).startsWith('local_os_')){
+      try{ await dbUpdate('ordens_servico', {tecnico:tec}, 'id', id); ok++; }catch(e){ console.warn('[osLoteAtribuir]', e?.message||e); }
+    } else ok++;
+  }
+  lsSet('fluxa_os_hist', JSON.stringify(todosOS.slice(0,200)));
+  logAcao('os_lote_atribuir', `${ok} OS atribuídas a ${tec}`);
+  osSelecionadas.clear();
+  renderOSTabela();
+  toast(`${ok} OS atribuída${ok!==1?'s':''} a ${tec}`, {tipo:'ok'});
+}
+function _osLoteRemarcar(){
+  if(!osSelecionadas.size) return;
+  abrirModal({id:'os-lote-modal', corpo:`
+    <h3>Remarcar</h3>
+    <p class="rd-modal-sub">${osSelecionadas.size} OS selecionada${osSelecionadas.size!==1?'s':''} — nova data</p>
+    <div class="fl" style="margin:14px 0 4px"><label>Data</label><input type="date" id="os-lote-data-input"></div>
+    <div class="rd-modal-acts">
+      <button class="rd-modal-btn rd-modal-btn-nao" onclick="fecharModal('os-lote-modal')">Cancelar</button>
+      <button class="rd-modal-btn rd-modal-btn-sim" onclick="_osLoteRemarcarConfirmar()">Remarcar</button>
+    </div>`});
+}
+async function _osLoteRemarcarConfirmar(){
+  const novaData=gV('os-lote-data-input');
+  if(!novaData){ toast('Escolha uma data'); return; }
+  const ids=[...osSelecionadas];
+  fecharModal('os-lote-modal');
+  let ok=0;
+  for(const id of ids){
+    const o=todosOS.find(x=>x.id===id);
+    if(!o || o.status==='concluido' || o.status==='cancelado') continue;
+    o.data_servico=novaData; o.status='agendado';
+    if(dbOk&&db&&!String(id).startsWith('local_os_')){
+      try{ await dbUpdate('ordens_servico', {data_servico:novaData, status:'agendado'}, 'id', id); ok++; }catch(e){ console.warn('[osLoteRemarcar]', e?.message||e); }
+    } else ok++;
+  }
+  lsSet('fluxa_os_hist', JSON.stringify(todosOS.slice(0,200)));
+  logAcao('os_lote_remarcar', `${ok} OS remarcadas para ${novaData}`);
+  osSelecionadas.clear();
+  renderOSTabela();
+  toast(`${ok} OS remarcada${ok!==1?'s':''}`, {tipo:'ok'});
+}
+function _osLoteCancelar(){
+  if(!osSelecionadas.size) return;
+  const n=osSelecionadas.size;
+  confirmar({
+    titulo:'Cancelar OS em lote', destrutivo:true,
+    msg:`${n} ordem${n!==1?'s':''} de serviço será${n!==1?'ão':''} marcada${n!==1?'s':''} como cancelada${n!==1?'s':''}. Não dá para desfazer em lote.`,
+    labelSim:'Cancelar as '+n, labelNao:'Manter',
+    onSim: async ()=>{
+      const ids=[...osSelecionadas];
+      let ok=0;
+      for(const id of ids){
+        const o=todosOS.find(x=>x.id===id);
+        if(!o || o.status==='concluido' || o.status==='cancelado') continue;
+        o.status='cancelado';
+        if(dbOk&&db&&!String(id).startsWith('local_os_')){
+          try{ await dbUpdate('ordens_servico', {status:'cancelado'}, 'id', id); ok++; }catch(e){ console.warn('[osLoteCancelar]', e?.message||e); }
+        } else ok++;
+      }
+      lsSet('fluxa_os_hist', JSON.stringify(todosOS.slice(0,200)));
+      logAcao('os_lote_cancelar', `${ok} OS canceladas em lote`);
+      osSelecionadas.clear();
+      renderOSTabela();
+      toast(`${ok} OS cancelada${ok!==1?'s':''}`, {tipo:'ok'});
+    }
+  });
 }
 // "Carga por técnico" (handoff) — o app não guarda estimativa de duração de
 // OS futura, só a real de quem já foi concluída (duracao_min). Por isso o
