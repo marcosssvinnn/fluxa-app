@@ -1164,23 +1164,23 @@
     <div class="ins-kpis">
       <div class="rd-card rd-card-dense rd-card-dark">
         <div class="rd-kpi-lbl">Pipeline aberto</div>
-        <div class="rd-kpi-num" id="ins-d-pipe">—</div>
-        <div class="rd-kpi-apoio" id="ins-d-pipe-q">—</div>
+        <div class="rd-kpi-num" id="ins-d-pipe"><span class="rd-skel" style="display:inline-block;width:74px;height:26px;background:rgba(255,255,255,.15)"></span></div>
+        <div class="rd-kpi-apoio" id="ins-d-pipe-q"><span class="rd-skel" style="display:inline-block;width:120px;height:13px;background:rgba(255,255,255,.15)"></span></div>
       </div>
       <div class="rd-card rd-card-dense">
         <div class="rd-kpi-lbl">Fechado no mês</div>
-        <div class="rd-kpi-num" id="ins-d-fech">—</div>
-        <div class="rd-kpi-apoio" id="ins-d-fech-q">—</div>
+        <div class="rd-kpi-num" id="ins-d-fech"><span class="rd-skel" style="display:inline-block;width:74px;height:26px"></span></div>
+        <div class="rd-kpi-apoio" id="ins-d-fech-q"><span class="rd-skel" style="display:inline-block;width:120px;height:13px"></span></div>
       </div>
       <div class="rd-card rd-card-dense">
         <div class="rd-kpi-lbl">A receber</div>
-        <div class="rd-kpi-num" id="ins-d-receber">—</div>
-        <div class="rd-kpi-apoio" id="ins-d-receber-q">—</div>
+        <div class="rd-kpi-num" id="ins-d-receber"><span class="rd-skel" style="display:inline-block;width:74px;height:26px"></span></div>
+        <div class="rd-kpi-apoio" id="ins-d-receber-q"><span class="rd-skel" style="display:inline-block;width:120px;height:13px"></span></div>
       </div>
       <div class="rd-card rd-card-dense">
         <div class="rd-kpi-lbl">Taxa de fechamento</div>
-        <div class="rd-kpi-num" id="ins-d-taxa">—</div>
-        <div class="rd-kpi-apoio" id="ins-d-taxa-q">—</div>
+        <div class="rd-kpi-num" id="ins-d-taxa"><span class="rd-skel" style="display:inline-block;width:74px;height:26px"></span></div>
+        <div class="rd-kpi-apoio" id="ins-d-taxa-q"><span class="rd-skel" style="display:inline-block;width:120px;height:13px"></span></div>
       </div>
     </div>
 
@@ -1254,7 +1254,26 @@
             <div class="rd-card-title">Precisa de você hoje</div>
             <span class="rd-btn rd-btn-link" style="font-size:12px" id="ins-fila-ver"></span>
           </div>
-          <div id="ins-fila-corpo"><div class="load"><div class="spin"></div> Carregando…</div></div>
+          <!-- Skeleton na altura de 3 itens de fila (Tarefa 5, 14/08) —
+               .rd-skel existe desde a Fase 3 e nunca tinha sido usado; o
+               spinner tinha altura menor que o conteúdo final e a tela
+               saltava quando os dados chegavam. renderPainelInsights()
+               (app.js) sobrescreve isto com innerHTML assim que a fila
+               calcula, então não precisa de contraparte em JS. -->
+          <div id="ins-fila-corpo">
+            <div class="rd-q-item" aria-hidden="true"><div class="rd-q-compact">
+              <div class="rd-q-tx" style="flex:1;gap:6px"><span class="rd-skel" style="height:13px;width:55%"></span><span class="rd-skel" style="height:11px;width:78%"></span></div>
+              <span class="rd-skel" style="height:24px;width:58px;border-radius:8px;flex-shrink:0"></span>
+            </div></div>
+            <div class="rd-q-item" aria-hidden="true"><div class="rd-q-compact">
+              <div class="rd-q-tx" style="flex:1;gap:6px"><span class="rd-skel" style="height:13px;width:45%"></span><span class="rd-skel" style="height:11px;width:65%"></span></div>
+              <span class="rd-skel" style="height:24px;width:58px;border-radius:8px;flex-shrink:0"></span>
+            </div></div>
+            <div class="rd-q-item" aria-hidden="true"><div class="rd-q-compact">
+              <div class="rd-q-tx" style="flex:1;gap:6px"><span class="rd-skel" style="height:13px;width:60%"></span><span class="rd-skel" style="height:11px;width:70%"></span></div>
+              <span class="rd-skel" style="height:24px;width:58px;border-radius:8px;flex-shrink:0"></span>
+            </div></div>
+          </div>
         </div>
 
         <!-- Em que fase está — deriva da idade do orçamento, sem schema novo.

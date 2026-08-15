@@ -204,6 +204,51 @@ simulado manualmente contra o shell novo — 3 botões, sem erro; folha mobile
 sem classe alterada; sintaxe do `app.js` validada via `new Function` (JXA);
 sem erro novo no console. `sw.js` v149→v150.
 
+**Tarefa 5 — feita.** Duas correções pequenas, mesmo commit.
+
+- **Primeira coluna fixa** nas 5 tabelas que a Fase 5 tinha deixado "pra
+  depois se fizer falta" — fazia: em 375px, ao rolar até "Próxima ação" o
+  nome do cliente já tinha saído da tela. As 5 já tinham rolagem horizontal
+  (wrapper `overflow-x:auto` + `min-width` por tabela, do próprio handoff);
+  faltava só a coluna de identificação não sumir. `position:sticky;left:0`
+  (ou `left:<Xpx>` quando o cliente/descrição é a 2ª coluna, não a 1ª) só
+  abaixo de 680px, escopado por id de container — cada tabela tem uma
+  largura de coluna(s) diferente antes da que fica fixa, não dá pra usar
+  uma regra genérica:
+  - `#receb-lista`, `#estoque-body` — Cliente/Produto já são a 1ª coluna,
+    só ela fica fixa.
+  - `#hist-body` (Orçamentos, 64px de Nº antes), `#osh-body` (OS, 100px de
+    Data antes), `#desp-lista` (Despesas, 84px de Data antes) — 1ª E 2ª
+    coluna ficam fixas juntas (senão sobraria um vão em branco à esquerda
+    da coluna do cliente ao rolar).
+  Fundo sólido por estado da linha (normal/hover/`rd-row-action`/
+  `rd-row-warn`) nas células fixas — sem isso o conteúdo das outras colunas
+  passa por baixo ao rolar. Sombra sutil (`2px 0 4px`) separando a área fixa
+  da rolável. **Não mexido:** Equipamentos e Produtividade — fora da lista
+  que a análise de usabilidade citou.
+- **Skeleton em vez de spinner** — `.rd-skel` foi construído na Fase 3 e
+  nunca tinha sido usado (`grep` confirmou zero ocorrências antes desta
+  tarefa). `#ins-fila-corpo` abria com `<div class="load"><div
+  class="spin">…` — spinner centralizado, menor que o conteúdo final, a
+  tela saltava quando os dados chegavam. Substituído por 3 blocos no
+  padrão `.rd-q-item`/`.rd-q-compact` (mesmo componente da fila de
+  verdade, então a altura bate exata). Os 4 KPIs do Insights (`ins-d-*`)
+  ganharam o mesmo tratamento — bloco cinza (translúcido no card escuro do
+  Pipeline) no lugar do "—". Nenhuma mudança em `app.js`: os `set(id,
+  txt){ el.textContent=txt }` que populam esses elementos já limpam
+  qualquer filho ao escrever o valor real, então o skeleton "se remove
+  sozinho" assim que os dados chegam.
+
+Testado no browser local (dbOk=true, só leitura): coluna fixa confirmada
+via scroll programático (`scrollLeft`) nas 5 tabelas — Orçamentos e Estoque
+com dados reais (screenshot: Nº+Cliente permanecem visíveis rolando até
+"Próxima ação"), OS/Despesas/A Receber com `getComputedStyle` (`despesas`
+sem dado no mês testado, verificado com linha sintética injetada só pra
+conferir o CSS); desktop confere `position:static` — a regra não vaza pra
+telas largas. Skeleton renderizado com a mesma altura dos itens reais
+(visual, screenshot), shimmer herda `.rd-skel::after` já existente.
+`sw.js` v150→v151.
+
 ## ✅ RESOLVIDO — botão antigo de Pagamento removido (14/08, decisão do Marcos)
 
 O achado abaixo foi levado direto pro Marcos (com explicação de onde o
