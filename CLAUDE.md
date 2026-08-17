@@ -2,6 +2,67 @@
 
 ---
 
+## Ocultar valores unitários no orçamento (17/08, commit `cfd6d3c`)
+
+Pedido do Marcos: opção pra não mostrar o preço de cada item no PDF —
+só a descrição do serviço e o TOTAL final, sem coluna de Valor nem
+subtotal/desconto detalhados. Caso de uso: composição de custo item a
+item que a empresa não quer expor pro cliente.
+
+- Checkbox "Ocultar valores unitários no PDF" no form de orçamento
+  (card Serviços, antes do bloco de totais).
+- `orcamentos.ocultar_valores` (boolean, default `false`) —
+  `migracao-ocultar-valores.sql`, aditiva, já aplicada em produção via
+  Management API e verificada em `information_schema.columns`. Default
+  `false`: nenhum orçamento existente muda de comportamento.
+- `preencherDocOrc()` aceita `d.ocultarValores` (form) OU
+  `d.ocultar_valores` (registro salvo do banco) — quando `true`, omite
+  a coluna "Valor" do cabeçalho/linhas e o subtotal/desconto, deixa só
+  o Total.
+- Restaurado corretamente em `abrirOrc()` (edição); copiado do
+  original em `duplicarOrc()` (mesmo padrão de desconto/pagamento/
+  validade/loja); resetado em `novoOrc()`/`_limparCamposOrc()`. Os 2
+  pontos que reconstroem `dadosOrc` a partir de registro salvo (print
+  combinado orçamento+OS, e `verOrcPDF` de reimpressão) também
+  respeitam a flag.
+- Testado no Browser pane (offline, dados sintéticos): checked/
+  unchecked, abrir/duplicar/reimprimir um orçamento salvo com a flag —
+  todos os caminhos bateram, sem regressão no layout padrão.
+
+## Bugs reportados pelo Marcos ao preencher OS do Dom Carlos (17/08, commit `ed02562`)
+
+Marcos preencheu uma OS de verdade e achou 4 problemas de uma vez — os 3
+primeiros eram sintomas do mesmo bug raiz, o 4º era uma limitação separada:
+
+- **OS duplicada de verdade** (2 registros da mesma OS pro Dom Carlos) —
+  causa raiz: `preencherDocOS()` chamava `esc(s)` passando o objeto de
+  serviço inteiro em vez de `s.desc`, o que lançava
+  `TypeError: (s||"").replace is not a function` bem no momento de
+  imprimir — DEPOIS que a OS já tinha sido gravada no banco com sucesso.
+  O usuário via "⚠️ Erro ao gerar OS" (falso — só a impressão falhou) e
+  tentava de novo, criando o segundo registro de verdade. Corrigido o
+  `esc()`, e adicionadas guardas de "já existe OS pra este orçamento?"
+  nos dois pontos de criação (`criarOSjunto`/`criarOSdeAprovacao`) —
+  agora avisa e pergunta antes de criar uma segunda, em vez de deixar
+  acontecer em silêncio.
+- **"Agendar OS" aparecendo 2x** — `_perguntarCriarOS()` não checava se
+  já existia uma OS pro orçamento antes de montar o modal; agora esconde
+  os campos de agendamento (mantém só "Ordem de entrega" quando aplicável)
+  se já existir OS vinculada.
+- **Limite de 3 fotos na OS** — `osFotos` era array fixo de 3 com 3 slots
+  HTML hardcoded; convertido pro mesmo grid dinâmico de até 6 fotos que o
+  orçamento já usa (`renderOSFotosSlots`/`carregarFotoOS`/`removerFotoOS`,
+  espelhando `renderFotosOrcSlots` do orçamento) — com compressão de
+  imagem, que o código antigo de OS não tinha.
+- **Fluxo "aprovar → concluir"**: esclarecido pro Marcos (não era bug) —
+  "concluir" é um estado da OS (check-in/check-out,
+  `_fazerCheckoutConfirmado`), não do orçamento. Orçamento não tem status
+  "concluído"; ele vira "aprovado" e a OS vinculada é quem é concluída.
+- OS órfã duplicada (#190) do Dom Carlos apagada do banco, confirmado
+  antes que #191 (não #190) tinha as fotos/dados reais do atendimento.
+
+---
+
 ## Tarefa 3e.3 — Venda Rápida vira balcão (15/08) — fecha o plano de ajustes (3e)
 
 Última das 3 subtarefas do handoff `design_handoff_fluxa_redesign 4/`.
