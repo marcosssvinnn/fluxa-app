@@ -10236,7 +10236,7 @@ function _fazerCheckoutConfirmado(){
   // Se era OS de agendamento recorrente, gera a próxima ocorrência automaticamente
   if(_osConcl?.agendamento_id) _gerarProximaOSdoAg(_osConcl.agendamento_id, _osConcl.data_servico).catch(e=>console.warn('[nextOS]',e?.message||e));
   checkinAt=null; osCheckinId=null; _checkoutEmAndamento=false;
-  toast(`✅ Check-out! OS concluída · ${duracaoMin} min`);
+  _toastOSConcluida(_osConcl, `✅ Check-out! OS concluída · ${duracaoMin} min`);
 }
 
 // ══════════════════════════════════════════════════
@@ -14826,8 +14826,23 @@ function _entregarPelaOS(osId){
   const orc=todosOrc.find(o=>String(o.id)===String(orcId));
   if(orc && orc.status==='aprovado') entregarOrcamento(orc,'os');
 }
+// Este é o atalho de 1 toque (Minhas OS) — NÃO passa pelo check-in/check-out
+// do formulário, então nada de obs/materiais/fotos é capturado aqui. Marcos
+// relatou (17/08) achar que informação estava se perdendo nesse fluxo — este
+// é exatamente o ponto: um técnico apressado toca "Concluir" na lista sem
+// nunca abrir a OS, e ela fica marcada como pronta sem nenhum registro do que
+// foi feito. Não removi o atalho (ele é legítimo pra OS que realmente não tem
+// nada a registrar) — só aviso antes, quando está vazio, com resolução em 1
+// clique (mesmo padrão do aviso de item sem vínculo de estoque em mudarSt).
 function concluirOSHistorico(osId){
-  confirmar('Marcar OS como concluída?\n\nIsso registrará a baixa de estoque automaticamente se houver orçamento vinculado.', ()=>{
+  const osAtual=_acharOS(osId);
+  let fotosAtual=osAtual?.fotos;
+  if(typeof fotosAtual==='string'){ try{ fotosAtual=JSON.parse(fotosAtual||'[]'); }catch(e){ fotosAtual=[]; } }
+  const semDetalhes = osAtual && !(osAtual.obs_tecnica||'').trim() && !(osAtual.materiais||'').trim() && !(Array.isArray(fotosAtual)&&fotosAtual.filter(Boolean).length);
+  const msg = semDetalhes
+    ? 'Esta OS não tem nenhuma observação, material ou foto registrada — vai ficar marcada como concluída em branco.\n\nPara preencher, abra a OS em vez de usar este atalho. Concluir mesmo assim?'
+    : 'Marcar OS como concluída?\n\nIsso registrará a baixa de estoque automaticamente se houver orçamento vinculado.';
+  confirmar(msg, ()=>{
     // Atualiza status local
     const idx=todosOS.findIndex(x=>x.id===osId);
     if(idx>=0) todosOS[idx].status='concluido';
@@ -14848,8 +14863,22 @@ function concluirOSHistorico(osId){
     renderOSTabela();
     // Atualiza também a lista do técnico (Minhas OS) quando concluído pelo campo
     if(document.getElementById('page-minhas-os')?.classList.contains('on')) loadMinhasOS();
-    toast('✅ OS concluída · estoque baixado automaticamente');
+    _toastOSConcluida(os);
   }, 'Concluir OS');
+}
+// Toast comum ao concluir OS (atalho e check-out) — quando a OS veio de um
+// orçamento, oferece ir direto pro Histórico de Orçamentos: Marcos relatou
+// (17/08) que depois de concluir não tinha caminho nenhum de volta pra lá.
+function _toastOSConcluida(os, msgBase){
+  msgBase = msgBase || '✅ OS concluída · estoque baixado automaticamente';
+  // Técnico não tem acesso a "Histórico de Orçamentos" (pagesTecnico não
+  // inclui 'history') — oferecer o botão pra ele levaria a um toast de
+  // "acesso não permitido" em vez de navegar. Só gestor/master/vendas.
+  if(os && os.orcamento_id && !eTecnico()){
+    toast(msgBase, {acao:{label:'Ver orçamento', fn:()=>go('history')}});
+  } else {
+    toast(msgBase);
+  }
 }
 // Física total do produto (todas as lojas) — base para o custo médio ponderado
 function fisicaProdutoTotal(produtoId){

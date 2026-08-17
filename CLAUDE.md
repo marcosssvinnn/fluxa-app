@@ -2,6 +2,79 @@
 
 ---
 
+## Auditoria do fluxo orçamento → OS → conclusão, a pedido do Marcos (17/08)
+
+Marcos pediu pra percorrer a trajetória inteira (orçamento → aprovação →
+OS → técnico preenche → conclui) e achar informação se perdendo no meio do
+caminho. Investigação por leitura de código + simulação isolada no
+navegador (nunca contra o banco real — ver incidente abaixo).
+
+**Esclarecido pro Marcos (não era bug):** desde a migração "APROVAR = SAIR
+DO ESTOQUE" (2026-08-07, `b66eb92` — ver seção mais abaixo), tanto o
+estoque quanto o faturamento do dashboard já saem/contam no momento da
+**aprovação** do orçamento, não na conclusão da OS. A OS virou uma
+ferramenta 100% operacional (agendar, executar, registrar o que foi
+feito) — concluí-la não libera mais estoque nem gera faturamento, porque
+os dois já aconteceram antes. Isso explica a expectativa de "deveria
+liberar ao concluir".
+
+**Achado real, corrigido — atalho "✅ Concluir" perdia informação
+(commit pendente).** `renderMinhasOS()` mostra um botão de conclusão em 1
+toque em cada card de OS (pensado pra OS sem nada a registrar). Só que
+ele chama `concluirOSHistorico()`, que grava **só o status** — sem
+check-in/check-out, sem `obs_tecnica`, sem `materiais`, sem `fotos`.
+Comparado com o fluxo certo (check-in → preenche → check-out, que grava
+tudo isso), um técnico apressado que usa o atalho na lista sem nunca
+abrir a OS marca o serviço como pronto sem nenhum registro do que foi
+feito ali. **Fix:** antes de confirmar, `concluirOSHistorico()` agora
+checa se a OS está vazia (sem obs/materiais/fotos) e troca a mensagem de
+confirmação por um aviso explícito — não bloqueia (o atalho continua
+válido pra OS que realmente não tem nada a anotar), só avisa com
+resolução em 1 clique, mesmo padrão do aviso de "item sem vínculo de
+estoque" em `mudarSt()`.
+
+**Achado real, corrigido — sem caminho de volta ao Histórico depois de
+concluir.** Nem o check-out do formulário (`_fazerCheckoutConfirmado`)
+nem o atalho de 1 toque ofereciam algo depois de concluir — só o toast de
+sucesso, sem navegação. Extraí `_toastOSConcluida(os, msgBase)` (usada
+pelos dois pontos de conclusão): quando a OS tem `orcamento_id`
+vinculado, o toast ganha um botão de ação "Ver orçamento" (`toast()` já
+suporta `opts.acao`, mesmo padrão de "desfazer" usado em outro lugar do
+app) que leva pro Histórico de Orçamentos. **Gated por perfil** — técnico
+não tem `'history'` na própria lista de páginas permitidas
+(`pagesTecnico`), então o botão só aparece pra gestor/master/vendas;
+oferecer pra técnico levaria a um toast de "acesso não permitido" em vez
+de navegar. Testado: OS vazia mostra o aviso certo, OS preenchida mostra
+a mensagem normal, botão aparece só quando há orçamento vinculado E o
+perfil tem acesso, clique navega pro Histórico de verdade.
+
+⚠️ **Incidente durante o teste, resolvido:** ao simular o fluxo pela
+primeira vez, usei `window.dbOk=false` pra tentar forçar modo offline —
+isso NÃO tem efeito nenhum, porque `db`/`dbOk` são `let` de escopo de
+script (`app.js:1036`), não propriedades de `window`; a forma certa
+(já documentada mais abaixo neste arquivo) é a atribuição SEM `window.`.
+Como esse ambiente de teste tem acesso real à internet, o boot do app
+conectou de verdade na produção em segundo plano sem eu perceber, e um
+orçamento + cliente fictícios ("Fluxo Teste Ltda", #357/#358) chegaram a
+ser gravados no banco real antes de eu notar. **Verificado e apagado na
+hora** (Management API, confirmado com `select` antes/depois) — nenhuma
+aprovação, baixa de estoque ou reserva chegou a rodar sobre esses
+registros (o próprio bug de sincronização, que fez o app perder a
+referência ao registro local, impediu isso). Fica o buraco inofensivo na
+numeração (#357/#358 pulados). Nos testes seguintes (helpers puros, sem
+`salvarApenas`/`mudarSt`, com `confirmar()` interceptado antes do
+callback) validei a correção sem nenhuma chamada de rede a
+`*.supabase.co` — confirmado via `read_network_requests`.
+
+**Achado incidental, não corrigido (fora do escopo pedido):** essa mesma
+checagem revelou sobras de teste de sessões ANTERIORES ainda vivas no
+banco de produção (`estoque_movimentos` com `produto_id` tipo
+`prod_teste1`/`prod_teste_cache_...`, motivo "Venda balcão — Cliente
+Teste QA"). Não mexi — só registrando pra uma limpeza geral futura, se o
+Marcos quiser.
+
+---
+
 ## Ocultar valores unitários no orçamento (17/08, commit `cfd6d3c`)
 
 Pedido do Marcos: opção pra não mostrar o preço de cada item no PDF —
