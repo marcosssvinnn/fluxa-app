@@ -878,6 +878,13 @@
     <datalist id="svc-prod-list"></datalist>
     <div id="svc-aviso-vinculo" style="display:none;font-size:12px;margin:6px 0 2px"></div>
       <button class="btn-add" onclick="addSvc('','')">＋ Adicionar serviço</button>
+      <!-- Pedido do Marcos (14/08): nem sempre o cliente deve ver o preço de
+           cada item — só o total. Não muda o cálculo (upd() continua igual),
+           só o que aparece no PDF (preencherDocOrc). -->
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;color:var(--c2);margin:10px 0">
+        <input type="checkbox" id="orc-ocultar-valores" style="width:17px;height:17px;cursor:pointer">
+        <span>Ocultar valores unitários no PDF <span style="font-weight:400;color:var(--gray)">— mostra só a descrição dos itens e o total</span></span>
+      </label>
       <div class="tots">
         <div class="disc-r">
           <label>Desconto:</label>

@@ -3082,6 +3082,7 @@ function _limparCamposOrc(){
   setV('orc-loja', lojaAtiva||LOJA_PADRAO_ID);
   renderSvcs(); upd();
   renderFotosOrcSlots();
+  const ocv=document.getElementById('orc-ocultar-valores'); if(ocv) ocv.checked=false;
   // Reset OS toggle
   const tog=document.getElementById('toggle-os'); if(tog) tog.checked=false;
   const osf=document.getElementById('os-inline-fields'); if(osf) osf.style.display='none';
@@ -3826,7 +3827,8 @@ async function salvarApenas(){
       pagamento:dados.pagFormatado, pag_cod:dados.pag, pag_parcelas:dados.pagParcelas, pag_entrada:dados.pagEntrada,
       validade_dias:dados.dias, validade_data:dados.vData,
       data_servico:dados.dataSvc, escopo:dados.escopo, obs:dados.obs,
-      foto_base64:fotosB64.filter(Boolean).length?JSON.stringify(fotosB64.filter(Boolean)):null, nota_interna:gV('nota-interna')||null
+      foto_base64:fotosB64.filter(Boolean).length?JSON.stringify(fotosB64.filter(Boolean)):null, nota_interna:gV('nota-interna')||null,
+      ocultar_valores:dados.ocultarValores||false
     };
 
     if(editId){
@@ -3914,7 +3916,8 @@ async function gerarPDF(){
     pagamento:dados.pagFormatado, pag_cod:dados.pag, pag_parcelas:dados.pagParcelas, pag_entrada:dados.pagEntrada,
     validade_dias:dados.dias, validade_data:dados.vData,
     data_servico:dados.dataSvc, escopo:dados.escopo, obs:dados.obs,
-    foto_base64:fotosB64.filter(Boolean).length?JSON.stringify(fotosB64.filter(Boolean)):null, nota_interna:gV('nota-interna')||null
+    foto_base64:fotosB64.filter(Boolean).length?JSON.stringify(fotosB64.filter(Boolean)):null, nota_interna:gV('nota-interna')||null,
+    ocultar_valores:dados.ocultarValores||false
   };
   let num=null;
   _autoSalvarCliente(dados.cli, dados.tel, dados.loc, dados.cnpj, dados.loja_id);
@@ -4010,6 +4013,7 @@ function coletarForm(){
     pagEntrada:parseFloat((gV('pag-entrada')||'').replace(',','.'))||null,
     dias, obs:gV('obs'),
     escopo:gV('escopo'), dataSvc:gV('data-svc'), dataStr, vData, sub:sub(), desc:disc(sub()), tot:tot(),
+    ocultarValores:document.getElementById('orc-ocultar-valores')?.checked||false,
     svcs:svcs.filter(s=>s.d.trim()).map(s=>({desc:s.d.trim(),preco:gP(s),precoUnit:parseFloat(s.p)||0,qty:parseInt(s.qty)||1,produto_id:s.produto_id||null,avulso:s.avulso||false})) };
 }
 
@@ -4100,15 +4104,25 @@ function preencherDocOrc(d, num){
   setV_el('pd-sign-resp-orc',LC.nome+' — Responsável Técnico','textContent');
   setV_el('pd-foot-orc',LC.nome+(LC.tel?'   ·   '+LC.tel:'')+(LC.cidades?'   ·   '+LC.cidades:''),'textContent');
   // table body
+  // Pedido do Marcos (14/08): "ocultar valores unitários" — mostra só a
+  // descrição de cada item (sem coluna de valor) e só o TOTAL final (sem
+  // subtotal/desconto detalhado). Aceita os dois formatos do campo:
+  // camelCase (vem de coletarForm(), orçamento ainda não salvo) e
+  // snake_case (vem direto de um registro já salvo no banco).
+  const ocultarValores=!!(d.ocultarValores||d.ocultar_valores);
   const tb=document.getElementById('pd-tbody-orc'); tb.innerHTML='';
-  const temMulti=d.svcs.some(s=>(parseInt(s.qty)||1)>1);
-  document.getElementById('pd-thead-orc').innerHTML=temMulti
-    ?'<th>#</th><th>Descrição</th><th>Qtd × Unit.</th><th>Total</th>'
-    :'<th>#</th><th>Descrição</th><th>Valor</th>';
+  const temMulti=!ocultarValores && d.svcs.some(s=>(parseInt(s.qty)||1)>1);
+  document.getElementById('pd-thead-orc').innerHTML=ocultarValores
+    ?'<th>#</th><th>Descrição</th>'
+    :temMulti
+      ?'<th>#</th><th>Descrição</th><th>Qtd × Unit.</th><th>Total</th>'
+      :'<th>#</th><th>Descrição</th><th>Valor</th>';
   d.svcs.forEach((s,i)=>{
     const tr=document.createElement('tr');
     const qty=parseInt(s.qty)||1;
-    if(temMulti){
+    if(ocultarValores){
+      tr.innerHTML=`<td>${i+1}</td><td>${esc(s.desc)}</td>`;
+    } else if(temMulti){
       const qtyUnit=s.preco>0?`${qty} × ${brl(s.precoUnit||0)}`:'—';
       const total=s.preco>0?brl(s.preco):'—';
       tr.innerHTML=`<td>${i+1}</td><td>${esc(s.desc)}</td><td>${qtyUnit}</td><td>${total}</td>`;
@@ -4120,7 +4134,7 @@ function preencherDocOrc(d, num){
   // totals block (below table, outside table element)
   const tw=document.getElementById('pd-totals-orc');
   let th='';
-  if(d.desc>0){
+  if(!ocultarValores && d.desc>0){
     th+=`<div class="pd-tot-row"><span>Subtotal</span><span>${brl(d.sub)}</span></div>`;
     th+=`<div class="pd-tot-row is-dis"><span>Desconto aplicado</span><span>− ${brl(d.desc)}</span></div>`;
   }
@@ -4281,7 +4295,7 @@ async function gerarOSPDF(modo='os'){
         dias:o.validade_dias||5, obs:o.obs||'', dataSvc:o.data_servico||'',
         dataStr:new Date(o.data_criacao||Date.now()).toLocaleDateString('pt-BR'),
         vData:o.validade_data||'', sub:o.subtotal||0, desc:o.desconto||0, tot:o.total||0,
-        svcs:o.servicos||[], loja_id:o.loja_id||LOJA_PADRAO_ID
+        svcs:o.servicos||[], loja_id:o.loja_id||LOJA_PADRAO_ID, ocultar_valores:o.ocultar_valores||false
       };
       const savedFotos=[...fotosB64];
       try{ const raw=o.foto_base64||''; fotosB64=raw.startsWith('[')?JSON.parse(raw):(raw?[raw]:[]); }catch(e){ fotosB64=[]; }
@@ -6379,6 +6393,7 @@ function abrirOrc(id){
   setOrigemCli(o.origem_cliente||'');
   // Restaura desconto salvo (bug: antes o desconto sumia ao editar e salvar)
   setV('disc-v',o.desconto>0?String(o.desconto):''); setV('disc-t','R$');
+  const ocv=document.getElementById('orc-ocultar-valores'); if(ocv) ocv.checked=!!o.ocultar_valores;
   svcs=(o.servicos||[]).map(s=>({id:Date.now()+Math.random(),d:s.desc,p:String(s.precoUnit||s.preco||''),qty:s.qty||1,produto_id:s.produto_id||null,avulso:s.avulso||false}));
   if(!svcs.length) svcs=[{id:Date.now(),d:'',p:''}];
   // Compatibilidade: antigo=string, novo=JSON array
@@ -6408,7 +6423,7 @@ function verOrcPDF(id){
     dataSvc:o.data_servico||'', vData:o.validade_data||'',
     dataStr:new Date(o.data_criacao||Date.now()).toLocaleDateString('pt-BR'),
     sub:o.subtotal||0, desc:o.desconto||0, tot:o.total||0,
-    svcs:o.servicos||[], loja_id:o.loja_id||LOJA_PADRAO_ID
+    svcs:o.servicos||[], loja_id:o.loja_id||LOJA_PADRAO_ID, ocultar_valores:o.ocultar_valores||false
   };
   const savedFotos=[...fotosB64];
   try{ const raw=o.foto_base64||''; fotosB64=raw.startsWith('[')?JSON.parse(raw):(raw?[raw]:[]); }catch(e){ fotosB64=[]; }
@@ -6433,6 +6448,7 @@ function duplicarOrc(id){
   setV('orc-loja',o.loja_id||LOJA_PADRAO_ID);
   document.getElementById('data-orc').value=_hojeLocal();
   setV('disc-v',String(o.desconto||0)); setV('disc-t','R$');
+  const ocv=document.getElementById('orc-ocultar-valores'); if(ocv) ocv.checked=!!o.ocultar_valores;
   svcs=(o.servicos||[]).map(s=>({id:Date.now()+Math.random(),d:s.desc,p:String(s.precoUnit||s.preco||''),qty:s.qty||1,produto_id:s.produto_id||null,avulso:s.avulso||false}));
   if(!svcs.length) svcs=[{id:Date.now(),d:'',p:''}];
   renderFotosOrcSlots();
