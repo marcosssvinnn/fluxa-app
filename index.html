@@ -1134,38 +1134,10 @@
 
     <div class="card">
       <div class="ct">📷 Fotos e Vídeo</div>
-      <div class="row" style="grid-template-columns:1fr 1fr 1fr;margin-bottom:12px">
-        <div class="fl">
-          <label>Foto 1</label>
-          <div class="foto-area" onclick="document.getElementById('os-foto-inp-0').click()">
-            <input type="file" id="os-foto-inp-0" accept="image/*" capture="environment" onchange="carregarOSFoto(this,0)" style="display:none">
-            <div class="foto-icon">📷</div>
-            <div class="foto-label" id="os-foto-lbl-0">Tirar/selecionar</div>
-            <img id="os-foto-prev-0" class="foto-preview" alt="foto 1">
-          </div>
-          <button id="os-btn-rm-foto-0" style="display:none;margin-top:4px;font-size:12px;color:var(--red);background:none;border:none;cursor:pointer;font-family:'Instrument Sans',sans-serif" onclick="removerOSFoto(0)">✕ Remover</button>
-        </div>
-        <div class="fl">
-          <label>Foto 2</label>
-          <div class="foto-area" onclick="document.getElementById('os-foto-inp-1').click()">
-            <input type="file" id="os-foto-inp-1" accept="image/*" capture="environment" onchange="carregarOSFoto(this,1)" style="display:none">
-            <div class="foto-icon">📷</div>
-            <div class="foto-label" id="os-foto-lbl-1">Tirar/selecionar</div>
-            <img id="os-foto-prev-1" class="foto-preview" alt="foto 2">
-          </div>
-          <button id="os-btn-rm-foto-1" style="display:none;margin-top:4px;font-size:12px;color:var(--red);background:none;border:none;cursor:pointer;font-family:'Instrument Sans',sans-serif" onclick="removerOSFoto(1)">✕ Remover</button>
-        </div>
-        <div class="fl">
-          <label>Foto 3</label>
-          <div class="foto-area" onclick="document.getElementById('os-foto-inp-2').click()">
-            <input type="file" id="os-foto-inp-2" accept="image/*" capture="environment" onchange="carregarOSFoto(this,2)" style="display:none">
-            <div class="foto-icon">📷</div>
-            <div class="foto-label" id="os-foto-lbl-2">Tirar/selecionar</div>
-            <img id="os-foto-prev-2" class="foto-preview" alt="foto 3">
-          </div>
-          <button id="os-btn-rm-foto-2" style="display:none;margin-top:4px;font-size:12px;color:var(--red);background:none;border:none;cursor:pointer;font-family:'Instrument Sans',sans-serif" onclick="removerOSFoto(2)">✕ Remover</button>
-        </div>
-      </div>
+      <!-- Grid dinâmico (14/08) — antes eram 3 slots fixos no HTML; virou o
+           mesmo padrão já usado nas fotos do orçamento (renderFotosOrcSlots),
+           até 6 fotos, mesma classe CSS (fotos-orc-grid), sem CSS novo. -->
+      <div class="fotos-orc-grid" id="os-fotos-grid" style="margin-bottom:12px"></div>
       <div class="row f1">
         <div class="fl"><label>Link de Vídeo <span style="font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0">(Google Drive, YouTube…)</span></label><input type="url" id="os-video-link" placeholder="https://drive.google.com/…"></div>
       </div>
@@ -3400,7 +3372,11 @@
       </div>
     </div>
     <input type="hidden" id="aprov-os-orc-id">
-    <div style="background:#f8fafc;border-radius:12px;padding:14px;margin-bottom:16px;display:flex;flex-direction:column;gap:10px">
+    <!-- id no wrapper (14/08): _perguntarCriarOS() esconde tudo isso quando o
+         orçamento já tem OS vinculada — bug real reportado (Dom Carlos): o
+         modal oferecia "Criar OS agendada" de novo mesmo já existindo uma,
+         e isso gerou uma 2ª OS duplicada. -->
+    <div id="aprov-os-campos" style="background:#f8fafc;border-radius:12px;padding:14px;margin-bottom:16px;display:flex;flex-direction:column;gap:10px">
       <div class="row">
         <div class="fl"><label>Data do serviço</label><input type="date" id="aprov-os-data" style="padding:9px 12px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:14px;font-family:'Instrument Sans',sans-serif;outline:none;width:100%;box-sizing:border-box"></div>
         <div class="fl"><label>Hora</label><input type="time" id="aprov-os-hora" value="08:00" style="padding:9px 12px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:14px;font-family:'Instrument Sans',sans-serif;outline:none;width:100%;box-sizing:border-box"></div>
@@ -3418,7 +3394,7 @@
       <button type="button" class="rd-modal-btn rd-modal-btn-nao" onclick="gerarEntregaDaAprovacao()" style="width:100%">Ordem de entrega</button>
     </div>
     <div class="rd-modal-acts">
-      <button type="button" class="rd-modal-btn rd-modal-btn-nao" onclick="fecharAprovOS()">Não por agora</button>
+      <button type="button" class="rd-modal-btn rd-modal-btn-nao" onclick="fecharAprovOS()" id="aprov-os-fechar-lbl">Não por agora</button>
       <button type="button" id="aprov-os-btn" class="rd-modal-btn rd-modal-btn-sim" onclick="criarOSdeAprovacao()">Criar OS agendada</button>
     </div>
   </div>

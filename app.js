@@ -1062,7 +1062,7 @@ let osEditId = null; // id da OS sendo editada (null = nova) — evita duplicar 
 let _orcClienteSelecionado = null;
 let _osClienteSelecionado = null;
 let orcMesRef = ''; // YYYY-MM ou '' = todos os períodos
-let osFotos = ['','',''];
+let osFotos = []; // até 6 (renderOSFotosSlots) — antes era array fixo de 3
 let printMode = ''; // 'orc' | 'os' | 'both'
 
 // ── Checklist OS ──
@@ -1916,29 +1916,59 @@ function toggleOsCard(){
   if(fields) fields.style.display=on?'block':'none';
 }
 
+// Bug real reportado (Dom Carlos, 14/08): 2 OS criadas pro mesmo orçamento.
+// Causa: este caminho (checkbox "toggle-os" ao salvar) e o de
+// criarOSdeAprovacao() (prompt automático após aprovar) são dois pontos de
+// entrada independentes pra criar OS a partir do mesmo orçamento — nenhum
+// dos dois checava se já existia uma. Agora os dois checam. Também corrigido
+// aqui: o insert não gravava loja_id nenhum (a OS #190 do Dom Carlos ficou
+// com loja_id vazio por causa disso — confirmado no banco).
 async function criarOSjunto(dados, orcNum){
+  const orcIdAtual=editId||null;
+  if(orcIdAtual && (todosOS||[]).some(x=>String(x.orcamento_id)===String(orcIdAtual))){
+    confirmar(
+      'Este orçamento já tem uma OS vinculada. Criar mais uma mesmo assim?',
+      ()=>_criarOSjuntoProsseguir(dados, orcNum),
+      'OS já existe pra este orçamento',
+      null,
+      'Cancelar',
+      'Criar outra OS'
+    );
+    return;
+  }
+  await _criarOSjuntoProsseguir(dados, orcNum);
+}
+async function _criarOSjuntoProsseguir(dados, orcNum){
   const data=document.getElementById('os-inline-data')?.value||dados.dataSvc||'';
   const hora=document.getElementById('os-inline-hora')?.value||'08:00';
   const tec=document.getElementById('os-inline-tec')?.value||CFG.nome;
   // Preserva produto_id para que a entrega de estoque via OS funcione corretamente
   const osSvcsData=dados.svcs.map(s=>({desc:s.desc||s.d||'',produto_id:s.produto_id||null,qty:s.qty||1,precoUnit:parseFloat(s.p||s.preco||0)||0}));
+  const lojaOS=dados.loja_id||LOJA_PADRAO_ID;
   let numStr='???';
   try{
     if(dbOk&&db){
       const {data:insOS}=await dbInsertNumerado('ordens_servico',{
         orcamento_id:editId||null, cliente:dados.cli,
         local_servico:dados.loc, data_servico:data, hora, tecnico:tec,
-        servicos:osSvcsData, materiais:'', obs_tecnica:'', total:dados.tot, status:'agendado'
+        servicos:osSvcsData, materiais:'', obs_tecnica:'', total:dados.tot, status:'agendado',
+        loja_id:lojaOS
       });
       const num=insOS?.numero||1;
       numStr=String(num).padStart(3,'0');
     }else{
       const n=(parseInt(ls('fluxa_os_num')||'0'))+1; lsSet('fluxa_os_num',n); numStr=String(n).padStart(3,'0');
+      _salvarOSLocal({
+        id:'local_os_'+Date.now(), numero:n, status:'agendado', data_criacao:new Date().toISOString(),
+        orcamento_id:editId||null, cliente:dados.cli, local_servico:dados.loc,
+        data_servico:data, hora, tecnico:tec, servicos:osSvcsData,
+        materiais:'', obs_tecnica:'', total:dados.tot, loja_id:lojaOS, _pendingSync:true
+      });
     }
     // Preenche ambos docs e imprime juntos
     const numOrcStr=String(orcNum||0).padStart(3,'0');
     preencherDocOrc(dados, numOrcStr);
-    const osDados={ cli:dados.cli, loc:dados.loc, data, hora, tec, tot:dados.tot, mat:'', obs:'', svcs:osSvcsData, loja_id:dados.loja_id||LOJA_PADRAO_ID };
+    const osDados={ cli:dados.cli, loc:dados.loc, data, hora, tec, tot:dados.tot, mat:'', obs:'', svcs:osSvcsData, loja_id:lojaOS };
     preencherDocOS(osDados, numStr);
     imprimirDoc('both');
   }catch(e){ console.error('criarOSjunto:',e); toast('⚠️ Erro ao gerar OS: '+e.message); }
@@ -2930,8 +2960,22 @@ async function salvarClienteRemoto(local){
 
 // ── Modal: Criar OS a partir da aprovação do orçamento ──
 function _perguntarCriarOS(orc){
+  // Bug real reportado (Dom Carlos, 14/08): este prompt automático oferecia
+  // "Criar OS agendada" mesmo quando o orçamento já tinha uma OS vinculada
+  // (criada antes pelo checkbox "toggle-os" ao salvar) — gerou 2 OS pro
+  // mesmo orçamento. Agora esconde os campos/botão de criar quando já existe.
+  const jaTemOS=(todosOS||[]).some(x=>String(x.orcamento_id)===String(orc.id));
+  const temEntrega=_orcTemItens(orc);
+  if(jaTemOS && !temEntrega) return; // nada útil a oferecer — não mostra o modal
   document.getElementById('aprov-os-orc-id').value=orc.id;
   document.getElementById('aprov-os-titulo').textContent=`Orçamento #${String(orc.numero||'?').padStart(3,'0')} aprovado!`;
+  document.querySelector('#aprov-os-bg .rd-modal-headtx p').textContent=jaTemOS
+    ? 'Este orçamento já tem uma OS agendada.'
+    : 'Deseja agendar uma OS? Data e técnico podem ser preenchidos agora ou depois.';
+  const camposEl=document.getElementById('aprov-os-campos');
+  if(camposEl) camposEl.style.display=jaTemOS?'none':'';
+  const btnOS=document.getElementById('aprov-os-btn');
+  if(btnOS) btnOS.style.display=jaTemOS?'none':'';
   const dataEl=document.getElementById('aprov-os-data');
   dataEl.value=orc.data_servico||_hojeLocal();
   document.getElementById('aprov-os-hora').value='08:00';
@@ -2940,7 +2984,9 @@ function _perguntarCriarOS(orc){
   sel.innerHTML='<option value="">Selecione…</option>'+tecs.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join('');
   // Só oferece a Ordem de Entrega se houver o que entregar.
   const _row=document.getElementById('aprov-entrega-row');
-  if(_row) _row.style.display = _orcTemItens(orc) ? '' : 'none';
+  if(_row) _row.style.display = temEntrega ? '' : 'none';
+  const fecharLbl=document.getElementById('aprov-os-fechar-lbl');
+  if(fecharLbl) fecharLbl.textContent=jaTemOS?'Fechar':'Não por agora';
   document.getElementById('aprov-os-bg').classList.add('on');
 }
 function fecharAprovOS(){ document.getElementById('aprov-os-bg').classList.remove('on'); }
@@ -2968,6 +3014,14 @@ async function criarOSdeAprovacao(){
   // data e tec são opcionais — podem ser preenchidos depois via "Editar OS"
   const orc=todosOrc.find(x=>x.id===orcId);
   if(!orc){ toast('⚠️ Orçamento não encontrado'); fecharAprovOS(); return; }
+  // Segunda trava (a primeira é _perguntarCriarOS() escondendo o botão) —
+  // defesa em profundidade contra o bug do Dom Carlos (2 OS pro mesmo
+  // orçamento), caso este modal seja acionado por outro caminho no futuro.
+  if((todosOS||[]).some(x=>String(x.orcamento_id)===String(orcId))){
+    toast('⚠️ Este orçamento já tem uma OS — abra o Histórico de OS pra editar a existente.');
+    fecharAprovOS();
+    return;
+  }
   const btn=document.getElementById('aprov-os-btn');
   if(btn){ btn.disabled=true; btn.textContent='Criando…'; }
   try{
@@ -4273,7 +4327,14 @@ function preencherDocOS(d, num){
   setV_el('pd-sign-resp-os',LC.nome+' — Responsável Técnico','textContent');
   setV_el('pd-foot-os',LC.nome+(LC.tel?'   ·   '+LC.tel:'')+(LC.cidades?'   ·   '+LC.cidades:''),'textContent');
   const tb=document.getElementById('pd-tbody-os'); tb.innerHTML='';
-  d.svcs.forEach((s,i)=>{ const tr=document.createElement('tr'); tr.innerHTML=`<td>${i+1}</td><td>${esc(s)}</td>`; tb.appendChild(tr); });
+  // Bug real (achado 14/08, ao investigar o caso do Dom Carlos): esc(s) passava
+  // o item INTEIRO do array (objeto {desc,produto_id,qty,precoUnit}), não o
+  // texto — esc() sempre lançava TypeError aqui. Isso derrubava a impressão da
+  // OS toda vez que ela nascia junto com o orçamento (criarOSjunto/
+  // criarOSdeAprovacao, que montam svcs como array de objetos), mostrando
+  // "Erro ao gerar OS" pro usuário MESMO com a OS já criada no banco — leitura
+  // plausível de por que o Dom Carlos tentou de novo e duplicou.
+  d.svcs.forEach((s,i)=>{ const tr=document.createElement('tr'); tr.innerHTML=`<td>${i+1}</td><td>${esc(typeof s==='string'?s:(s.desc||s.d||''))}</td>`; tb.appendChild(tr); });
   const mb=document.getElementById('pd-mat-os');
   if(d.mat){ document.getElementById('pd-mat-txt-os').textContent=d.mat; mb.style.display='flex'; } else mb.style.display='none';
   const ob=document.getElementById('pd-obs-os');
@@ -6427,17 +6488,8 @@ function novaOS(){
   const checkinInfoEl=document.getElementById('checkin-info'); if(checkinInfoEl) checkinInfoEl.textContent='';
   populaTecCheckIn();
   osOrcId = null;
-  osFotos=['','',''];
-  [0,1,2].forEach(i=>{
-    const prev=document.getElementById('os-foto-prev-'+i);
-    const btn=document.getElementById('os-btn-rm-foto-'+i);
-    const lbl=document.getElementById('os-foto-lbl-'+i);
-    const inp=document.getElementById('os-foto-inp-'+i);
-    if(prev) prev.style.display='none';
-    if(btn) btn.style.display='none';
-    if(lbl) lbl.textContent='Tirar/selecionar';
-    if(inp) inp.value='';
-  });
+  osFotos=[];
+  renderOSFotosSlots();
   setV('os-video-link','');
   setV('os-loja', lojaAtiva||LOJA_PADRAO_ID);
   document.getElementById('os-src-badge').textContent='';
@@ -6995,14 +7047,11 @@ function _abrirOSForm(o){
   }
   osSvcs=(o.servicos||[]).map(s=>({id:Date.now()+Math.random(),d:typeof s==='string'?s:s.desc||''}));
   if(!osSvcs.length) osSvcs=[{id:Date.now(),d:''}];
-  osFotos=(o.fotos||[]).concat(['','','']).slice(0,3);
-  osFotos.forEach((f,i)=>{
-    const prev=document.getElementById('os-foto-prev-'+i);
-    const btn=document.getElementById('os-btn-rm-foto-'+i);
-    const lbl=document.getElementById('os-foto-lbl-'+i);
-    if(f){prev.src=f;prev.style.display='block';if(btn)btn.style.display='block';if(lbl)lbl.textContent='Foto carregada';}
-    else{prev.style.display='none';if(btn)btn.style.display='none';if(lbl)lbl.textContent='Tirar/selecionar';}
-  });
+  // Antes: .concat(['','','']).slice(0,3) — truncava pra 3 mesmo se a OS
+  // salva tivesse mais (bug real: reabrir uma OS com 4+ fotos cortava as
+  // demais). Grid dinâmico não trunca mais.
+  osFotos=(o.fotos||[]).filter(Boolean);
+  renderOSFotosSlots();
   // Checklist: carrega da OS salva ou usa o padrão
   try{
     osChecklist=o.checklist?(typeof o.checklist==='string'?JSON.parse(o.checklist):o.checklist):OS_CHECKLIST_DEFAULT.map(x=>({...x}));
@@ -7307,32 +7356,38 @@ function _enviarRelatorioOSWhats(id, tel){
 
 // ──────────────────────────────────────────────────
 //  OS FOTOS
+//  Grid dinâmico (14/08) — mesmo padrão de renderFotosOrcSlots()/
+//  carregarFotoOrc()/removerFotoOrc() (orçamento), até 6 fotos. Antes eram
+//  3 slots fixos hardcoded no HTML — bug real reportado (Dom Carlos): "só
+//  dá pra colocar 3 fotos, tem que dar pra colocar mais".
 // ──────────────────────────────────────────────────
-function carregarOSFoto(inp, idx){
+function renderOSFotosSlots(){
+  const grid=document.getElementById('os-fotos-grid'); if(!grid) return;
+  grid.innerHTML='';
+  for(let i=0;i<6;i++){
+    const slot=document.createElement('div');
+    slot.className='fotos-orc-slot'+(osFotos[i]?' filled':'');
+    slot.innerHTML=`
+      <input type="file" id="os-finp-${i}" accept="image/*" capture="environment" style="display:none" onchange="carregarFotoOS(this,${i})">
+      ${osFotos[i]?`<img src="${osFotos[i]}" alt="foto ${i+1}">`:''}
+      <div class="fotos-orc-slot-icon">📷</div>
+      <div class="fotos-orc-slot-lbl">Foto ${i+1}</div>
+      <button class="fotos-orc-rm" onclick="event.stopPropagation();removerFotoOS(${i})" title="Remover">✕</button>`;
+    slot.addEventListener('click',()=>document.getElementById(`os-finp-${i}`).click());
+    grid.appendChild(slot);
+  }
+}
+function carregarFotoOS(inp, idx){
   const f=inp.files[0]; if(!f) return;
   if(f.size > FOTO_MAX_BYTES){ toast('⚠️ Foto muito grande (máx 20 MB).'); inp.value=''; return; }
   const r=new FileReader();
-  r.onload=e=>{
-    osFotos[idx]=e.target.result;
-    const prev=document.getElementById('os-foto-prev-'+idx);
-    const lbl=document.getElementById('os-foto-lbl-'+idx);
-    const btn=document.getElementById('os-btn-rm-foto-'+idx);
-    prev.src=e.target.result; prev.style.display='block';
-    if(lbl) lbl.textContent=f.name;
-    if(btn) btn.style.display='block';
-  };
+  r.onload=async e=>{ osFotos[idx]=await compressImage(e.target.result); renderOSFotosSlots(); };
   r.readAsDataURL(f);
 }
-function removerOSFoto(idx){
-  osFotos[idx]='';
-  const prev=document.getElementById('os-foto-prev-'+idx);
-  const lbl=document.getElementById('os-foto-lbl-'+idx);
-  const btn=document.getElementById('os-btn-rm-foto-'+idx);
-  const inp=document.getElementById('os-foto-inp-'+idx);
-  if(prev) prev.style.display='none';
-  if(lbl) lbl.textContent='Tirar/selecionar';
-  if(btn) btn.style.display='none';
-  if(inp) inp.value='';
+function removerFotoOS(idx){
+  osFotos[idx]=null;
+  while(osFotos.length && !osFotos[osFotos.length-1]) osFotos.pop();
+  renderOSFotosSlots();
 }
 
 // ──────────────────────────────────────────────────
