@@ -2,6 +2,59 @@
 
 ---
 
+## 🔧 OFICINA — cadastro inline de cliente na busca (18/08, feedback do Marcos)
+
+Achado real do Marcos usando o app: "quando vai dar entrada na oficina ele
+não permite colocar o nome do cliente sem ele ter sido cadastrado antes".
+Confirmado — era decisão deliberada da Fase 1a ("EXIGE selecionar um
+cliente já cadastrado pela busca... a busca de equipamento depende do
+vínculo"), mas sem nenhuma saída pra quem chega sem cadastro prévio, o
+atendente ficava travado de verdade — não dava pra continuar a entrada.
+
+**Fix, sem reabrir a decisão da Fase 1a** (equipamento continua exigindo
+`cliente_id` real — isso não muda): em vez de permitir texto livre no campo
+`#of-cli-nome` (o que quebraria a busca de equipamento, que filtra por
+`cliente_id`), o modal `#modal-busca-cli` ganhou "+ Não achei, cadastrar
+cliente novo" — mesmo padrão exato do cadastro inline de equipamento já
+existente (`_ofCadastrarEquipamentoInline`, Fase 1b): formulário mínimo
+(nome/telefone/endereço) dentro do próprio modal, local-first, sincroniza
+em background, e seleciona sozinho ao salvar — o atendente nunca sai da
+tela de Dar Entrada.
+
+**Não é exclusivo da oficina** — `#modal-busca-cli` é compartilhado por
+todos os contextos (`_buscaCliCtx`: orc/os/vis/venda/eq/of), e a função
+nova (`_cadastrarClienteInlineBusca`) só chama o mesmo `selecionarCliModal(...)`
+de sempre, então funciona em qualquer um deles. Mas os outros contextos
+(Orçamento, OS, Vistoria, Venda) já aceitavam nome digitado direto no
+próprio campo — o botão novo é só uma alternativa a mais ali, não resolve
+nenhum bloqueio real como resolve em Oficina/Equipamentos (os dois únicos
+com campo `readonly`, forçando a busca).
+
+**Achado, não corrigido nesta rodada** (fora do escopo, mesma causa raiz):
+`#eq-cli-nome` (cadastro de Equipamentos, tela própria) tem exatamente a
+mesma trava — também `readonly`, também precisa de `cliente_id` real pra
+liberar o cadastro de piscina do cliente. Como o modal de busca agora é
+compartilhado, o botão novo JÁ resolve esse caso de graça (mesma
+`abrirBuscaCli('eq')` → mesmo modal → mesmo botão) — não precisou de
+código extra, só não foi testado explicitamente neste ciclo.
+
+Testado no Browser pane (offline, clique real via `ref`, ciclo completo):
+Dar Entrada → 🔍 Buscar cliente → lista real da base aparece (304 clientes
+de produção, cache local) → "+ Não achei, cadastrar cliente novo" → nome
+preenchido automaticamente com o que já tinha sido digitado na busca →
+"💾 Salvar e selecionar" → toast "✅ Cliente cadastrado" → campo Cliente
+preenchido, campo Equipamento libera a busca (antes travado) → equipamento
+cadastrado inline também (checklist mudou certo pro tipo "Motobomba") →
+"💾 Registrar entrada" → toast "✅ Item recebido na oficina", ciclo
+completo sem nenhum erro. Confirmado sem regressão no contexto `orc`
+(Novo Orçamento): modal abre normal, cliente novo criado aparece na lista,
+botão não interfere no fluxo de digitar nome direto que já existia. Zero
+erro novo no console.
+
+sw.js: fluxa-v183 → fluxa-v184.
+
+---
+
 ## 🔧 MÓDULO OFICINA — Fases 9-13: a economia do serviço (18/08)
 
 O Marcos trouxe uma pesquisa de mercado + leitura crítica do módulo (as 5

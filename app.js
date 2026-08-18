@@ -7859,6 +7859,36 @@ function abrirBuscaCli(ctx){
   setTimeout(()=>document.getElementById('modal-cli-inp').focus(), 80);
 }
 function fecharBuscaCli(){ document.getElementById('modal-busca-cli').style.display='none'; }
+// Cadastro inline dentro da própria busca (18/08) — achado real do Marcos:
+// a Oficina (e Equipamentos, mesma causa raiz) EXIGE cliente já cadastrado
+// pra liberar a busca de equipamento (que é filtrada por cliente_id) — sem
+// isso, quem chega sem cadastro prévio ficava sem conseguir dar entrada.
+// Mesmo padrão já usado pro cadastro inline de equipamento
+// (_ofCadastrarEquipamentoInline, Fase 1b): local-first, sync em background,
+// seleciona sozinho ao salvar. Funciona pra qualquer contexto (orc/os/vis/
+// venda/eq/of) porque só chama o mesmo selecionarCliModal(...) de sempre —
+// não é exclusivo da oficina, mas foi o caso real que expôs a lacuna.
+function _toggleNovoCliBusca(){
+  const el=document.getElementById('novo-cli-busca-form'); if(!el) return;
+  const mostrar = el.style.display==='none'||!el.style.display;
+  el.style.display = mostrar?'flex':'none';
+  if(mostrar){
+    setV('novo-cli-busca-nome', gV('modal-cli-inp')||'');
+    setV('novo-cli-busca-tel',''); setV('novo-cli-busca-end','');
+    setTimeout(()=>document.getElementById('novo-cli-busca-nome')?.focus(),80);
+  }
+}
+async function _cadastrarClienteInlineBusca(){
+  const nome=(gV('novo-cli-busca-nome')||'').trim();
+  if(!nome){ toast('⚠️ Informe o nome do cliente'); return; }
+  const tel=gV('novo-cli-busca-tel')||'', end=gV('novo-cli-busca-end')||'';
+  const novo={id:'cli_'+Date.now(), nome, tel, end, cnpj:'', email_responsavel:'', tipo:'', portal_token:crypto.randomUUID(), loja_id:lojaAtiva||null};
+  const lista=lsCliLer(); lista.unshift(novo); lsCliSalvar(lista);
+  if(dbOk&&db) salvarClienteRemoto(novo).catch(()=>{});
+  document.getElementById('novo-cli-busca-form').style.display='none';
+  toast('✅ Cliente cadastrado');
+  selecionarCliModal(novo.nome, novo.end, novo.tel, novo.cnpj, novo.id);
+}
 function filtrarListaCli(val){
   const q = (val||'').toLowerCase().trim();
   let lista = lsCliLer();

@@ -3356,6 +3356,13 @@
     </div>
     <input class="modal-cli-inp" id="modal-cli-inp" type="text" placeholder="Nome, telefone ou CNPJ..." oninput="filtrarListaCli(this.value)" autocomplete="off">
     <div class="modal-cli-lista" id="modal-cli-lista"></div>
+    <button type="button" class="rd-btn-link" style="margin-top:8px;font-size:13px" onclick="_toggleNovoCliBusca()">+ Não achei, cadastrar cliente novo</button>
+    <div id="novo-cli-busca-form" style="display:none;flex-direction:column;gap:10px;margin-top:10px;padding-top:12px;border-top:1px solid var(--gray-light)">
+      <div class="rd-field"><span class="rd-field-lbl">Nome</span><input type="text" id="novo-cli-busca-nome" class="rd-field-box"></div>
+      <div class="rd-field"><span class="rd-field-lbl">Telefone</span><input type="text" id="novo-cli-busca-tel" class="rd-field-box"></div>
+      <div class="rd-field"><span class="rd-field-lbl">Endereço</span><input type="text" id="novo-cli-busca-end" class="rd-field-box"></div>
+      <button type="button" class="rd-btn rd-btn-primary" style="align-self:flex-start" onclick="_cadastrarClienteInlineBusca()">💾 Salvar e selecionar</button>
+    </div>
   </div>
 </div>
 
