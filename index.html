@@ -2704,6 +2704,10 @@
         <div class="rd-card-title">Oficina</div>
         <button type="button" class="rd-btn rd-btn-primary" onclick="abrirOficinaRecepcao()">+ Nova Recepção</button>
       </div>
+      <div style="display:flex;gap:8px;margin-bottom:14px">
+        <button type="button" class="rd-btn rd-btn-sm rd-btn-primary" id="of-tab-quadro" onclick="_ofSetView('quadro')">Quadro</button>
+        <button type="button" class="rd-btn rd-btn-sm rd-btn-secondary" id="of-tab-historico" onclick="_ofSetView('historico')">Histórico</button>
+      </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
         <input type="text" class="rd-field-box" style="flex:1;min-width:180px" placeholder="Buscar por cliente ou número…" oninput="_ofFiltrarBusca(this.value)">
         <select class="rd-field-box" style="max-width:200px" onchange="_ofFiltrarOrigem(this.value)">
@@ -2714,6 +2718,7 @@
         </select>
       </div>
       <div id="of-lista"></div>
+      <div id="of-historico" style="display:none"></div>
     </div>
   </div>
 </div>

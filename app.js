@@ -32,7 +32,7 @@ let todosFornecedores = [], todasOC = [], todosProdutos = [], todosMovEstoque = 
 // das linhas acima: evitar TDZ se algum ponto do boot vier a referenciar cedo.
 let todosOficinaReparos = [], _ofClienteSelecionado = null, _ofEquipamentoSelecionado = null;
 let _ofFotos = [], _ofEstadoEntrada = {};
-let _ofStatusLog = [], _ofFiltroBusca = '', _ofFiltroOrigem = '';
+let _ofStatusLog = [], _ofFiltroBusca = '', _ofFiltroOrigem = '', _ofView = 'quadro';
 let _ofRetrabalhoDe = null;
 
 // ── Log de auditoria (quem fez o quê) ──
@@ -16534,7 +16534,7 @@ async function loadOficinaReparos(){
   }
   await _reenviarOficinaLocais();
   await loadOficinaStatusLog();
-  renderOficinaKanban();
+  _ofRenderAtiva();
   renderOficinaMetricas();
 }
 
@@ -16878,7 +16878,7 @@ async function _ofAplicarStatus(reparoId, novoStatus, extra){
   }
   await _ofRegistrarStatusLog(reparoId, novoStatus);
   logAcao('oficina_status', `${OFICINA_STATUS_LABEL[novoStatus]||novoStatus} · ${todosOficinaReparos[idx].cliente_nome||''}`);
-  renderOficinaKanban();
+  _ofRenderAtiva();
   renderOficinaMetricas();
   if(document.getElementById('of-ficha-overlay')){ fecharFichaOficina(); abrirFichaOficina(reparoId); }
 }
@@ -16919,8 +16919,62 @@ function confirmarCancelarOficina(id){
 }
 
 // ── Filtros (busca + origem) ──
-function _ofFiltrarBusca(val){ _ofFiltroBusca=val||''; renderOficinaKanban(); }
-function _ofFiltrarOrigem(val){ _ofFiltroOrigem=val||''; renderOficinaKanban(); }
+function _ofFiltrarBusca(val){ _ofFiltroBusca=val||''; _ofRenderAtiva(); }
+function _ofFiltrarOrigem(val){ _ofFiltroOrigem=val||''; _ofRenderAtiva(); }
+
+// ── Quadro ↔ Histórico (a pedido do Marcos, 17/08) — mesma lista de dados,
+// duas formas de olhar: o quadro é "o que está acontecendo agora" (por
+// status); o histórico é "o que já foi feito" — tabela com o número do
+// reparo em destaque (ele pediu isso explicitamente), cliente, equipamento
+// e observação visíveis de cara, sem precisar abrir a ficha de cada um.
+function _ofSetView(view){
+  _ofView=view;
+  const tabQuadro=document.getElementById('of-tab-quadro'), tabHist=document.getElementById('of-tab-historico');
+  if(tabQuadro) tabQuadro.className='rd-btn rd-btn-sm '+(view==='quadro'?'rd-btn-primary':'rd-btn-secondary');
+  if(tabHist) tabHist.className='rd-btn rd-btn-sm '+(view==='historico'?'rd-btn-primary':'rd-btn-secondary');
+  const elLista=document.getElementById('of-lista'), elHist=document.getElementById('of-historico');
+  if(elLista) elLista.style.display=view==='quadro'?'':'none';
+  if(elHist) elHist.style.display=view==='historico'?'':'none';
+  _ofRenderAtiva();
+}
+function _ofRenderAtiva(){
+  if(_ofView==='historico') renderOficinaHistorico();
+  else renderOficinaKanban();
+}
+function renderOficinaHistorico(){
+  const el=document.getElementById('of-historico'); if(!el) return;
+  let lista=filtrarPorLoja(todosOficinaReparos||[]);
+  if(_ofFiltroBusca){
+    const q=_ofFiltroBusca.toLowerCase();
+    lista=lista.filter(o=>(o.cliente_nome||'').toLowerCase().includes(q) || String(o.numero||'').includes(q.replace('#','')));
+  }
+  if(_ofFiltroOrigem) lista=lista.filter(o=>o.origem===_ofFiltroOrigem);
+  if(!lista.length){
+    el.innerHTML=`<div class="rd-empty" style="padding:24px"><div class="rd-empty-ico">📋</div><div class="rd-empty-title">Nenhum reparo encontrado.</div></div>`;
+    return;
+  }
+  lista=lista.slice().sort((a,b)=>String(b.data_criacao||'').localeCompare(String(a.data_criacao||'')));
+  const grid='90px 1fr 1.1fr 1.6fr 130px 84px';
+  let h=`<div class="rd-table-wrap" style="border:none;border-radius:0">
+    <div style="overflow-x:auto"><div style="min-width:800px">
+    <div class="rd-thead" style="grid-template-columns:${grid}">
+      <div class="rd-th">Número</div><div class="rd-th">Cliente</div><div class="rd-th">Equipamento</div><div class="rd-th">Observação</div><div class="rd-th">Situação</div><div class="rd-th">Data</div>
+    </div>`;
+  lista.forEach(o=>{
+    const num=o.numero?'OF-'+String(o.numero).padStart(5,'0'):'OF-…';
+    const dt=o.data_criacao?new Date(o.data_criacao).toLocaleDateString('pt-BR'):'—';
+    h+=`<div class="rd-row" style="grid-template-columns:${grid};cursor:pointer" tabindex="0" role="button" aria-label="Abrir ${esc(num)}" onclick="abrirFichaOficina('${o.id}')" onkeydown="if(event.key==='Enter'){abrirFichaOficina('${o.id}')}">
+      <div class="rd-cell-strong">${esc(num)}</div>
+      <div>${esc(o.cliente_nome||'—')}</div>
+      <div class="rd-cell-sub">${esc([o.eq_tipo,o.eq_marca,o.eq_modelo].filter(Boolean).join(' · ')||'—')}</div>
+      <div class="rd-cell-sub" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(o.obs_entrada||'')}">${esc(o.obs_entrada||'—')}</div>
+      <div><span class="rd-badge ${OFICINA_STATUS_CLS[o.status]||'rd-badge-neutral'}">${esc(OFICINA_STATUS_LABEL[o.status]||o.status)}</span></div>
+      <div class="rd-cell-sub">${dt}</div>
+    </div>`;
+  });
+  h+='</div></div></div>';
+  el.innerHTML=h;
+}
 
 // ── Quadro por status — sem drag & drop nesta rodada (não existe nenhum
 // precedente de drag no app inteiro, e o padrão mobile mais próximo pra

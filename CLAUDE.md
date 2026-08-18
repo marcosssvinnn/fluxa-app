@@ -455,6 +455,51 @@ clique real (não só via console) antes de dar por pronto — esse tipo de
 bug de empilhamento não aparece em nenhuma checagem de estado/retorno de
 função, só é visível olhando a tela de verdade.
 
+### ✅ Teste completo de aprovação real + Histórico com número em destaque (17/08)
+
+Depois do teste de clique inicial, o Marcos pediu pra ver "os próximos
+passos como se tivesse aprovado" — segui o mesmo reparo de teste pelo
+Portal do Cliente de verdade (não atalho): clicou "Aprovar", desenhou a
+assinatura, confirmou. **O reparo avançou sozinho** de "Em diagnóstico"
+pra "Em reparo" — o hook da Fase 3 disparando pelo caminho real do
+cliente, não só por chamada de função. Segui clicando "Avançar" até
+"Entregue", assinei o termo de retirada, e confirmei a garantia própria
+calculada certa ("Válida até 18/11/2026") e as métricas atualizando
+(tempo médio, retrabalho 0%) — tudo consistente, sem achado novo nessa
+parte.
+
+Na sequência o Marcos perguntou por um lugar pra acompanhar o histórico
+("o que já foi feito"), revisar dados de equipamento/observações, e
+destacou que **o número do reparo precisa estar bem visível**. Perguntei
+pra confirmar o que ele queria dizer (podia ser: número em destaque numa
+lista, OU vínculo com o número da OS de campo de origem, OU os dois) —
+ele confirmou: número em destaque numa lista/histórico.
+
+- **Toggle "Quadro" / "Histórico"** (`_ofSetView`/`_ofRenderAtiva`) dentro
+  da própria página `#page-oficina` — mesmos dados, duas formas de olhar.
+  O quadro (kanban) já existia desde a Fase 2; `renderOficinaHistorico()`
+  é novo: tabela (`.rd-table`, mesmo padrão de `renderOSTabela`) com
+  **Número em destaque como primeira coluna** (célula em negrito,
+  `OF-#####`), Cliente, Equipamento, Observação (truncada com `title` pro
+  texto completo), Situação (badge) e Data — ordenada por mais recente
+  primeiro. Clicar na linha abre a mesma ficha do kanban
+  (`abrirFichaOficina`, reuso direto).
+- Os filtros de busca/origem (já existentes desde a Fase 2) agora
+  alimentam as DUAS visões — `_ofFiltrarBusca`/`_ofFiltrarOrigem` chamam
+  `_ofRenderAtiva()` em vez de `renderOficinaKanban()` direto, e o mesmo
+  vale pra `loadOficinaReparos()`/`_ofAplicarStatus()` — sempre
+  re-renderiza a visão que estiver ativa no momento, não força de volta
+  pro quadro.
+
+Testado no Browser pane (offline, clique real): alternar as abas troca a
+tabela/quadro visualmente e mantém o filtro ativo entre as duas; busca
+por "Cliente B" isola a linha certa no histórico; clicar na linha abre a
+ficha com todos os dados batendo (status, equipamento, origem,
+observação completa); voltar pro quadro depois do histórico funciona sem
+erro. Sem chamada a `*.supabase.co`.
+
+sw.js: fluxa-v175 → fluxa-v176.
+
 ---
 
 ## Auditoria do fluxo orçamento → OS → conclusão, a pedido do Marcos (17/08)
