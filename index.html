@@ -2684,6 +2684,15 @@
         <div class="rd-card-title">Oficina</div>
         <button type="button" class="rd-btn rd-btn-primary" onclick="abrirOficinaRecepcao()">+ Nova Recepção</button>
       </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+        <input type="text" class="rd-field-box" style="flex:1;min-width:180px" placeholder="Buscar por cliente ou número…" oninput="_ofFiltrarBusca(this.value)">
+        <select class="rd-field-box" style="max-width:200px" onchange="_ofFiltrarOrigem(this.value)">
+          <option value="">Todas as origens</option>
+          <option value="balcao">Balcão</option>
+          <option value="os_campo">OS de campo</option>
+          <option value="garantia_fabricante">Garantia fabricante</option>
+        </select>
+      </div>
       <div id="of-lista"></div>
     </div>
   </div>

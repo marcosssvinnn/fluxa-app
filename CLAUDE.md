@@ -177,6 +177,53 @@ sw.js: fluxa-v169 → fluxa-v170.
 
 **Fase 1 completa** (1a+1b+1c). Próximo: Fase 2 (estados + quadro visual).
 
+### ✅ Fase 2 — estados e quadro visual (17/08, `migracao-oficina-fase2.sql`)
+
+Tabela `oficina_status_log` nova (log de transição, 1 linha por evento —
+base pro tempo médio por status da Fase 5). Aplicada e verificada em
+produção.
+
+- **Máquina de estados** — `OFICINA_STATUS_SEQ` (recebido → diagnostico →
+  aguardando_aprovacao → aguardando_peca → em_reparo → pronto → entregue),
+  `cancelado` como saída lateral fora da sequência (sem "próximo"). Ponto
+  único de mutação: `_ofAplicarStatus(reparoId, novoStatus, extra)` — grava
+  no reparo, registra no log (`_ofRegistrarStatusLog`), sincroniza, e
+  **re-renderiza a ficha automaticamente se estiver aberta** (fecha e reabre
+  — sem isso o usuário via o kanban mudar mas a ficha aberta ficava com o
+  status antigo).
+- **Confirmado, não é kanban de verdade com drag-and-drop** — decisão já
+  registrada no plano: não existe NENHUM precedente de drag-and-drop no
+  código inteiro (grep exaustivo numa sessão anterior), e o padrão mobile
+  mais próximo (`.vis-status-btn` da Vistoria) já é por toque/botão. `render
+  OficinaKanban()` é um board de colunas com scroll horizontal; avançar 1
+  etapa é o botão "Avançar →" no card; pular pra um status específico
+  (inclusive voltar, ou pular "aguardando_peca") ou cancelar é o `<select>`
+  "Mudar status" dentro da ficha — mais flexível que forçar tudo pelo card.
+- **Cancelamento exige motivo** — `window.prompt()` é proibido neste app,
+  então é um mini-modal próprio (`abrirModalCancelarOficina`/
+  `confirmarCancelarOficina`, mesmo padrão minimalista do modal de
+  assinatura) com textarea, bloqueia confirmar em branco.
+- **`_ofDiasNoStatus(o)`** — dias desde a ÚLTIMA transição PRA aquele
+  status (não desde a criação do reparo) — é o que aponta gargalo de etapa
+  específica. Sem log ainda pro status atual (reparo criado antes desta
+  fase, ou nunca transicionou), cai pra `data_criacao` como aproximação.
+- Filtros de busca (cliente/número) e origem, client-side sobre a lista já
+  carregada — sem query nova.
+- `renderOficinaLista()` (Fase 1a, tabela plana) foi **removida**, não só
+  substituída — confirmado por grep que nada mais chamava ela.
+
+Testado no Browser pane (offline, mesma disciplina de sempre): 3 reparos
+sintéticos em 3 colunas diferentes, dias-no-status calculado certo (3d pra
+um criado há 3 dias); avançar status grava no reparo E no log, kanban
+re-renderiza sozinho; cancelar sem motivo bloqueia com toast, com motivo
+aplica e fecha o modal; filtro de busca e de origem isolam só o item certo;
+select "Mudar status" da ficha lista as 8 opções corretas. Sem erros novos
+no console, sem chamada a `*.supabase.co`.
+
+sw.js: fluxa-v170 → fluxa-v171.
+
+Próximo: Fase 3 (orçamento de conserto + aprovação via portal).
+
 ---
 
 ## Auditoria do fluxo orçamento → OS → conclusão, a pedido do Marcos (17/08)

@@ -32,6 +32,7 @@ let todosFornecedores = [], todasOC = [], todosProdutos = [], todosMovEstoque = 
 // das linhas acima: evitar TDZ se algum ponto do boot vier a referenciar cedo.
 let todosOficinaReparos = [], _ofClienteSelecionado = null, _ofEquipamentoSelecionado = null;
 let _ofFotos = [], _ofEstadoEntrada = {};
+let _ofStatusLog = [], _ofFiltroBusca = '', _ofFiltroOrigem = '';
 
 // ── Log de auditoria (quem fez o quê) ──
 let _auditoria = [];
@@ -16520,7 +16521,31 @@ async function loadOficinaReparos(){
     }catch(e){ console.warn('[oficina load]', e?.message||e); }
   }
   await _reenviarOficinaLocais();
-  renderOficinaLista();
+  await loadOficinaStatusLog();
+  renderOficinaKanban();
+}
+
+// ── Log de transição de status (Fase 2) — mesmo padrão local-first de
+// registrarMovimento: base pro tempo médio por status na Fase 5.
+function lsOfLogLer(){ try{ return JSON.parse(ls('fluxa_oficina_log')||'[]'); }catch(e){ return []; } }
+function lsOfLogSalvar(lista){ lsSet('fluxa_oficina_log', JSON.stringify(lista.slice(0,1000))); }
+async function loadOficinaStatusLog(){
+  _ofStatusLog = lsOfLogLer();
+  if(dbOk&&db){
+    try{
+      const {data}=await db.from('oficina_status_log').select('*').order('data',{ascending:false}).limit(1000);
+      if(data){ _ofStatusLog=data; lsOfLogSalvar(data); }
+    }catch(e){ console.warn('[oficina log load]', e?.message||e); }
+  }
+}
+async function _ofRegistrarStatusLog(reparoId, status){
+  const rec={id:'ofl_'+Date.now()+'_'+Math.random().toString(36).slice(2,6), reparo_id:reparoId, status, usuario:(getSessao()?.nome||''), data:new Date().toISOString()};
+  _ofStatusLog.unshift(rec);
+  lsOfLogSalvar(_ofStatusLog);
+  if(dbOk&&db){
+    try{ const r=await dbInsert('oficina_status_log', rec); if(r?.error) console.warn('[oficina status log]', r.error.message); }
+    catch(e){ console.warn('[oficina status log]', e?.message||e); }
+  }
 }
 
 // Reparo criado offline (`_pendingSync:true`) sobe via dbInsertNumerado
@@ -16736,45 +16761,142 @@ function selecionarEqModal(id){
   fecharBuscaEq();
 }
 
-// ── Lista (kanban entra na Fase 2) ──
+// ── Estados e quadro visual (Fase 2) ──
 const OFICINA_STATUS_LABEL={recebido:'Recebido',diagnostico:'Em diagnóstico',aguardando_aprovacao:'Aguardando aprovação',aguardando_peca:'Aguardando peça',em_reparo:'Em reparo',pronto:'Pronto',entregue:'Entregue',cancelado:'Cancelado'};
 const OFICINA_STATUS_CLS={recebido:'rd-badge-neutral',diagnostico:'rd-badge-info',aguardando_aprovacao:'rd-badge-warn',aguardando_peca:'rd-badge-warn',em_reparo:'rd-badge-info',pronto:'rd-badge-ok',entregue:'rd-badge-ok',cancelado:'rd-badge-bad'};
 const OFICINA_ORIGEM_LABEL={balcao:'Balcão',os_campo:'OS de campo',garantia_fabricante:'Garantia fabricante'};
+// cancelado é saída lateral, não faz parte da sequência de avanço — não tem
+// "próximo status" (accionado só via setOficinaStatus, não avancarStatusOficina).
+const OFICINA_STATUS_SEQ=['recebido','diagnostico','aguardando_aprovacao','aguardando_peca','em_reparo','pronto','entregue'];
 
-function renderOficinaLista(){
+function _ofProximoStatus(status){
+  const idx=OFICINA_STATUS_SEQ.indexOf(status);
+  if(idx<0 || idx>=OFICINA_STATUS_SEQ.length-1) return null;
+  return OFICINA_STATUS_SEQ[idx+1];
+}
+// Dias desde a última transição PRA este status (não desde a criação do
+// reparo) — é o que aponta gargalo de etapa específica, não só o ciclo
+// total. Sem log ainda pra esse status (reparo criado antes da Fase 2, ou
+// nunca transicionou), cai pra data_criacao como aproximação razoável.
+function _ofDiasNoStatus(o){
+  const logs=(_ofStatusLog||[]).filter(l=>l.reparo_id===o.id && l.status===o.status);
+  const ultimo=logs.length ? logs.reduce((a,b)=> String(a.data)>String(b.data)?a:b) : null;
+  const desde=ultimo?ultimo.data:o.data_criacao;
+  if(!desde) return null;
+  const dt=new Date(desde).getTime(); if(isNaN(dt)) return null;
+  return Math.max(0, Math.floor((Date.now()-dt)/86400000));
+}
+
+// Ponto único que muda status — grava no reparo, registra no log, sincroniza.
+async function _ofAplicarStatus(reparoId, novoStatus, extra){
+  const idx=todosOficinaReparos.findIndex(x=>x.id===reparoId); if(idx<0) return;
+  const changes={status:novoStatus, ...(extra||{})};
+  if(novoStatus==='diagnostico' && !todosOficinaReparos[idx].data_diagnostico) changes.data_diagnostico=new Date().toISOString();
+  if(novoStatus==='pronto') changes.data_pronto=new Date().toISOString();
+  if(novoStatus==='entregue') changes.data_entrega=new Date().toISOString();
+  todosOficinaReparos[idx]={...todosOficinaReparos[idx], ...changes};
+  lsOfSalvar(todosOficinaReparos);
+  if(dbOk&&db){
+    try{ const r=await dbUpdate('oficina_reparos', changes, 'id', reparoId); if(r?.error) console.warn('[oficina status]', r.error.message); }
+    catch(e){ console.warn('[oficina status]', e?.message||e); }
+  }
+  await _ofRegistrarStatusLog(reparoId, novoStatus);
+  logAcao('oficina_status', `${OFICINA_STATUS_LABEL[novoStatus]||novoStatus} · ${todosOficinaReparos[idx].cliente_nome||''}`);
+  renderOficinaKanban();
+  if(document.getElementById('of-ficha-overlay')){ fecharFichaOficina(); abrirFichaOficina(reparoId); }
+}
+function avancarStatusOficina(id){
+  const o=todosOficinaReparos.find(x=>x.id===id); if(!o) return;
+  const prox=_ofProximoStatus(o.status);
+  if(!prox){ toast('Já está na última etapa.'); return; }
+  _ofAplicarStatus(id, prox);
+}
+function setOficinaStatus(id, status){
+  if(status==='cancelado'){ abrirModalCancelarOficina(id); return; }
+  _ofAplicarStatus(id, status);
+}
+// Cancelamento exige motivo — window.prompt() é proibido neste app, então é
+// um mini-modal próprio (mesmo padrão minimalista do modal de assinatura).
+function abrirModalCancelarOficina(id){
+  const existing=document.getElementById('modal-of-cancelar'); if(existing) existing.remove();
+  const m=document.createElement('div'); m.id='modal-of-cancelar'; m.className='cli-hist-overlay'; m.style.zIndex='1100';
+  m.innerHTML=`<div class="cli-hist-box" style="max-height:none">
+    <div class="cli-hist-hdr">
+      <div class="cli-hist-titulo">Cancelar reparo</div>
+      <button class="cli-hist-close" onclick="document.getElementById('modal-of-cancelar').remove()">×</button>
+    </div>
+    <div style="padding:16px 20px 24px;display:flex;flex-direction:column;gap:12px">
+      <div class="rd-field"><span class="rd-field-lbl">Motivo</span><textarea id="of-cancelar-motivo" class="rd-field-box" rows="3" placeholder="Ex.: cliente desistiu, orçamento recusado…"></textarea></div>
+      <button type="button" class="rd-btn rd-btn-primary" style="align-self:flex-start" onclick="confirmarCancelarOficina('${id}')">Confirmar cancelamento</button>
+    </div>
+  </div>`;
+  m.addEventListener('click',e=>{ if(e.target===m) m.remove(); });
+  document.body.appendChild(m);
+  setTimeout(()=>document.getElementById('of-cancelar-motivo')?.focus(), 80);
+}
+function confirmarCancelarOficina(id){
+  const motivo=(gV('of-cancelar-motivo')||'').trim();
+  if(!motivo){ toast('⚠️ Descreva o motivo do cancelamento'); return; }
+  document.getElementById('modal-of-cancelar')?.remove();
+  _ofAplicarStatus(id, 'cancelado', {cancelado_motivo:motivo});
+}
+
+// ── Filtros (busca + origem) ──
+function _ofFiltrarBusca(val){ _ofFiltroBusca=val||''; renderOficinaKanban(); }
+function _ofFiltrarOrigem(val){ _ofFiltroOrigem=val||''; renderOficinaKanban(); }
+
+// ── Quadro por status — sem drag & drop nesta rodada (não existe nenhum
+// precedente de drag no app inteiro, e o padrão mobile mais próximo pra
+// "trocar de status" — .vis-status-btn da Vistoria — já é por toque/botão,
+// não arrastar). Avançar 1 etapa é o botão do card; pular pra um status
+// específico ou cancelar é o select "Mudar status" dentro da ficha.
+function renderOficinaKanban(){
   const el=document.getElementById('of-lista'); if(!el) return;
   let lista=filtrarPorLoja(todosOficinaReparos||[]);
-  if(!lista.length){
+  if(_ofFiltroBusca){
+    const q=_ofFiltroBusca.toLowerCase();
+    lista=lista.filter(o=>(o.cliente_nome||'').toLowerCase().includes(q) || String(o.numero||'').includes(q.replace('#','')));
+  }
+  if(_ofFiltroOrigem) lista=lista.filter(o=>o.origem===_ofFiltroOrigem);
+  if(!(todosOficinaReparos||[]).length){
     el.innerHTML=`<div class="rd-empty" style="padding:24px"><div class="rd-empty-ico">🔧</div><div class="rd-empty-title">Nenhum item na oficina ainda.</div><button type="button" class="rd-btn rd-btn-primary" style="margin-top:6px" onclick="abrirOficinaRecepcao()">+ Nova Recepção</button></div>`;
     return;
   }
-  lista=lista.slice().sort((a,b)=>String(b.data_criacao||'').localeCompare(String(a.data_criacao||'')));
-  const grid='90px 1.5fr 1fr 150px';
-  let h=`<div class="rd-table-wrap" style="border:none;border-radius:0">
-    <div style="overflow-x:auto"><div style="min-width:640px">
-    <div class="rd-thead" style="grid-template-columns:${grid}">
-      <div class="rd-th">Nº</div><div class="rd-th">Cliente e equipamento</div><div class="rd-th">Origem</div><div class="rd-th">Situação</div>
+  const colunas=[...OFICINA_STATUS_SEQ,'cancelado'];
+  const corpo=colunas.map(st=>{
+    const itens=lista.filter(o=>o.status===st).sort((a,b)=>String(b.data_criacao||'').localeCompare(String(a.data_criacao||'')));
+    return `<div style="flex:0 0 240px;display:flex;flex-direction:column;gap:8px">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:0 2px">
+        <span style="font-size:12px;font-weight:700;color:var(--c2)">${esc(OFICINA_STATUS_LABEL[st]||st)}</span>
+        <span class="rd-badge rd-badge-neutral">${itens.length}</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        ${itens.map(o=>_ofCardKanban(o)).join('')||'<div style="font-size:12px;color:var(--gray);padding:8px 4px">—</div>'}
+      </div>
     </div>`;
-  lista.forEach(o=>{
-    const num=o.numero?'OF-'+String(o.numero).padStart(5,'0'):'OF-…';
-    h+=`<div class="rd-row" style="grid-template-columns:${grid};cursor:pointer" tabindex="0" role="button" onclick="abrirFichaOficina('${o.id}')" onkeydown="if(event.key==='Enter'){abrirFichaOficina('${o.id}')}">
-      <div class="rd-cell-strong">${esc(num)}</div>
-      <div><div class="rd-cell-strong">${esc(o.cliente_nome||'—')}</div><div class="rd-cell-sub">${esc([o.eq_tipo,o.eq_marca,o.eq_modelo].filter(Boolean).join(' · ')||'—')}</div></div>
-      <div class="rd-cell-sub">${esc(OFICINA_ORIGEM_LABEL[o.origem]||o.origem||'—')}</div>
-      <div><span class="rd-badge ${OFICINA_STATUS_CLS[o.status]||'rd-badge-neutral'}">${esc(OFICINA_STATUS_LABEL[o.status]||o.status)}</span></div>
-    </div>`;
-  });
-  h+='</div></div></div>';
-  el.innerHTML=h;
+  }).join('');
+  el.innerHTML=`<div style="display:flex;gap:12px;overflow-x:auto;padding-bottom:8px">${corpo}</div>`;
+}
+function _ofCardKanban(o){
+  const num=o.numero?'OF-'+String(o.numero).padStart(5,'0'):'OF-…';
+  const dias=_ofDiasNoStatus(o);
+  const prox=_ofProximoStatus(o.status);
+  return `<div class="rd-card rd-card-dense" style="cursor:pointer" tabindex="0" role="button" onclick="abrirFichaOficina('${o.id}')" onkeydown="if(event.key==='Enter'){abrirFichaOficina('${o.id}')}">
+    <div style="font-size:11px;color:var(--gray)">${esc(num)}${dias!=null?' · '+dias+'d':''}</div>
+    <div style="font-size:13px;font-weight:600;color:var(--c2)">${esc(o.cliente_nome||'—')}</div>
+    <div style="font-size:11px;color:var(--gray)">${esc([o.eq_tipo,o.eq_marca].filter(Boolean).join(' · ')||'—')}</div>
+    ${prox?`<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" style="margin-top:6px;width:100%" onclick="event.stopPropagation();avancarStatusOficina('${o.id}')">Avançar → ${esc(OFICINA_STATUS_LABEL[prox])}</button>`:''}
+  </div>`;
 }
 
-// ── Ficha do reparo (modal simples nesta fase — ações de status entram na Fase 2) ──
+// ── Ficha do reparo ──
 function abrirFichaOficina(id){
   const o=(todosOficinaReparos||[]).find(x=>x.id===id); if(!o) return;
   const num=o.numero?'OF-'+String(o.numero).padStart(5,'0'):'OF-…';
   const bg=document.createElement('div');
   bg.className='cli-hist-overlay'; bg.id='of-ficha-overlay';
   bg.onclick=(e)=>{ if(e.target===bg) fecharFichaOficina(); };
+  const statusOpts=[...OFICINA_STATUS_SEQ,'cancelado'].map(st=>`<option value="${st}" ${st===o.status?'selected':''}>${esc(OFICINA_STATUS_LABEL[st])}</option>`).join('');
   bg.innerHTML=`<div class="cli-hist-box">
     <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 18px;border-bottom:1px solid var(--line-soft,var(--gray-light))">
       <div>
@@ -16784,7 +16906,13 @@ function abrirFichaOficina(id){
       <button type="button" class="cli-hist-close" onclick="fecharFichaOficina()" aria-label="Fechar">✕</button>
     </div>
     <div style="padding:18px;overflow-y:auto;display:flex;flex-direction:column;gap:14px">
-      <div><span class="rd-badge ${OFICINA_STATUS_CLS[o.status]||'rd-badge-neutral'}">${esc(OFICINA_STATUS_LABEL[o.status]||o.status)}</span></div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span class="rd-badge ${OFICINA_STATUS_CLS[o.status]||'rd-badge-neutral'}">${esc(OFICINA_STATUS_LABEL[o.status]||o.status)}</span>
+        ${o.status==='cancelado'&&o.cancelado_motivo?`<span style="font-size:12px;color:var(--gray)">${esc(o.cancelado_motivo)}</span>`:''}
+      </div>
+      <div class="rd-field"><span class="rd-field-lbl">Mudar status</span>
+        <select class="rd-field-box" onchange="setOficinaStatus('${o.id}', this.value)">${statusOpts}</select>
+      </div>
       <div class="rd-field"><span class="rd-field-lbl">Equipamento</span><div>${esc([o.eq_tipo,o.eq_marca,o.eq_modelo].filter(Boolean).join(' · ')||'—')}</div></div>
       ${o.eq_numero_serie?`<div class="rd-field"><span class="rd-field-lbl">Número de série</span><div>${esc(o.eq_numero_serie)}</div></div>`:''}
       <div class="rd-field"><span class="rd-field-lbl">Origem</span><div>${esc(OFICINA_ORIGEM_LABEL[o.origem]||o.origem||'—')}</div></div>
