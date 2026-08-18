@@ -2,6 +2,78 @@
 
 ---
 
+## ✅ 3f.3 — Recepção: três cartões em vez de um (18/08)
+
+Quarto item do índice (`PLANO-3F-OFICINA.md`). A tela cheia e o `.vb-topbar`
+já estavam certos — o que mudou foi só a organização do formulário: 8 campos
+empilhados num `.rd-card` só viraram 3 cartões por função.
+
+- **Cartão 1 "Quem trouxe e o quê"** — Cliente + Equipamento em `.row`
+  (grid 2 colunas, já existia no design system e colapsa pra 1 coluna
+  abaixo de 680px — reusado em vez de CSS novo). Origem + o vínculo
+  condicional (OS de campo) na segunda linha, também `.row` — quando não
+  há vínculo condicional (origem "Balcão"), a segunda coluna fica vazia;
+  aceito de propósito, é o mesmo padrão de campo opcional que sobra em
+  branco em vários formulários do app. Fabricante (3 campos, não cabe em
+  2 colunas) ficou como bloco próprio de largura cheia, só quando a origem
+  é garantia — layout que o próprio texto do plano já antecipava
+  ("3 campos não cabem na grade de 2 colunas").
+- **Aviso de retrabalho reescrito** — antes só citava o número do reparo
+  anterior (`OF-XXXXX`); agora inclui a **data** do reparo anterior
+  (`"Este equipamento já passou pela oficina em 12/06/2026 — reparo do
+  mesmo trocador de calor. Pode ser retrabalho."`) — é a data que muda a
+  conversa de cobrança, que o plano pedia explicitamente. Também trocou de
+  cor: era o laranja de marca (`--c1`), virou azul informativo
+  (`--info`/`--info-bg`) — isto é um dado a considerar, não um alerta de
+  problema, mesma distinção de cor que o resto do redesign já usa entre
+  "atenção" e "informação".
+  **🔴 Bug achado e corrigido no próprio teste:** o primeiro código usava
+  `_dataBR(anterior.data_entrega)` — mas `_dataBR()` só entende
+  `"YYYY-MM-DD"` (faz `split('-')` esperando 3 partes exatas), e
+  `data_entrega` é gravado como timestamp ISO completo
+  (`new Date().toISOString()`, com hora). Resultado real, visto na tela:
+  `"12T10:00:00Z/06/2026"` em vez de `"12/06/2026"`. Corrigido pra
+  `new Date(anterior.data_entrega).toLocaleDateString('pt-BR')` — o mesmo
+  padrão já usado pra formatar esse campo em `renderOficinaHistorico`.
+- **Cartão 2 "Estado de chegada"** — subtítulo explicativo
+  ("é o que evita a discussão de 'já veio quebrado assim' na entrega").
+  Checklist também virou `.row` (grid 2 colunas); item marcado "Com
+  avaria" ganha fundo `--warn-row`/borda `--warn-border` e um rótulo
+  "AVARIADO" em `--warn` — antes era só um input de texto aparecendo sem
+  nenhum destaque visual do próprio item. Fotos ganharam contador
+  ("N de 4" — o mock do plano falava "2 de 8", mas a oficina sempre teve 4
+  slots desde a Fase 1b, não 8; segui o número real, não o do mock).
+- **Cartão 3 "O que o cliente relatou"** — só o textarea, rótulo virou
+  título do cartão (era um `.rd-field` dentro do cartão único de antes).
+- **Botão primário fora dos cartões**, com linha de apoio ao lado. Texto
+  não é literal ao do plano ("...imprime a etiqueta da bancada") — a
+  etiqueta (QR, Fase 5) existe, mas não é impressa automaticamente ao
+  salvar, só fica disponível na ficha depois (botão 🏷️). Escrevi o texto
+  batendo com o que realmente acontece: "Gera o número do reparo — a
+  etiqueta (QR) fica disponível na ficha, em 🏷️." — o próprio plano já
+  avisava pra fazer isso ("só escrever isso se a etiqueta existir — se não
+  existir, a frase é só o nº do reparo").
+
+Nenhuma função de salvar/estado (`salvarOficinaRecepcao`,
+`_ofRecepcaoAbrir`, `_ofToggleCamposFabricante`) foi tocada — só
+reposicionamento de HTML e o CSS dos 2 pontos acima (checklist e aviso de
+retrabalho). Todos os ids referenciados pelo JS continuam existindo nos
+mesmos lugares (conferido 1 a 1 antes de considerar pronto).
+
+Testado no Browser pane (offline, porta nova, clique real + `javascript_exec`
+com dados sintéticos): os 3 cartões renderizando na ordem certa; origem
+alternando entre balcão/os_campo/garantia_fabricante — os campos
+condicionais aparecendo na posição certa nos 3 casos; item de checklist
+marcado "Com avaria" ganhando fundo/borda/rótulo na hora; aviso de
+retrabalho com a data certa (bug do `_dataBR` achado e corrigido antes de
+seguir) e o botão "Vincular" funcionando; contador de fotos "0 de 4";
+375px com os 3 cartões empilhando em coluna única sem overflow (grid
+`.row` colapsando como esperado). Zero erro novo no console.
+
+sw.js: fluxa-v187 → fluxa-v188.
+
+---
+
 ## ✅ 3f.2 — Oficina: topbar, chips de estado e cartão escuro (18/08)
 
 Terceiro item do índice do handoff (`PLANO-3F-OFICINA.md`). Diagnóstico do

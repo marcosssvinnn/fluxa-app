@@ -2762,65 +2762,85 @@
     <div class="vb-topbar-div"></div>
     <span class="vb-topbar-titulo">Dar Entrada — Oficina</span>
   </div>
-  <div class="wrap" style="max-width:640px;padding-top:24px">
-    <div class="rd-card" style="display:flex;flex-direction:column;gap:16px">
-      <div class="rd-field">
-        <span class="rd-field-lbl">Cliente</span>
-        <div class="cli-input-wrap">
-          <input type="text" id="of-cli-nome" class="rd-field-box" placeholder="Buscar cliente…" readonly>
-          <button type="button" class="cli-search-btn" onclick="abrirBuscaCli('of')" title="Buscar cliente cadastrado"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--c1)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14M16.5 16.5L21 21"></path></svg></button>
+  <div class="wrap" style="max-width:680px;padding-top:24px;display:flex;flex-direction:column;gap:14px">
+    <!-- Cartão 1 — quem trouxe e o quê (3f.3, 18/08) -->
+    <div class="rd-card">
+      <div class="rd-card-title" style="margin-bottom:12px">Quem trouxe e o quê</div>
+      <div class="row">
+        <div class="rd-field">
+          <span class="rd-field-lbl">Cliente</span>
+          <div class="cli-input-wrap">
+            <input type="text" id="of-cli-nome" class="rd-field-box" placeholder="Buscar cliente…" readonly>
+            <button type="button" class="cli-search-btn" onclick="abrirBuscaCli('of')" title="Buscar cliente cadastrado"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--c1)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14M16.5 16.5L21 21"></path></svg></button>
+          </div>
+          <span style="font-size:11px;color:var(--gray)">Precisa ser um cliente já cadastrado — a busca de equipamento depende do vínculo.</span>
         </div>
-        <span style="font-size:11px;color:var(--gray)">Precisa ser um cliente já cadastrado — a busca de equipamento depende do vínculo.</span>
-      </div>
-      <div class="rd-field">
-        <span class="rd-field-lbl">Equipamento</span>
-        <div class="cli-input-wrap">
-          <input type="text" id="of-eq-nome" class="rd-field-box" placeholder="Selecione o equipamento…" readonly>
-          <button type="button" class="cli-search-btn" onclick="abrirBuscaEq()" title="Buscar equipamento do cliente"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--c1)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14M16.5 16.5L21 21"></path></svg></button>
+        <div class="rd-field">
+          <span class="rd-field-lbl">Equipamento</span>
+          <div class="cli-input-wrap">
+            <input type="text" id="of-eq-nome" class="rd-field-box" placeholder="Selecione o equipamento…" readonly>
+            <button type="button" class="cli-search-btn" onclick="abrirBuscaEq()" title="Buscar equipamento do cliente"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--c1)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14M16.5 16.5L21 21"></path></svg></button>
+          </div>
+          <span id="of-eq-info" style="font-size:11px;color:var(--gray);display:none"></span>
         </div>
-        <span id="of-eq-info" style="font-size:11px;color:var(--gray);display:none"></span>
       </div>
-      <div class="rd-field">
-        <span class="rd-field-lbl">Origem</span>
-        <select id="of-origem" class="rd-field-box" onchange="_ofToggleCamposFabricante(this.value)">
-          <option value="balcao">Balcão</option>
-          <option value="os_campo">Trazido de uma OS de campo</option>
-          <option value="garantia_fabricante">Garantia de fabricante</option>
-        </select>
-      </div>
-      <!-- Só rastreio (decisão do Marcos) — sem cobrança/recebimento formal
-           do fabricante ainda, por isso texto livre, não um fluxo financeiro. -->
-      <div id="of-campos-fabricante" style="display:none;flex-direction:column;gap:14px">
-        <div class="rd-field"><span class="rd-field-lbl">Fabricante</span><input type="text" id="of-fabricante" class="rd-field-box" placeholder="Ex.: Sodramar"></div>
-        <div class="rd-field"><span class="rd-field-lbl">Protocolo / RMA (se houver)</span><input type="text" id="of-fabricante-protocolo" class="rd-field-box"></div>
-        <div class="rd-field"><span class="rd-field-lbl">NF de compra original (se o cliente trouxer)</span><input type="text" id="of-fabricante-nf" class="rd-field-box"></div>
-      </div>
-      <!-- Vínculo com a OS de campo que trouxe o equipamento (Fase 7, 18/08)
-           — mesmo espírito do vínculo com orçamento (Fase 3): não bloqueia
-           salvar sem escolher, só oferece o vínculo quando dá pra apontar
-           qual OS foi. -->
-      <div id="of-campos-os-campo" style="display:none;flex-direction:column;gap:8px">
-        <div class="rd-field"><span class="rd-field-lbl">Qual OS de campo?</span>
-          <div style="display:flex;gap:6px;align-items:center">
-            <div id="of-os-campo-vinculo" style="flex:1;font-size:13px;color:var(--gray)">Nenhuma selecionada</div>
-            <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="abrirBuscaOSCampo()" style="display:inline-flex;align-items:center;gap:5px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14M16.5 16.5L21 21"></path></svg>Buscar</button>
+      <div class="row" style="margin-bottom:0">
+        <div class="rd-field">
+          <span class="rd-field-lbl">Origem</span>
+          <select id="of-origem" class="rd-field-box" onchange="_ofToggleCamposFabricante(this.value)">
+            <option value="balcao">Balcão</option>
+            <option value="os_campo">Trazido de uma OS de campo</option>
+            <option value="garantia_fabricante">Garantia de fabricante</option>
+          </select>
+        </div>
+        <!-- Vínculo com a OS de campo que trouxe o equipamento (Fase 7, 18/08)
+             — mesmo espírito do vínculo com orçamento (Fase 3): não bloqueia
+             salvar sem escolher, só oferece o vínculo quando dá pra apontar
+             qual OS foi. -->
+        <div id="of-campos-os-campo" style="display:none;flex-direction:column;gap:8px">
+          <div class="rd-field"><span class="rd-field-lbl">Qual OS de campo?</span>
+            <div style="display:flex;gap:6px;align-items:center">
+              <div id="of-os-campo-vinculo" style="flex:1;font-size:13px;color:var(--gray)">Nenhuma selecionada</div>
+              <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="abrirBuscaOSCampo()" style="display:inline-flex;align-items:center;gap:5px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14M16.5 16.5L21 21"></path></svg>Buscar</button>
+            </div>
           </div>
         </div>
       </div>
-      <div id="of-retrabalho-aviso" style="display:none"></div>
-      <div class="rd-field">
-        <span class="rd-field-lbl">Estado de chegada — evita disputa de "isso já veio quebrado assim"</span>
-        <div id="of-checklist" style="display:flex;flex-direction:column;gap:8px"></div>
+      <!-- Só rastreio (decisão do Marcos) — sem cobrança/recebimento formal
+           do fabricante ainda, por isso texto livre, não um fluxo financeiro.
+           3 campos não cabem na grade de 2 colunas da linha acima — bloco
+           próprio, largura cheia, quando a origem é garantia de fabricante. -->
+      <div id="of-campos-fabricante" class="row" style="display:none;margin-top:0">
+        <div class="rd-field"><span class="rd-field-lbl">Fabricante</span><input type="text" id="of-fabricante" class="rd-field-box" placeholder="Ex.: Sodramar"></div>
+        <div class="rd-field"><span class="rd-field-lbl">Protocolo / RMA (se houver)</span><input type="text" id="of-fabricante-protocolo" class="rd-field-box"></div>
+        <div class="rd-field" style="grid-column:1/-1"><span class="rd-field-lbl">NF de compra original (se o cliente trouxer)</span><input type="text" id="of-fabricante-nf" class="rd-field-box"></div>
       </div>
-      <div class="rd-field">
-        <span class="rd-field-lbl">Fotos da chegada</span>
+      <div id="of-retrabalho-aviso" style="display:none"></div>
+    </div>
+
+    <!-- Cartão 2 — estado de chegada -->
+    <div class="rd-card">
+      <div class="rd-card-title" style="margin-bottom:2px">Estado de chegada</div>
+      <div class="rd-card-sub" style="margin-bottom:12px">É o que evita a discussão de "já veio quebrado assim" na entrega.</div>
+      <div id="of-checklist" class="row" style="margin-bottom:0"></div>
+      <div style="margin-top:16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <span class="rd-field-lbl">Fotos da chegada</span>
+          <span id="of-fotos-contador" style="font-size:11px;color:var(--gray)"></span>
+        </div>
         <div class="fotos-orc-grid" id="of-fotos-grid" style="grid-template-columns:repeat(4,1fr)"></div>
       </div>
-      <div class="rd-field">
-        <span class="rd-field-lbl">Observação (o que o cliente relatou)</span>
-        <textarea id="of-obs" class="rd-field-box" rows="3" placeholder="Ex.: motobomba fazendo ruído, não liga…"></textarea>
-      </div>
-      <button type="button" class="rd-btn rd-btn-primary" id="of-btn-salvar" onclick="salvarOficinaRecepcao()" style="align-self:flex-start">Registrar entrada</button>
+    </div>
+
+    <!-- Cartão 3 — só o relato do cliente -->
+    <div class="rd-card">
+      <div class="rd-card-title" style="margin-bottom:10px">O que o cliente relatou</div>
+      <textarea id="of-obs" class="rd-field-box" rows="3" placeholder="Ex.: motobomba fazendo ruído, não liga…"></textarea>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <button type="button" class="rd-btn rd-btn-primary" id="of-btn-salvar" onclick="salvarOficinaRecepcao()">Registrar entrada</button>
+      <span style="font-size:12px;color:var(--gray)">Gera o número do reparo — a etiqueta (QR) fica disponível na ficha, em 🏷️.</span>
     </div>
   </div>
 </div>

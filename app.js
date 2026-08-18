@@ -16751,13 +16751,16 @@ function renderOfChecklist(){
   const itens=_ofChecklistParaTipo(_ofEquipamentoSelecionado?.tipo);
   el.innerHTML=itens.map(it=>{
     const st=_ofEstadoEntrada[it.id]||{};
-    return `<div style="display:flex;flex-direction:column;gap:5px">
+    const avariado=st.status==='avaria';
+    // Grade de 2 colunas (3f.3, 18/08) — item avariado ganha fundo/borda
+    // diferenciados, pra pular aos olhos numa lista de 4-6 itens.
+    return `<div style="display:flex;flex-direction:column;gap:5px;padding:8px;border-radius:8px;${avariado?'background:var(--warn-row,#FDF9F3);border:1px solid var(--warn-border,#F0DCC2)':'border:1px solid transparent'}">
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <span style="font-size:13px;color:var(--c2);flex:1;min-width:140px">${esc(it.label)}</span>
+        <span style="font-size:13px;color:var(--c2);flex:1;min-width:120px">${esc(it.label)}</span>
         <button type="button" class="vis-status-btn${st.status==='ok'?' sel-bom':''}" style="flex:none;min-width:56px" onclick="setOfChecklistItem('${it.id}','ok')">OK</button>
-        <button type="button" class="vis-status-btn${st.status==='avaria'?' sel-atencao':''}" style="flex:none;min-width:76px" onclick="setOfChecklistItem('${it.id}','avaria')">Com avaria</button>
+        <button type="button" class="vis-status-btn${avariado?' sel-atencao':''}" style="flex:none;min-width:76px" onclick="setOfChecklistItem('${it.id}','avaria')">Com avaria</button>
       </div>
-      ${st.status==='avaria'?`<input type="text" class="rd-field-box" placeholder="Descreva a avaria…" value="${esc(st.obs||'')}" oninput="setOfChecklistObs('${it.id}',this.value)">`:''}
+      ${avariado?`<span style="font-size:10.5px;font-weight:600;letter-spacing:.02em;color:var(--warn,#A6521A)">AVARIADO</span><input type="text" class="rd-field-box" placeholder="Descreva a avaria…" value="${esc(st.obs||'')}" oninput="setOfChecklistObs('${it.id}',this.value)">`:''}
     </div>`;
   }).join('');
 }
@@ -16776,6 +16779,8 @@ function setOfChecklistObs(itemId, val){
 // compressImage() já existente.
 function renderOfFotosSlots(){
   const grid=document.getElementById('of-fotos-grid'); if(!grid) return;
+  const contador=document.getElementById('of-fotos-contador');
+  if(contador) contador.textContent=`${_ofFotos.filter(Boolean).length} de 4`;
   grid.innerHTML='';
   for(let i=0;i<4;i++){
     const slot=document.createElement('div');
@@ -17067,16 +17072,30 @@ function _ofVerificarRetrabalho(equipamentoId){
     .sort((a,b)=>String(b.data_entrega||'').localeCompare(String(a.data_entrega||'')))[0];
   if(!anterior){ el.style.display='none'; el.innerHTML=''; return; }
   const num='OF-'+String(anterior.numero||'').padStart(5,'0');
+  // data_entrega é timestamp ISO completo (new Date().toISOString(), grava
+  // hora junto) — _dataBR() só entende "YYYY-MM-DD" (split por '-' assume 3
+  // partes exatas); passar o timestamp inteiro nele quebra o formato (achado
+  // no teste: "12T10:00:00Z/06/2026"). new Date(...).toLocaleDateString é o
+  // padrão já usado pra formatar esse mesmo campo em renderOficinaHistorico.
+  const dt=anterior.data_entrega?new Date(anterior.data_entrega).toLocaleDateString('pt-BR'):'';
+  const tipoTx=(anterior.eq_tipo||'equipamento').toLowerCase();
   el.style.display='block';
-  el.innerHTML=`<div class="rd-card rd-card-dense" style="background:var(--c1-light,#fff7ed);border-color:var(--c1)">
-    <div style="font-size:12.5px;color:var(--c2)">Este equipamento já teve reparo em <b>${esc(num)}</b>, ainda dentro da garantia da oficina. Pode ser retrabalho do mesmo defeito.</div>
-    <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" style="margin-top:6px" onclick="_ofVincularRetrabalho('${anterior.id}')">Vincular como retrabalho de ${esc(num)}</button>
+  // Bloco informativo azul (3f.3, 18/08) — mesma cor de "Em reparo"/info do
+  // resto do sistema (--info/--info-bg), não o laranja de alerta: isto é um
+  // dado a considerar, não um problema. A data do reparo anterior é o que
+  // muda a conversa de cobrança — sem ela o aviso não serve pra nada.
+  el.innerHTML=`<div class="rd-card rd-card-dense" style="background:var(--info-bg,#E7F0FC);border-color:var(--info,#1F5FA8);display:flex;gap:10px;align-items:flex-start">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--info,#1F5FA8)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:2px"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4M12 8h.01"></path></svg>
+    <div style="flex:1">
+      <div style="font-size:12.5px;color:var(--c2)">Este equipamento já passou pela oficina${dt?' em <b>'+esc(dt)+'</b>':''} — reparo do mesmo ${esc(tipoTx)}. Pode ser retrabalho.</div>
+      <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" style="margin-top:8px" onclick="_ofVincularRetrabalho('${anterior.id}')">Vincular como retrabalho de ${esc(num)}</button>
+    </div>
   </div>`;
 }
 function _ofVincularRetrabalho(reparoOriginalId){
   _ofRetrabalhoDe=reparoOriginalId;
   const el=document.getElementById('of-retrabalho-aviso');
-  if(el) el.innerHTML=`<div class="rd-card rd-card-dense" style="background:var(--c1-light,#fff7ed);border-color:var(--c1)"><span class="rd-badge rd-badge-info">🔁 Vinculado como retrabalho</span></div>`;
+  if(el) el.innerHTML=`<div class="rd-card rd-card-dense" style="background:var(--info-bg,#E7F0FC);border-color:var(--info,#1F5FA8)"><span class="rd-badge rd-badge-info">🔁 Vinculado como retrabalho</span></div>`;
 }
 
 // ── Estados e quadro visual (Fase 2) ──
