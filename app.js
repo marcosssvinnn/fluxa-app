@@ -16791,6 +16791,22 @@ function abrirFichaOficina(id){
       ${_ofFichaAvariasHtml(o)}
       ${_ofFichaFotosHtml(o)}
       ${o.obs_entrada?`<div class="rd-field"><span class="rd-field-lbl">Observação na entrada</span><div>${esc(o.obs_entrada)}</div></div>`:''}
+      <div class="rd-field">
+        <span class="rd-field-lbl">Termo de entrada</span>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          ${o.termo_entrada_assinatura_base64
+            ? `<span class="rd-badge rd-badge-ok">✍️ Assinado</span><button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="imprimirTermoOficina('${o.id}','entrada')">🖨️ Imprimir</button>`
+            : `<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="abrirModalAssinaturaOficina('${o.id}','entrada')">✍️ Assinar</button><button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="imprimirTermoOficina('${o.id}','entrada')">🖨️ Imprimir em branco</button>`}
+        </div>
+      </div>
+      <div class="rd-field">
+        <span class="rd-field-lbl">Termo de retirada</span>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          ${o.entrega_assinatura_base64
+            ? `<span class="rd-badge rd-badge-ok">✍️ Assinado</span><button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="imprimirTermoOficina('${o.id}','retirada')">🖨️ Imprimir</button>`
+            : `<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="abrirModalAssinaturaOficina('${o.id}','retirada')">✍️ Assinar</button><button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="imprimirTermoOficina('${o.id}','retirada')">🖨️ Imprimir em branco</button>`}
+        </div>
+      </div>
     </div>
   </div>`;
   document.body.appendChild(bg);
@@ -16811,6 +16827,112 @@ function _ofFichaFotosHtml(o){
   return `<div class="rd-field"><span class="rd-field-lbl">Fotos da chegada</span><div style="display:flex;gap:6px;flex-wrap:wrap">${fotos.map(f=>`<img src="${f}" style="width:70px;height:70px;object-fit:cover;border-radius:6px;border:1px solid var(--line-soft,var(--gray-light))">`).join('')}</div></div>`;
 }
 function fecharFichaOficina(){ document.getElementById('of-ficha-overlay')?.remove(); }
+
+// ── Termo de entrada/retirada com assinatura (Fase 1c) ──
+// Reusa o canvas genérico (initSigCanvas/limparAssinatura, app.js:~8775) já
+// usado na aprovação de orçamento pelo portal — mesmos ids de canvas/
+// placeholder, então as funções funcionam sem alteração. Só a confirmação é
+// própria (confirmarAssinatura original é hardcoded pra aprovarOrcPortal).
+// Os dois fluxos nunca abrem ao mesmo tempo na prática (um técnico não abre
+// os dois modais simultaneamente), então reusar as globais _sigDrawing/
+// _sigHasMark sem namespace é seguro aqui.
+function abrirModalAssinaturaOficina(reparoId, tipo){
+  const existing=document.getElementById('modal-assinatura'); if(existing) existing.remove();
+  const titulo = tipo==='retirada' ? '✍️ Assinatura de Retirada' : '✍️ Assinatura de Entrada';
+  const texto = tipo==='retirada'
+    ? 'Assine para confirmar que recebeu o equipamento conforme reparado, encerrando a responsabilidade da oficina.'
+    : 'Assine para confirmar o estado do equipamento registrado na entrada.';
+  const m=document.createElement('div'); m.id='modal-assinatura'; m.className='cli-hist-overlay'; m.style.zIndex='1100';
+  m.innerHTML=`<div class="cli-hist-box" style="max-height:none">
+    <div class="cli-hist-hdr">
+      <div class="cli-hist-titulo">${titulo}</div>
+      <button class="cli-hist-close" onclick="document.getElementById('modal-assinatura').remove()">×</button>
+    </div>
+    <div style="padding:16px 20px 24px">
+      <p style="font-size:13px;color:var(--gray);margin-bottom:12px">${texto}</p>
+      <div class="sig-wrap">
+        <canvas id="sig-canvas" class="sig-canvas"></canvas>
+        <div class="sig-placeholder" id="sig-placeholder">✍️ Assine aqui com o dedo ou mouse</div>
+      </div>
+      <div class="sig-btns">
+        <button class="sig-btn" onclick="limparAssinatura()">↺ Limpar</button>
+        <button class="sig-btn ok" onclick="confirmarAssinaturaOficina('${reparoId}','${tipo}')">✅ Confirmar</button>
+      </div>
+    </div>
+  </div>`;
+  m.addEventListener('click',e=>{ if(e.target===m) m.remove(); });
+  document.body.appendChild(m);
+  setTimeout(initSigCanvas, 80);
+}
+async function confirmarAssinaturaOficina(reparoId, tipo){
+  if(!_sigHasMark){ toast('⚠️ Por favor, assine antes de confirmar'); return; }
+  const canvas=document.getElementById('sig-canvas'); if(!canvas) return;
+  const sigB64=canvas.toDataURL('image/png');
+  document.getElementById('modal-assinatura').remove();
+  const campo = tipo==='retirada' ? 'entrega' : 'termo_entrada';
+  const changes={
+    [`${campo}_assinatura_base64`]: sigB64,
+    [`${campo}_assinatura_data`]: new Date().toISOString(),
+    [`${campo}_assinatura_meta`]: (navigator.userAgent||'').slice(0,180)
+  };
+  const idx=todosOficinaReparos.findIndex(x=>x.id===reparoId);
+  if(idx>=0) todosOficinaReparos[idx]={...todosOficinaReparos[idx], ...changes};
+  lsOfSalvar(todosOficinaReparos);
+  // id de oficina_reparos é text app-gerado e estável desde a criação (não
+  // troca depois do sync, diferente de orçamento/equipamento) — dbUpdate
+  // direto é seguro mesmo se o reparo ainda não tiver sincronizado (0 linhas
+  // afetadas, sem erro, resolve sozinho no próximo _reenviarOficinaLocais).
+  if(dbOk&&db){
+    try{ const r=await dbUpdate('oficina_reparos', changes, 'id', reparoId); if(r?.error) console.warn('[oficina assinatura sync]', r.error.message); }
+    catch(e){ console.warn('[oficina assinatura sync]', e?.message||e); }
+  }
+  toast(tipo==='retirada' ? '✅ Assinatura de retirada registrada' : '✅ Assinatura de entrada registrada');
+  fecharFichaOficina();
+  abrirFichaOficina(reparoId); // reabre já refletindo a assinatura
+}
+
+// ── Impressão do termo (entrada ou retirada) ──
+// Mesmo padrão window.open + document.write + print de imprimirQR
+// (app.js:~10941) — sem dependência nova, só HTML/CSS inline.
+function imprimirTermoOficina(reparoId, tipo){
+  const o=(todosOficinaReparos||[]).find(x=>x.id===reparoId); if(!o) return;
+  const num = o.numero ? 'OF-'+String(o.numero).padStart(5,'0') : 'OF-…';
+  const titulo = tipo==='retirada' ? 'Termo de Retirada' : 'Termo de Entrada';
+  let itens=o.estado_entrada;
+  if(typeof itens==='string'){ try{ itens=JSON.parse(itens||'{}'); }catch(e){ itens={}; } }
+  itens=(itens&&itens.itens)||{};
+  const avarias=OFICINA_CHECKLIST_ITENS.filter(it=>itens[it.id]?.status==='avaria')
+    .map(it=>esc(it.label+(itens[it.id].obs?': '+itens[it.id].obs:'')));
+  const sigCampo = tipo==='retirada' ? 'entrega_assinatura_base64' : 'termo_entrada_assinatura_base64';
+  const sigB64 = o[sigCampo];
+  const w=window.open('','_blank');
+  w.document.write(`<!DOCTYPE html><html><head><title>${esc(titulo)} — ${esc(num)}</title>
+  <style>body{font-family:Inter,sans-serif;margin:0;padding:40px;color:#1a1a2e}
+  h1{font-size:20px;margin:0 0 4px}
+  .sub{font-size:13px;color:#6b7280;margin-bottom:24px}
+  .linha{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #e5e7eb;font-size:13px}
+  .linha b{color:#374151}
+  .bloco{margin-top:20px}
+  .bloco h3{font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:#6b7280;margin:0 0 8px}
+  ul{margin:0;padding-left:18px;font-size:13px}
+  .assinatura{margin-top:40px;text-align:center}
+  .assinatura img{max-width:280px;border-bottom:1px solid #1a1a2e;padding-bottom:8px}
+  .assinatura-linha{margin-top:60px;border-top:1px solid #1a1a2e;width:280px;margin-left:auto;margin-right:auto;padding-top:6px;font-size:12px;color:#6b7280;text-align:center}
+  </style></head><body>
+  <h1>${esc(titulo)} — ${esc(num)}</h1>
+  <div class="sub">${new Date().toLocaleDateString('pt-BR')}</div>
+  <div class="linha"><span>Cliente</span><b>${esc(o.cliente_nome||'—')}</b></div>
+  <div class="linha"><span>Equipamento</span><b>${esc([o.eq_tipo,o.eq_marca,o.eq_modelo].filter(Boolean).join(' · ')||'—')}</b></div>
+  ${o.eq_numero_serie?`<div class="linha"><span>Número de série</span><b>${esc(o.eq_numero_serie)}</b></div>`:''}
+  ${avarias.length?`<div class="bloco"><h3>Estado na chegada</h3><ul>${avarias.map(a=>`<li>${a}</li>`).join('')}</ul></div>`:''}
+  ${o.obs_entrada?`<div class="bloco"><h3>Observação</h3><div style="font-size:13px">${esc(o.obs_entrada)}</div></div>`:''}
+  <div class="assinatura">
+    ${sigB64?`<img src="${sigB64}">`:`<div class="assinatura-linha">Assinatura do cliente</div>`}
+  </div>
+  <script>window.onload=()=>{window.print();}<\/script>
+  </body></html>`);
+  w.document.close();
+}
 
 // ══════════════════════════════════════════════════
 //  FORNECEDORES

@@ -133,6 +133,50 @@ no console.
 
 sw.js: fluxa-v168 → fluxa-v169.
 
+### ✅ Fase 1c — termo de entrada/retirada com assinatura + impressão (17/08)
+
+Fecha a Fase 1 completa (recepção → estado de chegada → termo assinado).
+
+- `abrirModalAssinaturaOficina(reparoId, tipo)` — **reusa o canvas genérico**
+  (`initSigCanvas`/`limparAssinatura`, `app.js:~8775`, já usado na aprovação
+  de orçamento pelo portal) sem alteração nenhuma nele: meu modal usa os
+  MESMOS ids de canvas/placeholder (`sig-canvas`/`sig-placeholder`), então as
+  funções existentes funcionam de graça. Só a confirmação é própria
+  (`confirmarAssinaturaOficina`, já que a original é hardcoded pra
+  `aprovarOrcPortal`). `tipo` é `'entrada'` ou `'retirada'` — grava em
+  `termo_entrada_assinatura_*` ou `entrega_assinatura_*` (base64/data/meta,
+  mesmo trio de colunas já usado em orçamento).
+- **`oficina_reparos.id` é estável desde a criação** (text app-gerado,
+  Fase 1a) — diferente de orçamento/equipamento, não precisa checar prefixo
+  pra saber se já sincronizou antes de mandar o `dbUpdate`: se o reparo ainda
+  não existir no banco, o UPDATE só afeta 0 linhas (sem erro), resolve
+  sozinho no próximo `_reenviarOficinaLocais`.
+- `imprimirTermoOficina(reparoId, tipo)` — mesmo padrão `window.open` +
+  `document.write` + `window.print()` de `imprimirQR` (`app.js:~10941`),
+  zero dependência nova. Mostra `OF-#####`, cliente, equipamento, avarias
+  marcadas no checklist e a imagem da assinatura SE já assinado — senão
+  imprime uma linha em branco pra assinar no papel (fallback físico).
+- Ficha (`abrirFichaOficina`) ganhou 2 seções de ação (termo de entrada /
+  termo de retirada), cada uma mostrando "✍️ Assinado" + botão imprimir
+  quando já tem assinatura, ou "Assinar"/"Imprimir em branco" quando não tem.
+
+Testado no Browser pane (offline, mesma disciplina): bloqueio de confirmar
+sem traço no canvas (toast, não fecha o modal); traço real simulado via
+`MouseEvent` (mousedown/mousemove/mouseup, não só setar a flag na mão) até
+`_sigHasMark` virar `true`; confirmação salva os 3 campos corretos, fecha o
+modal e reabre a ficha já mostrando "✍️ Assinado"; impressão testada
+interceptando `window.open` — HTML gerado tem título/número/cliente/avaria/
+imagem da assinatura quando assinado, e a linha em branco quando não.
+**Achado, não é bug**: um erro "Failed to load resource: 400" aparece no
+console — reproduzido também numa página recém-carregada, SEM nenhuma
+interação minha, então é ruído de boot pré-existente (mesma categoria do
+"unknown error... fetching the script" já documentado como artefato de
+sandbox), não relacionado a este módulo.
+
+sw.js: fluxa-v169 → fluxa-v170.
+
+**Fase 1 completa** (1a+1b+1c). Próximo: Fase 2 (estados + quadro visual).
+
 ---
 
 ## Auditoria do fluxo orçamento → OS → conclusão, a pedido do Marcos (17/08)
