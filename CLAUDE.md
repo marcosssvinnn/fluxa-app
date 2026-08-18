@@ -126,11 +126,64 @@ conferido que todo valor numérico passa por `String(...)` antes), e
 conferência de que cada função nova segue padrão já testado e em produção
 de uma fase anterior (prazo espelha diagnóstico da Fase 8, custo/mão de obra
 lê campos que `_congelarCustoOrc` já prova funcionar, entrega-por-campo
-clona o modal da Fase 7 com estado próprio pra não colidir). **Pendência
-real:** validar com clique de verdade no navegador assim que o Browser pane
-voltar — sinalizado aqui pra não passar como "testado" o que não foi.
+clona o modal da Fase 7 com estado próprio pra não colidir).
 
 sw.js: fluxa-v181 → fluxa-v182.
+
+### ✅ Pendência cumprida — teste de clique real, 2 bugs achados e corrigidos (18/08)
+
+Browser pane voltou. Testadas as 5 fases ponta a ponta com clique de verdade
+(`form_input`+`left_click` via `ref`, não só `javascript_exec`) — achando e
+corrigindo **2 bugs reais** que só apareceriam clicando de verdade, mesma
+lição já registrada na Fase 5 ("esse tipo de bug de empilhamento só é
+visível olhando a tela de verdade").
+
+**1. Board/métricas ficavam stale depois de salvar.** `salvarOficinaPrazo`,
+`salvarOficinaCusto`, `oficinaEnviarTerceiro`, `oficinaVoltouTerceiro` e
+`selecionarOSEntregaModal` (as 5 funções novas desta rodada) gravavam o
+dado e reabriam a ficha, mas nunca chamavam
+`_ofRenderAtiva()`/`renderOficinaMetricas()` — diferente de
+`_ofAplicarStatus()` (Fase 2), que já fazia isso certo. Resultado real:
+salvar um prazo atrasado, fechar a ficha e olhar o quadro por trás mostrava
+"Prazo estourado: 0" e nenhum badge no card, até a página ser recarregada.
+Corrigido nas 5 funções, mesmo padrão de `_ofAplicarStatus`.
+
+**2. Modal de "Vincular OS de entrega" (Fase 13) abria atrás da ficha.**
+Mesma classe exata do bug de QR da Fase 5. O botão só existe DENTRO da
+ficha (`#of-ficha-overlay`, z-index 900), mas o modal usa `.modal-cli-bg`
+(z-index 800 no CSS estático) — abria (`display:flex` confirmado) mas
+ficava invisível atrás. Corrigido com `z-index:1000` inline no momento de
+abrir (`abrirBuscaOSEntrega`), mesmo padrão do modal de assinatura
+(`m.style.zIndex='1100'`).
+
+**Achado, não corrigido nesta rodada** (fora do escopo, pré-existente): a
+mesma lacuna de refresh (achado 1) também existe em
+`salvarOficinaDiagnostico` (Fase 8) — mas lá é cosmeticamente invisível,
+nenhum badge/contagem depende do texto do diagnóstico, não gera número
+errado na tela. Registrado pra quem for mexer nessa função de novo.
+
+**Achado no processo, não é bug**: um teste inicial deu falso-negativo —
+parecia que o fix do achado 1 não funcionava. Era cache do navegador
+servindo `app.js` antigo na mesma porta reaproveitada dentro da mesma
+sessão, mesmo padrão já registrado na Fase 9b ("ao testar localmente na
+MESMA aba/porta... ou usar porta nova, ou fazer hard-reload de verdade").
+Resolvido subindo servidor em porta nova.
+
+Testado (offline, `dbOk=false;db=null;`, clique real via ref): prazo salvo
+→ toast + badge "⏰ Atrasado" aparece na ficha, no card do kanban e na
+métrica "Prazo estourado" sem precisar recarregar; custo → margem de peça
+calculada certa (R$350 − R$35 = R$315) exibida, técnico/horas salvos e
+persistidos (horas pré-sugeridas "48.0" a partir do log de status,
+confirmado); terceirizado → "Enviar pra terceiro" bloqueia campo vazio
+(toast), envia com sucesso, badge "🔧 Com terceiro" aparece no card na
+hora, "Voltou do terceiro" fecha a janela; entrega por campo → modal de
+busca aparece por cima da ficha (fix de z-index), lista a OS certa do
+cliente, vincula, ficha mostra "🚚 OS #077" com botão "Abrir OS" que
+navega pra tela de OS corretamente; "Pronto, não retirado" (Fase 10)
+mostrado com item real na lista quando testado com reparo `pronto` há 6
+dias. Zero erro novo no console (só o ruído conhecido de sandbox).
+
+sw.js: fluxa-v182 → fluxa-v183.
 
 ---
 

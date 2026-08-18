@@ -16936,7 +16936,15 @@ function abrirBuscaOSEntrega(reparoId){
   _ofReparoParaEntregaOS=reparoId;
   document.getElementById('modal-os-entrega-inp').value='';
   filtrarListaOSEntrega('');
-  document.getElementById('modal-busca-os-entrega').style.display='flex';
+  const modal=document.getElementById('modal-busca-os-entrega');
+  // Achado testando o fluxo real (18/08, mesma classe do bug de QR da Fase
+  // 5): este botão só existe DENTRO da ficha (#of-ficha-overlay,
+  // z-index:900) — mas o modal é .modal-cli-bg, z-index:800 no CSS
+  // estático, então renderizava atrás da ficha (display:flex, mas
+  // invisível). z-index inline mais alto, mesmo padrão do modal de
+  // assinatura (m.style.zIndex='1100').
+  modal.style.zIndex='1000';
+  modal.style.display='flex';
   setTimeout(()=>document.getElementById('modal-os-entrega-inp').focus(),80);
 }
 function fecharBuscaOSEntrega(){ document.getElementById('modal-busca-os-entrega').style.display='none'; }
@@ -16970,6 +16978,7 @@ async function selecionarOSEntregaModal(osId){
     catch(e){ console.warn('[oficina entrega campo]', e?.message||e); }
   }
   fecharBuscaOSEntrega();
+  _ofRenderAtiva(); renderOficinaMetricas();
   toast('✅ OS de entrega vinculada');
   fecharFichaOficina(); abrirFichaOficina(reparoId);
 }
@@ -17377,6 +17386,7 @@ async function salvarOficinaPrazo(reparoId){
     try{ await dbUpdate('oficina_reparos', {prazo_prometido:val}, 'id', reparoId); }
     catch(e){ console.warn('[oficina prazo]', e?.message||e); }
   }
+  _ofRenderAtiva(); renderOficinaMetricas();
   toast('✅ Prazo salvo');
   fecharFichaOficina(); abrirFichaOficina(reparoId);
 }
@@ -17492,6 +17502,7 @@ async function salvarOficinaCusto(reparoId){
     try{ await dbUpdate('oficina_reparos', {tecnico_responsavel:tecnico, horas_mao_obra:horasNum}, 'id', reparoId); }
     catch(e){ console.warn('[oficina custo]', e?.message||e); }
   }
+  _ofRenderAtiva(); renderOficinaMetricas();
   toast('✅ Custo do reparo salvo');
   fecharFichaOficina(); abrirFichaOficina(reparoId);
 }
@@ -17537,6 +17548,7 @@ async function oficinaEnviarTerceiro(reparoId){
     try{ await dbUpdate('oficina_reparos', changes, 'id', reparoId); }
     catch(e){ console.warn('[oficina terceiro]', e?.message||e); }
   }
+  _ofRenderAtiva(); renderOficinaMetricas();
   toast('🔧 Marcado como enviado pra '+prestador);
   fecharFichaOficina(); abrirFichaOficina(reparoId);
 }
@@ -17549,6 +17561,7 @@ async function oficinaVoltouTerceiro(reparoId){
     try{ await dbUpdate('oficina_reparos', changes, 'id', reparoId); }
     catch(e){ console.warn('[oficina terceiro]', e?.message||e); }
   }
+  _ofRenderAtiva(); renderOficinaMetricas();
   toast('✅ De volta da terceirização');
   fecharFichaOficina(); abrirFichaOficina(reparoId);
 }
