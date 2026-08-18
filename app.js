@@ -1201,6 +1201,7 @@ function lsOrcProxNum(){ return lsOrcLer().reduce((a,o)=>Math.max(a,o.numero||0)
   }
   tentarConectar(1);
   checkQRHash();
+  checkOfHash();
 })();
 
 // ──────────────────────────────────────────────────
@@ -16534,6 +16535,7 @@ async function loadOficinaReparos(){
   await _reenviarOficinaLocais();
   await loadOficinaStatusLog();
   renderOficinaKanban();
+  renderOficinaMetricas();
 }
 
 // ── Log de transição de status (Fase 2) — mesmo padrão local-first de
@@ -16877,6 +16879,7 @@ async function _ofAplicarStatus(reparoId, novoStatus, extra){
   await _ofRegistrarStatusLog(reparoId, novoStatus);
   logAcao('oficina_status', `${OFICINA_STATUS_LABEL[novoStatus]||novoStatus} · ${todosOficinaReparos[idx].cliente_nome||''}`);
   renderOficinaKanban();
+  renderOficinaMetricas();
   if(document.getElementById('of-ficha-overlay')){ fecharFichaOficina(); abrirFichaOficina(reparoId); }
 }
 function avancarStatusOficina(id){
@@ -16981,7 +16984,10 @@ function abrirFichaOficina(id){
         <div style="font-size:16px;font-weight:700;color:var(--c2)">${esc(num)}</div>
         <div style="font-size:12px;color:var(--gray)">${esc(o.cliente_nome||'—')}</div>
       </div>
-      <button type="button" class="cli-hist-close" onclick="fecharFichaOficina()" aria-label="Fechar">✕</button>
+      <div style="display:flex;align-items:center;gap:4px">
+        <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="verQROficina('${o.id}')" title="Etiqueta / QR">🏷️</button>
+        <button type="button" class="cli-hist-close" onclick="fecharFichaOficina()" aria-label="Fechar">✕</button>
+      </div>
     </div>
     <div style="padding:18px;overflow-y:auto;display:flex;flex-direction:column;gap:14px">
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
@@ -17220,6 +17226,88 @@ async function _ofSincronizarStatusPosOrcamento(reparoId, resultado){
     await _ofAplicarStatus(reparoId, 'em_reparo');
   } else if(resultado==='recusado' && o.status==='aguardando_aprovacao'){
     await _ofAplicarStatus(reparoId, 'diagnostico');
+  }
+}
+
+// ── Métricas (Fase 5) ──
+// Direto na própria página oficina (seção, não tela nova) — sem tabela
+// nova, usa oficina_reparos + oficina_status_log já existentes.
+const OFICINA_PARADO_DIAS=7; // limiar pra "parado há muito tempo" no card
+function renderOficinaMetricas(){
+  const el=document.getElementById('of-metricas'); if(!el) return;
+  const lista=filtrarPorLoja(todosOficinaReparos||[]);
+  const entregues=lista.filter(o=>o.status==='entregue' && o.data_entrega);
+  // Tempo médio de reparo: recebido → entregue, em dias corridos.
+  let tempoMedioTxt='—';
+  if(entregues.length){
+    const dias=entregues.map(o=>{
+      const ini=new Date(o.data_criacao).getTime(), fim=new Date(o.data_entrega).getTime();
+      return (isNaN(ini)||isNaN(fim)) ? null : Math.max(0,(fim-ini)/86400000);
+    }).filter(d=>d!=null);
+    if(dias.length) tempoMedioTxt=(dias.reduce((a,b)=>a+b,0)/dias.length).toFixed(1)+' dias';
+  }
+  // Equipamentos parados: status não-terminal há mais de OFICINA_PARADO_DIAS.
+  const terminal=['entregue','cancelado'];
+  const parados=lista.filter(o=>!terminal.includes(o.status) && (_ofDiasNoStatus(o)||0)>=OFICINA_PARADO_DIAS);
+  const taxa=_ofTaxaRetrabalho(90); // últimos 90 dias — janela recente, não o histórico inteiro
+  el.innerHTML=`<div class="rd-card-hdr" style="margin-bottom:10px"><div class="rd-card-title" style="font-size:14px">Métricas da oficina</div></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px">
+      <div class="rd-card rd-card-dense"><div style="font-size:11px;color:var(--gray)">Tempo médio de reparo</div><div style="font-size:20px;font-weight:700;color:var(--c2)">${esc(tempoMedioTxt)}</div></div>
+      <div class="rd-card rd-card-dense"><div style="font-size:11px;color:var(--gray)">Parados há ${OFICINA_PARADO_DIAS}+ dias</div><div style="font-size:20px;font-weight:700;color:${parados.length?'var(--red,#b91c1c)':'var(--c2)'}">${parados.length}</div></div>
+      <div class="rd-card rd-card-dense"><div style="font-size:11px;color:var(--gray)">Retrabalho (90d)</div><div style="font-size:20px;font-weight:700;color:var(--c2)">${taxa?taxa.pct+'%':'—'}</div>${taxa?`<div style="font-size:10.5px;color:var(--gray)">${taxa.retrabalhos} de ${taxa.total} entregues</div>`:''}</div>
+    </div>
+    ${parados.length?`<div style="margin-top:10px;display:flex;flex-direction:column;gap:6px">${parados.slice(0,5).map(o=>{
+      const num=o.numero?'OF-'+String(o.numero).padStart(5,'0'):'OF-…';
+      return `<div style="font-size:12px;color:var(--gray);cursor:pointer" onclick="abrirFichaOficina('${o.id}')">${esc(num)} — ${esc(o.cliente_nome||'—')} · ${esc(OFICINA_STATUS_LABEL[o.status]||o.status)} há ${_ofDiasNoStatus(o)}d</div>`;
+    }).join('')}${parados.length>5?`<div style="font-size:11px;color:var(--gray)">+${parados.length-5} outros</div>`:''}</div>`:''}`;
+}
+
+// ── Etiqueta física / QR (Fase 5) — clone estrutural de verQR/imprimirQR/
+// checkQRHash (equipamentos), com modal e hash próprios (#of/<id> em vez de
+// #eq/<id>) pra não arriscar tocar o fluxo de QR de equipamento já em
+// produção.
+let qrOficinaAtual=null;
+function verQROficina(id){
+  const o=(todosOficinaReparos||[]).find(x=>x.id===id); if(!o) return;
+  qrOficinaAtual=o;
+  const num=o.numero?'OF-'+String(o.numero).padStart(5,'0'):'OF-…';
+  const url=window.location.origin+window.location.pathname+'#of/'+id;
+  document.getElementById('qr-of-nome').textContent=num;
+  document.getElementById('qr-of-info').textContent=(o.cliente_nome||'')+(o.eq_tipo?' — '+o.eq_tipo:'');
+  document.getElementById('qr-of-img').src='https://api.qrserver.com/v1/create-qr-code/?size=200x200&data='+encodeURIComponent(url);
+  document.getElementById('qr-of-modal-bg').classList.add('on');
+}
+function fecharQROficina(){ document.getElementById('qr-of-modal-bg').classList.remove('on'); qrOficinaAtual=null; }
+function imprimirQROficina(){
+  if(!qrOficinaAtual) return;
+  const o=qrOficinaAtual;
+  const num=o.numero?'OF-'+String(o.numero).padStart(5,'0'):'OF-…';
+  const url=window.location.origin+window.location.pathname+'#of/'+o.id;
+  const w=window.open('','_blank');
+  w.document.write(`<!DOCTYPE html><html><head><title>Etiqueta — ${esc(num)}</title>
+  <style>body{font-family:Inter,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:#f0f2f5}
+  .box{background:white;border-radius:16px;padding:32px;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,.1);max-width:300px}
+  h2{font-size:18px;margin:0 0 4px}p{font-size:13px;color:#6b7280;margin:0 0 16px}
+  img{width:200px;height:200px;border:1px solid #e5e7eb;border-radius:8px}
+  small{display:block;font-size:10px;color:#9ca3af;margin-top:12px;word-break:break-all}</style></head>
+  <body><div class="box"><h2>${esc(num)}</h2><p>${esc(o.cliente_nome||'')}${o.eq_tipo?' — '+esc(o.eq_tipo):''}</p>
+  <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}">
+  <small>${url}</small></div><script>window.onload=()=>{window.print();setTimeout(()=>window.close(),1000)}<\/script></body></html>`);
+  w.document.close();
+}
+// Leitura de QR ao abrir o app — mesmo padrão de checkQRHash (equipamentos),
+// chamado no boot logo depois dela.
+function checkOfHash(){
+  const hash=window.location.hash;
+  if(hash.startsWith('#of/')){
+    const id=hash.replace('#of/','');
+    window.location.hash='';
+    go('oficina');
+    setTimeout(()=>{
+      const o=(todosOficinaReparos||[]).find(x=>x.id===id);
+      if(o) abrirFichaOficina(id);
+      else toast('⚠️ Reparo não encontrado');
+    },500);
   }
 }
 

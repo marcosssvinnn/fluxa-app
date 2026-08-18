@@ -338,6 +338,75 @@ sw.js: fluxa-v172 → fluxa-v173.
 
 Próximo: Fase 5 (métricas + etiqueta física/QR) — fecha o roadmap original.
 
+### ✅ Fase 5 — métricas + etiqueta física/QR (17/08) — FECHA O ROADMAP ORIGINAL
+
+Sem tabela nova — usa `oficina_reparos` + `oficina_status_log` (Fase 2) já
+existentes, exatamente como o plano previu.
+
+- **`renderOficinaMetricas()`** — card no topo de `#page-oficina` (antes da
+  lista/board), 3 números: tempo médio de reparo (`data_entrega −
+  data_criacao` sobre os `entregue`), equipamentos parados
+  (`OFICINA_PARADO_DIAS=7`, status não-terminal há 7+ dias via
+  `_ofDiasNoStatus` já existente da Fase 2, com lista dos 5 primeiros
+  clicável), retrabalho nos últimos 90 dias (`_ofTaxaRetrabalho(90)`,
+  função já pronta desde a Fase 4 — só a exibição faltava). Chamada junto
+  com `renderOficinaKanban()` em `loadOficinaReparos()` e em
+  `_ofAplicarStatus()` — atualiza sozinha a cada mudança de status.
+- **Etiqueta/QR** (`verQROficina`/`fecharQROficina`/`imprimirQROficina`/
+  `checkOfHash`) — **clone estrutural** de `verQR`/`fecharQR`/`imprimirQR`/
+  `checkQRHash` (equipamentos), com modal (`#qr-of-modal-bg`) e hash
+  (`#of/<id>`) PRÓPRIOS — decisão deliberada de não reusar o modal/funções
+  de equipamento (que já estão em produção) para zero risco de regressão
+  ali. `checkOfHash()` chamada no boot logo depois de `checkQRHash()`
+  (`app.js:~1203`) — link/QR abre direto na ficha do reparo.
+  Botão 🏷️ novo no cabeçalho da ficha (`abrirFichaOficina`).
+
+Testado no Browser pane (offline, mesma disciplina de sempre): os 3 números
+calculados certos com dado sintético controlado (8.0 dias de ciclo; 1 item
+parado há 9 dias corretamente listado, outro criado há 1 dia corretamente
+NÃO listado; 0% de retrabalho com 0 de 1 entregue); modal de QR abre com
+nome/info/URL corretos (`#of/ofr_1` codificado na URL do QR), fecha limpo;
+impressão gera HTML com número e cliente corretos (`window.open`
+interceptado); `checkOfHash()` com `#of/ofr_2` na URL limpa o hash, navega
+pra `oficina` e abre a ficha certa sozinho. Sem erros novos no console, sem
+chamada a `*.supabase.co`.
+
+sw.js: fluxa-v173 → fluxa-v174.
+
+---
+
+## 🔧 MÓDULO OFICINA — status final das 5 fases (17/08)
+
+**Todas as 5 fases do roadmap original estão em produção**: recepção e
+ficha de entrada (1a/1b/1c) → estados e quadro visual (2) → orçamento de
+conserto + aprovação via portal (3) → garantia de fabricante + retrabalho
+(4) → métricas + etiqueta física (5). 6 arquivos de migração
+(`migracao-oficina-fase1.sql` a `fase4.sql`, mais a coluna em `orcamentos`
+na fase 3) aplicados e verificados em produção via Management API.
+
+**O que ficou de propósito fora desta rodada** (não são bugs, são escopo
+deliberadamente cortado — ver os commits de cada fase pros detalhes):
+- Drag-and-drop no quadro (desktop) — nenhum precedente no código, avançar
+  é por botão/select.
+- Cobrança/recebimento formal do fabricante — só rastreio (`fabricante`/
+  `fabricante_protocolo`/`fabricante_nf` texto livre), decisão do Marcos.
+- Aprovação manual do gestor (Histórico) não avança o reparo sozinho — só
+  a aprovação pelo Portal do Cliente aciona `_ofSincronizarStatusPosOrcamento`
+  (decisão deliberada de não tocar `_mudarStProsseguir`, código mais
+  sensível e compartilhado). Gestor sempre pode avançar manualmente pelo
+  "Mudar status" na ficha.
+- UI pra editar `garantia_propria_meses` por reparo (default 3, fixo).
+- Multi-loja ativo (campo `loja_id` existe em tudo, nullable, pronto pra
+  ligar quando fizer sentido).
+
+**Próximos passos possíveis, não implementados** (fica registrado pra
+quem continuar): drag-and-drop de verdade no board desktop; tela de
+relatório/exportação das métricas; se um dia a cobrança de fabricante virar
+real, uma tabela própria de "a receber de fornecedor" (schema hoje é só
+texto livre, não dá pra evoluir só com ALTER — precisaria de tabela nova);
+impressora térmica de etiqueta de verdade (hoje é QR em papel A4 normal,
+mesmo padrão de equipamentos).
+
 ---
 
 ## Auditoria do fluxo orçamento → OS → conclusão, a pedido do Marcos (17/08)
