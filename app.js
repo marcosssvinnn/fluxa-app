@@ -28,7 +28,7 @@ function telaInicial(sessao){
 // que usa estas variáveis — antes elas eram declaradas lá embaixo (erro
 // "Cannot access 'todosProdutos/todosFornecedores' before initialization").
 let todosFornecedores = [], todasOC = [], todosProdutos = [], todosMovEstoque = [], estoqueBusca = '';
-// Oficina (recepção/reparo de bancada) — declarado no topo pelo mesmo motivo
+// Oficina (entrada/reparo de bancada) — declarado no topo pelo mesmo motivo
 // das linhas acima: evitar TDZ se algum ponto do boot vier a referenciar cedo.
 let todosOficinaReparos = [], _ofClienteSelecionado = null, _ofEquipamentoSelecionado = null;
 let _ofFotos = [], _ofEstadoEntrada = {};
@@ -16515,7 +16515,7 @@ function _renderHistProduto(){
 function fecharHistProduto(){ document.getElementById('hist-prod-modal').style.display='none'; }
 
 // ══════════════════════════════════════════════════════════════════════════
-//  OFICINA — recepção e ficha de entrada (Fase 1, 17/08)
+//  OFICINA — entrada e ficha de entrada (Fase 1, 17/08)
 //  Bancada de reparo — expansão de negócio além da manutenção de campo.
 //  todosOficinaReparos/_ofClienteSelecionado/_ofEquipamentoSelecionado
 //  declarados no topo do arquivo (evita TDZ no boot, mesmo motivo de
@@ -16581,7 +16581,7 @@ async function _reenviarOficinaLocais(){
   if(pendentes.length) lsOfSalvar(todosOficinaReparos);
 }
 
-// ── Recepção (tela cheia, espelha _vbAbrir/abrirVendaBalcao) ──
+// ── Entrada do equipamento (tela cheia, espelha _vbAbrir/abrirVendaBalcao) ──
 function abrirOficinaRecepcao(){ go('oficina-recepcao'); }
 function fecharOficinaRecepcao(){ voltar(); }
 function _ofRecepcaoAbrir(){
@@ -16612,7 +16612,7 @@ const OFICINA_CHECKLIST_ITENS=[
   {id:'carcaca', label:'Carcaça / estrutura externa'},
   {id:'cabo', label:'Cabo e plugue'},
   {id:'acessorios', label:'Acessórios entregues junto'},
-  {id:'liga', label:'Liga ao testar na recepção'}
+  {id:'liga', label:'Liga ao testar na entrada'}
 ];
 function renderOfChecklist(){
   const el=document.getElementById('of-checklist'); if(!el) return;
@@ -16745,7 +16745,7 @@ async function salvarOficinaRecepcao(){
       lsOfSalvar(todosOficinaReparos);
     }catch(e){ console.warn('[oficina salvar]', e?.message||e); }
   }
-  if(btn){ btn.disabled=false; btn.textContent='💾 Registrar recepção'; }
+  if(btn){ btn.disabled=false; btn.textContent='💾 Registrar entrada'; }
   logAcao('oficina_recepcao', `${nome} · ${[eq.tipo,eq.marca].filter(Boolean).join(' ')}`.trim());
   toast('✅ Item recebido na oficina');
   fecharOficinaRecepcao();
@@ -16990,7 +16990,7 @@ function renderOficinaKanban(){
   }
   if(_ofFiltroOrigem) lista=lista.filter(o=>o.origem===_ofFiltroOrigem);
   if(!(todosOficinaReparos||[]).length){
-    el.innerHTML=`<div class="rd-empty" style="padding:24px"><div class="rd-empty-ico">🔧</div><div class="rd-empty-title">Nenhum item na oficina ainda.</div><button type="button" class="rd-btn rd-btn-primary" style="margin-top:6px" onclick="abrirOficinaRecepcao()">+ Nova Recepção</button></div>`;
+    el.innerHTML=`<div class="rd-empty" style="padding:24px"><div class="rd-empty-ico">🔧</div><div class="rd-empty-title">Nenhum item na oficina ainda.</div><button type="button" class="rd-btn rd-btn-primary" style="margin-top:6px" onclick="abrirOficinaRecepcao()">+ Dar Entrada</button></div>`;
     return;
   }
   const colunas=[...OFICINA_STATUS_SEQ,'cancelado'];

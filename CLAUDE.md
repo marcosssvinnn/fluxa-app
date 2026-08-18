@@ -500,6 +500,36 @@ erro. Sem chamada a `*.supabase.co`.
 
 sw.js: fluxa-v175 → fluxa-v176.
 
+### 📝 Ajuste de nome: "Nova Recepção" → "Dar Entrada" (18/08)
+
+Feedback do Marcos: *"na parte de oficina não vi muito sentido em chamar de
+nova recepção a entrada do equipamento"*. Ele tem razão — "recepção" é
+terminologia de hotel/hospital; "dar entrada" é como o próprio dono de
+oficina de reparo fala do dia a dia (dar entrada num aparelho, protocolo de
+entrada).
+
+**Só texto visível ao usuário mudou, nenhum identificador interno:**
+- Botão principal e botão de estado vazio: "+ Nova Recepção" → "+ Dar Entrada"
+- Topbar da tela cheia: "Nova Recepção — Oficina" → "Dar Entrada — Oficina"
+- Botão "Sair da recepção" → "Sair" (mais curto, o contexto já está claro na tela)
+- Botão de salvar: "💾 Registrar recepção" → "💾 Registrar entrada"
+- Item de checklist: "Liga ao testar na recepção" → "Liga ao testar na entrada"
+- Comentários internos do código (não visíveis ao usuário), por consistência
+
+**Deliberadamente NÃO renomeado** (risco desnecessário pra uma troca de
+texto): o id da página (`#page-oficina-recepcao`), os nomes das funções
+(`abrirOficinaRecepcao`/`fecharOficinaRecepcao`/`_ofRecepcaoAbrir`), e o
+código de auditoria (`logAcao('oficina_recepcao', ...)`) — mudar qualquer um
+desses é refactor de identificador, não ajuste de copy, e não muda nada que
+o usuário vê.
+
+Testado no Browser pane (offline, clique real): board → "+ Dar Entrada" →
+tela de entrada abre com os textos novos → "Sair" volta pro board → estado
+vazio mostra "+ Dar Entrada" corretamente. Sem erro novo no console, sem
+chamada a `*.supabase.co`.
+
+sw.js: fluxa-v176 → fluxa-v177.
+
 ---
 
 ## Auditoria do fluxo orçamento → OS → conclusão, a pedido do Marcos (17/08)

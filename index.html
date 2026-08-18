@@ -2702,7 +2702,7 @@
     <div class="rd-card">
       <div class="rd-card-hdr">
         <div class="rd-card-title">Oficina</div>
-        <button type="button" class="rd-btn rd-btn-primary" onclick="abrirOficinaRecepcao()">+ Nova Recepção</button>
+        <button type="button" class="rd-btn rd-btn-primary" onclick="abrirOficinaRecepcao()">+ Dar Entrada</button>
       </div>
       <div style="display:flex;gap:8px;margin-bottom:14px">
         <button type="button" class="rd-btn rd-btn-sm rd-btn-primary" id="of-tab-quadro" onclick="_ofSetView('quadro')">Quadro</button>
@@ -2724,16 +2724,16 @@
 </div>
 
 <!-- Tela cheia — mesmo padrão de #page-venda-balcao (ver go(), app.js): sem
-     sidebar/header, "atendente cadastrando na recepção" não precisa de cromo
-     de app admin ao redor. -->
+     sidebar/header, "atendente dando entrada no equipamento" não precisa de
+     cromo de app admin ao redor. -->
 <div class="page" id="page-oficina-recepcao">
   <div class="vb-topbar">
     <button type="button" class="vb-sair" onclick="fecharOficinaRecepcao()">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 6l-6 6 6 6"></path></svg>
-      Sair da recepção
+      Sair
     </button>
     <div class="vb-topbar-div"></div>
-    <span class="vb-topbar-titulo">Nova Recepção — Oficina</span>
+    <span class="vb-topbar-titulo">Dar Entrada — Oficina</span>
   </div>
   <div class="wrap" style="max-width:640px;padding-top:24px">
     <div class="rd-card" style="display:flex;flex-direction:column;gap:16px">
@@ -2781,7 +2781,7 @@
         <span class="rd-field-lbl">Observação (o que o cliente relatou)</span>
         <textarea id="of-obs" class="rd-field-box" rows="3" placeholder="Ex.: motobomba fazendo ruído, não liga…"></textarea>
       </div>
-      <button type="button" class="rd-btn rd-btn-primary" id="of-btn-salvar" onclick="salvarOficinaRecepcao()" style="align-self:flex-start">💾 Registrar recepção</button>
+      <button type="button" class="rd-btn rd-btn-primary" id="of-btn-salvar" onclick="salvarOficinaRecepcao()" style="align-self:flex-start">💾 Registrar entrada</button>
     </div>
   </div>
 </div>
