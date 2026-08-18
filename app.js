@@ -16862,7 +16862,7 @@ async function salvarOficinaRecepcao(){
       lsOfSalvar(todosOficinaReparos);
     }catch(e){ console.warn('[oficina salvar]', e?.message||e); }
   }
-  if(btn){ btn.disabled=false; btn.textContent='💾 Registrar entrada'; }
+  if(btn){ btn.disabled=false; btn.textContent='Registrar entrada'; }
   logAcao('oficina_recepcao', `${nome} · ${[eq.tipo,eq.marca].filter(Boolean).join(' ')}`.trim());
   toast('✅ Item recebido na oficina');
   fecharOficinaRecepcao();

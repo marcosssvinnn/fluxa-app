@@ -2,6 +2,40 @@
 
 ---
 
+## 📦 Segundo pacote de handoff — plano de acabamento pós-oficina (18/08)
+
+Novo pacote em `~/Downloads/design_handoff_fluxa_redesign/` (mesmo diretório
+do handoff original, arquivos novos). Índice em `COMECE-AQUI.md`: 7 itens em
+ordem, dos quais só o Tarefa 4 ("A Receber") exigia decisão do Marcos antes
+de codar — perguntado e respondido (**migração retroativa**, a recomendada).
+Trabalhando na ordem sugerida do próprio índice, 1 commit por item, mesma
+disciplina de sempre.
+
+### ✅ 3f.1 — Emojis das telas novas viram SVG (18/08)
+
+5 pontos, `index.html`: `.cli-search-btn` em `#of-cli-nome`/`#of-eq-nome`
+(🔍→SVG lupa 15px `stroke:var(--c1)`), botão de `abrirBuscaOSCampo()`
+(🔍 Buscar→SVG+"Buscar"), `#of-btn-salvar` (remove 💾), `#resv-modal` título
+(remove 🔒). Path da lupa reusado do login/busca de listas (não é ícone
+novo). Aproveitado pra corrigir TODOS os `.cli-search-btn` do app na mesma
+passada (7 ocorrências reais, não 5 como o plano contava — provavelmente o
+plano só via `#of-cli-nome`/`#of-eq-nome` mais os 2 exemplos citados
+explicitamente; `eq`/`venda`/`vis` também tinham o emoji e não tinham sido
+citados, mas o próprio texto do plano já mandava "corrigir todos" porque é
+o mesmo botão — segui o princípio, não a contagem).
+
+**Achado no caminho, corrigido junto:** `salvarOficinaRecepcao()` (app.js)
+resetava o texto do botão pra `'💾 Registrar entrada'` depois de salvar —
+o emoji reaparecia depois do primeiro clique mesmo com o HTML já limpo.
+Corrigido no mesmo commit (senão a Fase 3f.1 não seria "feita" de verdade,
+só a primeira renderização).
+
+Testado no Browser pane (offline, clique real): lupa aparece corretamente
+em Novo Orçamento (`#cli`), modal de busca abre e lista clientes normal,
+zero regressão. `sw.js`: fluxa-v184 → fluxa-v185.
+
+---
+
 ## 🔧 OFICINA — cadastro inline de cliente na busca (18/08, feedback do Marcos)
 
 Achado real do Marcos usando o app: "quando vai dar entrada na oficina ele

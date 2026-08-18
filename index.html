@@ -786,7 +786,7 @@
           <label class="req">Nome do Cliente</label>
           <div class="cli-input-wrap">
             <input type="text" id="cli" placeholder="Ex: João Silva" oninput="upd();mostrarSugestoesCli(this.value);_orcClienteEditado()" autocomplete="off" name="cli_nofill_orc" data-lpignore="true" data-form-type="other" readonly onfocus="this.removeAttribute('readonly')" onblur="setTimeout(()=>hideSugCli(),200)">
-            <button type="button" class="cli-search-btn" onclick="abrirBuscaCli('orc')" title="Buscar cliente na base">🔍</button>
+            <button type="button" class="cli-search-btn" onclick="abrirBuscaCli('orc')" title="Buscar cliente na base"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--c1)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14M16.5 16.5L21 21"></path></svg></button>
             <div class="cli-suggestions" id="cli-suggestions" style="display:none"></div>
           </div>
         </div>
@@ -1056,7 +1056,7 @@
         <div class="fl"><label class="req">Cliente</label>
           <div class="cli-input-wrap">
             <input type="text" id="os-cli" placeholder="Nome do cliente" oninput="mostrarSugestoesCliOS(this.value);_osClienteEditado()" autocomplete="off" name="cli_nofill_os" data-lpignore="true" data-form-type="other" readonly onfocus="this.removeAttribute('readonly')" onblur="setTimeout(()=>hideSugCliOS(),200)">
-            <button type="button" class="cli-search-btn" onclick="abrirBuscaCli('os')" title="Buscar cliente na base">🔍</button>
+            <button type="button" class="cli-search-btn" onclick="abrirBuscaCli('os')" title="Buscar cliente na base"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--c1)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14M16.5 16.5L21 21"></path></svg></button>
             <div class="cli-suggestions" id="os-cli-suggestions" style="display:none"></div>
           </div>
         </div>
@@ -1438,7 +1438,7 @@
         <div class="fl"><label>Cliente</label>
           <div class="cli-input-wrap">
             <input type="text" id="eq-cli-nome" placeholder="Nome do cliente" list="eq-cli-list" oninput="filtrarClientesEq(this.value);_eqClienteEditado()">
-            <button type="button" class="cli-search-btn" onclick="abrirBuscaCli('eq')" title="Buscar cliente na base">🔍</button>
+            <button type="button" class="cli-search-btn" onclick="abrirBuscaCli('eq')" title="Buscar cliente na base"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--c1)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14M16.5 16.5L21 21"></path></svg></button>
           </div>
           <datalist id="eq-cli-list"></datalist>
         </div>
@@ -2651,7 +2651,7 @@
         <div class="vb-rodape-linha">
           <div class="cli-input-wrap" style="flex:1">
             <input type="text" id="venda-cli" placeholder="Cliente (opcional)" autocomplete="off" oninput="_vendaClienteEditado()">
-            <button type="button" class="cli-search-btn" onclick="abrirBuscaCli('venda')" title="Buscar cliente na base">🔍</button>
+            <button type="button" class="cli-search-btn" onclick="abrirBuscaCli('venda')" title="Buscar cliente na base"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--c1)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14M16.5 16.5L21 21"></path></svg></button>
           </div>
           <span class="vb-desconto-link" onclick="_vendaAbrirDesconto()">Desconto</span>
         </div>
@@ -2741,7 +2741,7 @@
         <span class="rd-field-lbl">Cliente</span>
         <div class="cli-input-wrap">
           <input type="text" id="of-cli-nome" class="rd-field-box" placeholder="Buscar cliente…" readonly>
-          <button type="button" class="cli-search-btn" onclick="abrirBuscaCli('of')" title="Buscar cliente cadastrado">🔍</button>
+          <button type="button" class="cli-search-btn" onclick="abrirBuscaCli('of')" title="Buscar cliente cadastrado"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--c1)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14M16.5 16.5L21 21"></path></svg></button>
         </div>
         <span style="font-size:11px;color:var(--gray)">Precisa ser um cliente já cadastrado — a busca de equipamento depende do vínculo.</span>
       </div>
@@ -2749,7 +2749,7 @@
         <span class="rd-field-lbl">Equipamento</span>
         <div class="cli-input-wrap">
           <input type="text" id="of-eq-nome" class="rd-field-box" placeholder="Selecione o equipamento…" readonly>
-          <button type="button" class="cli-search-btn" onclick="abrirBuscaEq()" title="Buscar equipamento do cliente">🔍</button>
+          <button type="button" class="cli-search-btn" onclick="abrirBuscaEq()" title="Buscar equipamento do cliente"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--c1)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14M16.5 16.5L21 21"></path></svg></button>
         </div>
         <span id="of-eq-info" style="font-size:11px;color:var(--gray);display:none"></span>
       </div>
@@ -2776,7 +2776,7 @@
         <div class="rd-field"><span class="rd-field-lbl">Qual OS de campo?</span>
           <div style="display:flex;gap:6px;align-items:center">
             <div id="of-os-campo-vinculo" style="flex:1;font-size:13px;color:var(--gray)">Nenhuma selecionada</div>
-            <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="abrirBuscaOSCampo()">🔍 Buscar</button>
+            <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="abrirBuscaOSCampo()" style="display:inline-flex;align-items:center;gap:5px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14M16.5 16.5L21 21"></path></svg>Buscar</button>
           </div>
         </div>
       </div>
@@ -2793,7 +2793,7 @@
         <span class="rd-field-lbl">Observação (o que o cliente relatou)</span>
         <textarea id="of-obs" class="rd-field-box" rows="3" placeholder="Ex.: motobomba fazendo ruído, não liga…"></textarea>
       </div>
-      <button type="button" class="rd-btn rd-btn-primary" id="of-btn-salvar" onclick="salvarOficinaRecepcao()" style="align-self:flex-start">💾 Registrar entrada</button>
+      <button type="button" class="rd-btn rd-btn-primary" id="of-btn-salvar" onclick="salvarOficinaRecepcao()" style="align-self:flex-start">Registrar entrada</button>
     </div>
   </div>
 </div>
@@ -2824,7 +2824,7 @@
      não tem campo editável; esta tela mostra a origem e permite acertar. -->
 <div class="qr-modal-bg" id="resv-modal" style="display:none" onclick="if(event.target===this)fecharResvModal()">
   <div class="card" style="max-width:460px;width:92%;max-height:90vh;overflow:auto">
-    <div class="ct">🔒 Corrigir reserva <button onclick="fecharResvModal()" aria-label="Fechar" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;float:right;line-height:1">×</button></div>
+    <div class="ct">Corrigir reserva <button onclick="fecharResvModal()" aria-label="Fechar" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;float:right;line-height:1">×</button></div>
     <div id="resv-info" style="font-size:12px;color:var(--gray);margin-bottom:10px"></div>
     <div id="resv-detalhe" style="margin-bottom:12px"></div>
     <button class="eb eico fix" id="resv-btn-recalc" onclick="resvUsarEsperado()" style="width:100%;margin-bottom:10px">↻ Usar o valor dos orçamentos</button>
@@ -3045,7 +3045,7 @@
           <div class="fl"><label>Cliente</label>
             <div class="cli-input-wrap">
               <input type="text" id="vis-cli" placeholder="Nome do cliente" oninput="mostrarSugestoesCliVis(this.value);_visClienteEditado()" autocomplete="off" name="cli_nofill_vis" data-lpignore="true" data-form-type="other" readonly onfocus="this.removeAttribute('readonly')" onblur="setTimeout(()=>hideSugCliVis(),200)">
-              <button type="button" class="cli-search-btn" onclick="abrirBuscaCli('vis')" title="Buscar cliente">🔍</button>
+              <button type="button" class="cli-search-btn" onclick="abrirBuscaCli('vis')" title="Buscar cliente"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--c1)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14M16.5 16.5L21 21"></path></svg></button>
               <div class="cli-suggestions" id="vis-cli-suggestions" style="display:none"></div>
             </div>
           </div>
