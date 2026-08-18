@@ -2,6 +2,138 @@
 
 ---
 
+## 🔧 MÓDULO OFICINA — Fases 9-13: a economia do serviço (18/08)
+
+O Marcos trouxe uma pesquisa de mercado + leitura crítica do módulo (as 5
+fases originais fecham o roadmap de **custódia do objeto** muito bem — termo
+assinado, checklist, fotos, snapshot imutável, máquina de estados — mas não
+tinham a **economia do serviço**: quem trabalhou, quanto tempo, quanto
+custou, se deu lucro). Ele deu a direção e as ideias (7 hipóteses, sem
+ordem definida) e pediu pra eu cruzar cada uma com o código real antes de
+construir qualquer coisa, decidir a ordem e a arquitetura, e então **"faça
+tudo"**.
+
+**Cruzamento feito antes de escrever qualquer linha — 3 das 7 hipóteses já
+estavam resolvidas, não precisaram de nada novo:**
+- **Aprovação do cliente** — Fase 3 já cobre isso inteiro: o orçamento de
+  conserto reusa `orcamentos`, que já tem assinatura com hash
+  anti-adulteração + aprovação pelo Portal do Cliente. Quem aprovou e
+  quando já fica registrado exatamente como em qualquer orçamento.
+- **Garantia do próprio reparo** — Fase 4 (`garantia_propria_meses`/
+  `garantia_propria_vencimento`) já resolve isso.
+- **Peça consumida (metade do "custo do reparo")** — parcialmente resolvido
+  de um jeito que não era visível de fora: `_congelarCustoOrc()` já congela
+  `custo_unit`/`custo_total` por item do orçamento vinculado no momento da
+  aprovação (mesmo mecanismo de qualquer orçamento, Etapa 2.1 do roadmap
+  antigo). O dado já existia — só não estava exposto como "margem deste
+  reparo" na ficha da oficina.
+
+**4 gaps reais, confirmados no código, viraram as Fases 9-13** (ordem: barato
+e independente primeiro, o núcleo de custo com o ponto de parada que o
+próprio Marcos pediu, depois os dois fluxos mais especializados):
+
+### ✅ Fase 9 — Prazo prometido (`migracao-oficina-fase9.sql`)
+
+`oficina_reparos.prazo_prometido date` — editável a qualquer momento na
+ficha (mesmo padrão não-bloqueante do diagnóstico, Fase 8: o atendente às
+vezes só sabe o prazo depois do diagnóstico, não na entrada). `_ofPrazoAtrasado(o)`
+é a fonte única de "atrasado" (prazo vencido + reparo ainda não
+terminou) — usada na ficha, no badge do card do kanban e na métrica nova
+"Prazo estourado".
+
+### ✅ Fase 10 — Pronto e não retirado (sem migração — só client-side)
+
+Achado real confirmado no código: `renderOficinaMetricas()` tratava
+QUALQUER status não-terminal parado da mesma forma, inclusive `pronto` —
+mesmo alerta que "travado em reparo", mesma ação implícita ("veja o que
+travou"), quando a ação certa é oposta (cobrar o cliente pra retirar, não
+investigar o reparo). `_ofProntoNaoRetirado(o)` (limiar próprio, 5 dias —
+mais curto que os 7 de "travado", porque resolver é 1 contato, mais barato
+que investigar um travamento) virou métrica e badge de kanban separados;
+"travado" (`OFICINA_PARADO_DIAS`) agora exclui `pronto` de propósito.
+
+### ✅ Fase 11 — Custo do reparo: margem de peça + mão de obra (`migracao-oficina-fase11.sql`)
+
+**Ponto de parada do próprio Marcos, cumprido**: antes de qualquer métrica
+em cima disso, esta fase só EXPÕE a margem já congelada — não recalcula
+nada, não inventa número. `_ofMargemPeca(o)` lê o orçamento vinculado
+(só existe depois de `aprovado`, que é quando `custo_total` congela) e
+mostra receita − custo de peças na ficha. Itens avulsos (mão de obra
+digitada como serviço) entram como margem pura, corretamente — mão de obra
+não tem custo de produto, o custo dela é o tempo do técnico.
+
+`tecnico_responsavel` (text) + `horas_mao_obra` (numeric), colunas novas.
+As horas vêm **pré-sugeridas**, não digitadas do zero: `_ofHorasSugeridasEmReparo(o)`
+calcula a partir do tempo entre a última entrada em `em_reparo` e a saída
+dele (ou agora, se ainda está lá) no log de status que já existe desde a
+Fase 2 — mesmo princípio já usado no diagnóstico citando o `OF-#####`
+sozinho ("quem atende já está com o cliente, não digita o que o sistema já
+sabe"). Técnico é um `<select>` reaproveitando `getTecnicos()` (mesma lista
+usada em Agenda/OS), não texto livre.
+
+**Deliberadamente NÃO calculado**: "quanto custa uma hora da nossa
+oficina". Isso depende de um número que só o Marcos tem (pró-labore do
+técnico + custo fixo da bancada ÷ horas produtivas) — não é inferível dos
+dados existentes. O mecanismo de captura (técnico + horas) está pronto pra
+quando esse número entrar.
+
+### ✅ Fase 12 — Serviço terceirizado (`migracao-oficina-fase12.sql`)
+
+`terceirizado_prestador`/`terceirizado_desde`/`terceirizado_ate`. Decisão
+de arquitetura: **flag ortogonal ao status, não um status novo na
+sequência** — o reparo continua `em_reparo`/`aguardando_peca` por dentro,
+só ganha uma janela desde/até que as métricas descontam. Tempo médio de
+reparo e o alerta de "travado" (Fase 10) agora excluem esse intervalo —
+tempo na rebobinadora/usinagem não é nosso, contá-lo junto poluiria as
+duas métricas. V1 suporta 1 ida-e-volta por reparo (enviar de novo
+sobrescreve a janela anterior) — YAGNI até virar necessidade real de
+suportar 2 no mesmo reparo.
+
+### ✅ Fase 13 — Volta pelo campo (`migracao-oficina-fase13.sql`)
+
+`oficina_reparos.os_campo_entrega_id text` — espelho do vínculo de ENTRADA
+(Fase 7, `os_campo_id`), mas pro lado da saída: técnico leva o equipamento
+reparado e instala, em vez do cliente retirar no balcão. Modal de busca
+próprio (`modal-busca-os-entrega`/`abrirBuscaOSEntrega`/
+`selecionarOSEntregaModal`) — clone estrutural do modal de vínculo de
+entrada, NÃO reuso literal: aquele grava em `_ofOSCampoVinculada` (estado
+do formulário de Dar Entrada), reusar aqui misturaria o vínculo de entrada
+com o de saída.
+
+**Escopo cortado de propósito**: só vincula uma OS de campo JÁ EXISTENTE
+(mesma busca por cliente da Fase 7). Gerar uma OS nova pré-preenchida a
+partir da ficha (como `criarOrcamentoDaOficina` faz pra orçamento) ficou de
+fora — `ordens_servico` não tem um campo tipo `oficina_reparo_id` pra
+capturar o vínculo automaticamente no save (diferente de `orcamentos`, que
+já tinha isso pronto pela Fase 3), e criar esse vínculo automático exigiria
+tocar o fluxo de salvar OS — mesma cautela já registrada na Fase 3 pra não
+tocar `_mudarStProsseguir`.
+
+**As 4 migrações (`fase9`/`fase11`/`fase12`/`fase13`) foram aplicadas e
+verificadas em produção** via Management API (`information_schema.columns`
+confirmou as 7 colunas novas com o tipo certo antes de seguir).
+
+⚠️ **Verificação parcial nesta rodada, registrado com transparência**: o
+Browser pane ficou indisponível (classificador de segurança do ambiente
+sobrecarregado, todas as tentativas de `navigate`/`preview_start` falharam
+por um bom tempo, mesmo após múltiplas tentativas espaçadas) — não foi
+possível fazer o teste de clique real de ponta a ponta que todo o resto
+deste módulo documenta. O que FOI feito em compensação: sintaxe validada
+(`osascript`/`new Function` sobre o `app.js` inteiro, repetido depois de
+cada fase), revisão manual linha a linha do diff inteiro (nomes de campo,
+tipos, casos de escape — `esc()` quebraria se recebesse número direto,
+conferido que todo valor numérico passa por `String(...)` antes), e
+conferência de que cada função nova segue padrão já testado e em produção
+de uma fase anterior (prazo espelha diagnóstico da Fase 8, custo/mão de obra
+lê campos que `_congelarCustoOrc` já prova funcionar, entrega-por-campo
+clona o modal da Fase 7 com estado próprio pra não colidir). **Pendência
+real:** validar com clique de verdade no navegador assim que o Browser pane
+voltar — sinalizado aqui pra não passar como "testado" o que não foi.
+
+sw.js: fluxa-v181 → fluxa-v182.
+
+---
+
 ## 🔧 MÓDULO OFICINA — expansão de negócio, EM CONSTRUÇÃO (a partir de 17/08)
 
 > **Se você é a outra IA e está lendo isso pela primeira vez:** a empresa está

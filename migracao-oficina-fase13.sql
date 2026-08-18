@@ -1,0 +1,20 @@
+-- ══════════════════════════════════════════════════════════════════════════════
+--  OFICINA — Fase 13: volta pelo campo (18/08)
+--
+--  A entrada por OS de campo já existia (Fase 7, os_campo_id). A saída
+--  sempre assumiu retirada no balcão. Falta o caminho de volta: técnico
+--  leva o equipamento reparado e instala.
+--
+--  Escopo desta rodada: vincular uma OS de campo JÁ EXISTENTE como a
+--  entrega/instalação (mesmo padrão de busca da Fase 7, espelhado pro lado
+--  da saída). Gerar uma OS nova pré-preenchida a partir da ficha (como
+--  criarOrcamentoDaOficina faz pra orçamento) ficou de fora de propósito —
+--  ordens_servico não tem um campo tipo oficina_reparo_id pra capturar o
+--  vínculo automaticamente no save (diferente de orcamentos, que já tinha
+--  isso pronto pela Fase 3), e criar esse vínculo automático exigiria
+--  tocar o fluxo de salvar OS, código mais sensível e compartilhado — a
+--  mesma cautela já registrada na Fase 3 pra não tocar _mudarStProsseguir.
+--
+--  100% aditivo.
+-- ══════════════════════════════════════════════════════════════════════════════
+ALTER TABLE oficina_reparos ADD COLUMN IF NOT EXISTS os_campo_entrega_id text;

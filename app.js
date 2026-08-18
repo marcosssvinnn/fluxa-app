@@ -16922,6 +16922,74 @@ function filtrarListaOSCampo(val){
     </div>`;
   }).join('');
 }
+// Entrega/instalação pelo campo (Fase 13, 18/08) — espelho do vínculo de
+// ENTRADA acima (Fase 7), mas pro lado da saída: técnico leva o equipamento
+// já reparado e instala no cliente. Reusa _osListaParaVinculo(clienteId)
+// (já genérica, não depende de estado de formulário) — modal e variável de
+// vínculo PRÓPRIOS (_ofReparoParaEntregaOS), porque o modal de entrada
+// (Fase 7) grava em _ofOSCampoVinculada, estado do formulário de Dar
+// Entrada — reusar aqui misturaria o vínculo de entrada com o de saída.
+let _ofReparoParaEntregaOS=null;
+function abrirBuscaOSEntrega(reparoId){
+  const o=(todosOficinaReparos||[]).find(x=>x.id===reparoId); if(!o) return;
+  if(!o.cliente_id){ toast('⚠️ Este reparo não tem cliente vinculado'); return; }
+  _ofReparoParaEntregaOS=reparoId;
+  document.getElementById('modal-os-entrega-inp').value='';
+  filtrarListaOSEntrega('');
+  document.getElementById('modal-busca-os-entrega').style.display='flex';
+  setTimeout(()=>document.getElementById('modal-os-entrega-inp').focus(),80);
+}
+function fecharBuscaOSEntrega(){ document.getElementById('modal-busca-os-entrega').style.display='none'; }
+function filtrarListaOSEntrega(val){
+  const reparo=(todosOficinaReparos||[]).find(x=>x.id===_ofReparoParaEntregaOS);
+  const q=(val||'').toLowerCase().trim();
+  let lista=_osListaParaVinculo(reparo?.cliente_id);
+  if(q) lista=lista.filter(o=>[String(o.numero||''),o.data_servico,o.local_servico].filter(Boolean).some(v=>String(v).toLowerCase().includes(q)));
+  const el=document.getElementById('modal-os-entrega-lista');
+  if(!lista.length){
+    el.innerHTML=`<div style="padding:20px;text-align:center;color:var(--gray);font-size:13px">Nenhuma OS deste cliente encontrada.</div>`;
+    return;
+  }
+  el.innerHTML=lista.map(o=>{
+    const num='#'+String(o.numero||o.id||'').toString().padStart(3,'0');
+    const dt=o.data_servico?_dataBR(o.data_servico):'sem data';
+    return `<div class="modal-cli-item" onmousedown="selecionarOSEntregaModal('${esc(o.id)}')">
+      <div class="mcn">${esc(num)} · ${esc(dt)}</div>
+      <div class="mcd">${esc(o.local_servico||'—')}</div>
+    </div>`;
+  }).join('');
+}
+async function selecionarOSEntregaModal(osId){
+  const reparoId=_ofReparoParaEntregaOS; if(!reparoId) return;
+  const changes={os_campo_entrega_id:osId};
+  const idx=(todosOficinaReparos||[]).findIndex(x=>x.id===reparoId); if(idx<0) return;
+  todosOficinaReparos[idx]={...todosOficinaReparos[idx], ...changes};
+  lsOfSalvar(todosOficinaReparos);
+  if(dbOk&&db){
+    try{ await dbUpdate('oficina_reparos', changes, 'id', reparoId); }
+    catch(e){ console.warn('[oficina entrega campo]', e?.message||e); }
+  }
+  fecharBuscaOSEntrega();
+  toast('✅ OS de entrega vinculada');
+  fecharFichaOficina(); abrirFichaOficina(reparoId);
+}
+function _ofFichaEntregaCampoHtml(o){
+  if(!o.os_campo_entrega_id){
+    return `<div class="rd-field"><span class="rd-field-lbl">Entrega pelo campo</span>
+      <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" style="align-self:flex-start" onclick="abrirBuscaOSEntrega('${o.id}')">🔍 Vincular OS de entrega/instalação</button>
+      <span style="font-size:11px;color:var(--gray);margin-top:4px">Pra quando o técnico leva o equipamento reparado e instala, em vez do cliente retirar no balcão.</span>
+    </div>`;
+  }
+  const os=_acharOS(o.os_campo_entrega_id);
+  const num=os?('#'+String(os.numero||os.id||'').toString().padStart(3,'0')):'—';
+  const dt=os?.data_servico?_dataBR(os.data_servico):'';
+  return `<div class="rd-field"><span class="rd-field-lbl">Entrega pelo campo</span>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <span style="font-size:13px">🚚 OS ${esc(num)}${dt?' · '+esc(dt):''}</span>
+      <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="_ofAbrirOSVinculada('${esc(o.os_campo_entrega_id)}')">Abrir OS</button>
+    </div>
+  </div>`;
+}
 function selecionarOSCampoModal(id){
   const o=_osListaParaVinculo(_ofClienteSelecionado?.id).find(x=>x.id===id); if(!o) return;
   _ofOSCampoVinculada=id;
@@ -17162,6 +17230,10 @@ function _ofCardKanban(o){
       ${o.origem==='garantia_fabricante'?'<span class="rd-badge rd-badge-info" style="font-size:10px">🏭 Fabricante</span>':''}
       ${o.os_campo_id?'<span class="rd-badge rd-badge-neutral" style="font-size:10px">📋 De OS</span>':''}
       ${o.retrabalho_de?'<span class="rd-badge rd-badge-warn" style="font-size:10px">🔁 Retrabalho</span>':''}
+      ${_ofPrazoAtrasado(o)?'<span class="rd-badge rd-badge-bad" style="font-size:10px">⏰ Atrasado</span>':''}
+      ${_ofProntoNaoRetirado(o)?'<span class="rd-badge rd-badge-warn" style="font-size:10px">📦 Aguardando retirada</span>':''}
+      ${_ofEmTerceiro(o)?'<span class="rd-badge rd-badge-neutral" style="font-size:10px">🔧 Com terceiro</span>':''}
+      ${o.os_campo_entrega_id?'<span class="rd-badge rd-badge-neutral" style="font-size:10px">🚚 Entrega por OS</span>':''}
     </div>
     ${prox?`<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" style="margin-top:6px;width:100%" onclick="event.stopPropagation();avancarStatusOficina('${o.id}')">Avançar → ${esc(OFICINA_STATUS_LABEL[prox])}</button>`:''}
   </div>`;
@@ -17204,7 +17276,11 @@ function abrirFichaOficina(id){
       ${_ofFichaFotosHtml(o)}
       ${o.obs_entrada?`<div class="rd-field"><span class="rd-field-lbl">Observação na entrada</span><div>${esc(o.obs_entrada)}</div></div>`:''}
       ${_ofFichaDiagnosticoHtml(o)}
+      ${_ofFichaPrazoHtml(o)}
       ${_ofFichaOrcamentoHtml(o)}
+      ${_ofFichaCustoHtml(o)}
+      ${_ofFichaTerceiroHtml(o)}
+      ${_ofFichaEntregaCampoHtml(o)}
       <div class="rd-field">
         <span class="rd-field-lbl">Termo de entrada</span>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -17271,6 +17347,38 @@ async function salvarOficinaDiagnostico(reparoId){
     catch(e){ console.warn('[oficina diagnostico]', e?.message||e); }
   }
   toast('✅ Diagnóstico salvo');
+  fecharFichaOficina(); abrirFichaOficina(reparoId);
+}
+// Prazo prometido (Fase 9, 18/08) — "o cliente pergunta quando fica pronto e
+// a resposta não fica em lugar nenhum". Editável a qualquer momento, mesmo
+// padrão não-bloqueante do diagnóstico (o atendente às vezes só sabe o prazo
+// depois do diagnóstico, não na entrada). _ofPrazoAtrasado() é a fonte única
+// de "atrasado" — usada aqui, no card do kanban e nas métricas, pra não
+// divergir critério (data vencida + reparo ainda não terminou).
+function _ofPrazoAtrasado(o){
+  return !!(o.prazo_prometido && !['entregue','cancelado'].includes(o.status) && o.prazo_prometido<_hojeLocal());
+}
+function _ofFichaPrazoHtml(o){
+  const atrasado=_ofPrazoAtrasado(o);
+  return `<div class="rd-field"><span class="rd-field-lbl">Prazo prometido ao cliente</span>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <input type="date" id="of-ficha-prazo" class="rd-field-box" style="max-width:180px" value="${esc(o.prazo_prometido||'')}">
+      <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="salvarOficinaPrazo('${o.id}')">💾 Salvar prazo</button>
+      ${atrasado?'<span class="rd-badge rd-badge-bad">⏰ Atrasado</span>':''}
+    </div>
+  </div>`;
+}
+async function salvarOficinaPrazo(reparoId){
+  const val=gV('of-ficha-prazo')||null;
+  const idx=(todosOficinaReparos||[]).findIndex(x=>x.id===reparoId); if(idx<0) return;
+  todosOficinaReparos[idx]={...todosOficinaReparos[idx], prazo_prometido:val};
+  lsOfSalvar(todosOficinaReparos);
+  if(dbOk&&db){
+    try{ await dbUpdate('oficina_reparos', {prazo_prometido:val}, 'id', reparoId); }
+    catch(e){ console.warn('[oficina prazo]', e?.message||e); }
+  }
+  toast('✅ Prazo salvo');
+  fecharFichaOficina(); abrirFichaOficina(reparoId);
 }
 function _ofFichaRetrabalhoHtml(o){
   let h='';
@@ -17316,6 +17424,133 @@ function _ofFichaOrcamentoHtml(o){
       <span class="rd-badge ${statusCls}">${esc(statusLbl)}</span>
     </div>
   </div>`;
+}
+// Custo do reparo (Fase 11, 18/08) — metade da "economia do serviço" que o
+// módulo não tinha: peça, mão de obra e técnico responsável. Peça: o custo
+// já é congelado no orçamento vinculado no momento da aprovação
+// (_congelarCustoOrc, Etapa 2.1 do roadmap antigo) — aqui só EXIBE a
+// margem, não recalcula nada. Mão de obra: técnico + horas são captura
+// nova, mas as horas vêm pré-sugeridas do próprio tempo em "Em reparo" do
+// log de status (Fase 2) — o técnico confirma ou ajusta, não digita do
+// zero o que o sistema já sabe (mesmo princípio já usado no diagnóstico
+// citando o OF-##### sozinho).
+//
+// NÃO calcula "quanto custa uma hora da oficina" — isso depende de um
+// número que só o Marcos tem (pró-labore do técnico + custo fixo da
+// bancada ÷ horas produtivas), não é inferível dos dados existentes.
+function _ofHorasSugeridasEmReparo(o){
+  const logs=(_ofStatusLog||[]).filter(l=>l.reparo_id===o.id).sort((a,b)=>String(a.data).localeCompare(String(b.data)));
+  let entrada=null, saida=null;
+  logs.forEach(l=>{
+    if(l.status==='em_reparo'){ entrada=l.data; saida=null; }
+    else if(entrada && !saida){ saida=l.data; }
+  });
+  if(!entrada) return null;
+  const ini=new Date(entrada).getTime(); if(isNaN(ini)) return null;
+  const fim=saida?new Date(saida).getTime():Date.now();
+  return Math.max(0, (fim-ini)/3600000);
+}
+// Margem de peça só existe depois de aprovado — custo_total só é congelado
+// na aprovação (_congelarCustoOrc). Itens avulsos (mão de obra digitada como
+// serviço) não têm custo_total — entram como margem pura, corretamente:
+// mão de obra não tem "custo de produto", o custo dela é o tempo do técnico.
+function _ofMargemPeca(o){
+  const orc=_ofOrcamentoVinculado(o.id);
+  if(!orc || orc.status!=='aprovado') return null;
+  const custoPecas=(orc.servicos||[]).reduce((a,s)=>a+(parseFloat(s.custo_total)||0),0);
+  const receita=parseFloat(orc.total)||0;
+  return {receita, custoPecas, margem:receita-custoPecas};
+}
+function _ofFichaCustoHtml(o){
+  const margem=_ofMargemPeca(o);
+  const semHorasSalvas=(o.horas_mao_obra==null||o.horas_mao_obra==='');
+  const horasSugeridas=semHorasSalvas?_ofHorasSugeridasEmReparo(o):null;
+  const horasVal=semHorasSalvas?(horasSugeridas!=null?horasSugeridas.toFixed(1):''):o.horas_mao_obra;
+  const tecOpts='<option value="">Selecione…</option>'+getTecnicos().map(t=>`<option value="${esc(t)}" ${o.tecnico_responsavel===t?'selected':''}>${esc(t)}</option>`).join('');
+  return `<div class="rd-field"><span class="rd-field-lbl">Custo do reparo</span>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <select id="of-ficha-tecnico" class="rd-field-box" style="max-width:200px">${tecOpts}</select>
+        <input type="text" inputmode="decimal" id="of-ficha-horas" class="rd-field-box" style="max-width:110px" placeholder="Horas" value="${esc(String(horasVal))}">
+        <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="salvarOficinaCusto('${o.id}')">💾 Salvar</button>
+      </div>
+      ${horasSugeridas!=null?`<span style="font-size:11px;color:var(--gray)">Sugestão a partir do tempo em "Em reparo" — confira antes de salvar.</span>`:''}
+      ${margem
+        ?`<div style="font-size:12px;color:var(--gray)">Receita do orçamento: ${brl(margem.receita)} · Custo de peças: ${brl(margem.custoPecas)} · <strong style="color:${margem.margem>=0?'var(--green,#15803d)':'var(--red,#b91c1c)'}">Margem de peça: ${brl(margem.margem)}</strong></div>`
+        :`<span style="font-size:11px;color:var(--gray)">Margem de peça aparece aqui quando o orçamento de conserto for aprovado (o custo só congela na aprovação).</span>`}
+    </div>
+  </div>`;
+}
+async function salvarOficinaCusto(reparoId){
+  const tecnico=gV('of-ficha-tecnico')||null;
+  const horasStr=gV('of-ficha-horas');
+  const horasNum=(horasStr!==''&&horasStr!=null) ? (parseFloat(String(horasStr).replace(',','.'))||0) : null;
+  const idx=(todosOficinaReparos||[]).findIndex(x=>x.id===reparoId); if(idx<0) return;
+  todosOficinaReparos[idx]={...todosOficinaReparos[idx], tecnico_responsavel:tecnico, horas_mao_obra:horasNum};
+  lsOfSalvar(todosOficinaReparos);
+  if(dbOk&&db){
+    try{ await dbUpdate('oficina_reparos', {tecnico_responsavel:tecnico, horas_mao_obra:horasNum}, 'id', reparoId); }
+    catch(e){ console.warn('[oficina custo]', e?.message||e); }
+  }
+  toast('✅ Custo do reparo salvo');
+  fecharFichaOficina(); abrirFichaOficina(reparoId);
+}
+// Serviço terceirizado (Fase 12, 18/08) — rebobinamento/usinagem/retífica é
+// rotina pra equipamento de piscina. Enquanto está fora, o tempo NÃO é
+// nosso — hoje ele contava igual, poluindo tempo médio e o alerta de
+// "travado". Decisão: flag ortogonal ao status (não é um status novo na
+// sequência — o reparo continua 'em_reparo'/'aguardando_peca' por dentro,
+// só ganha uma janela desde/até que as métricas descontam). V1 suporta 1
+// ida-e-volta por reparo (enviar de novo sobrescreve a janela anterior) —
+// raro precisar de 2 no mesmo reparo; se acontecer, YAGNI até virar
+// necessidade real.
+function _ofEmTerceiro(o){ return !!(o.terceirizado_desde && !o.terceirizado_ate); }
+function _ofFichaTerceiroHtml(o){
+  if(_ofEmTerceiro(o)){
+    return `<div class="rd-field"><span class="rd-field-lbl">Serviço terceirizado</span>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span style="font-size:13px">Com ${esc(o.terceirizado_prestador||'terceiro')} desde ${_dataBR(o.terceirizado_desde.split('T')[0])}</span>
+        <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="oficinaVoltouTerceiro('${o.id}')">↩ Voltou do terceiro</button>
+      </div>
+    </div>`;
+  }
+  if(o.terceirizado_prestador && o.terceirizado_ate){
+    return `<div class="rd-field"><span class="rd-field-lbl">Serviço terceirizado</span>
+      <div style="font-size:12px;color:var(--gray)">Já esteve com ${esc(o.terceirizado_prestador)} (${_dataBR(o.terceirizado_desde.split('T')[0])} — ${_dataBR(o.terceirizado_ate.split('T')[0])})</div>
+      <div style="margin-top:6px"><input type="text" id="of-ficha-terceiro-prestador" class="rd-field-box" placeholder="Pra onde vai desta vez? (rebobinadora, usinagem…)"></div>
+      <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" style="margin-top:6px" onclick="oficinaEnviarTerceiro('${o.id}')">🔧 Enviar pra terceiro</button>
+    </div>`;
+  }
+  return `<div class="rd-field"><span class="rd-field-lbl">Serviço terceirizado</span>
+    <input type="text" id="of-ficha-terceiro-prestador" class="rd-field-box" placeholder="Pra onde vai? (rebobinadora, usinagem, retífica…)">
+    <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" style="margin-top:6px;align-self:flex-start" onclick="oficinaEnviarTerceiro('${o.id}')">🔧 Enviar pra terceiro</button>
+  </div>`;
+}
+async function oficinaEnviarTerceiro(reparoId){
+  const prestador=(gV('of-ficha-terceiro-prestador')||'').trim();
+  if(!prestador){ toast('⚠️ Diga pra onde foi (rebobinadora, usinagem…)'); return; }
+  const changes={terceirizado_prestador:prestador, terceirizado_desde:new Date().toISOString(), terceirizado_ate:null};
+  const idx=(todosOficinaReparos||[]).findIndex(x=>x.id===reparoId); if(idx<0) return;
+  todosOficinaReparos[idx]={...todosOficinaReparos[idx], ...changes};
+  lsOfSalvar(todosOficinaReparos);
+  if(dbOk&&db){
+    try{ await dbUpdate('oficina_reparos', changes, 'id', reparoId); }
+    catch(e){ console.warn('[oficina terceiro]', e?.message||e); }
+  }
+  toast('🔧 Marcado como enviado pra '+prestador);
+  fecharFichaOficina(); abrirFichaOficina(reparoId);
+}
+async function oficinaVoltouTerceiro(reparoId){
+  const changes={terceirizado_ate:new Date().toISOString()};
+  const idx=(todosOficinaReparos||[]).findIndex(x=>x.id===reparoId); if(idx<0) return;
+  todosOficinaReparos[idx]={...todosOficinaReparos[idx], ...changes};
+  lsOfSalvar(todosOficinaReparos);
+  if(dbOk&&db){
+    try{ await dbUpdate('oficina_reparos', changes, 'id', reparoId); }
+    catch(e){ console.warn('[oficina terceiro]', e?.message||e); }
+  }
+  toast('✅ De volta da terceirização');
+  fecharFichaOficina(); abrirFichaOficina(reparoId);
 }
 function fecharFichaOficina(){ document.getElementById('of-ficha-overlay')?.remove(); }
 
@@ -17468,37 +17703,65 @@ async function _ofSincronizarStatusPosOrcamento(reparoId, resultado){
   }
 }
 
-// ── Métricas (Fase 5) ──
+// ── Métricas (Fase 5, revisada Fase 10) ──
 // Direto na própria página oficina (seção, não tela nova) — sem tabela
 // nova, usa oficina_reparos + oficina_status_log já existentes.
-const OFICINA_PARADO_DIAS=7; // limiar pra "parado há muito tempo" no card
+const OFICINA_PARADO_DIAS=7; // limiar pra "travado" (status intermediário) no card
+// Fase 10 (18/08): "pronto" há muitos dias tem AÇÃO OPOSTA de "travado em
+// reparo" — um se destrava por dentro (falta peça, falta técnico), o outro
+// se resolve cobrando o cliente pra retirar. Até aqui os dois caíam na
+// mesma lista de "parados", com o mesmo texto e a mesma ação implícita
+// ("veja o que travou"). Limiar próprio, mais curto — o equipamento pronto
+// ocupando espaço é um problema mais barato de resolver (1 contato) do que
+// investigar um travamento de reparo, então vale avisar mais cedo.
+const OFICINA_PRONTO_NAO_RETIRADO_DIAS=5;
+function _ofProntoNaoRetirado(o){ return o.status==='pronto' && (_ofDiasNoStatus(o)||0)>=OFICINA_PRONTO_NAO_RETIRADO_DIAS; }
 function renderOficinaMetricas(){
   const el=document.getElementById('of-metricas'); if(!el) return;
   const lista=filtrarPorLoja(todosOficinaReparos||[]);
   const entregues=lista.filter(o=>o.status==='entregue' && o.data_entrega);
-  // Tempo médio de reparo: recebido → entregue, em dias corridos.
+  // Tempo médio de reparo: recebido → entregue, em dias corridos — MENOS o
+  // tempo que passou fora, num terceirizado (Fase 12): esse tempo não é
+  // nosso, contá-lo junto poluiria a métrica com o prazo de quem fez o
+  // rebobinamento/usinagem, não o nosso.
   let tempoMedioTxt='—';
   if(entregues.length){
     const dias=entregues.map(o=>{
       const ini=new Date(o.data_criacao).getTime(), fim=new Date(o.data_entrega).getTime();
-      return (isNaN(ini)||isNaN(fim)) ? null : Math.max(0,(fim-ini)/86400000);
+      if(isNaN(ini)||isNaN(fim)) return null;
+      let ms=fim-ini;
+      if(o.terceirizado_desde && o.terceirizado_ate){
+        const td=new Date(o.terceirizado_desde).getTime(), ta=new Date(o.terceirizado_ate).getTime();
+        if(!isNaN(td) && !isNaN(ta) && ta>td) ms-=(ta-td);
+      }
+      return Math.max(0, ms/86400000);
     }).filter(d=>d!=null);
     if(dias.length) tempoMedioTxt=(dias.reduce((a,b)=>a+b,0)/dias.length).toFixed(1)+' dias';
   }
-  // Equipamentos parados: status não-terminal há mais de OFICINA_PARADO_DIAS.
-  const terminal=['entregue','cancelado'];
-  const parados=lista.filter(o=>!terminal.includes(o.status) && (_ofDiasNoStatus(o)||0)>=OFICINA_PARADO_DIAS);
+  // "Travado" exclui 'pronto' (ver _ofProntoNaoRetirado) e exclui quem está
+  // com terceiro agora (Fase 12) — parado por nossa causa é um alerta
+  // nosso; parado na rebobinadora não é o mesmo problema.
+  const terminal=['entregue','cancelado','pronto'];
+  const travados=lista.filter(o=>!terminal.includes(o.status) && !_ofEmTerceiro(o) && (_ofDiasNoStatus(o)||0)>=OFICINA_PARADO_DIAS);
+  const prontosParados=lista.filter(_ofProntoNaoRetirado);
+  const atrasados=lista.filter(_ofPrazoAtrasado);
   const taxa=_ofTaxaRetrabalho(90); // últimos 90 dias — janela recente, não o histórico inteiro
   el.innerHTML=`<div class="rd-card-hdr" style="margin-bottom:10px"><div class="rd-card-title" style="font-size:14px">Métricas da oficina</div></div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px">
       <div class="rd-card rd-card-dense"><div style="font-size:11px;color:var(--gray)">Tempo médio de reparo</div><div style="font-size:20px;font-weight:700;color:var(--c2)">${esc(tempoMedioTxt)}</div></div>
-      <div class="rd-card rd-card-dense"><div style="font-size:11px;color:var(--gray)">Parados há ${OFICINA_PARADO_DIAS}+ dias</div><div style="font-size:20px;font-weight:700;color:${parados.length?'var(--red,#b91c1c)':'var(--c2)'}">${parados.length}</div></div>
+      <div class="rd-card rd-card-dense"><div style="font-size:11px;color:var(--gray)">Travados há ${OFICINA_PARADO_DIAS}+ dias</div><div style="font-size:20px;font-weight:700;color:${travados.length?'var(--red,#b91c1c)':'var(--c2)'}">${travados.length}</div></div>
+      <div class="rd-card rd-card-dense"><div style="font-size:11px;color:var(--gray)">Pronto, não retirado</div><div style="font-size:20px;font-weight:700;color:${prontosParados.length?'var(--yellow,#b45309)':'var(--c2)'}">${prontosParados.length}</div></div>
+      <div class="rd-card rd-card-dense"><div style="font-size:11px;color:var(--gray)">Prazo estourado</div><div style="font-size:20px;font-weight:700;color:${atrasados.length?'var(--red,#b91c1c)':'var(--c2)'}">${atrasados.length}</div></div>
       <div class="rd-card rd-card-dense"><div style="font-size:11px;color:var(--gray)">Retrabalho (90d)</div><div style="font-size:20px;font-weight:700;color:var(--c2)">${taxa?taxa.pct+'%':'—'}</div>${taxa?`<div style="font-size:10.5px;color:var(--gray)">${taxa.retrabalhos} de ${taxa.total} entregues</div>`:''}</div>
     </div>
-    ${parados.length?`<div style="margin-top:10px;display:flex;flex-direction:column;gap:6px">${parados.slice(0,5).map(o=>{
+    ${travados.length?`<div style="margin-top:10px;display:flex;flex-direction:column;gap:6px">${travados.slice(0,5).map(o=>{
       const num=o.numero?'OF-'+String(o.numero).padStart(5,'0'):'OF-…';
       return `<div style="font-size:12px;color:var(--gray);cursor:pointer" onclick="abrirFichaOficina('${o.id}')">${esc(num)} — ${esc(o.cliente_nome||'—')} · ${esc(OFICINA_STATUS_LABEL[o.status]||o.status)} há ${_ofDiasNoStatus(o)}d</div>`;
-    }).join('')}${parados.length>5?`<div style="font-size:11px;color:var(--gray)">+${parados.length-5} outros</div>`:''}</div>`:''}`;
+    }).join('')}${travados.length>5?`<div style="font-size:11px;color:var(--gray)">+${travados.length-5} outros</div>`:''}</div>`:''}
+    ${prontosParados.length?`<div style="margin-top:10px;display:flex;flex-direction:column;gap:6px">${prontosParados.slice(0,5).map(o=>{
+      const num=o.numero?'OF-'+String(o.numero).padStart(5,'0'):'OF-…';
+      return `<div style="font-size:12px;color:var(--gray);cursor:pointer" onclick="abrirFichaOficina('${o.id}')">📦 ${esc(num)} — ${esc(o.cliente_nome||'—')} pronto há ${_ofDiasNoStatus(o)}d, aguardando retirada</div>`;
+    }).join('')}${prontosParados.length>5?`<div style="font-size:11px;color:var(--gray)">+${prontosParados.length-5} outros</div>`:''}</div>`:''}`;
 }
 
 // ── Etiqueta física / QR (Fase 5) — clone estrutural de verQR/imprimirQR/

@@ -3401,6 +3401,23 @@
   </div>
 </div>
 
+<!-- ══ MODAL: busca de OS de campo pra vincular a ENTREGA/instalação do
+     reparo (Fase 13, 18/08) — espelho do modal de vínculo de entrada (Fase
+     7) acima, mas com ids próprios: aquele grava em _ofOSCampoVinculada
+     (estado do formulário de Dar Entrada), este grava direto no reparo já
+     salvo (chamado de dentro da ficha, não da recepção) — reusar o mesmo
+     modal misturaria os dois contextos. -->
+<div class="modal-cli-bg" id="modal-busca-os-entrega" style="display:none" onclick="if(event.target===this)fecharBuscaOSEntrega()">
+  <div class="modal-cli-box">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div style="font-size:15px;font-weight:700;color:var(--c2)">Buscar OS de campo (entrega)</div>
+      <button onclick="fecharBuscaOSEntrega()" aria-label="Fechar" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--gray);line-height:1">×</button>
+    </div>
+    <input class="modal-cli-inp" id="modal-os-entrega-inp" type="text" placeholder="Número, data ou local do serviço..." oninput="filtrarListaOSEntrega(this.value)" autocomplete="off">
+    <div class="modal-cli-lista" id="modal-os-entrega-lista"></div>
+  </div>
+</div>
+
 <!-- ══ MODAL: CONFIRMAÇÃO (M-01) — shell novo (Tarefa 3c, 14/08). Migrada
      primeiro por ser a mais chamada (~35 pontos); os outros 3 modais que
      ainda usam .modal-bg/.modal (crm-contato-bg, receb-bg, aprov-os-bg)

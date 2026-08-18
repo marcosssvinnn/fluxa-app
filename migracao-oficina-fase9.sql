@@ -1,0 +1,12 @@
+-- ══════════════════════════════════════════════════════════════════════════════
+--  OFICINA — Fase 9: prazo prometido (18/08)
+--
+--  Nada rastreava "quando o cliente perguntou quando fica pronto, o que
+--  respondemos" — hoje só existe o sintoma (dias parado), não a referência
+--  contra a qual comparar. Campo simples, editável a qualquer momento (mesmo
+--  padrão de diagnostico — não trava por status), sem obrigar preenchimento
+--  na entrada (o atendente muitas vezes só sabe o prazo depois do diagnóstico).
+--
+--  100% aditivo.
+-- ══════════════════════════════════════════════════════════════════════════════
+ALTER TABLE oficina_reparos ADD COLUMN IF NOT EXISTS prazo_prometido date;
