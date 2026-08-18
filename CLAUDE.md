@@ -622,6 +622,75 @@ do sandbox).
 
 sw.js: fluxa-v178 → fluxa-v179.
 
+### 🔗 Vínculo real Oficina ↔ OS de campo (Fase 7, 18/08)
+
+O Marcos perguntou explicitamente se a Oficina "integra com o sistema de
+OS". Investiguei antes de responder: a origem "Trazido de uma OS de campo"
+já existia no `<select>` desde a Fase 1, e `os_campo_id` já existia como
+coluna no banco — mas nada ligava os dois de verdade. Escolher essa
+origem só gravava um rótulo de texto solto, sem campo pra apontar QUAL
+OS, sem link clicável, sem nenhum atalho do lado da tela de OS. Reportei
+o gap e perguntei como ele imaginava o vínculo funcionando — ele escolheu
+os DOIS caminhos propostos (não são excludentes), implementados e
+testados nesta rodada:
+
+**1. Botão "🔧 Enviar pra Oficina" dentro da própria OS de campo.**
+`_renderOSAcoesEdit(o)` ganhou o botão (visível pra qualquer OS não
+cancelada, técnico ou gestor — mesma barra de PDF/Concluir/Excluir).
+`_ofEnviarDeOS(osId)`: abre a Recepção (`abrirOficinaRecepcao()`, que já
+reseta o form via `_ofRecepcaoAbrir()` — chamada síncrona dentro de
+`go()`, então o pré-preenchimento roda por cima, depois, sem corrida),
+seta a origem pra "os_campo", grava o vínculo em `_ofOSCampoVinculada`, e
+pré-preenche cliente (`_ofClienteSelecionado`) a partir de
+`o.cliente_id`/`o.cliente` — só quando a OS tem `cliente_id` real (nem
+toda OS tem, se o nome foi digitado livre sem passar pela busca; nesse
+caso avisa por toast pra buscar manualmente). **Não pré-preenche
+equipamento** — `ordens_servico` não tem coluna de equipamento vinculado
+(confirmado: `select column_name from information_schema.columns where
+table_name='ordens_servico' and column_name ilike '%equip%'` → vazio), só
+a piscina como um todo. Fica pro atendente escolher/cadastrar o
+equipamento específico na hora, igual ao fluxo normal.
+
+**2. Busca de OS na própria tela de Dar Entrada**, pro caso em que o
+atendente de balcão sabe que o cliente teve uma visita recente mas não
+veio direto de lá. Bloco novo `#of-campos-os-campo` (mesmo padrão do
+bloco de fabricante, aparece só quando origem='os_campo') com botão
+"🔍 Buscar" → modal `#modal-busca-os-campo` → `abrirBuscaOSCampo()` lista
+as OS do cliente JÁ selecionado (`_osListaParaVinculo(clienteId)`, une
+`todosOS` + `window._minhasOSAll` por id, filtra por `cliente_id`) →
+`selecionarOSCampoModal(id)` grava o vínculo. Os dois caminhos convergem
+no mesmo `_ofOSCampoVinculada`, lido por `salvarOficinaRecepcao()` no
+momento de gravar (`os_campo_id: gV('of-origem')==='os_campo' ?
+(_ofOSCampoVinculada||null) : null`).
+
+**Do lado da ficha do reparo**: `_ofFichaOSCampoHtml(o)` mostra o número/
+data da OS vinculada com um botão "Abrir OS" (`_ofAbrirOSVinculada`, fecha
+a ficha da oficina e chama `editarOS()` — sem isso ficaria ficha
+sobreposta em cima da tela de OS). Badge "📋 De OS" novo no card do
+kanban, ao lado dos já existentes ("🏭 Fabricante"/"🔁 Retrabalho").
+
+Testado no Browser pane (offline, clique real, ciclo completo pelos DOIS
+caminhos): (a) OS de teste #077 → cliquei "Enviar pra Oficina" → cliente e
+OS pré-preenchidos automaticamente (toast confirmando) → cadastrei
+equipamento → registrei a entrada → `os_campo_id` gravado certo → ficha
+mostra "OS de campo vinculada: #077 · 10/08/2026" com botão "Abrir OS" →
+cliquei e voltou pra tela de Editar OS #077 corretamente (ficha da
+oficina fechada, sem sobreposição); (b) partindo do zero na Recepção,
+escolhi cliente → origem "Trazido de uma OS de campo" → busquei e
+selecionei a mesma OS #077 pelo modal → vínculo confirmado. Sem chamada
+a `*.supabase.co` nos dois testes (só `libs/supabase.min.js` local); os
+vários `ERR_CONNECTION_REFUSED` no console eram só o próprio mecanismo de
+auto-update do app (`HEAD /?_v=...` periódico) batendo no servidor de
+teste local durante os reinícios que fiz entre uma rodada e outra — não
+tem relação com o código, confirmado lendo a lista de requests.
+
+**Continua sem UI** (gap conhecido, não pedido nesta rodada — ver seção
+"falta alguma coisa" anterior): o campo `diagnostico` (text, existe no
+banco desde a Fase 1) ainda não tem lugar na ficha pro técnico escrever o
+laudo antes de gerar o orçamento de conserto.
+
+sw.js: fluxa-v179 → fluxa-v180.
+
 ---
 
 ## Auditoria do fluxo orçamento → OS → conclusão, a pedido do Marcos (17/08)

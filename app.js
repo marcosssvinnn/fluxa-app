@@ -34,6 +34,7 @@ let todosOficinaReparos = [], _ofClienteSelecionado = null, _ofEquipamentoSeleci
 let _ofFotos = [], _ofEstadoEntrada = {};
 let _ofStatusLog = [], _ofFiltroBusca = '', _ofFiltroOrigem = '', _ofView = 'quadro';
 let _ofRetrabalhoDe = null;
+let _ofOSCampoVinculada = null; // id da OS de campo vinculada (Fase 7, 18/08)
 
 // ── Log de auditoria (quem fez o quê) ──
 let _auditoria = [];
@@ -7029,6 +7030,7 @@ function _renderOSAcoesEdit(o){
     ${o.status!=='concluido'&&o.status!=='cancelado'?`<button type="button" class="rd-btn rd-btn-primary rd-btn-sm" title="Marcar como concluída (baixa de estoque automática)" onclick="concluirOSHistorico('${o.id}')">Concluir</button>`:''}
     ${o.status==='concluido'?`<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Notif. OS concluída" onclick="enviarNotifWA(notifConcluida(getNC('${o.id}')), '${o.tel_cliente||''}')">Concluída</button>`:''}
     ${o.status==='agendado'||atrasado?`<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Lembrete de visita" onclick="enviarNotifWA(notifVisita(getNC('${o.id}')), '${o.tel_cliente||''}')">Lembrete</button>`:''}
+    ${o.status!=='cancelado'?`<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Levar equipamento pra bancada" onclick="_ofEnviarDeOS('${o.id}')">🔧 Enviar pra Oficina</button>`:''}
     <button type="button" class="rd-btn rd-btn-danger-text rd-btn-sm" title="Excluir" onclick="excluirOS('${o.id}')">Excluir</button>
   `;
   el.style.display='flex';
@@ -16584,24 +16586,53 @@ async function _reenviarOficinaLocais(){
 // ── Entrada do equipamento (tela cheia, espelha _vbAbrir/abrirVendaBalcao) ──
 function abrirOficinaRecepcao(){ go('oficina-recepcao'); }
 function fecharOficinaRecepcao(){ voltar(); }
+// Atalho "🔧 Enviar pra Oficina" de dentro de uma OS de campo (Fase 7,
+// 18/08) — técnico percebe em campo que o equipamento precisa ir pra
+// bancada. abrirOficinaRecepcao() já reseta o form via _ofRecepcaoAbrir()
+// (chamada síncrona dentro de go()); o pré-preenchimento abaixo roda por
+// cima, depois. Não pré-preenche equipamento (ordens_servico não tem
+// vínculo de equipamento_id — só a piscina como um todo), fica pro
+// atendente escolher/cadastrar na hora, igual ao fluxo normal.
+function _ofEnviarDeOS(osId){
+  const o=_acharOS(osId); if(!o||!o.id){ toast('OS não encontrada'); return; }
+  abrirOficinaRecepcao();
+  const origemSel=document.getElementById('of-origem');
+  if(origemSel){ origemSel.value='os_campo'; _ofToggleCamposFabricante('os_campo'); }
+  _ofOSCampoVinculada=o.id;
+  const num='#'+String(o.numero||o.id||'').toString().padStart(3,'0');
+  const dt=o.data_servico?_dataBR(o.data_servico):'sem data';
+  const vincEl=document.getElementById('of-os-campo-vinculo');
+  if(vincEl) vincEl.innerHTML=`<span class="rd-badge rd-badge-info">OS ${esc(num)} · ${esc(dt)}</span>`;
+  if(o.cliente_id){
+    _ofClienteSelecionado={id:o.cliente_id, nome:o.cliente||''};
+    setV('of-cli-nome', o.cliente||'');
+    toast('✅ Cliente e OS pré-preenchidos — agora escolha o equipamento');
+  }else{
+    toast('⚠️ Esta OS não tem cliente vinculado à base — busque o cliente manualmente');
+  }
+}
 function _ofRecepcaoAbrir(){
   setV('of-cli-nome',''); setV('of-eq-nome',''); setV('of-obs','');
   setV('of-fabricante',''); setV('of-fabricante-protocolo',''); setV('of-fabricante-nf','');
   const origemSel=document.getElementById('of-origem'); if(origemSel) origemSel.value='balcao';
-  _ofClienteSelecionado=null; _ofEquipamentoSelecionado=null; _ofRetrabalhoDe=null;
+  _ofClienteSelecionado=null; _ofEquipamentoSelecionado=null; _ofRetrabalhoDe=null; _ofOSCampoVinculada=null;
   _ofFotos=[]; _ofEstadoEntrada={};
   const eqInfo=document.getElementById('of-eq-info'); if(eqInfo) eqInfo.style.display='none';
   const novoEqForm=document.getElementById('of-novo-eq-form'); if(novoEqForm) novoEqForm.style.display='none';
+  const osCampoVinc=document.getElementById('of-os-campo-vinculo'); if(osCampoVinc) osCampoVinc.textContent='Nenhuma selecionada';
   _ofToggleCamposFabricante('balcao');
   const avisoEl=document.getElementById('of-retrabalho-aviso'); if(avisoEl){ avisoEl.style.display='none'; avisoEl.innerHTML=''; }
   renderOfChecklist(); renderOfFotosSlots();
 }
 // Origem "garantia de fabricante" (decisão do Marcos: só RASTREIO, sem
-// cobrança/recebimento formal) pede fabricante/protocolo/NF — os outros
-// dois tipos de origem não têm o que perguntar aqui.
+// cobrança/recebimento formal) pede fabricante/protocolo/NF; origem
+// "OS de campo" (Fase 7) pede o vínculo com qual OS foi — as outras
+// combinações não têm campo extra pra mostrar.
 function _ofToggleCamposFabricante(origem){
   const el=document.getElementById('of-campos-fabricante'); if(!el) return;
   el.style.display = origem==='garantia_fabricante' ? 'flex' : 'none';
+  const elOS=document.getElementById('of-campos-os-campo'); if(!elOS) return;
+  elOS.style.display = origem==='os_campo' ? 'flex' : 'none';
 }
 
 // ── Checklist de estado na chegada (Fase 1b, itens variam por tipo desde
@@ -16776,6 +16807,7 @@ async function salvarOficinaRecepcao(){
     equipamento_id: eq.id,
     eq_tipo: eq.tipo||'', eq_marca: eq.marca||'', eq_modelo: eq.modelo||'', eq_potencia: eq.potencia||'', eq_numero_serie: eq.numero_serie||'',
     origem: gV('of-origem')||'balcao',
+    os_campo_id: gV('of-origem')==='os_campo' ? (_ofOSCampoVinculada||null) : null,
     status: 'recebido',
     // jsonb: array/objeto nativo, NUNCA JSON.stringify aqui — dbInsert já
     // serializa; stringificar duas vezes quebra Array.isArray/shape na volta
@@ -16848,6 +16880,56 @@ function selecionarEqModal(id){
   fecharBuscaEq();
   renderOfChecklist();
   _ofVerificarRetrabalho(id);
+}
+
+// ── Vínculo com OS de campo (Fase 7, 18/08) — igual ao vínculo com
+// orçamento (Fase 3), mas na direção contrária: aqui é a OFICINA que
+// aponta pra uma OS já existente, não o orçamento que nasce de dentro do
+// reparo. Cobre o caso "atendente de balcão sabe que o cliente já teve
+// uma visita de campo recente e quer registrar de qual OS veio o item".
+// O outro caminho (técnico em campo aciona "Enviar pra Oficina" direto da
+// OS) preenche o mesmo _ofOSCampoVinculada por fora, sem passar por
+// este modal — ver _ofEnviarDeOS().
+function _osListaParaVinculo(clienteId){
+  if(!clienteId) return [];
+  const map=new Map();
+  [...(todosOS||[]), ...(window._minhasOSAll||[])].forEach(o=>{ if(o.cliente_id===clienteId) map.set(o.id,o); });
+  return [...map.values()].sort((a,b)=>String(b.data_servico||'').localeCompare(String(a.data_servico||'')));
+}
+function abrirBuscaOSCampo(){
+  if(!_ofClienteSelecionado){ toast('⚠️ Selecione o cliente primeiro'); return; }
+  document.getElementById('modal-os-campo-inp').value='';
+  filtrarListaOSCampo('');
+  document.getElementById('modal-busca-os-campo').style.display='flex';
+  setTimeout(()=>document.getElementById('modal-os-campo-inp').focus(),80);
+}
+function fecharBuscaOSCampo(){ document.getElementById('modal-busca-os-campo').style.display='none'; }
+function filtrarListaOSCampo(val){
+  const q=(val||'').toLowerCase().trim();
+  let lista=_osListaParaVinculo(_ofClienteSelecionado?.id);
+  if(q) lista=lista.filter(o=>[String(o.numero||''),o.data_servico,o.local_servico].filter(Boolean).some(v=>String(v).toLowerCase().includes(q)));
+  const el=document.getElementById('modal-os-campo-lista');
+  if(!lista.length){
+    el.innerHTML=`<div style="padding:20px;text-align:center;color:var(--gray);font-size:13px">Nenhuma OS deste cliente encontrada.</div>`;
+    return;
+  }
+  el.innerHTML=lista.map(o=>{
+    const num='#'+String(o.numero||o.id||'').toString().padStart(3,'0');
+    const dt=o.data_servico?_dataBR(o.data_servico):'sem data';
+    return `<div class="modal-cli-item" onmousedown="selecionarOSCampoModal('${esc(o.id)}')">
+      <div class="mcn">${esc(num)} · ${esc(dt)}</div>
+      <div class="mcd">${esc(o.local_servico||'—')}</div>
+    </div>`;
+  }).join('');
+}
+function selecionarOSCampoModal(id){
+  const o=_osListaParaVinculo(_ofClienteSelecionado?.id).find(x=>x.id===id); if(!o) return;
+  _ofOSCampoVinculada=id;
+  const num='#'+String(o.numero||o.id||'').toString().padStart(3,'0');
+  const dt=o.data_servico?_dataBR(o.data_servico):'sem data';
+  const el=document.getElementById('of-os-campo-vinculo');
+  if(el) el.innerHTML=`<span class="rd-badge rd-badge-info">OS ${esc(num)} · ${esc(dt)}</span>`;
+  fecharBuscaOSCampo();
 }
 // Sugestão (não força) de vínculo de retrabalho — mesmo espírito não-
 // bloqueante da sugestão de cliente duplicado que já existe no resto do
@@ -17078,6 +17160,7 @@ function _ofCardKanban(o){
     <div style="font-size:11px;color:var(--gray)">${esc([o.eq_tipo,o.eq_marca,o.eq_potencia].filter(Boolean).join(' · ')||'—')}</div>
     <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:2px">
       ${o.origem==='garantia_fabricante'?'<span class="rd-badge rd-badge-info" style="font-size:10px">🏭 Fabricante</span>':''}
+      ${o.os_campo_id?'<span class="rd-badge rd-badge-neutral" style="font-size:10px">📋 De OS</span>':''}
       ${o.retrabalho_de?'<span class="rd-badge rd-badge-warn" style="font-size:10px">🔁 Retrabalho</span>':''}
     </div>
     ${prox?`<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" style="margin-top:6px;width:100%" onclick="event.stopPropagation();avancarStatusOficina('${o.id}')">Avançar → ${esc(OFICINA_STATUS_LABEL[prox])}</button>`:''}
@@ -17114,6 +17197,7 @@ function abrirFichaOficina(id){
       <div class="rd-field"><span class="rd-field-lbl">Equipamento</span><div>${esc([o.eq_tipo,o.eq_marca,o.eq_modelo,o.eq_potencia].filter(Boolean).join(' · ')||'—')}</div></div>
       ${o.eq_numero_serie?`<div class="rd-field"><span class="rd-field-lbl">Número de série</span><div>${esc(o.eq_numero_serie)}</div></div>`:''}
       <div class="rd-field"><span class="rd-field-lbl">Origem</span><div>${esc(OFICINA_ORIGEM_LABEL[o.origem]||o.origem||'—')}</div></div>
+      ${_ofFichaOSCampoHtml(o)}
       ${_ofFichaFabricanteHtml(o)}
       ${_ofFichaRetrabalhoHtml(o)}
       ${_ofFichaAvariasHtml(o)}
@@ -17147,6 +17231,24 @@ function _ofFichaFabricanteHtml(o){
   return `<div class="rd-field"><span class="rd-field-lbl">Garantia de fabricante</span><div>${linhas.join('<br>')}</div></div>`;
 }
 // Retrabalho + garantia própria da oficina (Fase 4).
+// Vínculo com a OS de campo que originou a entrada (Fase 7, 18/08) — link
+// clicável direto pra abrir a OS, não só o texto solto que já existia.
+function _ofFichaOSCampoHtml(o){
+  if(!o.os_campo_id) return '';
+  const os=_acharOS(o.os_campo_id);
+  const num=os?('#'+String(os.numero||os.id||'').toString().padStart(3,'0')):'—';
+  const dt=os?.data_servico?_dataBR(os.data_servico):'';
+  return `<div class="rd-field"><span class="rd-field-lbl">OS de campo vinculada</span>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <span style="font-size:13px">${esc(num)}${dt?' · '+esc(dt):''}</span>
+      <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="_ofAbrirOSVinculada('${esc(o.os_campo_id)}')">Abrir OS</button>
+    </div>
+  </div>`;
+}
+function _ofAbrirOSVinculada(osId){
+  fecharFichaOficina();
+  editarOS(osId);
+}
 function _ofFichaRetrabalhoHtml(o){
   let h='';
   if(o.retrabalho_de){

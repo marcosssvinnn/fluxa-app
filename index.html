@@ -2768,6 +2768,18 @@
         <div class="rd-field"><span class="rd-field-lbl">Protocolo / RMA (se houver)</span><input type="text" id="of-fabricante-protocolo" class="rd-field-box"></div>
         <div class="rd-field"><span class="rd-field-lbl">NF de compra original (se o cliente trouxer)</span><input type="text" id="of-fabricante-nf" class="rd-field-box"></div>
       </div>
+      <!-- Vínculo com a OS de campo que trouxe o equipamento (Fase 7, 18/08)
+           — mesmo espírito do vínculo com orçamento (Fase 3): não bloqueia
+           salvar sem escolher, só oferece o vínculo quando dá pra apontar
+           qual OS foi. -->
+      <div id="of-campos-os-campo" style="display:none;flex-direction:column;gap:8px">
+        <div class="rd-field"><span class="rd-field-lbl">Qual OS de campo?</span>
+          <div style="display:flex;gap:6px;align-items:center">
+            <div id="of-os-campo-vinculo" style="flex:1;font-size:13px;color:var(--gray)">Nenhuma selecionada</div>
+            <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="abrirBuscaOSCampo()">🔍 Buscar</button>
+          </div>
+        </div>
+      </div>
       <div id="of-retrabalho-aviso" style="display:none"></div>
       <div class="rd-field">
         <span class="rd-field-lbl">Estado de chegada — evita disputa de "isso já veio quebrado assim"</span>
@@ -3372,6 +3384,20 @@
       <div class="rd-field"><span class="rd-field-lbl">Número de série</span><input type="text" id="of-novo-eq-serie" class="rd-field-box"></div>
       <button type="button" class="rd-btn rd-btn-primary" style="align-self:flex-start" onclick="_ofCadastrarEquipamentoInline()">💾 Salvar e selecionar</button>
     </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: busca de OS de campo pra vincular à entrada da oficina
+     (Fase 7, 18/08) — lista só as OS do cliente já selecionado na
+     recepção, mesmo espírito do modal de busca de equipamento. -->
+<div class="modal-cli-bg" id="modal-busca-os-campo" style="display:none" onclick="if(event.target===this)fecharBuscaOSCampo()">
+  <div class="modal-cli-box">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div style="font-size:15px;font-weight:700;color:var(--c2)">Buscar OS de campo</div>
+      <button onclick="fecharBuscaOSCampo()" aria-label="Fechar" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--gray);line-height:1">×</button>
+    </div>
+    <input class="modal-cli-inp" id="modal-os-campo-inp" type="text" placeholder="Número, data ou local do serviço..." oninput="filtrarListaOSCampo(this.value)" autocomplete="off">
+    <div class="modal-cli-lista" id="modal-os-campo-lista"></div>
   </div>
 </div>
 
