@@ -31,6 +31,7 @@ let todosFornecedores = [], todasOC = [], todosProdutos = [], todosMovEstoque = 
 // Oficina (recepção/reparo de bancada) — declarado no topo pelo mesmo motivo
 // das linhas acima: evitar TDZ se algum ponto do boot vier a referenciar cedo.
 let todosOficinaReparos = [], _ofClienteSelecionado = null, _ofEquipamentoSelecionado = null;
+let _ofFotos = [], _ofEstadoEntrada = {};
 
 // ── Log de auditoria (quem fez o quê) ──
 let _auditoria = [];
@@ -16549,7 +16550,111 @@ function _ofRecepcaoAbrir(){
   setV('of-cli-nome',''); setV('of-eq-nome',''); setV('of-obs','');
   const origemSel=document.getElementById('of-origem'); if(origemSel) origemSel.value='balcao';
   _ofClienteSelecionado=null; _ofEquipamentoSelecionado=null;
+  _ofFotos=[]; _ofEstadoEntrada={};
   const eqInfo=document.getElementById('of-eq-info'); if(eqInfo) eqInfo.style.display='none';
+  const novoEqForm=document.getElementById('of-novo-eq-form'); if(novoEqForm) novoEqForm.style.display='none';
+  renderOfChecklist(); renderOfFotosSlots();
+}
+
+// ── Checklist de estado na chegada (Fase 1b) — evita disputa de "isso já
+// veio quebrado assim". 2 estados por item (OK/Com avaria, clicar de novo
+// desmarca) — mais simples que o checklist de vistoria (4 estados), que
+// avalia funcionamento; aqui é só registrar o que já veio danificado.
+const OFICINA_CHECKLIST_ITENS=[
+  {id:'carcaca', label:'Carcaça / estrutura externa'},
+  {id:'cabo', label:'Cabo e plugue'},
+  {id:'acessorios', label:'Acessórios entregues junto'},
+  {id:'liga', label:'Liga ao testar na recepção'}
+];
+function renderOfChecklist(){
+  const el=document.getElementById('of-checklist'); if(!el) return;
+  el.innerHTML=OFICINA_CHECKLIST_ITENS.map(it=>{
+    const st=_ofEstadoEntrada[it.id]||{};
+    return `<div style="display:flex;flex-direction:column;gap:5px">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span style="font-size:13px;color:var(--c2);flex:1;min-width:140px">${esc(it.label)}</span>
+        <button type="button" class="vis-status-btn${st.status==='ok'?' sel-bom':''}" style="flex:none;min-width:56px" onclick="setOfChecklistItem('${it.id}','ok')">OK</button>
+        <button type="button" class="vis-status-btn${st.status==='avaria'?' sel-atencao':''}" style="flex:none;min-width:76px" onclick="setOfChecklistItem('${it.id}','avaria')">Com avaria</button>
+      </div>
+      ${st.status==='avaria'?`<input type="text" class="rd-field-box" placeholder="Descreva a avaria…" value="${esc(st.obs||'')}" oninput="setOfChecklistObs('${it.id}',this.value)">`:''}
+    </div>`;
+  }).join('');
+}
+function setOfChecklistItem(itemId, status){
+  const atual=_ofEstadoEntrada[itemId]||{};
+  _ofEstadoEntrada[itemId] = atual.status===status ? {} : {status, obs:atual.obs||''}; // clicar de novo desmarca
+  renderOfChecklist();
+}
+function setOfChecklistObs(itemId, val){
+  if(!_ofEstadoEntrada[itemId]) _ofEstadoEntrada[itemId]={status:'avaria'};
+  _ofEstadoEntrada[itemId].obs=val;
+}
+
+// ── Fotos da chegada (Fase 1b) — mesmo padrão de renderFotosOrcSlots, 4
+// slots (documentação de entrada não precisa dos 6 do orçamento), reusa
+// compressImage() já existente.
+function renderOfFotosSlots(){
+  const grid=document.getElementById('of-fotos-grid'); if(!grid) return;
+  grid.innerHTML='';
+  for(let i=0;i<4;i++){
+    const slot=document.createElement('div');
+    slot.className='fotos-orc-slot'+(_ofFotos[i]?' filled':'');
+    slot.innerHTML=`
+      <input type="file" id="of-foto-inp-${i}" accept="image/*" style="display:none" onchange="carregarFotoOf(this,${i})">
+      ${_ofFotos[i]?`<img src="${_ofFotos[i]}" alt="foto ${i+1}">`:''}
+      <div class="fotos-orc-slot-icon">📷</div>
+      <div class="fotos-orc-slot-lbl">Foto ${i+1}</div>
+      <button class="fotos-orc-rm" onclick="event.stopPropagation();removerFotoOf(${i})" title="Remover">✕</button>`;
+    slot.addEventListener('click',()=>document.getElementById(`of-foto-inp-${i}`).click());
+    grid.appendChild(slot);
+  }
+}
+function carregarFotoOf(inp, idx){
+  const f=inp.files[0]; if(!f) return;
+  if(f.size > FOTO_MAX_BYTES){ toast('⚠️ Foto muito grande (máx 20 MB).'); inp.value=''; return; }
+  const r=new FileReader();
+  r.onload=async e=>{ _ofFotos[idx]=await compressImage(e.target.result); renderOfFotosSlots(); };
+  r.readAsDataURL(f);
+}
+function removerFotoOf(idx){
+  _ofFotos[idx]=null;
+  while(_ofFotos.length && !_ofFotos[_ofFotos.length-1]) _ofFotos.pop();
+  renderOfFotosSlots();
+}
+
+// ── Cadastro inline de equipamento novo (Fase 1b) — dentro do próprio modal
+// de busca, sem abrir uma segunda tela por cima. Mesma lógica local-first de
+// salvarEquipamento(), mas construída direto (o form completo de
+// Equipamentos não está no DOM aqui — é um modal compacto, só os campos que
+// a oficina realmente precisa pra identificar o item).
+function _ofToggleNovoEq(){
+  const el=document.getElementById('of-novo-eq-form'); if(!el) return;
+  const mostrar = el.style.display==='none'||!el.style.display;
+  el.style.display = mostrar?'flex':'none';
+  if(mostrar){ setV('of-novo-eq-tipo',''); setV('of-novo-eq-marca',''); setV('of-novo-eq-modelo',''); setV('of-novo-eq-serie',''); }
+}
+async function _ofCadastrarEquipamentoInline(){
+  if(!_ofClienteSelecionado){ toast('⚠️ Selecione o cliente primeiro'); return; }
+  const tipo=gV('of-novo-eq-tipo');
+  if(!tipo){ toast('⚠️ Informe o tipo do equipamento'); return; }
+  const dados={
+    cliente_nome:_ofClienteSelecionado.nome, cliente_id:_ofClienteSelecionado.id,
+    tipo, marca:gV('of-novo-eq-marca'), modelo:gV('of-novo-eq-modelo'),
+    numero_serie:gV('of-novo-eq-serie'), garantia_meses:12, ativo:true,
+    loja_id: lojaAtiva||LOJA_PADRAO_ID
+  };
+  let idAtual='eq_'+Date.now();
+  todosEq.unshift({...dados, id:idAtual, data_criacao:new Date().toISOString()});
+  lsEqSalvar(todosEq);
+  if(dbOk&&db){
+    try{
+      const {data:ins}=await dbInsert('equipamentos', dados);
+      if(ins){ todosEq=todosEq.filter(x=>x.id!==idAtual); todosEq.unshift(ins); lsEqSalvar(todosEq); idAtual=ins.id; }
+    }catch(e){ console.warn('[oficina eq inline]', e?.message||e); }
+  }
+  document.getElementById('of-novo-eq-form').style.display='none';
+  selecionarEqModal(idAtual);
+  toast('✅ Equipamento cadastrado');
 }
 
 async function salvarOficinaRecepcao(){
@@ -16569,6 +16674,11 @@ async function salvarOficinaRecepcao(){
     eq_tipo: eq.tipo||'', eq_marca: eq.marca||'', eq_modelo: eq.modelo||'', eq_numero_serie: eq.numero_serie||'',
     origem: gV('of-origem')||'balcao',
     status: 'recebido',
+    // jsonb: array/objeto nativo, NUNCA JSON.stringify aqui — dbInsert já
+    // serializa; stringificar duas vezes quebra Array.isArray/shape na volta
+    // (mesmo bug de classe já corrigido em ordens_compra.itens).
+    estado_entrada: {itens:_ofEstadoEntrada},
+    fotos_entrada: _ofFotos.filter(Boolean),
     obs_entrada: gV('of-obs')||'',
     data_criacao: new Date().toISOString()
   };
@@ -16678,10 +16788,27 @@ function abrirFichaOficina(id){
       <div class="rd-field"><span class="rd-field-lbl">Equipamento</span><div>${esc([o.eq_tipo,o.eq_marca,o.eq_modelo].filter(Boolean).join(' · ')||'—')}</div></div>
       ${o.eq_numero_serie?`<div class="rd-field"><span class="rd-field-lbl">Número de série</span><div>${esc(o.eq_numero_serie)}</div></div>`:''}
       <div class="rd-field"><span class="rd-field-lbl">Origem</span><div>${esc(OFICINA_ORIGEM_LABEL[o.origem]||o.origem||'—')}</div></div>
+      ${_ofFichaAvariasHtml(o)}
+      ${_ofFichaFotosHtml(o)}
       ${o.obs_entrada?`<div class="rd-field"><span class="rd-field-lbl">Observação na entrada</span><div>${esc(o.obs_entrada)}</div></div>`:''}
     </div>
   </div>`;
   document.body.appendChild(bg);
+}
+function _ofFichaAvariasHtml(o){
+  let itens=o.estado_entrada;
+  if(typeof itens==='string'){ try{ itens=JSON.parse(itens||'{}'); }catch(e){ itens={}; } }
+  itens=(itens&&itens.itens)||{};
+  const avarias=OFICINA_CHECKLIST_ITENS.filter(it=>itens[it.id]?.status==='avaria');
+  if(!avarias.length) return '';
+  return `<div class="rd-field"><span class="rd-field-lbl">Avarias na entrada</span><div>${avarias.map(it=>esc(it.label+(itens[it.id].obs?': '+itens[it.id].obs:''))).join('<br>')}</div></div>`;
+}
+function _ofFichaFotosHtml(o){
+  let fotos=o.fotos_entrada;
+  if(typeof fotos==='string'){ try{ fotos=JSON.parse(fotos||'[]'); }catch(e){ fotos=[]; } }
+  fotos=(Array.isArray(fotos)?fotos:[]).filter(Boolean);
+  if(!fotos.length) return '';
+  return `<div class="rd-field"><span class="rd-field-lbl">Fotos da chegada</span><div style="display:flex;gap:6px;flex-wrap:wrap">${fotos.map(f=>`<img src="${f}" style="width:70px;height:70px;object-fit:cover;border-radius:6px;border:1px solid var(--line-soft,var(--gray-light))">`).join('')}</div></div>`;
 }
 function fecharFichaOficina(){ document.getElementById('of-ficha-overlay')?.remove(); }
 

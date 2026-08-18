@@ -87,6 +87,52 @@ entrada com assinatura + impressão + exibição do `OF-#####` de verdade
 
 sw.js: fluxa-v167 → fluxa-v168.
 
+### ✅ Fase 1b — fotos de entrada + checklist + cadastro inline de equipamento (17/08)
+
+Sem migração nova — `estado_entrada`/`fotos_entrada` já existiam na tabela
+desde a Fase 1a (colunas jsonb vazias por padrão), só faltava o JS.
+
+- **Checklist de estado na chegada** (`OFICINA_CHECKLIST_ITENS`,
+  `renderOfChecklist`/`setOfChecklistItem`/`setOfChecklistObs`) — 4 itens
+  fixos (carcaça, cabo/plugue, acessórios, liga ao testar), 2 estados por
+  item (OK/Com avaria via `.vis-status-btn.sel-bom`/`.sel-atencao`, mesmas
+  classes já usadas em Vistoria — reuso visual direto), clicar de novo no
+  mesmo estado desmarca. Campo de observação só aparece quando marcado "Com
+  avaria". Mais simples de propósito que o checklist de 4 estados da
+  Vistoria (que avalia funcionamento) — aqui é só registrar dano
+  pré-existente, pra não virar disputa depois.
+- **Fotos da chegada** (`renderOfFotosSlots`/`carregarFotoOf`/
+  `removerFotoOf`) — clone direto do grid de 6 fotos do orçamento
+  (`renderFotosOrcSlots`, `app.js:3390`), só com 4 slots (documentação de
+  entrada não precisa de tantas) e SEM `capture="environment"` no `<input
+  type=file>` — omitir esse atributo é o padrão já estabelecido desde o
+  Sprint 3 mobile (deixa o próprio celular oferecer Câmera OU Galeria).
+  Reusa `compressImage()` existente, sem duplicar.
+- **Cadastro inline de equipamento** dentro do próprio modal de busca
+  (`_ofToggleNovoEq`/`_ofCadastrarEquipamentoInline`) — não reaproveita
+  `salvarEquipamento()` literal (ela lê de campos do form completo de
+  Equipamentos, que não existem neste modal compacto); é uma versão
+  enxuta com só tipo/marca/modelo/série, mesma lógica local-first
+  (`todosEq.unshift` + `dbInsert` + reconciliação de id temporário → real
+  quando online). Ao salvar, já chama `selecionarEqModal()` — item
+  cadastrado e selecionado num só passo.
+- Ficha (`abrirFichaOficina`) ganhou `_ofFichaAvariasHtml`/
+  `_ofFichaFotosHtml` — mostra avarias marcadas + miniaturas das fotos,
+  com parsing defensivo (aceita `estado_entrada`/`fotos_entrada` tanto como
+  objeto/array nativo quanto como string JSON, mesmo cuidado de sempre com
+  campos jsonb vindos do Supabase).
+
+Testado no Browser pane (offline, mesma disciplina de sempre — bare
+`dbOk=false;db=null;`, zero chamada a `*.supabase.co` confirmada via
+`read_network_requests`): toggle do checklist (marcar/observação/desmarcar);
+slot de foto preenchendo e mostrando miniatura; cadastro inline criando o
+equipamento, vinculando ao `cliente_id` certo e selecionando sozinho;
+`_ofFichaAvariasHtml`/`_ofFichaFotosHtml` testadas isoladamente com dado
+direto e com dado stringificado (os dois parseiam certo). Sem erros novos
+no console.
+
+sw.js: fluxa-v168 → fluxa-v169.
+
 ---
 
 ## Auditoria do fluxo orçamento → OS → conclusão, a pedido do Marcos (17/08)

@@ -2728,6 +2728,14 @@
         </select>
       </div>
       <div class="rd-field">
+        <span class="rd-field-lbl">Estado de chegada — evita disputa de "isso já veio quebrado assim"</span>
+        <div id="of-checklist" style="display:flex;flex-direction:column;gap:8px"></div>
+      </div>
+      <div class="rd-field">
+        <span class="rd-field-lbl">Fotos da chegada</span>
+        <div class="fotos-orc-grid" id="of-fotos-grid" style="grid-template-columns:repeat(4,1fr)"></div>
+      </div>
+      <div class="rd-field">
         <span class="rd-field-lbl">Observação (o que o cliente relatou)</span>
         <textarea id="of-obs" class="rd-field-box" rows="3" placeholder="Ex.: motobomba fazendo ruído, não liga…"></textarea>
       </div>
@@ -3306,6 +3314,21 @@
     </div>
     <input class="modal-cli-inp" id="modal-eq-inp" type="text" placeholder="Tipo, marca, modelo ou número de série..." oninput="filtrarListaEq(this.value)" autocomplete="off">
     <div class="modal-cli-lista" id="modal-eq-lista"></div>
+    <button type="button" class="rd-btn-link" style="margin-top:8px;font-size:13px" onclick="_ofToggleNovoEq()">+ Não achei, cadastrar equipamento novo</button>
+    <div id="of-novo-eq-form" style="display:none;flex-direction:column;gap:10px;margin-top:10px;padding-top:12px;border-top:1px solid var(--gray-light)">
+      <div class="rd-field"><span class="rd-field-lbl">Tipo</span>
+        <select id="of-novo-eq-tipo" class="rd-field-box">
+          <option value="">Selecione…</option>
+          <option>Motobomba</option><option>Filtro</option><option>Trocador de Calor</option>
+          <option>Gerador de Cloro</option><option>LED Subaquático</option>
+          <option>Spa / Hidro</option><option>Sauna</option><option>Automação</option><option>Outro</option>
+        </select>
+      </div>
+      <div class="rd-field"><span class="rd-field-lbl">Marca</span><input type="text" id="of-novo-eq-marca" class="rd-field-box"></div>
+      <div class="rd-field"><span class="rd-field-lbl">Modelo</span><input type="text" id="of-novo-eq-modelo" class="rd-field-box"></div>
+      <div class="rd-field"><span class="rd-field-lbl">Número de série</span><input type="text" id="of-novo-eq-serie" class="rd-field-box"></div>
+      <button type="button" class="rd-btn rd-btn-primary" style="align-self:flex-start" onclick="_ofCadastrarEquipamentoInline()">💾 Salvar e selecionar</button>
+    </div>
   </div>
 </div>
 
