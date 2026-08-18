@@ -684,12 +684,35 @@ auto-update do app (`HEAD /?_v=...` periódico) batendo no servidor de
 teste local durante os reinícios que fiz entre uma rodada e outra — não
 tem relação com o código, confirmado lendo a lista de requests.
 
-**Continua sem UI** (gap conhecido, não pedido nesta rodada — ver seção
-"falta alguma coisa" anterior): o campo `diagnostico` (text, existe no
-banco desde a Fase 1) ainda não tem lugar na ficha pro técnico escrever o
-laudo antes de gerar o orçamento de conserto.
-
 sw.js: fluxa-v179 → fluxa-v180.
+
+### 📝 Campo "Diagnóstico" (Fase 8, 18/08) — resolve o gap registrado acima
+
+Marcos pediu pra resolver logo em seguida. `diagnostico` (text) existia no
+banco desde a Fase 1 mas nunca teve onde ser escrito.
+
+`_ofFichaDiagnosticoHtml(o)` — textarea editável na ficha (não trava por
+status; o técnico pode complementar o laudo a qualquer momento, mesmo
+depois de já ter avançado o reparo), id fixo `#of-ficha-diagnostico`
+(seguro porque só uma ficha fica aberta por vez no DOM, mesmo raciocínio
+de `#of-ficha-overlay`). `salvarOficinaDiagnostico(reparoId)` — local-first
+(`todosOficinaReparos` + `lsOfSalvar`) + `dbUpdate` quando online, toast de
+confirmação. Inserido na ficha entre "Observação na entrada" e "Orçamento
+de conserto" — ordem cronológica real (entrada → diagnóstico → orçamento).
+
+**Ganho extra de usabilidade, não pedido mas de baixo risco**:
+`criarOrcamentoDaOficina()` agora inclui o diagnóstico na `nota-interna`
+pré-preenchida do orçamento gerado (`Orçamento de conserto — OF-XXXXX` +
+`\nDiagnóstico: ...` quando existe) — quem for montar os serviços do
+orçamento já vê o laudo sem precisar voltar na ficha da oficina.
+
+Testado no Browser pane (offline, clique real): abri a ficha de um reparo
+mock → escrevi o diagnóstico → salvei (toast confirmando) → fechei e
+reabri a ficha → texto persistiu no textarea → cliquei "Gerar orçamento" →
+`nota-interna` já veio com "Orçamento de conserto — OF-00088\nDiagnóstico:
+...". Sem chamada a `*.supabase.co`, sem erro novo no console.
+
+sw.js: fluxa-v180 → fluxa-v181.
 
 ---
 

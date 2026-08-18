@@ -17203,6 +17203,7 @@ function abrirFichaOficina(id){
       ${_ofFichaAvariasHtml(o)}
       ${_ofFichaFotosHtml(o)}
       ${o.obs_entrada?`<div class="rd-field"><span class="rd-field-lbl">Observação na entrada</span><div>${esc(o.obs_entrada)}</div></div>`:''}
+      ${_ofFichaDiagnosticoHtml(o)}
       ${_ofFichaOrcamentoHtml(o)}
       <div class="rd-field">
         <span class="rd-field-lbl">Termo de entrada</span>
@@ -17248,6 +17249,28 @@ function _ofFichaOSCampoHtml(o){
 function _ofAbrirOSVinculada(osId){
   fecharFichaOficina();
   editarOS(osId);
+}
+// Diagnóstico (Fase 8, 18/08) — a coluna já existia no banco desde a
+// Fase 1, mas nunca teve onde ser escrito. Campo livre, editável a
+// qualquer momento (não trava por status — o técnico pode complementar o
+// laudo depois de já ter avançado o reparo). Id fixo no textarea porque só
+// uma ficha fica aberta por vez no DOM (mesmo padrão de #of-ficha-overlay).
+function _ofFichaDiagnosticoHtml(o){
+  return `<div class="rd-field"><span class="rd-field-lbl">Diagnóstico</span>
+    <textarea id="of-ficha-diagnostico" class="rd-field-box" rows="3" placeholder="O que foi encontrado ao examinar o equipamento…">${esc(o.diagnostico||'')}</textarea>
+    <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" style="margin-top:6px;align-self:flex-start" onclick="salvarOficinaDiagnostico('${o.id}')">💾 Salvar diagnóstico</button>
+  </div>`;
+}
+async function salvarOficinaDiagnostico(reparoId){
+  const val=(gV('of-ficha-diagnostico')||'').trim();
+  const idx=(todosOficinaReparos||[]).findIndex(x=>x.id===reparoId); if(idx<0) return;
+  todosOficinaReparos[idx]={...todosOficinaReparos[idx], diagnostico:val};
+  lsOfSalvar(todosOficinaReparos);
+  if(dbOk&&db){
+    try{ await dbUpdate('oficina_reparos', {diagnostico:val}, 'id', reparoId); }
+    catch(e){ console.warn('[oficina diagnostico]', e?.message||e); }
+  }
+  toast('✅ Diagnóstico salvo');
 }
 function _ofFichaRetrabalhoHtml(o){
   let h='';
@@ -17420,7 +17443,7 @@ function criarOrcamentoDaOficina(reparoId){
   setV('cli', o.cliente_nome||'');
   _orcClienteSelecionado = o.cliente_id ? {id:o.cliente_id, nome:o.cliente_nome} : null;
   if(!gV('origem-cli')) setOrigemCli('Já é cliente');
-  setV('nota-interna', `Orçamento de conserto — ${num}`);
+  setV('nota-interna', `Orçamento de conserto — ${num}`+(o.diagnostico?`\nDiagnóstico: ${o.diagnostico}`:''));
   if(o.loja_id) setV('orc-loja', o.loja_id);
   fecharFichaOficina();
   toast('Novo orçamento vinculado a '+num+' — preencha os serviços e salve.');
