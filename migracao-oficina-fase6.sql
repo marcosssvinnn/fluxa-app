@@ -1,0 +1,14 @@
+-- ══════════════════════════════════════════════════════════════════════════════
+--  OFICINA — Fase 6: campo "Potência" no snapshot de equipamento (18/08)
+--
+--  Feedback do Marcos: equipamento que dá entrada na oficina normalmente
+--  NÃO está cadastrado no sistema (qualquer marca/modelo/potência) — o
+--  atendente cadastra na hora com o que consegue identificar. tipo/marca/
+--  modelo/número de série já eram snapshotados em oficina_reparos desde a
+--  Fase 1; faltava "potência" (campo que já existe em equipamentos.potencia,
+--  usado no cadastro normal — só não tinha sido levado pro cadastro inline
+--  dentro da oficina nem pro snapshot).
+--
+--  100% aditivo.
+-- ══════════════════════════════════════════════════════════════════════════════
+ALTER TABLE oficina_reparos ADD COLUMN IF NOT EXISTS eq_potencia text;

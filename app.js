@@ -16679,7 +16679,7 @@ function _ofToggleNovoEq(){
   const el=document.getElementById('of-novo-eq-form'); if(!el) return;
   const mostrar = el.style.display==='none'||!el.style.display;
   el.style.display = mostrar?'flex':'none';
-  if(mostrar){ setV('of-novo-eq-tipo',''); setV('of-novo-eq-marca',''); setV('of-novo-eq-modelo',''); setV('of-novo-eq-serie',''); }
+  if(mostrar){ setV('of-novo-eq-tipo',''); setV('of-novo-eq-marca',''); setV('of-novo-eq-modelo',''); setV('of-novo-eq-potencia',''); setV('of-novo-eq-serie',''); }
 }
 async function _ofCadastrarEquipamentoInline(){
   if(!_ofClienteSelecionado){ toast('⚠️ Selecione o cliente primeiro'); return; }
@@ -16687,7 +16687,7 @@ async function _ofCadastrarEquipamentoInline(){
   if(!tipo){ toast('⚠️ Informe o tipo do equipamento'); return; }
   const dados={
     cliente_nome:_ofClienteSelecionado.nome, cliente_id:_ofClienteSelecionado.id,
-    tipo, marca:gV('of-novo-eq-marca'), modelo:gV('of-novo-eq-modelo'),
+    tipo, marca:gV('of-novo-eq-marca'), modelo:gV('of-novo-eq-modelo'), potencia:gV('of-novo-eq-potencia'),
     numero_serie:gV('of-novo-eq-serie'), garantia_meses:12, ativo:true,
     loja_id: lojaAtiva||LOJA_PADRAO_ID
   };
@@ -16719,7 +16719,7 @@ async function salvarOficinaRecepcao(){
     cliente_id: _ofClienteSelecionado.id,
     cliente_nome: nome,
     equipamento_id: eq.id,
-    eq_tipo: eq.tipo||'', eq_marca: eq.marca||'', eq_modelo: eq.modelo||'', eq_numero_serie: eq.numero_serie||'',
+    eq_tipo: eq.tipo||'', eq_marca: eq.marca||'', eq_modelo: eq.modelo||'', eq_potencia: eq.potencia||'', eq_numero_serie: eq.numero_serie||'',
     origem: gV('of-origem')||'balcao',
     status: 'recebido',
     // jsonb: array/objeto nativo, NUNCA JSON.stringify aqui — dbInsert já
@@ -16767,7 +16767,7 @@ function fecharBuscaEq(){ document.getElementById('modal-busca-eq').style.displa
 function filtrarListaEq(val){
   const q=(val||'').toLowerCase().trim();
   let lista=(todosEq||[]).filter(e=>e.ativo!==false && e.cliente_id===_ofClienteSelecionado?.id);
-  if(q) lista=lista.filter(e=>[e.tipo,e.marca,e.modelo,e.numero_serie].filter(Boolean).some(v=>String(v).toLowerCase().includes(q)));
+  if(q) lista=lista.filter(e=>[e.tipo,e.marca,e.modelo,e.potencia,e.numero_serie].filter(Boolean).some(v=>String(v).toLowerCase().includes(q)));
   const el=document.getElementById('modal-eq-lista');
   if(!lista.length){
     el.innerHTML=`<div style="padding:20px;text-align:center;color:var(--gray);font-size:13px">Nenhum equipamento deste cliente encontrado.</div>`;
@@ -16775,7 +16775,7 @@ function filtrarListaEq(val){
   }
   el.innerHTML=lista.map(e=>`
     <div class="modal-cli-item" onmousedown="selecionarEqModal('${esc(e.id)}')">
-      <div class="mcn">${esc(e.tipo||'—')}${e.marca?' · '+esc(e.marca):''}${e.modelo?' '+esc(e.modelo):''}</div>
+      <div class="mcn">${esc(e.tipo||'—')}${e.marca?' · '+esc(e.marca):''}${e.modelo?' '+esc(e.modelo):''}${e.potencia?' · '+esc(e.potencia):''}</div>
       <div class="mcd">${e.numero_serie?esc('Série '+e.numero_serie):'—'}</div>
     </div>`).join('');
 }
@@ -16783,7 +16783,7 @@ function selecionarEqModal(id){
   const eq=(todosEq||[]).find(e=>e.id===id); if(!eq) return;
   _ofEquipamentoSelecionado=eq;
   _ofRetrabalhoDe=null; // troca de equipamento invalida qualquer sugestão anterior
-  setV('of-eq-nome', [eq.tipo,eq.marca,eq.modelo].filter(Boolean).join(' · '));
+  setV('of-eq-nome', [eq.tipo,eq.marca,eq.modelo,eq.potencia].filter(Boolean).join(' · '));
   const eqInfo=document.getElementById('of-eq-info');
   if(eqInfo){ eqInfo.style.display=''; eqInfo.textContent=eq.numero_serie?('Nº de série: '+eq.numero_serie):'Sem número de série cadastrado'; }
   fecharBuscaEq();
@@ -17015,7 +17015,7 @@ function _ofCardKanban(o){
   return `<div class="rd-card rd-card-dense" style="cursor:pointer" tabindex="0" role="button" onclick="abrirFichaOficina('${o.id}')" onkeydown="if(event.key==='Enter'){abrirFichaOficina('${o.id}')}">
     <div style="font-size:11px;color:var(--gray)">${esc(num)}${dias!=null?' · '+dias+'d':''}</div>
     <div style="font-size:13px;font-weight:600;color:var(--c2)">${esc(o.cliente_nome||'—')}</div>
-    <div style="font-size:11px;color:var(--gray)">${esc([o.eq_tipo,o.eq_marca].filter(Boolean).join(' · ')||'—')}</div>
+    <div style="font-size:11px;color:var(--gray)">${esc([o.eq_tipo,o.eq_marca,o.eq_potencia].filter(Boolean).join(' · ')||'—')}</div>
     <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:2px">
       ${o.origem==='garantia_fabricante'?'<span class="rd-badge rd-badge-info" style="font-size:10px">🏭 Fabricante</span>':''}
       ${o.retrabalho_de?'<span class="rd-badge rd-badge-warn" style="font-size:10px">🔁 Retrabalho</span>':''}
@@ -17051,7 +17051,7 @@ function abrirFichaOficina(id){
       <div class="rd-field"><span class="rd-field-lbl">Mudar status</span>
         <select class="rd-field-box" onchange="setOficinaStatus('${o.id}', this.value)">${statusOpts}</select>
       </div>
-      <div class="rd-field"><span class="rd-field-lbl">Equipamento</span><div>${esc([o.eq_tipo,o.eq_marca,o.eq_modelo].filter(Boolean).join(' · ')||'—')}</div></div>
+      <div class="rd-field"><span class="rd-field-lbl">Equipamento</span><div>${esc([o.eq_tipo,o.eq_marca,o.eq_modelo,o.eq_potencia].filter(Boolean).join(' · ')||'—')}</div></div>
       ${o.eq_numero_serie?`<div class="rd-field"><span class="rd-field-lbl">Número de série</span><div>${esc(o.eq_numero_serie)}</div></div>`:''}
       <div class="rd-field"><span class="rd-field-lbl">Origem</span><div>${esc(OFICINA_ORIGEM_LABEL[o.origem]||o.origem||'—')}</div></div>
       ${_ofFichaFabricanteHtml(o)}
@@ -17228,7 +17228,7 @@ function imprimirTermoOficina(reparoId, tipo){
   <h1>${esc(titulo)} — ${esc(num)}</h1>
   <div class="sub">${new Date().toLocaleDateString('pt-BR')}</div>
   <div class="linha"><span>Cliente</span><b>${esc(o.cliente_nome||'—')}</b></div>
-  <div class="linha"><span>Equipamento</span><b>${esc([o.eq_tipo,o.eq_marca,o.eq_modelo].filter(Boolean).join(' · ')||'—')}</b></div>
+  <div class="linha"><span>Equipamento</span><b>${esc([o.eq_tipo,o.eq_marca,o.eq_modelo,o.eq_potencia].filter(Boolean).join(' · ')||'—')}</b></div>
   ${o.eq_numero_serie?`<div class="linha"><span>Número de série</span><b>${esc(o.eq_numero_serie)}</b></div>`:''}
   ${avarias.length?`<div class="bloco"><h3>Estado na chegada</h3><ul>${avarias.map(a=>`<li>${a}</li>`).join('')}</ul></div>`:''}
   ${o.obs_entrada?`<div class="bloco"><h3>Observação</h3><div style="font-size:13px">${esc(o.obs_entrada)}</div></div>`:''}

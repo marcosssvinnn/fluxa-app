@@ -530,6 +530,78 @@ chamada a `*.supabase.co`.
 
 sw.js: fluxa-v176 → fluxa-v177.
 
+### 🔧 Feedback do Marcos sobre a Recepção — 3 pontos, 1 resolvido (18/08)
+
+O Marcos testou o formulário de entrada e trouxe 3 observações no mesmo
+áudio. Investiguei cada uma no código real antes de agir — 1 já estava
+resolvida (só precisava confirmar), 1 era um gap real e corrigido, 1 é
+decisão de produto e ficou registrada como pergunta em aberto.
+
+**1. Cliente — já integra com a base toda, confirmado (nenhuma mudança).**
+`abrirBuscaEq()`/busca de cliente na Oficina usa o mesmo `abrirBuscaCli('of')`
+→ `filtrarListaCli()` que Orçamento/OS/Vistoria já usam — lê `lsCliLer()`,
+a base completa de clientes sincronizada. Confirmado com clique real no
+Browser pane: busquei "Cliente Potência Teste" e o cliente cadastrado
+apareceu na lista, igual qualquer outro módulo.
+
+**2. Equipamento — faltava o campo "Potência", corrigido
+(`migracao-oficina-fase6.sql`, já aplicada e verificada no banco).** O
+Marcos está certo: equipamento que chega na oficina normalmente não está
+cadastrado (qualquer marca/modelo/potência) — por isso o cadastro é
+inline, na hora, dentro do próprio modal de busca (`_ofCadastrarEquipamentoInline`,
+desde a Fase 1b). Mas esse formulário inline tinha só
+tipo/marca/modelo/número de série — faltava **potência**, que é justamente
+o dado que mais ajuda a diferenciar (ex.: duas motobombas Dancor do mesmo
+cliente, só a potência distingue qual é qual). O campo já existia no
+cadastro GERAL de Equipamentos (`eq-potencia`, tela própria) — só não tinha
+sido levado pro atalho de dentro da oficina.
+
+- `index.html`: campo "Potência" novo no `#of-novo-eq-form`.
+- `app.js`: `_ofCadastrarEquipamentoInline()` grava `potencia` no
+  equipamento; `oficina_reparos` ganhou coluna `eq_potencia` (snapshot,
+  mesmo padrão de `eq_marca`/`eq_modelo` — grava o estado do equipamento
+  NA ENTRADA, não muda se o cadastro geral for editado depois). Aparece em
+  TODOS os pontos que já mostravam marca/modelo: resumo na própria tela de
+  entrada (`of-eq-nome`), busca de equipamento (`filtrarListaEq`), card do
+  kanban, ficha do reparo, termo de entrada/retirada impresso.
+- `migracao-oficina-fase6.sql` — `ALTER TABLE oficina_reparos ADD COLUMN
+  IF NOT EXISTS eq_potencia text;`, 100% aditiva, aplicada via Management
+  API e confirmada (`information_schema.columns`).
+
+Testado no Browser pane (offline, clique real, ciclo completo): busquei
+cliente real → cadastrei equipamento novo inline com potência "1/2 CV" →
+resumo na tela mostrou "Motobomba · Dancor · CAM-W1 · 1/2 CV" → registrei
+a entrada → abri a ficha → potência aparece certa no card do kanban
+("Motobomba · Dancor · 1/2 CV") e na ficha completa. Sem chamada a
+`*.supabase.co`, sem erro novo no console.
+
+**3. Estado de chegada — checklist fixo (Carcaça/Cabo e plugue/Acessórios/
+Liga ao testar) não serve pra todo tipo de equipamento, PERGUNTA EM
+ABERTO, não implementado ainda.** O Marcos levantou a dúvida sem propor
+solução ("não sei se está assertivo... a gente tem que pensar talvez em
+alguma coisa ali") — bomba, sauna e trocador de calor têm avarias bem
+diferentes entre si. Análise: os 4 itens atuais são genéricos o bastante
+pra cobrir qualquer equipamento elétrico (todo item tem carcaça, cabo/
+plugue, acessórios, e é testável "liga ou não liga") — o propósito
+original era registrar o estado de CHEGADA pra evitar disputa depois
+("isso já veio quebrado assim"), não ser um diagnóstico técnico completo
+por tipo. Falei com o Marcos pra escolher entre 3 caminhos (perguntado via
+AskUserQuestion nesta sessão — ver resposta dele, se já registrada, antes
+de reabrir esse ponto):
+  a) Manter como está (genérico) + confiar no campo de observação livre
+     pra qualquer avaria específica do tipo que os 4 itens não cobrem.
+  b) Checklist muda de acordo com o `tipo` selecionado (ex.: sauna ganha
+     "Resistência" em vez de "Liga ao testar" sozinho) — mais preciso, mas
+     precisa de um conjunto de itens por tipo (9 tipos hoje:
+     Motobomba/Filtro/Trocador de Calor/Gerador de Cloro/LED Subaquático/
+     Spa-Hidro/Sauna/Automação/Outro) e manutenção contínua conforme a
+     oficina for pegando prática com o que realmente precisa checar.
+  c) Tirar o checklist estruturado, deixar só foto + texto livre — mais
+     rápido pro atendente, mas perde o "OK/Com avaria" clicável que dá
+     estrutura pro termo assinado.
+
+sw.js: fluxa-v177 → fluxa-v178.
+
 ---
 
 ## Auditoria do fluxo orçamento → OS → conclusão, a pedido do Marcos (17/08)
