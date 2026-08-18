@@ -2718,16 +2718,23 @@
 <!-- ══ OFICINA — Fase 1 (17/08) ══ -->
 <div class="page" id="page-oficina">
   <div class="wrap">
+    <div class="novo-orc-topbar">
+      <div>
+        <div class="novo-orc-titulo">Oficina</div>
+        <div class="novo-orc-sub" id="of-topbar-sub">—</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <div class="ins-period" id="of-view-trilho">
+          <button type="button" class="on" data-v="quadro" onclick="_ofSetView('quadro')">Quadro</button>
+          <button type="button" data-v="historico" onclick="_ofSetView('historico')">Histórico</button>
+        </div>
+        <button type="button" class="rd-btn rd-btn-primary" onclick="abrirOficinaRecepcao()">Dar entrada</button>
+      </div>
+    </div>
+    <div id="of-hero" style="margin-bottom:14px"></div>
     <div class="rd-card" id="of-metricas" style="margin-bottom:14px"></div>
     <div class="rd-card">
-      <div class="rd-card-hdr">
-        <div class="rd-card-title">Oficina</div>
-        <button type="button" class="rd-btn rd-btn-primary" onclick="abrirOficinaRecepcao()">+ Dar Entrada</button>
-      </div>
-      <div style="display:flex;gap:8px;margin-bottom:14px">
-        <button type="button" class="rd-btn rd-btn-sm rd-btn-primary" id="of-tab-quadro" onclick="_ofSetView('quadro')">Quadro</button>
-        <button type="button" class="rd-btn rd-btn-sm rd-btn-secondary" id="of-tab-historico" onclick="_ofSetView('historico')">Histórico</button>
-      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px" id="of-chips"></div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
         <input type="text" class="rd-field-box" style="flex:1;min-width:180px" placeholder="Buscar por cliente ou número…" oninput="_ofFiltrarBusca(this.value)">
         <select class="rd-field-box" style="max-width:200px" onchange="_ofFiltrarOrigem(this.value)">

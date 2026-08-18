@@ -17197,9 +17197,114 @@ function confirmarCancelarOficina(id){
   _ofAplicarStatus(id, 'cancelado', {cancelado_motivo:motivo});
 }
 
-// ── Filtros (busca + origem) ──
+// ── Filtros (busca + origem + chip de estado) ──
 function _ofFiltrarBusca(val){ _ofFiltroBusca=val||''; _ofRenderAtiva(); }
 function _ofFiltrarOrigem(val){ _ofFiltroOrigem=val||''; _ofRenderAtiva(); }
+
+// Chips de estado (3f.2, 18/08) — substituem o select de origem como filtro
+// PRINCIPAL (origem virou dimensão secundária). "Travado"/"Na bancada" são
+// estados DERIVADOS, não a coluna status crua — por isso vivem aqui, não
+// como um <select> simples. Mesmo padrão de OS_CHIPS/_osRenderChips.
+const OFICINA_CHIPS=[['todos','Todos'],['travado','Travado'],['bancada','Na bancada'],['pronto','Prontos'],['garantia','Garantia']];
+let _ofFiltroChip='todos';
+function _ofMatchChip(o, chip){
+  if(chip==='travado') return ['aguardando_peca','aguardando_aprovacao'].includes(o.status) && (_ofDiasNoStatus(o)||0)>=OFICINA_TRAVADO_DIAS;
+  if(chip==='bancada') return !['entregue','cancelado'].includes(o.status);
+  if(chip==='pronto') return o.status==='pronto';
+  if(chip==='garantia') return o.origem==='garantia_fabricante';
+  return true; // 'todos'
+}
+function _ofSetFiltroChip(id){ _ofFiltroChip=id; _ofRenderAtiva(); }
+function _ofRenderChips(baseSemChip){
+  const el=document.getElementById('of-chips'); if(!el) return;
+  // Esconde contagem zero (mesmo critério da OS) — "Garantia 0" não precisa
+  // de espaço; "Todos" e o chip ativo nunca somem.
+  el.innerHTML=OFICINA_CHIPS.filter(([id])=>{
+    if(id==='todos'||id===_ofFiltroChip) return true;
+    return baseSemChip.filter(o=>_ofMatchChip(o,id)).length>0;
+  }).map(([id,rot])=>{
+    const qtd = id==='todos' ? baseSemChip.length : baseSemChip.filter(o=>_ofMatchChip(o,id)).length;
+    const alerta = id==='travado' && qtd>0;
+    const cls = _ofFiltroChip===id ? 'rd-chip on' : (alerta ? 'rd-chip rd-chip-alert' : 'rd-chip');
+    return `<button type="button" class="${cls}" onclick="_ofSetFiltroChip('${id}')">${esc(rot)} ${qtd}</button>`;
+  }).join('');
+}
+// Lista com todos os filtros aplicados (busca + origem + chip) — fonte
+// única pro quadro e pro histórico, pra não divergir o que cada um mostra.
+function _ofListaFiltrada(){
+  let lista=filtrarPorLoja(todosOficinaReparos||[]);
+  if(_ofFiltroBusca){
+    const q=_ofFiltroBusca.toLowerCase();
+    lista=lista.filter(o=>(o.cliente_nome||'').toLowerCase().includes(q) || String(o.numero||'').includes(q.replace('#','')));
+  }
+  if(_ofFiltroOrigem) lista=lista.filter(o=>o.origem===_ofFiltroOrigem);
+  if(_ofFiltroChip!=='todos') lista=lista.filter(o=>_ofMatchChip(o,_ofFiltroChip));
+  return lista;
+}
+// Agregado da topbar — "14 equipamentos na bancada · 3 aguardando peça · 2
+// sem mexer há mais de 20 dias". Sempre sobre TODA a loja (não afetado por
+// busca/chip) — é o resumo do estado real, não do que está filtrado na tela.
+function _ofAgregadoSub(listaLoja){
+  const ativos=listaLoja.filter(o=>!['entregue','cancelado'].includes(o.status));
+  const aguardandoPeca=ativos.filter(o=>o.status==='aguardando_peca').length;
+  const semMexer20=ativos.filter(o=>(_ofDiasNoStatus(o)||0)>20).length;
+  return `${ativos.length} equipamento${ativos.length!==1?'s':''} na bancada · ${aguardandoPeca} aguardando peça · ${semMexer20} sem mexer há mais de 20 dias`;
+}
+// Cartão escuro — "o maior problema do dia, com uma saída" (mesmo princípio
+// do _renderOSHero). Travado > 0 domina; sem nada travado, mostra o
+// andamento normal em vez de sumir ou mostrar zero.
+function _ofRenderHero(listaLoja){
+  const el=document.getElementById('of-hero'); if(!el) return;
+  const travados=_ofReparosTravados(listaLoja);
+  if(travados.length){
+    const porDias=travados.map(o=>({o,dias:_ofDiasNoStatus(o)||0})).sort((a,b)=>b.dias-a.dias);
+    const maisAntigo=porDias[0].dias;
+    const aguardandoPeca=travados.filter(o=>o.status==='aguardando_peca');
+    const semAprovacao=travados.filter(o=>o.status==='aguardando_aprovacao');
+    const prontos=listaLoja.filter(o=>o.status==='pronto');
+    // "Em peça esperando" — soma o valor do orçamento de conserto aprovado
+    // dos reparos travados em aguardando_peca. Sem orçamento vinculado (ou
+    // ainda não aprovado) não entra na soma — não tem receita comprovada
+    // pra somar, só um número que pareceria mais preciso do que é.
+    const valorPeca=aguardandoPeca.reduce((sum,o)=>{
+      const orc=_ofOrcamentoVinculado(o.id);
+      return sum+(orc&&orc.status==='aprovado'?(parseFloat(orc.total)||0):0);
+    },0);
+    el.innerHTML=`<div class="os-hero">
+      <div class="os-hero-main">
+        <span class="os-hero-lbl">Travado na bancada</span>
+        <div class="os-hero-num-row">
+          <span class="os-hero-num">${travados.length} reparo${travados.length!==1?'s':''}</span>
+          <span class="os-hero-sub os-hero-sub-warn">o mais antigo há ${maisAntigo} dias${valorPeca>0?' · '+brl(valorPeca)+' em peça esperando':''}</span>
+        </div>
+      </div>
+      <div class="os-hero-tecs">
+        <div class="os-hero-tec"><span>Aguardando peça</span><strong>${aguardandoPeca.length}</strong></div>
+        <div class="os-hero-tec"><span>Sem aprovação</span><strong>${semAprovacao.length}</strong></div>
+        <div class="os-hero-tec"><span>Prontos p/ retirar</span><strong>${prontos.length}</strong></div>
+      </div>
+      <button type="button" class="rd-btn rd-btn-primary" onclick="_ofCobrarAprovacao()">Cobrar aprovação</button>
+    </div>`;
+    return;
+  }
+  const emReparo=listaLoja.filter(o=>o.status==='em_reparo').length;
+  const seteDataAtras=Date.now()-7*86400000;
+  const entreguesSemana=listaLoja.filter(o=>o.status==='entregue' && o.data_entrega && new Date(o.data_entrega).getTime()>=seteDataAtras).length;
+  el.innerHTML=`<div class="os-hero os-hero-calm">
+    <div class="os-hero-main">
+      <span class="os-hero-lbl">Bancada em dia</span>
+      <div class="os-hero-num-row">
+        <span class="os-hero-num">${emReparo} em reparo</span>
+        <span class="os-hero-sub">${entreguesSemana} entregue${entreguesSemana!==1?'s':''} nos últimos 7 dias</span>
+      </div>
+    </div>
+  </div>`;
+}
+function _ofCobrarAprovacao(){
+  _ofFiltroChip='travado';
+  _ofSetView('quadro');
+  document.getElementById('of-lista')?.scrollIntoView({behavior:'smooth', block:'start'});
+}
 
 // ── Quadro ↔ Histórico (a pedido do Marcos, 17/08) — mesma lista de dados,
 // duas formas de olhar: o quadro é "o que está acontecendo agora" (por
@@ -17208,26 +17313,31 @@ function _ofFiltrarOrigem(val){ _ofFiltroOrigem=val||''; _ofRenderAtiva(); }
 // e observação visíveis de cara, sem precisar abrir a ficha de cada um.
 function _ofSetView(view){
   _ofView=view;
-  const tabQuadro=document.getElementById('of-tab-quadro'), tabHist=document.getElementById('of-tab-historico');
-  if(tabQuadro) tabQuadro.className='rd-btn rd-btn-sm '+(view==='quadro'?'rd-btn-primary':'rd-btn-secondary');
-  if(tabHist) tabHist.className='rd-btn rd-btn-sm '+(view==='historico'?'rd-btn-primary':'rd-btn-secondary');
+  const trilho=document.getElementById('of-view-trilho');
+  if(trilho) [...trilho.querySelectorAll('button')].forEach(b=>b.classList.toggle('on', b.dataset.v===view));
   const elLista=document.getElementById('of-lista'), elHist=document.getElementById('of-historico');
   if(elLista) elLista.style.display=view==='quadro'?'':'none';
   if(elHist) elHist.style.display=view==='historico'?'':'none';
   _ofRenderAtiva();
 }
 function _ofRenderAtiva(){
+  const listaLoja=filtrarPorLoja(todosOficinaReparos||[]);
+  const subEl=document.getElementById('of-topbar-sub');
+  if(subEl) subEl.textContent=_ofAgregadoSub(listaLoja);
+  _ofRenderHero(listaLoja);
+  let baseSemChip=listaLoja;
+  if(_ofFiltroBusca){
+    const q=_ofFiltroBusca.toLowerCase();
+    baseSemChip=baseSemChip.filter(o=>(o.cliente_nome||'').toLowerCase().includes(q) || String(o.numero||'').includes(q.replace('#','')));
+  }
+  if(_ofFiltroOrigem) baseSemChip=baseSemChip.filter(o=>o.origem===_ofFiltroOrigem);
+  _ofRenderChips(baseSemChip);
   if(_ofView==='historico') renderOficinaHistorico();
   else renderOficinaKanban();
 }
 function renderOficinaHistorico(){
   const el=document.getElementById('of-historico'); if(!el) return;
-  let lista=filtrarPorLoja(todosOficinaReparos||[]);
-  if(_ofFiltroBusca){
-    const q=_ofFiltroBusca.toLowerCase();
-    lista=lista.filter(o=>(o.cliente_nome||'').toLowerCase().includes(q) || String(o.numero||'').includes(q.replace('#','')));
-  }
-  if(_ofFiltroOrigem) lista=lista.filter(o=>o.origem===_ofFiltroOrigem);
+  let lista=_ofListaFiltrada();
   if(!lista.length){
     el.innerHTML=`<div class="rd-empty" style="padding:24px"><div class="rd-empty-ico">📋</div><div class="rd-empty-title">Nenhum reparo encontrado.</div></div>`;
     return;
@@ -17262,12 +17372,7 @@ function renderOficinaHistorico(){
 // específico ou cancelar é o select "Mudar status" dentro da ficha.
 function renderOficinaKanban(){
   const el=document.getElementById('of-lista'); if(!el) return;
-  let lista=filtrarPorLoja(todosOficinaReparos||[]);
-  if(_ofFiltroBusca){
-    const q=_ofFiltroBusca.toLowerCase();
-    lista=lista.filter(o=>(o.cliente_nome||'').toLowerCase().includes(q) || String(o.numero||'').includes(q.replace('#','')));
-  }
-  if(_ofFiltroOrigem) lista=lista.filter(o=>o.origem===_ofFiltroOrigem);
+  let lista=_ofListaFiltrada();
   if(!(todosOficinaReparos||[]).length){
     el.innerHTML=`<div class="rd-empty" style="padding:24px"><div class="rd-empty-ico">🔧</div><div class="rd-empty-title">Nenhum item na oficina ainda.</div><button type="button" class="rd-btn rd-btn-primary" style="margin-top:6px" onclick="abrirOficinaRecepcao()">+ Dar Entrada</button></div>`;
     return;
@@ -17275,10 +17380,10 @@ function renderOficinaKanban(){
   const colunas=[...OFICINA_STATUS_SEQ,'cancelado'];
   const corpo=colunas.map(st=>{
     const itens=lista.filter(o=>o.status===st).sort((a,b)=>String(b.data_criacao||'').localeCompare(String(a.data_criacao||'')));
-    return `<div style="flex:0 0 240px;display:flex;flex-direction:column;gap:8px">
+    return `<div style="flex:0 0 200px;display:flex;flex-direction:column;gap:8px">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:0 2px">
-        <span style="font-size:12px;font-weight:700;color:var(--c2)">${esc(OFICINA_STATUS_LABEL[st]||st)}</span>
-        <span class="rd-badge rd-badge-neutral">${itens.length}</span>
+        <span style="font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--tx3,var(--gray))">${esc(OFICINA_STATUS_LABEL[st]||st)}</span>
+        <span class="rd-badge ${OFICINA_STATUS_CLS[st]||'rd-badge-neutral'}">${itens.length}</span>
       </div>
       <div style="display:flex;flex-direction:column;gap:8px">
         ${itens.map(o=>_ofCardKanban(o)).join('')||'<div style="font-size:12px;color:var(--gray);padding:8px 4px">—</div>'}
@@ -17287,14 +17392,40 @@ function renderOficinaKanban(){
   }).join('');
   el.innerHTML=`<div style="display:flex;gap:12px;overflow-x:auto;padding-bottom:8px">${corpo}</div>`;
 }
+// Cor da borda esquerda por urgência (3f.2) — dias parado domina (é o
+// problema mais caro), status só decide a cor quando não há urgência de
+// tempo ainda. Mesmos tokens de --bad/--warn-dot/--info/--ok já usados no
+// resto do app — sem inventar hex novo.
+function _ofCorBordaCard(o){
+  const dias=_ofDiasNoStatus(o)||0;
+  if(!['entregue','cancelado'].includes(o.status)){
+    if(dias>20) return 'var(--bad,#9C3A2E)';
+    if(dias>7) return 'var(--warn-dot,#C98A2E)';
+  }
+  if(o.status==='em_reparo') return 'var(--info,#0B62CE)';
+  if(o.status==='pronto') return 'var(--ok,#2F7D3A)';
+  return 'transparent';
+}
+// Valor do reparo nos cards de "aguardando aprovação"/"pronto" — é o que
+// está sendo cobrado ou o que está pronto pra faturar. Garantia de
+// fabricante não gera cobrança (decisão do Marcos, só rastreio), então
+// mostra isso em vez de um valor que nunca vai existir.
+function _ofValorCardHtml(o){
+  if(!['aguardando_aprovacao','pronto'].includes(o.status)) return '';
+  if(o.origem==='garantia_fabricante') return `<div style="font-size:12px;font-weight:600;color:var(--gray);font-variant-numeric:tabular-nums">garantia · sem cobrança</div>`;
+  const orc=_ofOrcamentoVinculado(o.id);
+  if(!orc) return '';
+  return `<div style="font-size:13px;font-weight:600;color:var(--c2);font-variant-numeric:tabular-nums">${brl(parseFloat(orc.total)||0)}</div>`;
+}
 function _ofCardKanban(o){
   const num=o.numero?'OF-'+String(o.numero).padStart(5,'0'):'OF-…';
   const dias=_ofDiasNoStatus(o);
   const prox=_ofProximoStatus(o.status);
-  return `<div class="rd-card rd-card-dense" style="cursor:pointer" tabindex="0" role="button" onclick="abrirFichaOficina('${o.id}')" onkeydown="if(event.key==='Enter'){abrirFichaOficina('${o.id}')}">
-    <div style="font-size:11px;color:var(--gray)">${esc(num)}${dias!=null?' · '+dias+'d':''}</div>
+  return `<div class="rd-card rd-card-dense" style="cursor:pointer;border-left:3px solid ${_ofCorBordaCard(o)}" tabindex="0" role="button" onclick="abrirFichaOficina('${o.id}')" onkeydown="if(event.key==='Enter'){abrirFichaOficina('${o.id}')}">
+    <div style="font-size:11px;color:var(--gray);font-variant-numeric:tabular-nums">${esc(num)}${dias!=null?' · '+dias+'d parado':''}</div>
     <div style="font-size:13px;font-weight:600;color:var(--c2)">${esc(o.cliente_nome||'—')}</div>
     <div style="font-size:11px;color:var(--gray)">${esc([o.eq_tipo,o.eq_marca,o.eq_potencia].filter(Boolean).join(' · ')||'—')}</div>
+    ${_ofValorCardHtml(o)}
     <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:2px">
       ${o.origem==='garantia_fabricante'?'<span class="rd-badge rd-badge-info" style="font-size:10px">🏭 Fabricante</span>':''}
       ${o.os_campo_id?'<span class="rd-badge rd-badge-neutral" style="font-size:10px">📋 De OS</span>':''}

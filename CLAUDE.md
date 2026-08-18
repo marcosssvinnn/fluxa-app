@@ -2,6 +2,92 @@
 
 ---
 
+## ✅ 3f.2 — Oficina: topbar, chips de estado e cartão escuro (18/08)
+
+Terceiro item do índice do handoff (`PLANO-3F-OFICINA.md`). Diagnóstico do
+plano: a tela já usava os componentes certos, mas sem a barra de 62px, sem
+chips de contagem e sem o cartão do "maior problema do dia" — os mesmos
+componentes que Orçamentos/OS/Estoque já ganharam nos redesigns anteriores.
+
+**Badge da sidebar já estava pronto** — construído junto com a Fase 3g (o
+`_ofReparosTravados()` foi desenhado ali de propósito pra ser reusado aqui,
+sem duplicar o cálculo de "travado").
+
+- **Topbar** (`.novo-orc-topbar`, mesmo padrão de toda lista redesenhada):
+  título "Oficina" + subtítulo agregado `_ofAgregadoSub()` ("N equipamentos
+  na bancada · N aguardando peça · N sem mexer há mais de 20 dias", sempre
+  sobre a loja inteira, não afetado por busca/filtro) + trilho **Quadro/
+  Histórico** (reusa `.ins-period`, o mesmo componente visual do seletor de
+  período 6M/12M/Ano do Insights — o plano pedia "copiar do Dia/Semana/Lista
+  da OS", mas esse trilho nunca chegou a ser construído lá, então usei o
+  componente real mais parecido já em produção) + primário **"Dar entrada"**
+  (sem `+`, igual todo outro primário do sistema).
+- **Chips de estado** (`OFICINA_CHIPS`/`_ofRenderChips`/`_ofSetFiltroChip`,
+  mesmo padrão de `OS_CHIPS`/`_osRenderChips`): Todos · **Travado** (estado
+  derivado — `aguardando_peca`/`aguardando_aprovacao` há 7+ dias, não um
+  valor de coluna) · Na bancada (não-terminal) · Prontos · Garantia. Contagem
+  zero some, exceto "Todos" e o chip ativo. Select de origem virou filtro
+  **secundário** (continua ao lado, mas os chips são o filtro principal).
+  `_ofListaFiltrada()` é a fonte única (busca + origem + chip) — quadro e
+  histórico não podiam divergir no que mostram.
+- **Cartão escuro** (`_ofRenderHero`, reusa `.os-hero`/`.os-hero-*` — o
+  mesmo componente do "cartão do maior problema do dia" que a OS já usa,
+  cores idênticas às que o plano pedia porque são os MESMOS tokens
+  `--bad`/`--warn-dot`/`--info`/`--ok` já no design system, não hex novo):
+  travado > 0 → "N reparos · o mais antigo há Nd · R$ X em peça esperando"
+  (soma só do orçamento de conserto **aprovado** vinculado aos travados em
+  `aguardando_peca` — sem orçamento aprovado não entra na soma, não é pra
+  parecer mais preciso do que é) + 3 colunas compactas (Aguardando peça/Sem
+  aprovação/Prontos p/ retirar) + botão "Cobrar aprovação" (filtra pro chip
+  Travado e rola até o quadro). Sem nada travado, mostra o andamento em vez
+  de sumir ou zerar: "N em reparo · N entregues nos últimos 7 dias" —
+  mesmo princípio do `_renderOSHero` calmo.
+- **Cards do quadro**: borda esquerda de 3px por urgência
+  (`_ofCorBordaCard` — dias parado manda: >20d vermelho escuro, >7d laranja;
+  sem urgência de tempo, cor por status: em_reparo azul, pronto verde) +
+  **valor do reparo** (`_ofValorCardHtml`, só em aguardando_aprovação/
+  pronto — o que está sendo cobrado ou pronto pra faturar; garantia de
+  fabricante mostra "garantia · sem cobrança" no lugar, porque nunca vai ter
+  valor real ali) + coluna reduzida de 240px→200px + selo do cabeçalho da
+  coluna reusando `OFICINA_STATUS_CLS` (aprovação/peça em `warn`, em reparo
+  `info`, pronto `ok`) em vez de neutro fixo.
+
+**Cortado de propósito, registrado pro plano não ser esquecido**: "o que
+está travando" (linha `#A6521A` tipo "selo mecânico · pedido 12/08" no card)
+exigiria um campo novo — hoje não existe onde registrar se a peça foi
+pedida, e a qual pedido de compra (se algum) o reparo está amarrado. Fazer
+isso direito precisaria de schema novo (`peca_pedido`/`peca_prevista`/
+vínculo com `ordens_compra`) e uma decisão do Marcos sobre como o atendente
+registraria isso — não é um ajuste de CSS/JS como o resto desta tarefa.
+Ação "Ver compra"/"Comprar" do card, que dependeria do mesmo campo, ficou
+de fora pelo mesmo motivo. O `renderOficinaMetricas()` (5 tiles + listas de
+travados/prontos-parados, já existente desde a Fase 5/10) **não foi
+removido** apesar de sobrepor parte do que o cartão escuro agora mostra —
+decisão deliberada de não descartar métrica em produção (tempo médio,
+retrabalho, prazo estourado) sem necessidade; a sobreposição parcial
+(travados) é aceitável, mesmo padrão de duplicação leve que já existe em
+outros lugares do app (ex.: hero da OS + chip "Atrasado").
+
+Testado no Browser pane (offline, porta nova pra garantir código fresco,
+clique real + `javascript_exec` com dados sintéticos): 6 reparos cobrindo
+todos os estados (travado por peça há 31d com orçamento aprovado vinculado,
+travado por aprovação há 9d, em reparo, pronto, garantia sem cobrança,
+recém-recebido) — topbar com o agregado certo, cartão escuro com "2
+reparos · o mais antigo há 31 dias · R$ 350,00 em peça esperando" e as 3
+colunas batendo, "Cobrar aprovação" filtrando pro chip Travado e navegando
+pro quadro, chip Travado com contagem e alerta, Histórico respeitando o
+mesmo filtro de chip que o quadro; card com borda vermelha escura (31d) e
+laranja (9d) visíveis; card de garantia mostrando "garantia · sem
+cobrança"; estado calmo (0 travados) mostrando "N em reparo · N entregues";
+estado vazio (0 reparos) com "Bancada em dia" + chips escondidos, sem
+quebrar; 1180px com rolagem horizontal do quadro sem estourar a página;
+375px com topbar/hero/chips empilhando sem overflow. Zero erro novo no
+console (só o ruído de boot já documentado).
+
+sw.js: fluxa-v186 → fluxa-v187.
+
+---
+
 ## ✅ 3g — Sidebar: bloco de atendimento (Balcão/Novo orçamento/Dar entrada) (18/08)
 
 Segundo item do índice do novo handoff (`PLANO-3G-NAVEGACAO.md`). Sidebar
