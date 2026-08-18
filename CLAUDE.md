@@ -2,6 +2,74 @@
 
 ---
 
+## ✅ 3g — Sidebar: bloco de atendimento (Balcão/Novo orçamento/Dar entrada) (18/08)
+
+Segundo item do índice do novo handoff (`PLANO-3G-NAVEGACAO.md`). Sidebar
+ganhou um bloco de ação no topo, acima do seletor de unidade: botão primário
+"Novo orçamento" (full-width) + fileira 50/50 "Balcão"/"Dar entrada"
+(`.snav-secondary-row`/`.snav-secondary-btn`, novo em `styles.css`) + um
+divisor antes do seletor de unidade. Objetivo do plano: as duas ações mais
+usadas do dia a dia (abrir um atendimento de balcão, dar entrada na oficina)
+não deveriam exigir navegar até a página — ficam ao alcance em qualquer tela.
+
+**Reorganização de grupo, não só CSS novo:**
+- `snb-oficina` (o item de navegação da PÁGINA Oficina, diferente do botão
+  "Dar entrada" novo, que abre a tela cheia de recepção) saiu do grupo
+  "Operação" e entrou em "Dia a dia", logo depois de "Hoje" — ganhou um badge
+  (`#snb-badge-oficina`) com a contagem de reparos travados
+  (`_ofReparosTravados()`, o mesmo helper que a Fase 3f.2 do próximo item vai
+  reusar para o cartão escuro — construído aqui de propósito para não
+  duplicar o cálculo depois).
+- `snb-venda-balcao` (item antigo da sidebar que abria Balcão) foi REMOVIDO —
+  o botão secundário novo já cobre essa ação; manter os dois seria
+  redundante. "Operação" ficou só com Ordens de Serviço + Agenda.
+- Nav mobile: `mnb-history` (ícone de relógio, ia para o Histórico) virou
+  `mnb-venda-balcao` — mesma posição na barra, ícone de carrinho, abre
+  Balcão. Histórico continua acessível pela sidebar/menu "Mais".
+- "Venda Rápida" foi renomeado para "Balcão" nos 2 lugares que ainda diziam
+  o nome antigo (atalho da tela de Estoque, título da topbar da tela cheia
+  de balcão) — consistência com o rótulo do botão novo.
+
+**Permissão por perfil, não só reposicionamento** — o próprio plano já listava
+o teste esperado ("vendas não vê 'Dar entrada', técnico não vê nenhuma das
+três"), então o bloco de ações precisou de regra própria em
+`aplicarPermissoesPerfil()`, separada da lista `snbRules`/`mnbRules` (que só
+mostra/esconde item de navegação, não estes botões de ação):
+```js
+const secBalcao=document.getElementById('snav-secondary-row');
+if(secBalcao) secBalcao.style.display=(gestor||vendas)?'':'none';
+const secOficina=document.getElementById('snav-secondary-oficina');
+if(secOficina) secOficina.style.display=gestor?'':'none';
+```
+Resultado: técnico não vê o bloco primário inteiro (nem "Novo orçamento" nem
+a fileira secundária); vendas vê "Balcão" mas não "Dar entrada"; gestor vê
+os três.
+
+**Badge no boot, não só ao visitar a página** — sem isso o contador de
+travados na sidebar ficaria sempre vazio até alguém abrir a tela Oficina
+manualmente (mesmo problema que o próprio badge existe para resolver: "sem
+isso, reparos travados não aparecem em lugar nenhum até abrir a tela"). Boot
+(dentro do `Promise.all` que já carrega dado inicial de gestor) ganhou uma
+4ª chamada condicional: `loadOficinaReparos()` só se a lista ainda estiver
+vazia — não recarrega à toa se outra rota já tiver preenchido antes.
+
+Testado no Browser pane (clique real via `javascript_tool`/screenshot, os 3
+perfis + os 3 breakpoints que o plano pede explicitamente): **gestor** — bloco
+completo, "Dar entrada" abre a Oficina, "Balcão" abre a tela cheia certa,
+grupo "Dia a dia" com Oficina 2º item (sem badge, 0 travados no teste),
+"Operação" só com OS+Agenda; **técnico** — bloco de ações inteiro ausente,
+só Oficina/Vistorias/Minhas OS na sidebar; **vendas** — "Novo orçamento" +
+"Balcão" visíveis, "Dar entrada" ausente; **sidebar colapsada** (desktop) —
+os dois botões secundários empilham full-width
+(`flexDirection:column` confirmado via `getComputedStyle`); **1024px** —
+sidebar renderiza cheia, sem overflow; **375px (drawer mobile)** — bloco de
+ações cabe sem cortar, sem rolagem horizontal de página. Zero erro novo no
+console nos 6 cenários.
+
+sw.js: fluxa-v185 → fluxa-v186.
+
+---
+
 ## 📦 Segundo pacote de handoff — plano de acabamento pós-oficina (18/08)
 
 Novo pacote em `~/Downloads/design_handoff_fluxa_redesign/` (mesmo diretório

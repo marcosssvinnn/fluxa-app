@@ -107,7 +107,6 @@ function aplicarPermissoesPerfil(){
   // ── Sidebar nav ──
   const snbRules = {
     'snb-insights'     : gestor,
-    'snb-venda-balcao' : gestor||vendas||tecnico,
     'snb-history'      : gestor||vendas,
     'snb-clientes'     : gestor||vendas,
     'snb-agendamentos' : gestor||vendas,
@@ -127,6 +126,14 @@ function aplicarPermissoesPerfil(){
   // antigo snb-form tinha antes de virar botão fixo no topo da sidebar.
   const primaryWrap=document.getElementById('snav-primary-wrap');
   if(primaryWrap) primaryWrap.style.display=(gestor||vendas)?'':'none';
+  // Bloco de atendimento (Tarefa 3g, 18/08) — Balcão é atendimento de loja
+  // (gestor+vendas, como já era); "Dar entrada" na oficina fica só com
+  // gestor (vendas não decide o que entra na bancada). Técnico não vê
+  // nenhum dos dois — primaryWrap já esconde o bloco inteiro pra ele.
+  const secBalcao=document.getElementById('snav-secondary-balcao');
+  if(secBalcao) secBalcao.style.display=(gestor||vendas)?'':'none';
+  const secOficina=document.getElementById('snav-secondary-oficina');
+  if(secOficina) secOficina.style.display=gestor?'':'none';
   // Com os itens escondidos por papel, um grupo pode ficar sem nenhum item
   // visível (ex.: técnico não vê nada de "Cadastros e análise") — esconde o
   // rótulo do grupo junto, senão sobra um título sozinho sem lista embaixo.
@@ -169,7 +176,11 @@ function aplicarPermissoesPerfil(){
       Promise.all([
         (typeof loadRecebimentos==='function'? loadRecebimentos() : null),
         (typeof loadDespesas==='function' && !(todasDesp||[]).length ? loadDespesas() : null),
-        (typeof loadOSHist==='function' && !(todosOS||[]).length ? loadOSHist() : null)
+        (typeof loadOSHist==='function' && !(todosOS||[]).length ? loadOSHist() : null),
+        // Badge de travados da Oficina (18/08, 3g) — sem isso, ficava zerado
+        // até o gestor abrir a tela pelo menos uma vez na sessão, exatamente
+        // o problema que o badge existe pra resolver.
+        (typeof loadOficinaReparos==='function' && !(todosOficinaReparos||[]).length ? loadOficinaReparos() : null)
       ]).then(()=>{
         try{ renderNotificacoes(); }catch(e){ console.warn('[notif boot]', e?.message||e); }
         try{ atualizarBadgesNav(); }catch(e){ console.warn('[badges boot]', e?.message||e); }
@@ -212,7 +223,7 @@ function aplicarPermissoesPerfil(){
     'mnb-minhas-os': tecnico,
     'mnb-form'     : gestor||vendas,
     'mnb-os'       : gestor||vendas,
-    'mnb-history'  : gestor||vendas,
+    'mnb-venda-balcao' : gestor||vendas,
   };
   Object.entries(mnbRules).forEach(([id,pode])=>{
     const el=document.getElementById(id); if(el) el.style.display=pode?'':'none';
@@ -288,6 +299,12 @@ function atualizarBadgesNav(){
     const neg=(typeof _estoqueNegativos==='function' ? _estoqueNegativos().filter(n=>!n.inativo) : []);
     set('snb-badge-estoque', neg.length ? '!' : '');
   }catch(e){ console.warn('[badge estoque]', e?.message||e); }
+  try{
+    // Contagem de TRAVADOS, não o total na bancada — badge é pendência, não
+    // volume (mesmo critério de Orçamentos/Estoque/A Receber acima).
+    const travados=(typeof _ofReparosTravados==='function' ? _ofReparosTravados(filtrarPorLoja(todosOficinaReparos||[])) : []);
+    set('snb-badge-oficina', travados.length||'');
+  }catch(e){ console.warn('[badge oficina]', e?.message||e); }
 }
 
 function fazerLogout(){
@@ -17086,6 +17103,19 @@ function _ofDiasNoStatus(o){
   if(!desde) return null;
   const dt=new Date(desde).getTime(); if(isNaN(dt)) return null;
   return Math.max(0, Math.floor((Date.now()-dt)/86400000));
+}
+// "Travado" (18/08, PLANO-3G-NAVEGACAO.md/PLANO-3F-OFICINA.md) — estado
+// derivado, não um valor da coluna status: aguardando_peca OU
+// aguardando_aprovacao há mais de 7 dias. É o filtro que o dono usa de
+// verdade ("o que está preso, não o que está andando"). Fonte única —
+// usada no badge da sidebar (atualizarBadgesNav) e nos chips/cartão
+// escuro da Fase 3f.2 — calcular uma vez, reusar nos dois lugares.
+const OFICINA_TRAVADO_DIAS=7;
+function _ofReparosTravados(lista){
+  return (lista||todosOficinaReparos||[]).filter(o=>
+    ['aguardando_peca','aguardando_aprovacao'].includes(o.status) &&
+    (_ofDiasNoStatus(o)||0)>=OFICINA_TRAVADO_DIAS
+  );
 }
 // Garantia PRÓPRIA da oficina (Fase 4) — distinta da garantia de
 // fabricante (essa é só rastreio, sem data de vencimento nenhuma).

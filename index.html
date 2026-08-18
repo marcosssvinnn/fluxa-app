@@ -216,6 +216,21 @@
       <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg>
       <span class="snav-primary-label">Novo orçamento</span>
     </button>
+    <!-- Bloco de atendimento, opção 9a (18/08, PLANO-3G-NAVEGACAO.md) — Balcão
+         e Dar entrada são as duas ações mais usadas na loja, depois de Novo
+         orçamento. snb-venda-balcao (item de lista) virou o botão "Balcão"
+         aqui — ver snbRules em app.js, removido de lá. -->
+    <div class="snav-secondary-row" id="snav-secondary-row">
+      <button class="snav-secondary-btn" id="snav-secondary-balcao" onclick="abrirVendaBalcao();closeSidebar()" title="Balcão">
+        <svg class="sicon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#B4C1D1" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6h15l-1.5 9h-12zM6 6L5 3H2M9 20a1 1 0 1 0 0-2 1 1 0 0 0 0 2M18 20a1 1 0 1 0 0-2 1 1 0 0 0 0 2"></path></svg>
+        <span class="snav-secondary-label">Balcão</span>
+      </button>
+      <button class="snav-secondary-btn" id="snav-secondary-oficina" onclick="abrirOficinaRecepcao()" title="Dar entrada">
+        <svg class="sicon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#B4C1D1" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 1-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 0 1 5.4-5.4L15 12l-3-3z"></path></svg>
+        <span class="snav-secondary-label">Dar entrada</span>
+      </button>
+    </div>
+    <div class="snav-primary-divider"></div>
   </div>
 
   <!-- Seletor de unidade real (Tarefa 3b) — antes só o <select> do header
@@ -242,6 +257,16 @@
       <button class="snb on" id="snb-insights" onclick="go('insights')">
         <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13h4l3-7 4 14 3-7h4"></path></svg>
         <span class="slabel">Hoje</span>
+      </button>
+      <!-- Sobe de Operação pra cá (18/08, 3g) — é a fila que se consulta
+           várias vezes ao dia, mesmo critério de Orçamentos/Estoque/A
+           Receber logo abaixo. O botão "Dar entrada" no bloco de ações
+           acima CRIA um reparo; este item ABRE a bancada — coisas
+           diferentes, os dois continuam existindo. -->
+      <button class="snb" id="snb-oficina" onclick="go('oficina')">
+        <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 1-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 0 1 5.4-5.4L15 12l-3-3z"></path></svg>
+        <span class="slabel">Oficina</span>
+        <span class="sbadge" id="snb-badge-oficina"></span>
       </button>
       <button class="snb" id="snb-history" onclick="go('history')">
         <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6zM15 3v4h4M9 13h6M9 17h4"></path></svg>
@@ -278,14 +303,6 @@
       <button class="snb" id="snb-agendamentos" onclick="go('agendamentos')">
         <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v15H4zM8 3v4M16 3v4M4 10h16"></path></svg>
         <span class="slabel">Agenda</span>
-      </button>
-      <button class="snb" id="snb-venda-balcao" onclick="abrirVendaBalcao();closeSidebar()">
-        <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8l8-4 8 4v8l-8 4-8-4zM4 8l8 4 8-4M12 12v8"></path></svg>
-        <span class="slabel">Venda Rápida</span>
-      </button>
-      <button class="snb" id="snb-oficina" onclick="go('oficina')">
-        <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 1-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 0 1 5.4-5.4L15 12l-3-3z"></path></svg>
-        <span class="slabel">Oficina</span>
       </button>
     </div>
 
@@ -347,8 +364,11 @@
   <button class="mob-nb" id="mnb-os" onclick="novaOS();go('os')" style="display:none">
     <span class="micon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"></path></svg></span><span>OS</span>
   </button>
-  <button class="mob-nb" id="mnb-history" onclick="go('history')" style="display:none">
-    <span class="micon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6zM15 3v4h4M9 13h6M9 17h4"></path></svg></span><span>Histórico</span>
+  <!-- Balcão entra no lugar de Histórico (18/08, 3g) — quem trabalha na loja
+       usa Balcão o dia todo; consulta ao Histórico continua 1 toque a mais,
+       dentro de "Mais" → Orçamentos, na sidebar. -->
+  <button class="mob-nb" id="mnb-venda-balcao" onclick="abrirVendaBalcao()" style="display:none">
+    <span class="micon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6h15l-1.5 9h-12zM6 6L5 3H2M9 20a1 1 0 1 0 0-2 1 1 0 0 0 0 2M18 20a1 1 0 1 0 0-2 1 1 0 0 0 0 2"></path></svg></span><span>Balcão</span>
   </button>
   <button class="mob-nb" id="mnb-mais" onclick="openSidebar()">
     <span class="micon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h16"></path></svg></span><span>Mais</span>
@@ -2380,7 +2400,7 @@
         <div class="novo-orc-sub" id="estoque-resumo-sub">—</div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button type="button" class="rd-btn rd-btn-secondary" onclick="abrirVendaBalcao()">Venda Rápida</button>
+        <button type="button" class="rd-btn rd-btn-secondary" onclick="abrirVendaBalcao()">Balcão</button>
         <button type="button" class="rd-btn rd-btn-secondary" onclick="abrirBalancoModal()">Balanço</button>
         <button type="button" class="rd-btn rd-btn-secondary" onclick="abrirBaixaRapida()">Dar baixa</button>
         <button type="button" class="rd-btn rd-btn-primary" onclick="abrirProdutoModal()">+ Novo produto</button>
@@ -2609,7 +2629,7 @@
       Sair do balcão
     </button>
     <div class="vb-topbar-div"></div>
-    <span class="vb-topbar-titulo">Venda Rápida</span>
+    <span class="vb-topbar-titulo">Balcão</span>
     <div class="vb-topbar-busca">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6FA8E8" stroke-width="2" stroke-linecap="round"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14M16.5 16.5L21 21"></path></svg>
       <input type="text" id="venda-busca" placeholder="Nome, código ou leitor de código de barras…" oninput="vendaBuscarProduto(this.value)" autocomplete="off">
