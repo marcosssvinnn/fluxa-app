@@ -16604,19 +16604,74 @@ function _ofToggleCamposFabricante(origem){
   el.style.display = origem==='garantia_fabricante' ? 'flex' : 'none';
 }
 
-// ── Checklist de estado na chegada (Fase 1b) — evita disputa de "isso já
-// veio quebrado assim". 2 estados por item (OK/Com avaria, clicar de novo
-// desmarca) — mais simples que o checklist de vistoria (4 estados), que
-// avalia funcionamento; aqui é só registrar o que já veio danificado.
-const OFICINA_CHECKLIST_ITENS=[
+// ── Checklist de estado na chegada (Fase 1b, itens variam por tipo desde
+// Fase 6) — evita disputa de "isso já veio quebrado assim". 2 estados por
+// item (OK/Com avaria, clicar de novo desmarca) — mais simples que o
+// checklist de vistoria (4 estados), que avalia funcionamento; aqui é só
+// registrar o que já veio danificado.
+//
+// Feedback do Marcos (18/08): bomba, sauna e trocador de calor têm avarias
+// bem diferentes entre si — um checklist único não é assertivo pra todos.
+// BASE = universal a qualquer equipamento elétrico (todo item tem carcaça,
+// cabo/plugue, acessórios). POR_TIPO = 1-2 itens extras específicos do
+// tipo, substituindo o antigo "Liga ao testar" genérico por algo mais
+// preciso quando faz sentido. _ofChecklistParaTipo() é a fonte única —
+// usada tanto pra montar o formulário (tipo do equipamento selecionado)
+// quanto pra decodificar avarias de um reparo já salvo (o.eq_tipo), senão
+// a ficha/termo de um reparo antigo mostraria o item errado.
+//
+// Primeira versão dos itens por tipo — ajustar conforme a prática real da
+// oficina for mostrando o que de fato vale a pena checar na entrada.
+const OFICINA_CHECKLIST_BASE=[
   {id:'carcaca', label:'Carcaça / estrutura externa'},
   {id:'cabo', label:'Cabo e plugue'},
-  {id:'acessorios', label:'Acessórios entregues junto'},
-  {id:'liga', label:'Liga ao testar na entrada'}
+  {id:'acessorios', label:'Acessórios entregues junto'}
 ];
+const OFICINA_CHECKLIST_POR_TIPO={
+  'Motobomba': [
+    {id:'liga', label:'Liga ao testar na entrada'},
+    {id:'rotor', label:'Rotor gira livre (sem travamento)'},
+    {id:'vedacao', label:'Sem vazamento aparente na vedação'}
+  ],
+  'Filtro': [
+    {id:'registro', label:'Registro / válvula seletora funciona'},
+    {id:'vaso', label:'Vaso sem rachadura visível'}
+  ],
+  'Trocador de Calor': [
+    {id:'liga', label:'Liga ao testar na entrada'},
+    {id:'serpentina', label:'Sem vazamento na serpentina'}
+  ],
+  'Gerador de Cloro': [
+    {id:'liga', label:'Liga ao testar na entrada'},
+    {id:'celula', label:'Célula eletrolítica presente'}
+  ],
+  'LED Subaquático': [
+    {id:'liga', label:'Liga ao testar na entrada'},
+    {id:'vedacao_led', label:'Vedação / nicho íntegro'}
+  ],
+  'Spa / Hidro': [
+    {id:'liga', label:'Liga ao testar na entrada'},
+    {id:'jatos', label:'Bicos / jatos presentes'}
+  ],
+  'Sauna': [
+    {id:'liga', label:'Liga ao testar (resistência)'},
+    {id:'termostato', label:'Termostato / sensor presente'}
+  ],
+  'Automação': [
+    {id:'liga', label:'Liga ao testar na entrada'},
+    {id:'placa', label:'Placa / display sem sinal de queima'}
+  ],
+  'Outro': [
+    {id:'liga', label:'Liga ao testar na entrada'}
+  ]
+};
+function _ofChecklistParaTipo(tipo){
+  return [...OFICINA_CHECKLIST_BASE, ...(OFICINA_CHECKLIST_POR_TIPO[tipo]||OFICINA_CHECKLIST_POR_TIPO['Outro'])];
+}
 function renderOfChecklist(){
   const el=document.getElementById('of-checklist'); if(!el) return;
-  el.innerHTML=OFICINA_CHECKLIST_ITENS.map(it=>{
+  const itens=_ofChecklistParaTipo(_ofEquipamentoSelecionado?.tipo);
+  el.innerHTML=itens.map(it=>{
     const st=_ofEstadoEntrada[it.id]||{};
     return `<div style="display:flex;flex-direction:column;gap:5px">
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
@@ -16783,10 +16838,15 @@ function selecionarEqModal(id){
   const eq=(todosEq||[]).find(e=>e.id===id); if(!eq) return;
   _ofEquipamentoSelecionado=eq;
   _ofRetrabalhoDe=null; // troca de equipamento invalida qualquer sugestão anterior
+  // O checklist de estado de chegada varia por tipo (Fase 6) — troca de
+  // equipamento zera as respostas já dadas, senão ficaria lixo de um
+  // checklist de tipo diferente misturado no envio.
+  _ofEstadoEntrada={};
   setV('of-eq-nome', [eq.tipo,eq.marca,eq.modelo,eq.potencia].filter(Boolean).join(' · '));
   const eqInfo=document.getElementById('of-eq-info');
   if(eqInfo){ eqInfo.style.display=''; eqInfo.textContent=eq.numero_serie?('Nº de série: '+eq.numero_serie):'Sem número de série cadastrado'; }
   fecharBuscaEq();
+  renderOfChecklist();
   _ofVerificarRetrabalho(id);
 }
 // Sugestão (não força) de vínculo de retrabalho — mesmo espírito não-
@@ -17103,7 +17163,7 @@ function _ofFichaAvariasHtml(o){
   let itens=o.estado_entrada;
   if(typeof itens==='string'){ try{ itens=JSON.parse(itens||'{}'); }catch(e){ itens={}; } }
   itens=(itens&&itens.itens)||{};
-  const avarias=OFICINA_CHECKLIST_ITENS.filter(it=>itens[it.id]?.status==='avaria');
+  const avarias=_ofChecklistParaTipo(o.eq_tipo).filter(it=>itens[it.id]?.status==='avaria');
   if(!avarias.length) return '';
   return `<div class="rd-field"><span class="rd-field-lbl">Avarias na entrada</span><div>${avarias.map(it=>esc(it.label+(itens[it.id].obs?': '+itens[it.id].obs:''))).join('<br>')}</div></div>`;
 }
@@ -17207,7 +17267,7 @@ function imprimirTermoOficina(reparoId, tipo){
   let itens=o.estado_entrada;
   if(typeof itens==='string'){ try{ itens=JSON.parse(itens||'{}'); }catch(e){ itens={}; } }
   itens=(itens&&itens.itens)||{};
-  const avarias=OFICINA_CHECKLIST_ITENS.filter(it=>itens[it.id]?.status==='avaria')
+  const avarias=_ofChecklistParaTipo(o.eq_tipo).filter(it=>itens[it.id]?.status==='avaria')
     .map(it=>esc(it.label+(itens[it.id].obs?': '+itens[it.id].obs:'')));
   const sigCampo = tipo==='retirada' ? 'entrega_assinatura_base64' : 'termo_entrada_assinatura_base64';
   const sigB64 = o[sigCampo];

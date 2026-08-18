@@ -575,32 +575,52 @@ a entrada → abri a ficha → potência aparece certa no card do kanban
 ("Motobomba · Dancor · 1/2 CV") e na ficha completa. Sem chamada a
 `*.supabase.co`, sem erro novo no console.
 
-**3. Estado de chegada — checklist fixo (Carcaça/Cabo e plugue/Acessórios/
-Liga ao testar) não serve pra todo tipo de equipamento, PERGUNTA EM
-ABERTO, não implementado ainda.** O Marcos levantou a dúvida sem propor
-solução ("não sei se está assertivo... a gente tem que pensar talvez em
-alguma coisa ali") — bomba, sauna e trocador de calor têm avarias bem
-diferentes entre si. Análise: os 4 itens atuais são genéricos o bastante
-pra cobrir qualquer equipamento elétrico (todo item tem carcaça, cabo/
-plugue, acessórios, e é testável "liga ou não liga") — o propósito
-original era registrar o estado de CHEGADA pra evitar disputa depois
-("isso já veio quebrado assim"), não ser um diagnóstico técnico completo
-por tipo. Falei com o Marcos pra escolher entre 3 caminhos (perguntado via
-AskUserQuestion nesta sessão — ver resposta dele, se já registrada, antes
-de reabrir esse ponto):
-  a) Manter como está (genérico) + confiar no campo de observação livre
-     pra qualquer avaria específica do tipo que os 4 itens não cobrem.
-  b) Checklist muda de acordo com o `tipo` selecionado (ex.: sauna ganha
-     "Resistência" em vez de "Liga ao testar" sozinho) — mais preciso, mas
-     precisa de um conjunto de itens por tipo (9 tipos hoje:
-     Motobomba/Filtro/Trocador de Calor/Gerador de Cloro/LED Subaquático/
-     Spa-Hidro/Sauna/Automação/Outro) e manutenção contínua conforme a
-     oficina for pegando prática com o que realmente precisa checar.
-  c) Tirar o checklist estruturado, deixar só foto + texto livre — mais
-     rápido pro atendente, mas perde o "OK/Com avaria" clicável que dá
-     estrutura pro termo assinado.
+**3. Estado de chegada — checklist fixo não servia pra todo tipo de
+equipamento. RESOLVIDO — Marcos escolheu "checklist varia por tipo" entre
+3 opções (perguntado via AskUserQuestion), implementado e testado.**
 
-sw.js: fluxa-v177 → fluxa-v178.
+Estrutura nova: `OFICINA_CHECKLIST_BASE` (3 itens universais — carcaça,
+cabo/plugue, acessórios — aplicam a qualquer equipamento elétrico) +
+`OFICINA_CHECKLIST_POR_TIPO` (1-2 itens extras específicos, mapeados pelos
+9 tipos que já existem no `<select>` de Equipamentos — Motobomba/Filtro/
+Trocador de Calor/Gerador de Cloro/LED Subaquático/Spa-Hidro/Sauna/
+Automação/Outro). Função única `_ofChecklistParaTipo(tipo)` monta a lista
+combinada (fallback pra 'Outro' se o tipo não bater) — usada tanto pra
+RENDERIZAR o formulário (`renderOfChecklist()`, com o tipo do equipamento
+selecionado) quanto pra DECODIFICAR avarias de um reparo já salvo
+(`_ofFichaAvariasHtml`/`imprimirTermoOficina`, com `o.eq_tipo` — sem essa
+função única, a ficha de um reparo antigo mostraria o item errado se os
+itens por tipo mudassem no futuro).
+
+Primeira versão dos itens por tipo (documentado como ponto de partida, não
+definitivo — ajustar conforme a prática real da oficina for mostrando o
+que vale a pena checar):
+- Motobomba: liga ao testar, rotor gira livre, sem vazamento na vedação
+- Filtro: registro/válvula funciona, vaso sem rachadura
+- Trocador de Calor: liga ao testar, sem vazamento na serpentina
+- Gerador de Cloro: liga ao testar, célula eletrolítica presente
+- LED Subaquático: liga ao testar, vedação/nicho íntegro
+- Spa/Hidro: liga ao testar, bicos/jatos presentes
+- Sauna: liga ao testar (resistência), termostato/sensor presente
+- Automação: liga ao testar, placa/display sem sinal de queima
+- Outro: liga ao testar (fallback genérico, igual ao checklist antigo)
+
+`selecionarEqModal()` agora zera `_ofEstadoEntrada={}` e chama
+`renderOfChecklist()` de novo ao trocar de equipamento — sem isso, trocar
+de equipamento no meio do preenchimento vazaria respostas de um checklist
+de tipo diferente pro envio final.
+
+Testado no Browser pane (offline, clique real): tela em branco (sem
+equipamento ainda) mostra o checklist genérico ("Outro"); cadastrei
+equipamento novo tipo "Sauna" → checklist trocou na hora pra "Liga ao
+testar (resistência)" + "Termostato/sensor presente" (sumiu o "Liga ao
+testar na entrada" genérico); marquei "Termostato" como avaria com
+observação → registrei a entrada → abri a ficha → avaria decodificada
+certa: "Termostato / sensor presente: Sensor não acende luz piloto". Sem
+chamada a `*.supabase.co`, sem erro novo no console (só o ruído conhecido
+do sandbox).
+
+sw.js: fluxa-v178 → fluxa-v179.
 
 ---
 
