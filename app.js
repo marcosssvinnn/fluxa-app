@@ -3090,6 +3090,7 @@ function _limparCamposOrc(){
   renderSvcs(); upd();
   renderFotosOrcSlots();
   const ocv=document.getElementById('orc-ocultar-valores'); if(ocv) ocv.checked=false;
+  setV('orc-oficina-reparo-id','');
   // Reset OS toggle
   const tog=document.getElementById('toggle-os'); if(tog) tog.checked=false;
   const osf=document.getElementById('os-inline-fields'); if(osf) osf.style.display='none';
@@ -3835,7 +3836,8 @@ async function salvarApenas(){
       validade_dias:dados.dias, validade_data:dados.vData,
       data_servico:dados.dataSvc, escopo:dados.escopo, obs:dados.obs,
       foto_base64:fotosB64.filter(Boolean).length?JSON.stringify(fotosB64.filter(Boolean)):null, nota_interna:gV('nota-interna')||null,
-      ocultar_valores:dados.ocultarValores||false
+      ocultar_valores:dados.ocultarValores||false,
+      oficina_reparo_id:dados.oficinaReparoId||null
     };
 
     if(editId){
@@ -3924,7 +3926,8 @@ async function gerarPDF(){
     validade_dias:dados.dias, validade_data:dados.vData,
     data_servico:dados.dataSvc, escopo:dados.escopo, obs:dados.obs,
     foto_base64:fotosB64.filter(Boolean).length?JSON.stringify(fotosB64.filter(Boolean)):null, nota_interna:gV('nota-interna')||null,
-    ocultar_valores:dados.ocultarValores||false
+    ocultar_valores:dados.ocultarValores||false,
+    oficina_reparo_id:dados.oficinaReparoId||null
   };
   let num=null;
   _autoSalvarCliente(dados.cli, dados.tel, dados.loc, dados.cnpj, dados.loja_id);
@@ -4021,6 +4024,7 @@ function coletarForm(){
     dias, obs:gV('obs'),
     escopo:gV('escopo'), dataSvc:gV('data-svc'), dataStr, vData, sub:sub(), desc:disc(sub()), tot:tot(),
     ocultarValores:document.getElementById('orc-ocultar-valores')?.checked||false,
+    oficinaReparoId:gV('orc-oficina-reparo-id')||null,
     svcs:svcs.filter(s=>s.d.trim()).map(s=>({desc:s.d.trim(),preco:gP(s),precoUnit:parseFloat(s.p)||0,qty:parseInt(s.qty)||1,produto_id:s.produto_id||null,avulso:s.avulso||false})) };
 }
 
@@ -8644,7 +8648,7 @@ async function renderPortal(cli){
       // anti-adulteração (_hashDocumentoOrc) e a baixa/reserva de estoque
       // (sincronizarBaixaOrcamento) precisam na aprovação — não é só o que
       // a tela mostra.
-      let qOrc=db.from('orcamentos').select('id,numero,cliente,local_servico,tel_cliente,servicos,subtotal,desconto,total,pagamento,validade_dias,validade_data,obs,escopo,status,data_criacao,data_servico,cnpj,loja_id,cliente_id,pag_cod,pag_parcelas,pag_entrada').ilike('cliente',cli.nome).eq('status','pendente').order('data_criacao',{ascending:false});
+      let qOrc=db.from('orcamentos').select('id,numero,cliente,local_servico,tel_cliente,servicos,subtotal,desconto,total,pagamento,validade_dias,validade_data,obs,escopo,status,data_criacao,data_servico,cnpj,loja_id,cliente_id,pag_cod,pag_parcelas,pag_entrada,oficina_reparo_id').ilike('cliente',cli.nome).eq('status','pendente').order('data_criacao',{ascending:false});
       if(cli.loja_id) qOrc=qOrc.eq('loja_id',cli.loja_id);
       const {data:orcDb}=await qOrc;
       if(orcDb&&orcDb.length){
@@ -8659,7 +8663,7 @@ async function renderPortal(cli){
     secOrc.style.display='block';
     document.getElementById('portal-orcs').innerHTML=orcsCliente.map(o=>`
       <div class="portal-orc-item">
-        <div class="portal-orc-num">Orçamento #${String(o.numero||'').padStart(3,'0')}</div>
+        <div class="portal-orc-num">Orçamento #${String(o.numero||'').padStart(3,'0')}${o.oficina_reparo_id?' · <span class="rd-badge rd-badge-info" style="font-size:10px">🔧 Conserto</span>':''}</div>
         <div class="portal-orc-svcs">${esc((o.servicos||[]).map(s=>s.desc).join(', '))}</div>
         <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;flex-wrap:wrap;gap:8px">
           <div class="portal-orc-total">${brl(o.total||0)}</div>
@@ -8833,6 +8837,10 @@ async function aprovarOrcPortal(id, sigB64){
   lsOrcAtualizar(id,upd);
   sincronizarBaixaOrcamento(todosOrc.find(o=>o.id===id)); // baixa do estoque na aprovação pelo cliente
   if(dbOk&&db) orcSyncUpdate(id, upd).catch(e=>console.warn('[aprovarOrcPortal]', e?.message||e));
+  // Oficina (Fase 3) — só roda quando este orçamento nasceu vinculado a um
+  // reparo (criarOrcamentoDaOficina); orçamento de campo não tem esse campo
+  // e o if nunca entra, zero efeito colateral no fluxo já existente.
+  if(oAtual.oficina_reparo_id) await _ofSincronizarStatusPosOrcamento(oAtual.oficina_reparo_id, 'aprovado');
   if(portalCliente) await renderPortal(portalCliente);
   toast('✅ Orçamento aprovado e assinado!');
 }
@@ -8841,11 +8849,13 @@ function recusarOrcPortal(id){
   confirmar('Recusar este orçamento?', ()=>_recusarOrcPortalConfirmado(id), 'Recusar Orçamento');
 }
 async function _recusarOrcPortalConfirmado(id){
+  const oAtual=todosOrc.find(x=>x.id===id)||{};
   todosOrc=todosOrc.map(o=>o.id===id?{...o,status:'recusado'}:o);
   lsOrcAtualizar(id,{status:'recusado'});
   sincronizarBaixaOrcamento(todosOrc.find(o=>o.id===id)); // estorna se já tinha sido baixado
   await _limparRecebDoOrc(id, 'recusado no portal');
   if(dbOk&&db) dbUpdate('orcamentos', {status:'recusado'}, 'id', id).then(()=>{}).catch(()=>{});
+  if(oAtual.oficina_reparo_id) await _ofSincronizarStatusPosOrcamento(oAtual.oficina_reparo_id, 'recusado');
   if(portalCliente) await renderPortal(portalCliente);
   toast('❌ Orçamento recusado');
 }
@@ -16919,6 +16929,7 @@ function abrirFichaOficina(id){
       ${_ofFichaAvariasHtml(o)}
       ${_ofFichaFotosHtml(o)}
       ${o.obs_entrada?`<div class="rd-field"><span class="rd-field-lbl">Observação na entrada</span><div>${esc(o.obs_entrada)}</div></div>`:''}
+      ${_ofFichaOrcamentoHtml(o)}
       <div class="rd-field">
         <span class="rd-field-lbl">Termo de entrada</span>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -16953,6 +16964,24 @@ function _ofFichaFotosHtml(o){
   fotos=(Array.isArray(fotos)?fotos:[]).filter(Boolean);
   if(!fotos.length) return '';
   return `<div class="rd-field"><span class="rd-field-lbl">Fotos da chegada</span><div style="display:flex;gap:6px;flex-wrap:wrap">${fotos.map(f=>`<img src="${f}" style="width:70px;height:70px;object-fit:cover;border-radius:6px;border:1px solid var(--line-soft,var(--gray-light))">`).join('')}</div></div>`;
+}
+// Orçamento de conserto vinculado (Fase 3) — mostra status se já existe,
+// ou o botão pra criar um se ainda não tem nenhum.
+function _ofFichaOrcamentoHtml(o){
+  const orc=_ofOrcamentoVinculado(o.id);
+  if(!orc){
+    return `<div class="rd-field"><span class="rd-field-lbl">Orçamento de conserto</span>
+      <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" style="align-self:flex-start" onclick="criarOrcamentoDaOficina('${o.id}')">+ Gerar orçamento</button>
+    </div>`;
+  }
+  const statusLbl={pendente:'Pendente de aprovação',aprovado:'Aprovado',recusado:'Recusado',vencido:'Vencido'}[orc.status]||orc.status;
+  const statusCls={pendente:'rd-badge-warn',aprovado:'rd-badge-ok',recusado:'rd-badge-bad',vencido:'rd-badge-neutral'}[orc.status]||'rd-badge-neutral';
+  return `<div class="rd-field"><span class="rd-field-lbl">Orçamento de conserto</span>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <span>#${String(orc.numero||'').padStart(3,'0')} — ${brl(orc.total||0)}</span>
+      <span class="rd-badge ${statusCls}">${esc(statusLbl)}</span>
+    </div>
+  </div>`;
 }
 function fecharFichaOficina(){ document.getElementById('of-ficha-overlay')?.remove(); }
 
@@ -17060,6 +17089,49 @@ function imprimirTermoOficina(reparoId, tipo){
   <script>window.onload=()=>{window.print();}<\/script>
   </body></html>`);
   w.document.close();
+}
+
+// ── Orçamento de conserto (Fase 3) ──
+// Decisão de arquitetura: reusa orcamentos INTEIRA, não cria uma tabela
+// orcamentos_oficina — a tabela já traz numeração, assinatura com hash
+// anti-adulteração, aprovação/recusa, baixa de estoque e, principalmente,
+// integração PRONTA com o Portal do Cliente. A decisão de "tabela nova" do
+// Marcos foi sobre o TICKET de reparo (estados de bancada, muito diferente
+// de OS de campo) — não sobre orçamento, cujo ciclo de vida é idêntico
+// entre campo e oficina. Só precisa saber discriminar um do outro: a mera
+// presença de oficina_reparo_id já faz isso, sem precisar de coluna
+// origem/tipo nova (mesmo espírito de ordens_servico.orcamento_id).
+function criarOrcamentoDaOficina(reparoId){
+  const o=(todosOficinaReparos||[]).find(x=>x.id===reparoId); if(!o) return;
+  const num=o.numero?'OF-'+String(o.numero).padStart(5,'0'):'OF-…';
+  novoOrc();
+  setV('orc-oficina-reparo-id', reparoId);
+  setV('cli', o.cliente_nome||'');
+  _orcClienteSelecionado = o.cliente_id ? {id:o.cliente_id, nome:o.cliente_nome} : null;
+  if(!gV('origem-cli')) setOrigemCli('Já é cliente');
+  setV('nota-interna', `Orçamento de conserto — ${num}`);
+  if(o.loja_id) setV('orc-loja', o.loja_id);
+  fecharFichaOficina();
+  toast('Novo orçamento vinculado a '+num+' — preencha os serviços e salve.');
+}
+function _ofOrcamentoVinculado(reparoId){
+  return (todosOrc||[]).filter(o=>o.oficina_reparo_id===reparoId)
+    .sort((a,b)=>String(b.data_criacao||'').localeCompare(String(a.data_criacao||'')))[0]||null;
+}
+// Chamado no fim de aprovarOrcPortal/_recusarOrcPortalConfirmado (só quando
+// o orçamento tem oficina_reparo_id — orçamento de campo nunca entra aqui).
+// Avança o reparo só se ele ainda estiver ANTES do ponto de decisão — evita
+// sobrescrever um status mais adiantado que o gestor já tenha setado na mão
+// por outro caminho (ex.: reparo que já virou "pronto" antes do cliente
+// clicar no link antigo do portal).
+async function _ofSincronizarStatusPosOrcamento(reparoId, resultado){
+  const o=(todosOficinaReparos||[]).find(x=>x.id===reparoId); if(!o) return;
+  const antesDaDecisao=['recebido','diagnostico','aguardando_aprovacao'];
+  if(resultado==='aprovado' && antesDaDecisao.includes(o.status)){
+    await _ofAplicarStatus(reparoId, 'em_reparo');
+  } else if(resultado==='recusado' && o.status==='aguardando_aprovacao'){
+    await _ofAplicarStatus(reparoId, 'diagnostico');
+  }
 }
 
 // ══════════════════════════════════════════════════

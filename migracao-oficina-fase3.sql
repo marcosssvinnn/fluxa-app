@@ -1,0 +1,21 @@
+-- ══════════════════════════════════════════════════════════════════════════════
+--  OFICINA — Fase 3: orçamento de conserto + aprovação via portal (17/08)
+--
+--  Decisão de arquitetura: NÃO cria orcamentos_oficina — reusa `orcamentos`
+--  inteira. A tabela já traz numeração (dbInsertNumerado), assinatura com
+--  hash anti-adulteração, fluxo de aprovação/recusa e, principalmente,
+--  integração PRONTA com o Portal do Cliente (recriar tudo isso numa tabela
+--  separada seria o trabalho mais caro do módulo inteiro pra reproduzir
+--  comportamento idêntico). A decisão de "tabela nova" do Marcos (Fase 1)
+--  foi sobre o TICKET de reparo — estados de bancada bem diferentes de OS
+--  de campo — não sobre orçamento, cujo ciclo de vida é o mesmo entre
+--  campo e oficina.
+--
+--  A mera presença de oficina_reparo_id já discrimina "isto é orçamento de
+--  conserto" — sem precisar de coluna origem/tipo nova, mesmo espírito de
+--  ordens_servico.orcamento_id.
+--
+--  100% aditivo.
+-- ══════════════════════════════════════════════════════════════════════════════
+ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS oficina_reparo_id text;
+CREATE INDEX IF NOT EXISTS idx_orc_oficina_reparo ON orcamentos(oficina_reparo_id) WHERE oficina_reparo_id IS NOT NULL;

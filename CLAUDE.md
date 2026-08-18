@@ -224,6 +224,69 @@ sw.js: fluxa-v170 → fluxa-v171.
 
 Próximo: Fase 3 (orçamento de conserto + aprovação via portal).
 
+### ✅ Fase 3 — orçamento de conserto + aprovação via portal (17/08, `migracao-oficina-fase3.sql`)
+
+`orcamentos.oficina_reparo_id text` (aditiva, aplicada e verificada). **Decisão
+de arquitetura confirmada**: reusa `orcamentos` inteira, não cria
+`orcamentos_oficina` — a tabela já traz numeração, assinatura com hash
+anti-adulteração, aprovação/recusa e, principalmente, integração PRONTA com
+o Portal do Cliente. Recriar isso numa tabela separada seria o trabalho mais
+caro do módulo inteiro pra reproduzir comportamento idêntico. A decisão de
+"tabela nova" do Marcos (Fase 1) foi sobre o TICKET de reparo — não sobre
+orçamento, cujo ciclo de vida é o mesmo entre campo e oficina. A mera
+presença de `oficina_reparo_id` já discrimina "isto é orçamento de
+conserto", sem coluna `origem`/`tipo` nova (mesmo espírito de
+`ordens_servico.orcamento_id`).
+
+- `criarOrcamentoDaOficina(reparoId)` — chama `novoOrc()` existente,
+  pré-preenche cliente (nome + `_orcClienteSelecionado` com o `cliente_id`
+  real), campo oculto `orc-oficina-reparo-id` (novo em `index.html`, dentro
+  do card Serviços) e nota interna citando o `OF-#####`. Campo flui por
+  `coletarForm()` → os 2 `camposBase` (`salvarApenas`/`gerarPDF`) → grava
+  como `oficina_reparo_id` no orçamento. Resetado em `_limparCamposOrc()`
+  (senão o próximo "novo orçamento" herdaria o vínculo por engano).
+- `_ofOrcamentoVinculado(reparoId)` — acha o orçamento mais recente vinculado
+  em `todosOrc`. Ficha (`_ofFichaOrcamentoHtml`) mostra `+ Gerar orçamento`
+  quando não existe ainda, ou número/valor/status quando existe.
+- **Hook defensivo** no fim de `aprovarOrcPortal`/`_recusarOrcPortalConfirmado`
+  (as duas funções do PORTAL PÚBLICO — não a aprovação interna do gestor via
+  Histórico/`mudarSt`, decisão deliberada do plano pra não tocar código
+  mais sensível e compartilhado): `if(oAtual.oficina_reparo_id) await
+  _ofSincronizarStatusPosOrcamento(...)`. Aprovado → avança o reparo pra
+  `em_reparo`, mas **só se ainda estiver antes do ponto de decisão**
+  (`recebido`/`diagnostico`/`aguardando_aprovacao`) — não regride um reparo
+  que já esteja mais adiante (ex.: já `pronto`) por algum caminho manual.
+  Recusado → volta pra `diagnostico`, só se estava `aguardando_aprovacao`.
+  Orçamento de campo (sem `oficina_reparo_id`) nunca entra nesse `if` —
+  comportamento idêntico ao de sempre, zero efeito colateral.
+- Portal: `oficina_reparo_id` entrou na lista explícita de colunas do
+  `.select()` de orçamentos (`renderPortal`, ~`app.js:8647`) — **não é RPC**
+  (correção a uma suposição errada do plano inicial: este repo faz `.select()`
+  client-side com lista de colunas, não uma função `portal_dados` no banco).
+  Card do portal ganha tag "🔧 Conserto" quando o campo existe.
+
+**Gap conhecido, aceito de propósito**: se o GESTOR aprovar manualmente pela
+tela de Histórico (`mudarSt`) em vez do cliente aprovar pelo portal, o
+reparo NÃO avança sozinho — fica só no `_ofAplicarStatus` manual via "Mudar
+status" na ficha. O fluxo esperado do negócio é o cliente aprovar pelo
+portal (mesmo padrão de orçamento de campo); cobrir o caminho interno
+também exigiria tocar `_mudarStProsseguir`, código muito mais sensível e
+compartilhado com todo o resto do app — não valeu o risco nesta rodada.
+
+Testado no Browser pane (offline): `criarOrcamentoDaOficina` pré-preenche
+tudo certo e fecha a ficha; salvar o orçamento persiste `oficina_reparo_id`
+através de todo o `coletarForm`→`salvarApenas`; ficha reflete o orçamento
+vinculado (número/valor/status); aprovar avança o reparo pra `em_reparo` E
+registra no log; **reparo já `pronto` não regride** ao aprovar (guarda
+testada explicitamente); orçamento de campo comum (sem vínculo) aprovado
+sem nenhum efeito colateral novo; recusar volta o reparo pra `diagnostico`;
+tag "🔧 Conserto" aparece só no card certo. Sem erros novos, sem chamada a
+`*.supabase.co`.
+
+sw.js: fluxa-v171 → fluxa-v172.
+
+Próximo: Fase 4 (garantia de fabricante + retrabalho).
+
 ---
 
 ## Auditoria do fluxo orçamento → OS → conclusão, a pedido do Marcos (17/08)
