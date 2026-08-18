@@ -28,6 +28,9 @@ function telaInicial(sessao){
 // que usa estas variáveis — antes elas eram declaradas lá embaixo (erro
 // "Cannot access 'todosProdutos/todosFornecedores' before initialization").
 let todosFornecedores = [], todasOC = [], todosProdutos = [], todosMovEstoque = [], estoqueBusca = '';
+// Oficina (recepção/reparo de bancada) — declarado no topo pelo mesmo motivo
+// das linhas acima: evitar TDZ se algum ponto do boot vier a referenciar cedo.
+let todosOficinaReparos = [], _ofClienteSelecionado = null, _ofEquipamentoSelecionado = null;
 
 // ── Log de auditoria (quem fez o quê) ──
 let _auditoria = [];
@@ -1735,8 +1738,8 @@ function go(p){
   // guardrail de go() nenhum — virou página de verdade, então precisa
   // aparecer aqui pros 2 perfis que já tinham o atalho na sidebar
   // (snbRules: gestor||vendas||tecnico).
-  const pagesVendas  = ['form','history','clientes','agendamentos','os','venda-balcao'];
-  const pagesTecnico = ['minhas-os','visitas','os','venda-balcao']; // 'os' para abrir/preencher a OS atribuída
+  const pagesVendas  = ['form','history','clientes','agendamentos','os','venda-balcao','oficina','oficina-recepcao'];
+  const pagesTecnico = ['minhas-os','visitas','os','venda-balcao','oficina','oficina-recepcao']; // 'os' para abrir/preencher a OS atribuída
   if(_vendas  && !pagesVendas.includes(p))  { toast('Você não tem acesso a essa área.'); return; }
   if(_tecnico && !pagesTecnico.includes(p)) { toast('Você não tem acesso a essa área.'); return; }
   if(!_gestor && !_vendas && !_tecnico &&
@@ -1761,12 +1764,14 @@ function go(p){
   // Roda em TODO go(), não só ao entrar em 'venda-balcao': é o que garante
   // que sair da tela (pra qualquer destino) devolve sidebar/header sozinho,
   // sem precisar de um "fecharTelaCheia()" espalhado em cada botão de saída.
-  const _telaCheia = p==='venda-balcao';
+  const _telaCheia = ['venda-balcao','oficina-recepcao'].includes(p);
   const _hdrEl=document.querySelector('.hdr'); if(_hdrEl) _hdrEl.style.display=_telaCheia?'none':'';
   const _mobNavEl=document.getElementById('mob-nav'); if(_mobNavEl) _mobNavEl.style.display=_telaCheia?'none':'';
   const _sbEl=document.getElementById('sidebar'); if(_sbEl) _sbEl.classList.toggle('s-hidden', _telaCheia);
   document.body.classList.toggle('no-sbar', _telaCheia);
   if(p==='venda-balcao') _vbAbrir();
+  if(p==='oficina-recepcao') _ofRecepcaoAbrir();
+  if(p==='oficina') loadOficinaReparos();
   if(p==='portal') { /* página gerenciada por checkPortalHash */ }
   // "Insights" (rótulo "Hoje") — de volta a UMA tela só em 13/08 (handoff de
   // design substitui o desdobramento "Hoje"/"Resultado" feito mais cedo hoje:
@@ -7899,6 +7904,13 @@ function selecionarCliModal(nome, end, tel, cnpj, id){
     _eqClienteSelecionado = id ? {id, nome} : null;
     _eqPiscinaSelecionadaId = null;
     _eqRenderPiscinas();
+  } else if(_buscaCliCtx === 'of'){
+    setV('of-cli-nome', nome);
+    _ofClienteSelecionado = id ? {id, nome} : null;
+    // Equipamento é buscado por cliente_id real — troca de cliente invalida
+    // o equipamento já escolhido, senão a ficha sairia com o par errado.
+    _ofEquipamentoSelecionado = null; setV('of-eq-nome', '');
+    const _ofEqInfo=document.getElementById('of-eq-info'); if(_ofEqInfo) _ofEqInfo.style.display='none';
   } else {
     setV('cli', nome);
     if(end) setV('loc', end);
@@ -16487,6 +16499,191 @@ function _renderHistProduto(){
     }).join('')+navHTML;
 }
 function fecharHistProduto(){ document.getElementById('hist-prod-modal').style.display='none'; }
+
+// ══════════════════════════════════════════════════════════════════════════
+//  OFICINA — recepção e ficha de entrada (Fase 1, 17/08)
+//  Bancada de reparo — expansão de negócio além da manutenção de campo.
+//  todosOficinaReparos/_ofClienteSelecionado/_ofEquipamentoSelecionado
+//  declarados no topo do arquivo (evita TDZ no boot, mesmo motivo de
+//  todosFornecedores).
+// ══════════════════════════════════════════════════════════════════════════
+function lsOfLer(){ try{ return JSON.parse(ls('fluxa_oficina')||'[]'); }catch(e){ return []; } }
+function lsOfSalvar(lista){ lsSet('fluxa_oficina', JSON.stringify(lista.slice(0,500))); }
+
+async function loadOficinaReparos(){
+  todosOficinaReparos = lsOfLer();
+  if(dbOk&&db){
+    try{
+      const {data}=await db.from('oficina_reparos').select('*').order('data_criacao',{ascending:false}).limit(300);
+      if(data){ todosOficinaReparos=data; lsOfSalvar(data); }
+    }catch(e){ console.warn('[oficina load]', e?.message||e); }
+  }
+  await _reenviarOficinaLocais();
+  renderOficinaLista();
+}
+
+// Reparo criado offline (`_pendingSync:true`) sobe via dbInsertNumerado
+// assim que a conexão volta — mesmo padrão de _reenviarOSLocais/
+// _reenviarOrcamentosLocais. Como oficina_reparos.id é text app-gerado (não
+// uuid do banco), não precisa de reconciliação de id temporário → real: o
+// id final já é conhecido desde a criação, só falta o `numero`.
+async function _reenviarOficinaLocais(){
+  if(!dbOk||!db) return;
+  const pendentes=(todosOficinaReparos||[]).filter(o=>o._pendingSync);
+  for(const o of pendentes){
+    try{
+      const {_pendingSync, ...payload}=o;
+      const {data:ins,error}=await dbInsertNumerado('oficina_reparos', payload);
+      if(error){ console.warn('[oficina reenvio]', error.message); continue; }
+      const idx=todosOficinaReparos.findIndex(x=>x.id===o.id);
+      if(idx>=0 && ins) todosOficinaReparos[idx]=ins;
+    }catch(e){ console.warn('[oficina reenvio]', e?.message||e); }
+  }
+  if(pendentes.length) lsOfSalvar(todosOficinaReparos);
+}
+
+// ── Recepção (tela cheia, espelha _vbAbrir/abrirVendaBalcao) ──
+function abrirOficinaRecepcao(){ go('oficina-recepcao'); }
+function fecharOficinaRecepcao(){ voltar(); }
+function _ofRecepcaoAbrir(){
+  setV('of-cli-nome',''); setV('of-eq-nome',''); setV('of-obs','');
+  const origemSel=document.getElementById('of-origem'); if(origemSel) origemSel.value='balcao';
+  _ofClienteSelecionado=null; _ofEquipamentoSelecionado=null;
+  const eqInfo=document.getElementById('of-eq-info'); if(eqInfo) eqInfo.style.display='none';
+}
+
+async function salvarOficinaRecepcao(){
+  const nome=(gV('of-cli-nome')||'').trim();
+  if(!nome||!_ofClienteSelecionado){ toast('⚠️ Busque e selecione o cliente (🔍) antes de continuar'); return; }
+  if(!_ofEquipamentoSelecionado){ toast('⚠️ Selecione o equipamento'); return; }
+  const btn=document.getElementById('of-btn-salvar');
+  if(btn){ btn.disabled=true; btn.textContent='Salvando…'; }
+  const id='ofr_'+Date.now();
+  const eq=_ofEquipamentoSelecionado;
+  const dados={
+    id,
+    loja_id: lojaAtiva||LOJA_PADRAO_ID,
+    cliente_id: _ofClienteSelecionado.id,
+    cliente_nome: nome,
+    equipamento_id: eq.id,
+    eq_tipo: eq.tipo||'', eq_marca: eq.marca||'', eq_modelo: eq.modelo||'', eq_numero_serie: eq.numero_serie||'',
+    origem: gV('of-origem')||'balcao',
+    status: 'recebido',
+    obs_entrada: gV('of-obs')||'',
+    data_criacao: new Date().toISOString()
+  };
+  todosOficinaReparos.unshift({...dados, numero:null, _pendingSync:true});
+  lsOfSalvar(todosOficinaReparos);
+  if(dbOk&&db){
+    try{
+      const {data:ins,error}=await dbInsertNumerado('oficina_reparos', dados);
+      if(error) throw error;
+      const idx=todosOficinaReparos.findIndex(x=>x.id===id);
+      if(idx>=0 && ins) todosOficinaReparos[idx]=ins;
+      lsOfSalvar(todosOficinaReparos);
+    }catch(e){ console.warn('[oficina salvar]', e?.message||e); }
+  }
+  if(btn){ btn.disabled=false; btn.textContent='💾 Registrar recepção'; }
+  logAcao('oficina_recepcao', `${nome} · ${[eq.tipo,eq.marca].filter(Boolean).join(' ')}`.trim());
+  toast('✅ Item recebido na oficina');
+  fecharOficinaRecepcao();
+}
+
+// ── Busca de equipamento por cliente (novo — não existia modal genérico) ──
+function abrirBuscaEq(){
+  if(!_ofClienteSelecionado){ toast('⚠️ Selecione o cliente primeiro'); return; }
+  const abrirModal=()=>{
+    document.getElementById('modal-eq-inp').value='';
+    filtrarListaEq('');
+    document.getElementById('modal-busca-eq').style.display='flex';
+    setTimeout(()=>document.getElementById('modal-eq-inp').focus(), 80);
+  };
+  if(!(todosEq||[]).length && typeof loadEquipamentos==='function') loadEquipamentos().then(abrirModal);
+  else abrirModal();
+}
+function fecharBuscaEq(){ document.getElementById('modal-busca-eq').style.display='none'; }
+function filtrarListaEq(val){
+  const q=(val||'').toLowerCase().trim();
+  let lista=(todosEq||[]).filter(e=>e.ativo!==false && e.cliente_id===_ofClienteSelecionado?.id);
+  if(q) lista=lista.filter(e=>[e.tipo,e.marca,e.modelo,e.numero_serie].filter(Boolean).some(v=>String(v).toLowerCase().includes(q)));
+  const el=document.getElementById('modal-eq-lista');
+  if(!lista.length){
+    el.innerHTML=`<div style="padding:20px;text-align:center;color:var(--gray);font-size:13px">Nenhum equipamento deste cliente encontrado.</div>`;
+    return;
+  }
+  el.innerHTML=lista.map(e=>`
+    <div class="modal-cli-item" onmousedown="selecionarEqModal('${esc(e.id)}')">
+      <div class="mcn">${esc(e.tipo||'—')}${e.marca?' · '+esc(e.marca):''}${e.modelo?' '+esc(e.modelo):''}</div>
+      <div class="mcd">${e.numero_serie?esc('Série '+e.numero_serie):'—'}</div>
+    </div>`).join('');
+}
+function selecionarEqModal(id){
+  const eq=(todosEq||[]).find(e=>e.id===id); if(!eq) return;
+  _ofEquipamentoSelecionado=eq;
+  setV('of-eq-nome', [eq.tipo,eq.marca,eq.modelo].filter(Boolean).join(' · '));
+  const eqInfo=document.getElementById('of-eq-info');
+  if(eqInfo){ eqInfo.style.display=''; eqInfo.textContent=eq.numero_serie?('Nº de série: '+eq.numero_serie):'Sem número de série cadastrado'; }
+  fecharBuscaEq();
+}
+
+// ── Lista (kanban entra na Fase 2) ──
+const OFICINA_STATUS_LABEL={recebido:'Recebido',diagnostico:'Em diagnóstico',aguardando_aprovacao:'Aguardando aprovação',aguardando_peca:'Aguardando peça',em_reparo:'Em reparo',pronto:'Pronto',entregue:'Entregue',cancelado:'Cancelado'};
+const OFICINA_STATUS_CLS={recebido:'rd-badge-neutral',diagnostico:'rd-badge-info',aguardando_aprovacao:'rd-badge-warn',aguardando_peca:'rd-badge-warn',em_reparo:'rd-badge-info',pronto:'rd-badge-ok',entregue:'rd-badge-ok',cancelado:'rd-badge-bad'};
+const OFICINA_ORIGEM_LABEL={balcao:'Balcão',os_campo:'OS de campo',garantia_fabricante:'Garantia fabricante'};
+
+function renderOficinaLista(){
+  const el=document.getElementById('of-lista'); if(!el) return;
+  let lista=filtrarPorLoja(todosOficinaReparos||[]);
+  if(!lista.length){
+    el.innerHTML=`<div class="rd-empty" style="padding:24px"><div class="rd-empty-ico">🔧</div><div class="rd-empty-title">Nenhum item na oficina ainda.</div><button type="button" class="rd-btn rd-btn-primary" style="margin-top:6px" onclick="abrirOficinaRecepcao()">+ Nova Recepção</button></div>`;
+    return;
+  }
+  lista=lista.slice().sort((a,b)=>String(b.data_criacao||'').localeCompare(String(a.data_criacao||'')));
+  const grid='90px 1.5fr 1fr 150px';
+  let h=`<div class="rd-table-wrap" style="border:none;border-radius:0">
+    <div style="overflow-x:auto"><div style="min-width:640px">
+    <div class="rd-thead" style="grid-template-columns:${grid}">
+      <div class="rd-th">Nº</div><div class="rd-th">Cliente e equipamento</div><div class="rd-th">Origem</div><div class="rd-th">Situação</div>
+    </div>`;
+  lista.forEach(o=>{
+    const num=o.numero?'OF-'+String(o.numero).padStart(5,'0'):'OF-…';
+    h+=`<div class="rd-row" style="grid-template-columns:${grid};cursor:pointer" tabindex="0" role="button" onclick="abrirFichaOficina('${o.id}')" onkeydown="if(event.key==='Enter'){abrirFichaOficina('${o.id}')}">
+      <div class="rd-cell-strong">${esc(num)}</div>
+      <div><div class="rd-cell-strong">${esc(o.cliente_nome||'—')}</div><div class="rd-cell-sub">${esc([o.eq_tipo,o.eq_marca,o.eq_modelo].filter(Boolean).join(' · ')||'—')}</div></div>
+      <div class="rd-cell-sub">${esc(OFICINA_ORIGEM_LABEL[o.origem]||o.origem||'—')}</div>
+      <div><span class="rd-badge ${OFICINA_STATUS_CLS[o.status]||'rd-badge-neutral'}">${esc(OFICINA_STATUS_LABEL[o.status]||o.status)}</span></div>
+    </div>`;
+  });
+  h+='</div></div></div>';
+  el.innerHTML=h;
+}
+
+// ── Ficha do reparo (modal simples nesta fase — ações de status entram na Fase 2) ──
+function abrirFichaOficina(id){
+  const o=(todosOficinaReparos||[]).find(x=>x.id===id); if(!o) return;
+  const num=o.numero?'OF-'+String(o.numero).padStart(5,'0'):'OF-…';
+  const bg=document.createElement('div');
+  bg.className='cli-hist-overlay'; bg.id='of-ficha-overlay';
+  bg.onclick=(e)=>{ if(e.target===bg) fecharFichaOficina(); };
+  bg.innerHTML=`<div class="cli-hist-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 18px;border-bottom:1px solid var(--line-soft,var(--gray-light))">
+      <div>
+        <div style="font-size:16px;font-weight:700;color:var(--c2)">${esc(num)}</div>
+        <div style="font-size:12px;color:var(--gray)">${esc(o.cliente_nome||'—')}</div>
+      </div>
+      <button type="button" class="cli-hist-close" onclick="fecharFichaOficina()" aria-label="Fechar">✕</button>
+    </div>
+    <div style="padding:18px;overflow-y:auto;display:flex;flex-direction:column;gap:14px">
+      <div><span class="rd-badge ${OFICINA_STATUS_CLS[o.status]||'rd-badge-neutral'}">${esc(OFICINA_STATUS_LABEL[o.status]||o.status)}</span></div>
+      <div class="rd-field"><span class="rd-field-lbl">Equipamento</span><div>${esc([o.eq_tipo,o.eq_marca,o.eq_modelo].filter(Boolean).join(' · ')||'—')}</div></div>
+      ${o.eq_numero_serie?`<div class="rd-field"><span class="rd-field-lbl">Número de série</span><div>${esc(o.eq_numero_serie)}</div></div>`:''}
+      <div class="rd-field"><span class="rd-field-lbl">Origem</span><div>${esc(OFICINA_ORIGEM_LABEL[o.origem]||o.origem||'—')}</div></div>
+      ${o.obs_entrada?`<div class="rd-field"><span class="rd-field-lbl">Observação na entrada</span><div>${esc(o.obs_entrada)}</div></div>`:''}
+    </div>
+  </div>`;
+  document.body.appendChild(bg);
+}
+function fecharFichaOficina(){ document.getElementById('of-ficha-overlay')?.remove(); }
 
 // ══════════════════════════════════════════════════
 //  FORNECEDORES

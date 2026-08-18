@@ -283,6 +283,10 @@
         <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8l8-4 8 4v8l-8 4-8-4zM4 8l8 4 8-4M12 12v8"></path></svg>
         <span class="slabel">Venda Rápida</span>
       </button>
+      <button class="snb" id="snb-oficina" onclick="go('oficina')">
+        <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 1-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 0 1 5.4-5.4L15 12l-3-3z"></path></svg>
+        <span class="slabel">Oficina</span>
+      </button>
     </div>
 
     <div class="snav-group" id="snav-group-cadastros">
@@ -2672,6 +2676,66 @@
   </div>
 </div>
 
+<!-- ══ OFICINA — Fase 1 (17/08) ══ -->
+<div class="page" id="page-oficina">
+  <div class="wrap">
+    <div class="rd-card">
+      <div class="rd-card-hdr">
+        <div class="rd-card-title">Oficina</div>
+        <button type="button" class="rd-btn rd-btn-primary" onclick="abrirOficinaRecepcao()">+ Nova Recepção</button>
+      </div>
+      <div id="of-lista"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Tela cheia — mesmo padrão de #page-venda-balcao (ver go(), app.js): sem
+     sidebar/header, "atendente cadastrando na recepção" não precisa de cromo
+     de app admin ao redor. -->
+<div class="page" id="page-oficina-recepcao">
+  <div class="vb-topbar">
+    <button type="button" class="vb-sair" onclick="fecharOficinaRecepcao()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 6l-6 6 6 6"></path></svg>
+      Sair da recepção
+    </button>
+    <div class="vb-topbar-div"></div>
+    <span class="vb-topbar-titulo">Nova Recepção — Oficina</span>
+  </div>
+  <div class="wrap" style="max-width:640px;padding-top:24px">
+    <div class="rd-card" style="display:flex;flex-direction:column;gap:16px">
+      <div class="rd-field">
+        <span class="rd-field-lbl">Cliente</span>
+        <div class="cli-input-wrap">
+          <input type="text" id="of-cli-nome" class="rd-field-box" placeholder="Buscar cliente…" readonly>
+          <button type="button" class="cli-search-btn" onclick="abrirBuscaCli('of')" title="Buscar cliente cadastrado">🔍</button>
+        </div>
+        <span style="font-size:11px;color:var(--gray)">Precisa ser um cliente já cadastrado — a busca de equipamento depende do vínculo.</span>
+      </div>
+      <div class="rd-field">
+        <span class="rd-field-lbl">Equipamento</span>
+        <div class="cli-input-wrap">
+          <input type="text" id="of-eq-nome" class="rd-field-box" placeholder="Selecione o equipamento…" readonly>
+          <button type="button" class="cli-search-btn" onclick="abrirBuscaEq()" title="Buscar equipamento do cliente">🔍</button>
+        </div>
+        <span id="of-eq-info" style="font-size:11px;color:var(--gray);display:none"></span>
+      </div>
+      <div class="rd-field">
+        <span class="rd-field-lbl">Origem</span>
+        <select id="of-origem" class="rd-field-box">
+          <option value="balcao">Balcão</option>
+          <option value="os_campo">Trazido de uma OS de campo</option>
+          <option value="garantia_fabricante">Garantia de fabricante</option>
+        </select>
+      </div>
+      <div class="rd-field">
+        <span class="rd-field-lbl">Observação (o que o cliente relatou)</span>
+        <textarea id="of-obs" class="rd-field-box" rows="3" placeholder="Ex.: motobomba fazendo ruído, não liga…"></textarea>
+      </div>
+      <button type="button" class="rd-btn rd-btn-primary" id="of-btn-salvar" onclick="salvarOficinaRecepcao()" style="align-self:flex-start">💾 Registrar recepção</button>
+    </div>
+  </div>
+</div>
+
 <div class="qr-modal-bg" id="mov-modal" style="display:none" onclick="if(event.target===this)fecharMovModal()">
   <div class="card" style="max-width:420px;width:92%">
     <div class="ct" id="mov-modal-titulo">Movimento <button onclick="fecharMovModal()" aria-label="Fechar" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;float:right;line-height:1">×</button></div>
@@ -3230,6 +3294,18 @@
     </div>
     <input class="modal-cli-inp" id="modal-cli-inp" type="text" placeholder="Nome, telefone ou CNPJ..." oninput="filtrarListaCli(this.value)" autocomplete="off">
     <div class="modal-cli-lista" id="modal-cli-lista"></div>
+  </div>
+</div>
+
+<!-- ══ MODAL: BUSCA EQUIPAMENTO (Oficina, 17/08) — mesma estrutura do de cliente ══ -->
+<div class="modal-cli-bg" id="modal-busca-eq" style="display:none" onclick="if(event.target===this)fecharBuscaEq()">
+  <div class="modal-cli-box">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div style="font-size:15px;font-weight:700;color:var(--c2)">Buscar Equipamento</div>
+      <button onclick="fecharBuscaEq()" aria-label="Fechar" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--gray);line-height:1">×</button>
+    </div>
+    <input class="modal-cli-inp" id="modal-eq-inp" type="text" placeholder="Tipo, marca, modelo ou número de série..." oninput="filtrarListaEq(this.value)" autocomplete="off">
+    <div class="modal-cli-lista" id="modal-eq-lista"></div>
   </div>
 </div>
 

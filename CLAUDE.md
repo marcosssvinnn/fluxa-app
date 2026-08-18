@@ -2,6 +2,93 @@
 
 ---
 
+## 🔧 MÓDULO OFICINA — expansão de negócio, EM CONSTRUÇÃO (a partir de 17/08)
+
+> **Se você é a outra IA e está lendo isso pela primeira vez:** a empresa está
+> abrindo uma bancada de reparo física (oficina), além da manutenção de campo
+> que já existe. Isto é um módulo NOVO, grande, sendo construído fase por
+> fase — plano completo (schema de todas as 5 fases, decisões já tomadas,
+> padrões do código a reaproveitar) em
+> `/Users/marcosvinicius/.claude/plans/enchanted-conjuring-bee.md`. Pesquisa
+> de mercado + mapeamento inicial do código: artefato "Módulo de Oficina"
+> publicado pro Marcos numa sessão anterior (não versionado no repo).
+
+### Decisões de negócio já confirmadas com o Marcos (não reabrir)
+1. **Tabela nova** (`oficina_reparos`), separada de `ordens_servico` — a OS de
+   campo é visita agendada com check-in/check-out por GPS; a oficina é
+   bancada fixa com estados de reparo incompatíveis com isso.
+2. **Garantia de fabricante**: só RASTREIO por enquanto (campos de texto
+   livre: fabricante/protocolo/NF), sem cobrança/recebimento formal do
+   fabricante — fica pra uma fase futura se um dia fizer sentido.
+3. **Uma unidade de oficina só** por enquanto (não multi-loja ativo), mas
+   `loja_id` nullable em todo lugar pra não fechar a porta.
+4. **Decisão técnica minha** (autonomia dada pelo Marcos): a regra já em
+   produção "aprovar orçamento = sai do estoque na hora" (`sincronizarBaixa
+   Orcamento`, migração 07/08) **não é alterada** pra oficina — orçamento de
+   conserto aprovado baixa estoque exatamente igual orçamento de campo.
+   "Aguardando peça" (Fase 2) vira um status MANUAL que o técnico seta
+   quando sabe que não tem a peça em mãos, independente do ledger. Motivo:
+   não vale o risco de mexer em código compartilhado e sensível com o fluxo
+   de campo (já teve incidente de reserva órfã documentado nesse trecho).
+
+### Padrão de id: `text PRIMARY KEY` app-gerado
+`oficina_reparos.id` = `'ofr_<timestamp>'`, mesmo padrão de `fornecedores`/
+`ordens_compra` (`migracao-compras.sql`) — não o padrão de `id uuid`
+server-gerado de `orcamentos`/`equipamentos`/`vendas_balcao`. Client já sabe
+o id final na hora de criar, offline, sem precisar reconciliar id temporário
+→ id real depois do sync. `dbInsertNumerado('oficina_reparos', payload)` só
+precisa que `payload.id` já venha preenchido — o `numero` que ele calcula é
+o que falta pra virar registro "de verdade" (offline: fica com
+`numero:null, _pendingSync:true` até a conexão voltar).
+
+### ✅ Fase 1a — Recepção e ficha de entrada, básico (17/08, `migracao-oficina-fase1.sql`)
+
+Tabela `oficina_reparos` criada e aplicada em produção (verificado via
+`information_schema.columns`). Fluxo fechado ponta a ponta: sidebar → "+ Nova
+Recepção" (tela cheia, mesmo padrão de `venda-balcao` — sem sidebar/header,
+`_telaCheia` em `go()` virou array) → busca cliente **já cadastrado**
+(`abrirBuscaCli('of')`, novo branch em `selecionarCliModal`) → busca
+equipamento **daquele cliente** (`abrirBuscaEq`/`filtrarListaEq`/
+`selecionarEqModal` — modal genérico NOVO, não existia nada assim antes,
+só clonado estruturalmente de `abrirBuscaCli`) → origem (balcão/OS de
+campo/garantia de fabricante) → observação → salva (`salvarOficinaRecepcao`,
+local-first, `dbInsertNumerado`) → aparece na lista (`renderOficinaLista`,
+`.rd-table`/`.rd-row` — mesmo padrão de `renderOSTabela`) → abre ficha
+(`abrirFichaOficina`, modal dinâmico `.cli-hist-overlay`/`.cli-hist-box`).
+
+**Decisão de UX deliberada**: campo "Cliente" da oficina EXIGE selecionar um
+cliente já cadastrado pela busca (não aceita nome digitado livre como
+orçamento/OS aceitam) — diferente do resto do app, de propósito: a busca de
+equipamento depende de um `cliente_id` real pra funcionar (equipamento é
+filtrado por `cliente_id`), então digitar um nome sem selecionar deixaria o
+campo de equipamento travado sem explicação. Trocar de cliente já selecionado
+invalida o equipamento escolhido antes (evita salvar o par errado).
+
+**Bug achado e corrigido no próprio teste**: número provisório (reparo ainda
+não sincronizado, `numero:null`) renderizava como `"OF-00···"` em vez de um
+placeholder limpo — `String(null||'···').padStart(5,'0')` faz padStart em
+cima da STRING '···' (3 caracteres), não do número ausente, gerando "00" na
+frente. Corrigido pra `o.numero ? 'OF-'+String(o.numero).padStart(5,'0') :
+'OF-…'` nos dois pontos que formatam (`renderOficinaLista`/
+`abrirFichaOficina`).
+
+**Testado no Browser pane** (offline, `dbOk=false;db=null;` bare — sem
+`window.`, confirmado via `read_network_requests` que nenhuma chamada foi a
+`*.supabase.co`): ciclo completo criar→listar→abrir ficha; guarda de troca
+de cliente invalidando equipamento; validação bloqueando salvar sem cliente/
+equipamento (toast, sem gravar nada); acesso liberado pra gestor/vendas/
+técnico (3 perfis testados); sem erros novos no console.
+
+**Ainda não feito nesta rodada** (fica pra sub-passos seguintes, já
+planejados): fotos de entrada + checklist estruturado (`estado_entrada`),
+cadastro inline de equipamento novo dentro da busca (Fase 1b); termo de
+entrada com assinatura + impressão + exibição do `OF-#####` de verdade
+(Fase 1c). Depois disso, Fases 2-5 do plano.
+
+sw.js: fluxa-v167 → fluxa-v168.
+
+---
+
 ## Auditoria do fluxo orçamento → OS → conclusão, a pedido do Marcos (17/08)
 
 Marcos pediu pra percorrer a trajetória inteira (orçamento → aprovação →

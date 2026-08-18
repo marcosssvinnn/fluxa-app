@@ -1773,6 +1773,11 @@
        ══════════════════════════════════════════════════════════════════ */
     #page-venda-balcao{position:fixed;inset:0;z-index:50;background:var(--bg-app);display:none;flex-direction:column}
     #page-venda-balcao.on{display:flex}
+    /* Recepção da Oficina (17/08) — mesmo tratamento de tela cheia, reusa
+       .vb-topbar/.vb-sair/.vb-topbar-div/.vb-topbar-titulo do balcão pra
+       consistência visual entre as duas telas "atendimento rápido". */
+    #page-oficina-recepcao{position:fixed;inset:0;z-index:50;background:var(--bg-app);display:none;flex-direction:column;overflow-y:auto}
+    #page-oficina-recepcao.on{display:flex}
     .vb-topbar{height:60px;flex-shrink:0;background:#101720;padding:0 20px;display:flex;align-items:center;gap:14px}
     .vb-sair{display:flex;align-items:center;gap:9px;padding-right:6px;background:none;border:none;cursor:pointer;font-family:'Instrument Sans',sans-serif;font-size:13px;font-weight:600;color:#B4C1D1}
     .vb-sair:hover{color:#F2F6FB}
