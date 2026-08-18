@@ -407,6 +407,54 @@ texto livre, não dá pra evoluir só com ALTER — precisaria de tabela nova);
 impressora térmica de etiqueta de verdade (hoje é QR em papel A4 normal,
 mesmo padrão de equipamentos).
 
+### 🔴 Achado no teste ponta a ponta com clique real (17/08), corrigido
+
+Todo o desenvolvimento das 5 fases foi testado via `javascript_exec`
+(chamar as funções direto pelo console) — rápido, mas não prova que o
+CLIQUE de verdade na UI funciona igual. Depois de tudo no ar, rodei uma
+segunda passada clicando de verdade (mouse, `left_click`/`left_click_drag`
+pra desenhar a assinatura de verdade) do início ao fim: recepção → busca
+de cliente → busca de equipamento → marcar avaria → assinar termo →
+gerar orçamento → salvar → voltar pra ficha → **abrir a etiqueta/QR**.
+
+**Achei 1 bug real nesse último passo**: o modal de QR (`#qr-of-modal-bg`)
+tecnicamente abria (`classList` tinha `.on`, `display:flex` computado),
+mas ficava **invisível atrás da ficha**. Causa: a ficha
+(`#of-ficha-overlay`) é criada dinamicamente e vai pro **fim do
+`<body>`** via `appendChild` — nessa posição ela empilha por cima de
+qualquer elemento com o mesmo z-index (900) que estiver mais acima na
+árvore estática do HTML, que é onde `#qr-of-modal-bg` sempre morou. O
+botão 🏷️ que abre o QR fica DENTRO da própria ficha — então, na prática,
+o QR nunca aparecia (mesmo problema de empilhamento que o modal de
+assinatura já resolve há tempos com um z-index 1100 fixo — só que o
+modal de QR nunca tinha essa necessidade até o botão 🏷️ entrar dentro
+de outro modal).
+
+**Fix** (`verQROficina`): move o modal pro fim do `<body>` via
+`appendChild` no momento de abrir, em vez de confiar num z-index fixo —
+mais robusto, garante que fica por cima de qualquer modal aberto antes,
+sem precisar manter um número mágico sincronizado.
+
+**Todo o resto do fluxo, testado com clique de mouse de verdade, funcionou
+sem nenhum outro problema**: busca de cliente auto-filtra corretamente,
+busca de equipamento já vem filtrada pelo cliente selecionado, marcar
+avaria mostra o campo de descrição na hora (feedback visual imediato),
+assinatura desenhada com `left_click_drag` registra e confirma
+corretamente (toast + ficha reabre mostrando "✍️ Assinado"), "Gerar
+orçamento" navega pra tela de orçamento com cliente/origem/nota já
+preenchidos e o toast de vínculo aparece, salvar o orçamento por
+"Salvar rascunho" (fluxo real, não atalho) persiste `oficina_reparo_id`
+corretamente (confirmado reabrindo a ficha depois), select de "Mudar
+status" reflete no board na hora.
+
+sw.js: fluxa-v174 → fluxa-v175.
+
+**Lição pro processo**: daqui pra frente, qualquer módulo com múltiplos
+modais/overlays abertos um-dentro-do-outro merece pelo menos um teste de
+clique real (não só via console) antes de dar por pronto — esse tipo de
+bug de empilhamento não aparece em nenhuma checagem de estado/retorno de
+função, só é visível olhando a tela de verdade.
+
 ---
 
 ## Auditoria do fluxo orçamento → OS → conclusão, a pedido do Marcos (17/08)

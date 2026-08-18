@@ -17275,7 +17275,18 @@ function verQROficina(id){
   document.getElementById('qr-of-nome').textContent=num;
   document.getElementById('qr-of-info').textContent=(o.cliente_nome||'')+(o.eq_tipo?' — '+o.eq_tipo:'');
   document.getElementById('qr-of-img').src='https://api.qrserver.com/v1/create-qr-code/?size=200x200&data='+encodeURIComponent(url);
-  document.getElementById('qr-of-modal-bg').classList.add('on');
+  const modal=document.getElementById('qr-of-modal-bg');
+  // Achado testando o fluxo real (17/08): botão de etiqueta fica DENTRO da
+  // ficha (of-ficha-overlay), que é criada dinamicamente e vai pro fim do
+  // <body> via appendChild — nessa posição ela empilha ACIMA de qualquer
+  // elemento estático do HTML com o mesmo z-index (mesmo padrão de conflito
+  // que o modal de assinatura já resolve dando z-index 1100 explícito). Este
+  // modal também estava fixo no HTML estático — bastava a ficha estar aberta
+  // por cima pra ele nunca aparecer, apesar de tecnicamente estar com
+  // display:flex. Mover pro fim do body ao abrir resolve de vez, sem
+  // depender de manter um número mágico de z-index sincronizado.
+  document.body.appendChild(modal);
+  modal.classList.add('on');
 }
 function fecharQROficina(){ document.getElementById('qr-of-modal-bg').classList.remove('on'); qrOficinaAtual=null; }
 function imprimirQROficina(){
