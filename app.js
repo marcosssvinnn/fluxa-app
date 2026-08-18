@@ -33,6 +33,7 @@ let todosFornecedores = [], todasOC = [], todosProdutos = [], todosMovEstoque = 
 let todosOficinaReparos = [], _ofClienteSelecionado = null, _ofEquipamentoSelecionado = null;
 let _ofFotos = [], _ofEstadoEntrada = {};
 let _ofStatusLog = [], _ofFiltroBusca = '', _ofFiltroOrigem = '';
+let _ofRetrabalhoDe = null;
 
 // ── Log de auditoria (quem fez o quê) ──
 let _auditoria = [];
@@ -16583,12 +16584,22 @@ function abrirOficinaRecepcao(){ go('oficina-recepcao'); }
 function fecharOficinaRecepcao(){ voltar(); }
 function _ofRecepcaoAbrir(){
   setV('of-cli-nome',''); setV('of-eq-nome',''); setV('of-obs','');
+  setV('of-fabricante',''); setV('of-fabricante-protocolo',''); setV('of-fabricante-nf','');
   const origemSel=document.getElementById('of-origem'); if(origemSel) origemSel.value='balcao';
-  _ofClienteSelecionado=null; _ofEquipamentoSelecionado=null;
+  _ofClienteSelecionado=null; _ofEquipamentoSelecionado=null; _ofRetrabalhoDe=null;
   _ofFotos=[]; _ofEstadoEntrada={};
   const eqInfo=document.getElementById('of-eq-info'); if(eqInfo) eqInfo.style.display='none';
   const novoEqForm=document.getElementById('of-novo-eq-form'); if(novoEqForm) novoEqForm.style.display='none';
+  _ofToggleCamposFabricante('balcao');
+  const avisoEl=document.getElementById('of-retrabalho-aviso'); if(avisoEl){ avisoEl.style.display='none'; avisoEl.innerHTML=''; }
   renderOfChecklist(); renderOfFotosSlots();
+}
+// Origem "garantia de fabricante" (decisão do Marcos: só RASTREIO, sem
+// cobrança/recebimento formal) pede fabricante/protocolo/NF — os outros
+// dois tipos de origem não têm o que perguntar aqui.
+function _ofToggleCamposFabricante(origem){
+  const el=document.getElementById('of-campos-fabricante'); if(!el) return;
+  el.style.display = origem==='garantia_fabricante' ? 'flex' : 'none';
 }
 
 // ── Checklist de estado na chegada (Fase 1b) — evita disputa de "isso já
@@ -16715,6 +16726,10 @@ async function salvarOficinaRecepcao(){
     estado_entrada: {itens:_ofEstadoEntrada},
     fotos_entrada: _ofFotos.filter(Boolean),
     obs_entrada: gV('of-obs')||'',
+    fabricante: gV('of-origem')==='garantia_fabricante' ? (gV('of-fabricante')||null) : null,
+    fabricante_protocolo: gV('of-origem')==='garantia_fabricante' ? (gV('of-fabricante-protocolo')||null) : null,
+    fabricante_nf: gV('of-origem')==='garantia_fabricante' ? (gV('of-fabricante-nf')||null) : null,
+    retrabalho_de: _ofRetrabalhoDe||null,
     data_criacao: new Date().toISOString()
   };
   todosOficinaReparos.unshift({...dados, numero:null, _pendingSync:true});
@@ -16765,10 +16780,35 @@ function filtrarListaEq(val){
 function selecionarEqModal(id){
   const eq=(todosEq||[]).find(e=>e.id===id); if(!eq) return;
   _ofEquipamentoSelecionado=eq;
+  _ofRetrabalhoDe=null; // troca de equipamento invalida qualquer sugestão anterior
   setV('of-eq-nome', [eq.tipo,eq.marca,eq.modelo].filter(Boolean).join(' · '));
   const eqInfo=document.getElementById('of-eq-info');
   if(eqInfo){ eqInfo.style.display=''; eqInfo.textContent=eq.numero_serie?('Nº de série: '+eq.numero_serie):'Sem número de série cadastrado'; }
   fecharBuscaEq();
+  _ofVerificarRetrabalho(id);
+}
+// Sugestão (não força) de vínculo de retrabalho — mesmo espírito não-
+// bloqueante da sugestão de cliente duplicado que já existe no resto do
+// app. Só sugere quando há um reparo ANTERIOR do MESMO equipamento, já
+// entregue, com a garantia própria da oficina ainda válida.
+function _ofVerificarRetrabalho(equipamentoId){
+  const el=document.getElementById('of-retrabalho-aviso'); if(!el) return;
+  const hoje=_hojeLocal();
+  const anterior=(todosOficinaReparos||[])
+    .filter(o=>o.equipamento_id===equipamentoId && o.status==='entregue' && o.garantia_propria_vencimento && o.garantia_propria_vencimento>=hoje)
+    .sort((a,b)=>String(b.data_entrega||'').localeCompare(String(a.data_entrega||'')))[0];
+  if(!anterior){ el.style.display='none'; el.innerHTML=''; return; }
+  const num='OF-'+String(anterior.numero||'').padStart(5,'0');
+  el.style.display='block';
+  el.innerHTML=`<div class="rd-card rd-card-dense" style="background:var(--c1-light,#fff7ed);border-color:var(--c1)">
+    <div style="font-size:12.5px;color:var(--c2)">Este equipamento já teve reparo em <b>${esc(num)}</b>, ainda dentro da garantia da oficina. Pode ser retrabalho do mesmo defeito.</div>
+    <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" style="margin-top:6px" onclick="_ofVincularRetrabalho('${anterior.id}')">Vincular como retrabalho de ${esc(num)}</button>
+  </div>`;
+}
+function _ofVincularRetrabalho(reparoOriginalId){
+  _ofRetrabalhoDe=reparoOriginalId;
+  const el=document.getElementById('of-retrabalho-aviso');
+  if(el) el.innerHTML=`<div class="rd-card rd-card-dense" style="background:var(--c1-light,#fff7ed);border-color:var(--c1)"><span class="rd-badge rd-badge-info">🔁 Vinculado como retrabalho</span></div>`;
 }
 
 // ── Estados e quadro visual (Fase 2) ──
@@ -16796,6 +16836,23 @@ function _ofDiasNoStatus(o){
   const dt=new Date(desde).getTime(); if(isNaN(dt)) return null;
   return Math.max(0, Math.floor((Date.now()-dt)/86400000));
 }
+// Garantia PRÓPRIA da oficina (Fase 4) — distinta da garantia de
+// fabricante (essa é só rastreio, sem data de vencimento nenhuma).
+function _ofCalcVencGarantiaPropria(dataEntregaISO, meses){
+  const d=new Date(dataEntregaISO); if(isNaN(d)) return null;
+  d.setMonth(d.getMonth()+(parseInt(meses)||3));
+  return d.toISOString().split('T')[0];
+}
+// Taxa de retrabalho (Fase 4/5) — % de reparos entregues que voltaram pelo
+// mesmo defeito. periodoDias opcional (null = todo o histórico).
+function _ofTaxaRetrabalho(periodoDias){
+  const lista=(todosOficinaReparos||[]).filter(o=>o.status==='entregue' && o.data_entrega);
+  const corte=periodoDias ? Date.now()-periodoDias*86400000 : null;
+  const noPeriodo=corte ? lista.filter(o=>new Date(o.data_entrega).getTime()>=corte) : lista;
+  if(!noPeriodo.length) return null;
+  const retrabalhos=noPeriodo.filter(o=>o.retrabalho_de);
+  return {total:noPeriodo.length, retrabalhos:retrabalhos.length, pct:Math.round(retrabalhos.length/noPeriodo.length*100)};
+}
 
 // Ponto único que muda status — grava no reparo, registra no log, sincroniza.
 async function _ofAplicarStatus(reparoId, novoStatus, extra){
@@ -16803,7 +16860,14 @@ async function _ofAplicarStatus(reparoId, novoStatus, extra){
   const changes={status:novoStatus, ...(extra||{})};
   if(novoStatus==='diagnostico' && !todosOficinaReparos[idx].data_diagnostico) changes.data_diagnostico=new Date().toISOString();
   if(novoStatus==='pronto') changes.data_pronto=new Date().toISOString();
-  if(novoStatus==='entregue') changes.data_entrega=new Date().toISOString();
+  if(novoStatus==='entregue'){
+    changes.data_entrega=new Date().toISOString();
+    // garantia PRÓPRIA da oficina (não confundir com a de fabricante) —
+    // conta a partir da entrega, mesmo padrão de calcVencGarantia() já
+    // usado em equipamentos.
+    const meses=parseInt(todosOficinaReparos[idx].garantia_propria_meses)||3;
+    changes.garantia_propria_vencimento=_ofCalcVencGarantiaPropria(changes.data_entrega, meses);
+  }
   todosOficinaReparos[idx]={...todosOficinaReparos[idx], ...changes};
   lsOfSalvar(todosOficinaReparos);
   if(dbOk&&db){
@@ -16895,6 +16959,10 @@ function _ofCardKanban(o){
     <div style="font-size:11px;color:var(--gray)">${esc(num)}${dias!=null?' · '+dias+'d':''}</div>
     <div style="font-size:13px;font-weight:600;color:var(--c2)">${esc(o.cliente_nome||'—')}</div>
     <div style="font-size:11px;color:var(--gray)">${esc([o.eq_tipo,o.eq_marca].filter(Boolean).join(' · ')||'—')}</div>
+    <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:2px">
+      ${o.origem==='garantia_fabricante'?'<span class="rd-badge rd-badge-info" style="font-size:10px">🏭 Fabricante</span>':''}
+      ${o.retrabalho_de?'<span class="rd-badge rd-badge-warn" style="font-size:10px">🔁 Retrabalho</span>':''}
+    </div>
     ${prox?`<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" style="margin-top:6px;width:100%" onclick="event.stopPropagation();avancarStatusOficina('${o.id}')">Avançar → ${esc(OFICINA_STATUS_LABEL[prox])}</button>`:''}
   </div>`;
 }
@@ -16926,6 +16994,8 @@ function abrirFichaOficina(id){
       <div class="rd-field"><span class="rd-field-lbl">Equipamento</span><div>${esc([o.eq_tipo,o.eq_marca,o.eq_modelo].filter(Boolean).join(' · ')||'—')}</div></div>
       ${o.eq_numero_serie?`<div class="rd-field"><span class="rd-field-lbl">Número de série</span><div>${esc(o.eq_numero_serie)}</div></div>`:''}
       <div class="rd-field"><span class="rd-field-lbl">Origem</span><div>${esc(OFICINA_ORIGEM_LABEL[o.origem]||o.origem||'—')}</div></div>
+      ${_ofFichaFabricanteHtml(o)}
+      ${_ofFichaRetrabalhoHtml(o)}
       ${_ofFichaAvariasHtml(o)}
       ${_ofFichaFotosHtml(o)}
       ${o.obs_entrada?`<div class="rd-field"><span class="rd-field-lbl">Observação na entrada</span><div>${esc(o.obs_entrada)}</div></div>`:''}
@@ -16949,6 +17019,25 @@ function abrirFichaOficina(id){
     </div>
   </div>`;
   document.body.appendChild(bg);
+}
+// Garantia de fabricante (Fase 4) — só rastreio, sem data de vencimento.
+function _ofFichaFabricanteHtml(o){
+  if(o.origem!=='garantia_fabricante' || !(o.fabricante||o.fabricante_protocolo||o.fabricante_nf)) return '';
+  const linhas=[o.fabricante?`Fabricante: ${esc(o.fabricante)}`:'', o.fabricante_protocolo?`Protocolo: ${esc(o.fabricante_protocolo)}`:'', o.fabricante_nf?`NF: ${esc(o.fabricante_nf)}`:''].filter(Boolean);
+  return `<div class="rd-field"><span class="rd-field-lbl">Garantia de fabricante</span><div>${linhas.join('<br>')}</div></div>`;
+}
+// Retrabalho + garantia própria da oficina (Fase 4).
+function _ofFichaRetrabalhoHtml(o){
+  let h='';
+  if(o.retrabalho_de){
+    const orig=(todosOficinaReparos||[]).find(x=>x.id===o.retrabalho_de);
+    const num=orig?('OF-'+String(orig.numero||'').padStart(5,'0')):'—';
+    h+=`<div class="rd-field"><span class="rd-field-lbl">Retrabalho</span><div>Vinculado ao reparo ${esc(num)}</div></div>`;
+  }
+  if(o.garantia_propria_vencimento){
+    h+=`<div class="rd-field"><span class="rd-field-lbl">Garantia da oficina</span><div>Válida até ${esc(_dataBR(o.garantia_propria_vencimento))}</div></div>`;
+  }
+  return h;
 }
 function _ofFichaAvariasHtml(o){
   let itens=o.estado_entrada;

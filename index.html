@@ -2733,12 +2733,20 @@
       </div>
       <div class="rd-field">
         <span class="rd-field-lbl">Origem</span>
-        <select id="of-origem" class="rd-field-box">
+        <select id="of-origem" class="rd-field-box" onchange="_ofToggleCamposFabricante(this.value)">
           <option value="balcao">Balcão</option>
           <option value="os_campo">Trazido de uma OS de campo</option>
           <option value="garantia_fabricante">Garantia de fabricante</option>
         </select>
       </div>
+      <!-- Só rastreio (decisão do Marcos) — sem cobrança/recebimento formal
+           do fabricante ainda, por isso texto livre, não um fluxo financeiro. -->
+      <div id="of-campos-fabricante" style="display:none;flex-direction:column;gap:14px">
+        <div class="rd-field"><span class="rd-field-lbl">Fabricante</span><input type="text" id="of-fabricante" class="rd-field-box" placeholder="Ex.: Sodramar"></div>
+        <div class="rd-field"><span class="rd-field-lbl">Protocolo / RMA (se houver)</span><input type="text" id="of-fabricante-protocolo" class="rd-field-box"></div>
+        <div class="rd-field"><span class="rd-field-lbl">NF de compra original (se o cliente trouxer)</span><input type="text" id="of-fabricante-nf" class="rd-field-box"></div>
+      </div>
+      <div id="of-retrabalho-aviso" style="display:none"></div>
       <div class="rd-field">
         <span class="rd-field-lbl">Estado de chegada — evita disputa de "isso já veio quebrado assim"</span>
         <div id="of-checklist" style="display:flex;flex-direction:column;gap:8px"></div>

@@ -287,6 +287,57 @@ sw.js: fluxa-v171 → fluxa-v172.
 
 Próximo: Fase 4 (garantia de fabricante + retrabalho).
 
+### ✅ Fase 4 — garantia de fabricante (rastreio) + retrabalho (17/08, `migracao-oficina-fase4.sql`)
+
+6 colunas aditivas em `oficina_reparos`: `fabricante`/`fabricante_protocolo`/
+`fabricante_nf` (texto livre — decisão do Marcos é só rastreio, sem cobrança
+formal do fabricante) e `retrabalho_de`/`garantia_propria_meses`/
+`garantia_propria_vencimento` (garantia PRÓPRIA da oficina — diferente da de
+fabricante: é o compromisso da oficina com o serviço que ela mesma fez).
+Aplicada e verificada em produção.
+
+- **Campos de fabricante condicionais** — `#of-campos-fabricante` só aparece
+  quando origem = "Garantia de fabricante" (`_ofToggleCamposFabricante`,
+  `onchange` no select). Só grava os 3 campos quando a origem é essa (senão
+  `null` — não faz sentido guardar protocolo de fabricante num item de
+  balcão).
+- **Sugestão de retrabalho, não-bloqueante** — mesmo espírito da sugestão de
+  cliente duplicado que já existe no resto do app. Ao selecionar um
+  equipamento na recepção (`_ofVerificarRetrabalho`, chamado de dentro de
+  `selecionarEqModal`), busca reparo anterior do MESMO `equipamento_id`,
+  `status='entregue'`, com `garantia_propria_vencimento` ainda válida.
+  Achando, mostra um card com botão "Vincular como retrabalho de OF-XXXXX"
+  (`_ofVincularRetrabalho`) — só um clique, nunca força. Trocar de
+  equipamento invalida a sugestão anterior (mesma disciplina da Fase 1a pra
+  troca de cliente invalidando equipamento).
+- **Garantia própria calculada ao entregar** — dentro de `_ofAplicarStatus`,
+  quando `novoStatus==='entregue'`: `_ofCalcVencGarantiaPropria(data_entrega,
+  garantia_propria_meses||3)`, mesmo padrão de `calcVencGarantia()` já usado
+  em `equipamentos`. Sem UI pra editar os meses por reparo nesta rodada —
+  default 3, YAGNI até aparecer necessidade real de variar.
+- **`_ofTaxaRetrabalho(periodoDias)`** — `retrabalhos/total` sobre reparos
+  `entregue` (com `periodoDias=null` = todo o histórico) — client-side sobre
+  `todosOficinaReparos` já carregado, sem query nova. Função pronta, mas o
+  **local de exibição é a Fase 5** (métricas), que ainda não foi construída
+  — cálculo e exibição propositalmente em fases separadas.
+- Badges novos no card do kanban (`_ofCardKanban`): 🏭 Fabricante /
+  🔁 Retrabalho, dado que já existe desde a Fase 1/este commit, só exibição.
+  Ficha ganhou `_ofFichaFabricanteHtml`/`_ofFichaRetrabalhoHtml`.
+
+Testado no Browser pane (offline): toggle dos campos de fabricante ao trocar
+origem; os 3 campos persistem só quando origem é garantia_fabricante;
+badge 🏭 no kanban + campos na ficha; ciclo completo até "entregue" calcula
+`garantia_propria_vencimento` certo (entrega + 3 meses, testado com data
+real); nova recepção do MESMO equipamento dentro da garantia mostra a
+sugestão de retrabalho; vincular grava `retrabalho_de` correto no novo
+reparo; `_ofTaxaRetrabalho` testada isolada com dado sintético controlado
+(3 entregues, 1 retrabalho → 33%). Sem erros novos, sem chamada a
+`*.supabase.co`.
+
+sw.js: fluxa-v172 → fluxa-v173.
+
+Próximo: Fase 5 (métricas + etiqueta física/QR) — fecha o roadmap original.
+
 ---
 
 ## Auditoria do fluxo orçamento → OS → conclusão, a pedido do Marcos (17/08)
