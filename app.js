@@ -17919,10 +17919,58 @@ function abrirModalContatoOficina(reparoId, resultadoPadrao){
   m.addEventListener('click',e=>{ if(e.target===m) m.remove(); });
   document.body.appendChild(m);
 }
-// ⚠️ "aguardando_aprovacao + aprovado" avança só pra aguardando_peca aqui —
-// a 3h.4 substitui esse ramo pela transação real das "três consequências"
-// (criar OS + reservar estoque + entrar na lista de compra), sem tocar no
-// resto deste fluxo de contato.
+// ── Registrar aprovação: as três consequências (Tarefa 3h.4, 19/08) ──
+// Cria a OS vinculada e reserva a peça do estoque — mesma mecânica que o
+// resto do app usava ANTES da Fase "aprovar = sai do estoque direto"
+// (sincronizarReservaOrcamento, ainda viva no código, só não é mais
+// chamada em nenhum outro lugar). Faz sentido de novo aqui porque o
+// reparo pode ficar dias/semanas entre aprovar e executar — baixar na
+// hora contaria peça como consumida antes de ter sido montada. A baixa
+// de verdade acontece só na conclusão do reparo (3h.5).
+//
+// Idempotente: sincronizarReservaOrcamento já lança só a diferença entre o
+// desejado e o já reservado, e _ofCriarOSDaAprovacao não duplica OS se já
+// existir uma pro mesmo orçamento — rodar "Registrar aprovação" de novo
+// por engano (ex.: duplo clique) não reserva nem cria nada duas vezes.
+async function _ofRegistrarAprovacao(reparoId){
+  const o=(todosOficinaReparos||[]).find(x=>x.id===reparoId); if(!o) return;
+  const orc=_ofOrcamentoVinculado(reparoId); if(!orc) return;
+  Object.assign(orc, {status:'aprovado', data_aprovacao:new Date().toISOString()});
+  _congelarCustoOrc(orc);
+  lsOrcAtualizar(orc.id, {status:'aprovado', data_aprovacao:orc.data_aprovacao, servicos:orc.servicos});
+  if(dbOk&&db && !String(orc.id).startsWith('local_')){
+    orcSyncUpdate(orc.id, {status:'aprovado', data_aprovacao:orc.data_aprovacao, servicos:orc.servicos}).catch(e=>console.warn('[oficina aprovar orc]', e?.message||e));
+  }
+  sincronizarReservaOrcamento(orc);
+  await _ofCriarOSDaAprovacao(o, orc);
+  atualizarDash();
+}
+// OS "vazia" (sem check-in/obs/fotos ainda) — o técnico preenche na
+// bancada como qualquer OS. local_servico identifica que veio da oficina
+// (não tem endereço físico próprio, diferente de OS de campo).
+async function _ofCriarOSDaAprovacao(o, orc){
+  if((todosOS||[]).some(x=>String(x.orcamento_id)===String(orc.id))) return; // já existe — idempotente
+  let svcs=orc.servicos; if(typeof svcs==='string'){ try{ svcs=JSON.parse(svcs||'[]'); }catch(e){ svcs=[]; } }
+  svcs=Array.isArray(svcs)?svcs:[];
+  const osSvcsData=svcs.map(s=>({desc:s.desc||'', produto_id:s.produto_id||null, qty:s.qty||1, precoUnit:parseFloat(s.p)||0}));
+  const lojaOS=orc.loja_id||o.loja_id||LOJA_PADRAO_ID;
+  const num=o.numero?'OF-'+String(o.numero).padStart(5,'0'):o.id;
+  const dataHoje=_hojeLocal();
+  const payload={
+    orcamento_id:orc.id, cliente:o.cliente_nome||orc.cliente||'', cliente_id:o.cliente_id||orc.cliente_id||null,
+    local_servico:'Oficina — '+num, data_servico:dataHoje, hora:'08:00', tecnico:o.tecnico_responsavel||'',
+    servicos:osSvcsData, materiais:'', obs_tecnica:'', total:orc.total||0, status:'agendado', loja_id:lojaOS
+  };
+  if(dbOk&&db){
+    try{
+      const {data:insOS}=await dbInsertNumerado('ordens_servico', payload);
+      if(insOS){ todosOS=todosOS||[]; todosOS.unshift(insOS); }
+    }catch(e){ console.warn('[oficina criarOS]', e?.message||e); }
+  }else{
+    const n=(parseInt(ls('fluxa_os_num')||'0'))+1; lsSet('fluxa_os_num', n);
+    _salvarOSLocal({id:'local_os_'+Date.now(), numero:n, data_criacao:new Date().toISOString(), _pendingSync:true, ...payload});
+  }
+}
 async function _ofConfirmarContato(reparoId, canalFixo, resultadoFixo){
   const canal=canalFixo||gV('of-contato-canal')||'whatsapp';
   const resultado=resultadoFixo||gV('of-contato-resultado')||'enviado';
@@ -17932,7 +17980,13 @@ async function _ofConfirmarContato(reparoId, canalFixo, resultadoFixo){
   const o=(todosOficinaReparos||[]).find(x=>x.id===reparoId);
   if(o){
     if(o.status==='diagnostico') await _ofAplicarStatus(reparoId,'aguardando_aprovacao');
-    else if(o.status==='aguardando_aprovacao' && resultado==='aprovado') await _ofAplicarStatus(reparoId,'aguardando_peca');
+    else if(o.status==='aguardando_aprovacao' && resultado==='aprovado'){
+      await _ofRegistrarAprovacao(reparoId);
+      let svcs=_ofOrcamentoVinculado(reparoId)?.servicos; if(typeof svcs==='string'){ try{ svcs=JSON.parse(svcs||'[]'); }catch(e){ svcs=[]; } }
+      svcs=Array.isArray(svcs)?svcs:[];
+      const faltaPeca=svcs.some(s=>s.produto_id && fisicaProduto(s.produto_id) < Math.abs(parseInt(s.qty)||1));
+      await _ofAplicarStatus(reparoId, faltaPeca?'aguardando_peca':'em_reparo');
+    }
   }
   toast('✅ Contato registrado');
   if(document.getElementById('page-reparo')?.classList.contains('on')) renderPageReparo();
@@ -18022,7 +18076,14 @@ function _ofFichaRetrabalhoHtml(o){
   if(o.retrabalho_de){
     const orig=(todosOficinaReparos||[]).find(x=>x.id===o.retrabalho_de);
     const num=orig?('OF-'+String(orig.numero||'').padStart(5,'0')):'—';
-    h+=`<div class="rd-field"><span class="rd-field-lbl">Retrabalho</span><div>Vinculado ao reparo ${esc(num)}</div></div>`;
+    // Decisão do Marcos (18/08, antes da 3h.4): garantia própria cobra mão
+    // de obra SÓ SE o defeito mudou. Não dá pra automatizar o valor sem
+    // risco (é julgamento do técnico se é o mesmo defeito ou não) — o
+    // sistema só INFORMA a condição aqui; o preço final continua sendo
+    // decidido no orçamento, como sempre.
+    h+=`<div class="rd-field"><span class="rd-field-lbl">Retrabalho</span><div>Vinculado ao reparo ${esc(num)}</div>
+      <span class="rd-badge rd-badge-warn" style="margin-top:6px;white-space:normal;line-height:1.4">Garantia própria — cobra mão de obra só se o defeito for diferente do original. Mesmo defeito = sem cobrança.</span>
+    </div>`;
   }
   if(o.garantia_propria_vencimento){
     h+=`<div class="rd-field"><span class="rd-field-lbl">Garantia da oficina</span><div>Válida até ${esc(_dataBR(o.garantia_propria_vencimento))}</div></div>`;

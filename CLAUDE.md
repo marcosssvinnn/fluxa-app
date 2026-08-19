@@ -214,12 +214,76 @@ console.
 
 sw.js: fluxa-v195 → fluxa-v196.
 
-**Com isso, `#page-reparo` está funcionalmente completa pros 7 estados +
-cancelado — falta só 3h.4 (as "três consequências" reais de "Registrar
-aprovação": criar OS, reservar estoque de verdade, lista de compra) e
-3h.5 (modal de entrega com os 4 requisitos + bancada mobile).**
+### ✅ 3h.4 — Registrar aprovação: as três consequências
 
-**Próximo:** 3h.4 — Registrar aprovação: as três consequências.
+Substitui o ramo interino do 3h.3 (`aguardando_aprovacao`+`aprovado` →
+`aguardando_peca` sempre) pela transação completa que `FLUXO-OFICINA.md`
+pede: **`_ofRegistrarAprovacao(reparoId)`**, chamada de dentro de
+`_ofConfirmarContato` quando o resultado é "aprovado":
+
+1. **Aprova o orçamento vinculado** — `status:'aprovado'`,
+   `data_aprovacao`, `_congelarCustoOrc` (mesma mecânica de
+   `_mudarStProsseguir`, só sem os dois gates que não fazem sentido aqui:
+   forma de pagamento é decidida na ENTREGA — Pix/Cartão/Dinheiro/A prazo,
+   3h.5 — não na aprovação; e "item sem vínculo de estoque" não bloqueia,
+   porque toda peça de reparo já passa pelo picker de produto).
+2. **Reserva a peça no estoque** — `sincronizarReservaOrcamento(orc)`,
+   função que já existia (usada pelo app INTEIRO antes da Fase "aprovar =
+   sai do estoque direto", 07/08) e continuava no código sem nenhum
+   chamador. Reaproveitada tal como está — zero lógica de estoque nova
+   escrita nesta tarefa. Faz sentido de novo aqui porque o reparo pode
+   ficar dias/semanas entre aprovar e executar; baixar na hora contaria
+   peça como consumida antes de montada. A baixa de verdade (reservado →
+   saída física) fica pra 3h.5, na conclusão do reparo.
+3. **Cria a OS vinculada** — `_ofCriarOSDaAprovacao(o, orc)`, nova função
+   dedicada (não reaproveita `criarOSjunto`, que é acoplada aos campos do
+   formulário de Novo Orçamento e à impressão de documento — contexto que
+   não existe na ficha da oficina). Insere direto em `ordens_servico` com
+   `orcamento_id`/`cliente_id`/servicos/total, `local_servico:'Oficina —
+   OF-#####'` (não tem endereço físico próprio, diferente de OS de
+   campo), status `agendado` — o técnico preenche na bancada como
+   qualquer OS.
+
+**Pula `aguardando_peca` quando não falta nada** — depois de reservar,
+`_ofConfirmarContato` verifica se algum item do orçamento tem
+`fisicaProduto(produto_id) < qty` (mesmo cálculo já usado em "Peças e mão
+de obra" e no cartão "aguardando peça"); se não houver nenhum, vai direto
+pra `em_reparo`.
+
+**Idempotente nos dois eixos** — `sincronizarReservaOrcamento` só lança a
+diferença entre desejado e já reservado; `_ofCriarOSDaAprovacao` checa se
+já existe OS pro mesmo `orcamento_id` antes de inserir. Chamar
+`_ofRegistrarAprovacao` duas vezes (ex.: duplo clique) não duplica OS nem
+dobra a reserva — testado explicitamente.
+
+**Garantia própria/retrabalho (2ª decisão pré-3h.4)** — o Marcos escolheu
+"cobra mão de obra só se o defeito mudou". Não dá pra automatizar o valor
+com segurança (é julgamento do técnico se é o mesmo defeito), então
+`_ofFichaRetrabalhoHtml` ganhou um badge de aviso, visível sempre que
+`retrabalho_de` está setado: "Garantia própria — cobra mão de obra só se
+o defeito for diferente do original." — o sistema INFORMA a condição, o
+preço final continua decidido no orçamento como qualquer outro.
+
+Testado no Browser pane (offline, `dbOk=false;db=null;`, dois reparos
+sintéticos): **caso sem estoque** (Selo mecânico, produto cadastrado sem
+nenhum movimento) — aprovação registrada → orçamento vira `aprovado` →
+OS criada (`orcamento_id`/cliente/total/local corretos) → reserva
+lançada (`prod_selo` qty 1) → status vai pra `aguardando_peca` (correto,
+falta peça); **caso com estoque** (Vedação, com entrada de 5 unidades) —
+mesmo fluxo, mas pula `aguardando_peca` e vai direto pra `em_reparo`,
+reserva lançada igual (reserva sempre acontece, só a baixa que espera);
+**idempotência** — chamei `_ofRegistrarAprovacao` de novo sobre o mesmo
+reparo já aprovado: OS continua em 1, reserva continua somando 1 (não
+duplicou nada); badge de garantia própria visível na ficha de um reparo
+sintético com `retrabalho_de` setado, texto e cor (`rd-badge-warn`)
+corretos. Zero erro novo no console (só o ruído de Service Worker já
+documentado, mais um erro de teste meu próprio — chamada de IIFE sem
+try/catch numa rodada anterior de teste, confirmado pelo `<anonymous>`
+no stack trace, não é código do app).
+
+sw.js: fluxa-v196 → fluxa-v197.
+
+**Próximo e último:** 3h.5 — modal de entrega (4 requisitos) + bancada mobile.
 
 ---
 
