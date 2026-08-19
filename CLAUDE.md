@@ -2,6 +2,66 @@
 
 ---
 
+## 🔴 Orçamentos saindo duplicados — causa raiz achada e corrigida (19/08)
+
+Marcos relatou "alguns orçamentos saindo duplicados quando eu gero". Investigado
+direto contra produção (leitura, PAT) antes de mexer em qualquer coisa —
+achados **5 pares reais**, todos com o mesmo padrão exato: mesmo cliente,
+mesmo total, **`data_criacao` idêntico ao milissegundo**, `id` (uuid) e
+`numero` diferentes. Datas espalhadas (14, 17, 18 e 19/08 — duas vezes),
+não é artefato de uma migração, é bug ativo acontecendo toda semana.
+
+### Causa raiz — corrida real entre salvar e navegar
+
+`salvarApenas()`/`gerarPDF()` (Novo Orçamento) seguem o padrão local-first
+de sempre: salvam local na hora, disparam o `dbInsertNumerado('orcamentos',
+...)` num IIFE assíncrono **sem aguardar**, e a ÚLTIMA linha de cada função
+é `go('history')`. `go('history')` chama `loadHist()` — que varre
+`todosOrc` por ids `local_*` órfãos (não encontrados no banco ainda) e
+tenta REENVIAR cada um via `_reenviarOrcamentosLocais()`.
+
+O problema: `go('history')` roda **antes** do insert original (disparado
+segundos antes, na mesma função) ter tido tempo de resolver, se a rede
+estiver um pouco lenta. Nessa janela, o registro `local_xxx` ainda existe
+no `localStorage` — `loadHist()` o vê como órfão e reenvia, gerando um
+**segundo** INSERT pro banco com o mesmo `cliente`/`total`/`data_criacao`
+(copiados do mesmo objeto local nos dois casos), só que um uuid e um
+`numero` novos. Os dois inserts correm em paralelo; nenhum sabe da
+existência do outro.
+
+**Reproduzido isoladamente** (mock de `dbInsertNumerado`/`orcSyncInsert`
+com latência de 300ms simulando as duas vias rodando ao mesmo tempo, sem
+tocar produção): **2 inserts, 2 uuids, mesmo registro lógico** — bate
+exatamente com o padrão achado no banco.
+
+**Corrigido** com um lock em memória, `_orcSyncEmVoo` (Set de ids
+`local_*` com insert já disparado e ainda não resolvido) — marcado logo
+antes de disparar o insert em `salvarApenas()`/`gerarPDF()`, removido no
+`finally` (sucesso ou erro). `_reenviarOrcamentosLocais()` — o ponto único
+que realmente faz o insert de reenvio, chamado de `loadHist()` e de
+qualquer outro lugar (`_reenviarPendentes`, evento `online`, o
+`setInterval` de 3min) — pula qualquer id que já esteja na trava. Protege
+todos os call sites de uma vez, sem duplicar a lógica de filtro em cada um.
+
+**Reteste com a trava, mesmo cenário simulado**: só 1 insert acontece — o
+segundo é pulado (`_orcSyncEmVoo.has(rec.id)` true), confirmado.
+
+**Por que só orçamentos, não OS**: `gerarOSPDF()` **aguarda** (`await`) o
+`dbInsertNumerado` diretamente, sem IIFE fire-and-forget — quando a
+função termina, o insert já resolveu, então não há janela de corrida com
+uma navegação subsequente. Conferido antes de dar por certo que o mesmo
+padrão não se repete lá.
+
+**Pendência real, não resolvida sozinho**: os **5 pares já duplicados em
+produção** (Maison Lafayette #382/380, Edifício Infinity Coast Residence
+#379/377, Ivan Seleme #368/370, Asael #360/364, Eduardo Domingos Silva
+#353/351) continuam no banco — **não apaguei nada**, exclusão é decisão do
+Marcos. Fica pra ele decidir qual dos dois manter em cada par (ou se algum
+já foi editado de forma diferente depois de criado, o que mudaria qual é
+"o certo").
+
+sw.js: fluxa-v199 → fluxa-v200.
+
 ## ✅ QA da Tarefa 3h — releitura crítica + 4 achados corrigidos (19/08)
 
 A pedido do Marcos, revisão adicional em cima dos 5 commits (não só teste

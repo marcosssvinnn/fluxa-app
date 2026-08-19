@@ -3765,6 +3765,21 @@ async function dbInsertNumerado(table, payload, tentativas=6){
 // Compat: helpers de orçamento agora delegam ao wrapper genérico
 async function orcSyncInsert(payload){ return dbInsert('orcamentos', payload); }
 async function orcSyncUpdate(id, payload){ return dbUpdate('orcamentos', payload, 'id', id); }
+// ⚠️ Corrida real achada em produção (19/08, orçamentos saindo duplicados
+// aos pares — mesmo cliente/total/data_criacao ao milissegundo, número e
+// id diferentes): salvarApenas()/gerarPDF() salvam local e disparam o
+// insert em background SEM aguardar, e a última linha de cada uma é
+// go('history') — que chama loadHist(), que por sua vez varre local_* órfãos
+// e tenta REENVIAR o mesmo registro que o insert original ainda está enviando
+// (rede lenta = janela de alguns ms a segundos onde o registro `local_xxx`
+// ainda existe no localStorage, sem ninguém saber que já tem um insert em
+// voo pra ele). Resultado: dois INSERTs pro banco, dois uuids, dois números,
+// mesmo data_criacao (copiada do mesmo objeto local nos dois casos).
+// _orcSyncEmVoo é o lock: id local marcado ANTES de disparar o insert,
+// removido só quando resolve (sucesso ou erro) — _reenviarOrcamentosLocais
+// pula quem já está marcado, não importa de qual call site veio a tentativa
+// de reenvio (loadHist, _reenviarPendentes, 'online', o setInterval de 3min).
+let _orcSyncEmVoo = new Set();
 // Reenvia ao banco orçamentos que ficaram presos só no aparelho (id local_*),
 // ex.: criados enquanto o insert falhava pela coluna origem_cliente ausente.
 // Tombstones genéricos por chave de localStorage — mesmo padrão já provado em
@@ -3838,6 +3853,7 @@ async function _reenviarOrcamentosLocais(soLocal){
   if(!dbOk||!db||!soLocal||!soLocal.length) return false;
   let mudou=false;
   for(const rec of soLocal){
+    if(_orcSyncEmVoo.has(rec.id)) continue; // já tem insert em voo pra este — não duplica (ver nota acima de orcSyncInsert)
     try{
       const payload={...rec}; delete payload.id; // banco gera o id definitivo
       const {data:ins,error}=await orcSyncInsert(payload);
@@ -3907,6 +3923,12 @@ async function salvarApenas(){
       toast('✅ Orçamento #'+String(num).padStart(3,'0')+' salvo!');
       // 2. Tenta sincronizar com BD em background
       if(dbOk&&db){
+        // Trava contra a corrida com loadHist()/_reenviarPendentes (achado em
+        // produção 19/08, ver nota em orcSyncInsert): go('history') roda logo
+        // abaixo, ANTES deste insert resolver — sem a trava, loadHist() acha
+        // este mesmo registro "local_" ainda pendurado e reenvia por cima,
+        // duplicando o orçamento no banco.
+        _orcSyncEmVoo.add(tempId);
         (async()=>{
           try{
             const {data:ins,error:insErr}=await dbInsertNumerado('orcamentos',{...camposBase,status:'pendente',data_criacao:now});
@@ -3922,6 +3944,7 @@ async function salvarApenas(){
               _fotosOrcParaStorage(ins.id, fotosB64.filter(Boolean));
             }
           }catch(e){ console.warn('Sync BD falhou — salvo local:', e?.message||e); }
+          finally{ _orcSyncEmVoo.delete(tempId); }
         })();
       }
     }
@@ -3992,6 +4015,10 @@ async function gerarPDF(){
     editId=tempId;
     logAcao('orcamento_criado', `#${num} ${camposBase.cliente||''} · R$ ${(camposBase.total||0).toFixed(2)}`);
     if(dbOk&&db){
+      // Mesma trava de salvarApenas — go('history') no fim desta função
+      // dispara loadHist() antes deste insert resolver (ver nota em
+      // orcSyncInsert, achado real de duplicação em produção 19/08).
+      _orcSyncEmVoo.add(tempId);
       (async()=>{
         try{
           const {data:ins,error:insErr}=await dbInsertNumerado('orcamentos',{...camposBase,status:'pendente',data_criacao:now});
@@ -4007,6 +4034,7 @@ async function gerarPDF(){
             _fotosOrcParaStorage(ins.id, fotosB64.filter(Boolean));
           }
         }catch(e){ console.warn('gerarPDF: sync BD falhou:', e?.message||e); }
+        finally{ _orcSyncEmVoo.delete(tempId); }
       })();
     }
   }
