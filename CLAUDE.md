@@ -2,6 +2,89 @@
 
 ---
 
+## ✅ QA da Tarefa 3h — releitura crítica + 4 achados corrigidos (19/08)
+
+A pedido do Marcos, revisão adicional em cima dos 5 commits (não só teste
+de clique, releitura do diff inteiro com olho crítico + testes de caso-
+limite que o primeiro passe não cobriu). Quatro achados reais, todos
+corrigidos e testados; nenhum exigiu reabrir os commits anteriores.
+
+### 🔴 1. `todosOrc`/`todosReceb` podiam estar vazios ao abrir a ficha direto
+
+`renderPageReparo()` já tinha lazy-load pra `todosProdutos`/`todosFornecedores`
+(3h.2), mas não para `todosOrc`/`todosReceb`. Quem chega na ficha **sem**
+antes ter passado por Histórico/A Receber nesta sessão do navegador —
+o caso real é `checkOfHash()` (QR code impresso no equipamento,
+`go('oficina')` seguido de `abrirFichaOficina` direto, 500ms depois) —
+via um "Peças e mão de obra" dizendo "Nenhum orçamento gerado ainda" **mesmo
+quando um orçamento real já existia no banco**, só não carregado na memória
+ainda. Risco real: técnico clica "+ Gerar orçamento" pensando que não
+existe nenhum e duplica.
+
+**Corrigido**: mesmo padrão de guarda já usado em ~6 outros pontos do app
+(`if(!(todosOrc||[]).length && typeof loadHist==='function')`) — dispara
+`loadHist()`/`loadRecebimentos()` em background quando vazios, e quando o
+`loadHist()` resolve, re-renderiza a ficha (checando que ainda é a mesma
+ativa) pra refletir o dado que chegou atrasado. Testado com `loadHist`
+mockado simulando a chegada tardia do orçamento: card mostrava "Nenhum
+orçamento" antes, "Pendente de aprovação" depois de resolver — confirma
+que o re-render automático funciona.
+
+### 🔴 2. Entrega de reparo CANCELADO cobrava o valor do serviço recusado
+
+Achado testando o caminho de "Recusado" até o fim: o modal de entrega
+mostrava "Pagamento na retirada — R$ 1.200,00 em aberto" com os 4 botões
+de forma de pagamento — o valor do orçamento INTEIRO que o cliente
+recusou, contradizendo `FLUXO-OFICINA.md` ("a entrega acontece igual, só
+sem cobrança de serviço"). Risco real: um técnico apressado clica "A
+prazo" sem reparar no valor e cria uma cobrança fantasma de um serviço
+que nunca foi feito.
+
+**Perguntado ao Marcos antes de corrigir** (é decisão de produto, não bug
+óbvio) — escolheu: permitir cobrar uma **taxa de diagnóstico** livre, não
+o valor do serviço recusado. `migracao-oficina-taxa-diagnostico.sql`
+(aditiva, aplicada e verificada: `entrega_valor_cobrado numeric`).
+
+- Reparo `cancelado`: o card vira "Taxa de diagnóstico" — campo numérico
+  livre (**R$0 é resposta válida**, "sem cobrança"), sem mostrar o total
+  do orçamento em lugar nenhum. Só oferece Pix/Cartão/Dinheiro (sem "A
+  prazo" — taxa pequena, não gera parcela em A Receber) e só pede a forma
+  quando o valor é `> 0`.
+- Reparo normal (`pronto`→entregue): comportamento **inalterado** — mostra
+  `orc.total`, os 4 botões incluindo "A prazo", exatamente como a 3h.5
+  original.
+- `imprimirTermoOficina('retirada')` também corrigida — o PDF mostra
+  "Taxa de diagnóstico" pro caso cancelado, nunca o valor recusado.
+
+Testado: taxa=0 → requisito cumprido sem exigir forma (`req.pagamento:
+true` sem `entrega_forma_pagamento`); taxa=50 → requisito **não** cumprido
+até escolher forma (`req.pagamento:false`, botões aparecem só agora);
+Pix escolhido → cumprido, **zero linha criada em `recebimentos`**
+(confirmado — taxa não gera parcela); PDF interceptado mostra "R$ 50,00 ·
+Pix" e **não** mostra "1.500,00" (o valor recusado); caminho normal
+(reparo `pronto`, não cancelado) testado de novo depois da mudança —
+mostra `orc.total` com os 4 botões, sem regressão.
+
+### 🟡 3. Sidebar apagava inteira dentro da ficha
+
+`go('reparo')` não tem item de nav próprio (`#snb-reparo` não existe) —
+a lógica genérica de destaque (`document.getElementById('snb-'+p)`) não
+achava nada e a sidebar ficava sem nenhum item aceso, perdendo a pista
+visual de "onde estou" bem no meio do fluxo mais longo do app. Corrigido
+com uma exceção pontual em `go()`: `p==='reparo'` mantém `#snb-oficina`
+aceso. Testado: sidebar mostra "Oficina" destacado em azul com a ficha
+aberta.
+
+### 🟢 4. Limpeza — código morto
+
+`_ofFichaOrcamentoHtml()` (o resumo simples de orçamento da ficha antiga)
+ficou sem nenhum chamador desde que a 3h.2 criou `_ofFichaPecasMaoObraHtml`
+pra substituí-lo — removida. Variável `cancelAqui` em `_ofRenderRepTrilha`
+era calculada e nunca lida — removida.
+
+Zero erro novo no console em toda a bateria de reteste. sw.js: fluxa-v198
+→ fluxa-v199.
+
 ## ✅ Pendência cumprida — Tarefa 3h testada de ponta a ponta com clique real (19/08)
 
 Depois dos 5 commits (3h.1-3h.5, ver seção logo abaixo), rodei o ciclo

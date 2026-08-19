@@ -1,0 +1,13 @@
+-- ══════════════════════════════════════════════════════════════════════════════
+--  OFICINA — QA da Tarefa 3h: taxa de diagnóstico na entrega de recusado (19/08)
+--
+--  Achado na revisão: reparo CANCELADO (cliente recusou o orçamento) ainda
+--  mostrava "Pagamento na retirada — R$ X em aberto" com o valor do
+--  orçamento INTEIRO recusado, contradizendo FLUXO-OFICINA.md ("a entrega
+--  acontece igual, só sem cobrança de serviço"). Decisão do Marcos: permitir
+--  cobrar uma taxa de diagnóstico/vistoria (valor livre, pode ser R$0) em vez
+--  do valor do serviço completo que o cliente recusou.
+--
+--  100% aditivo.
+-- ══════════════════════════════════════════════════════════════════════════════
+ALTER TABLE oficina_reparos ADD COLUMN IF NOT EXISTS entrega_valor_cobrado numeric;

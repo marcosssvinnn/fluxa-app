@@ -1780,7 +1780,11 @@ function go(p){
   document.querySelectorAll('.mob-nb').forEach(x=>{ x.classList.remove('on'); x.removeAttribute('aria-current'); });
   const mnb=document.getElementById('mnb-'+p); if(mnb){ mnb.classList.add('on'); mnb.setAttribute('aria-current','page'); }
   document.querySelectorAll('.snb').forEach(x=>{ x.classList.remove('on'); x.removeAttribute('aria-current'); });
-  const snb=document.getElementById('snb-'+p); if(snb){ snb.classList.add('on'); snb.setAttribute('aria-current','page'); }
+  // Ficha do reparo (Tarefa 3h.2) não tem item de nav próprio — sem isto a
+  // sidebar inteira apagava (achado na revisão de QA, 19/08) enquanto o
+  // usuário estava na ficha, perdendo a pista visual de "onde estou".
+  const snbId = p==='reparo' ? 'snb-oficina' : 'snb-'+p;
+  const snb=document.getElementById(snbId); if(snb){ snb.classList.add('on'); snb.setAttribute('aria-current','page'); }
   closeSidebar();
   // Tela cheia do balcão (Tarefa 3e.3) — sem sidebar/header/nav inferior,
   // "cliente esperando no balcão" não tem espaço pra cromo do app admin.
@@ -17536,6 +17540,20 @@ function renderPageReparo(){
   // travar a primeira renderização (chega a tempo do próximo estado).
   if(!(todosProdutos||[]).length && typeof loadEstoque==='function') loadEstoque();
   if(!(todosFornecedores||[]).length && typeof loadFornecedores==='function') loadFornecedores();
+  // Achado na revisão de QA (19/08): quem chega na ficha DIRETO (QR code
+  // via checkOfHash, ou qualquer entrada que pule Histórico/A Receber)
+  // encontra todosOrc/todosReceb vazios — "Peças e mão de obra" mostrava
+  // "Nenhum orçamento gerado" mesmo quando um orçamento real já existia,
+  // com risco real de o técnico clicar "+ Gerar orçamento" e duplicar.
+  // Mesmo padrão de guarda já usado em outros pontos do app
+  // (`if(!(todosOrc||[]).length && typeof loadHist==='function')`).
+  const reparoIdAtual=o.id;
+  if(!(todosOrc||[]).length && typeof loadHist==='function'){
+    loadHist().then(()=>{
+      if(document.getElementById('page-reparo')?.classList.contains('on') && _ofReparoAtivoId===reparoIdAtual) renderPageReparo();
+    });
+  }
+  if(!(todosReceb||[]).length && typeof loadRecebimentos==='function') loadRecebimentos();
   _ofRenderRepTopbar(o);
   _ofRenderRepTrilha(o);
   _ofRenderRepEsquerda(o);
@@ -17583,7 +17601,6 @@ function _ofRenderRepTrilha(o){
   const idxAtual=OFICINA_STATUS_SEQ.indexOf(o.status);
   const travado=(_ofDiasNoStatus(o)||0)>=OFICINA_TRAVADO_DIAS && ['aguardando_peca','aguardando_aprovacao'].includes(o.status);
   el.innerHTML=OFICINA_STATUS_SEQ.map((st,i)=>{
-    const cancelAqui=o.status==='cancelado' && i===Math.max(0,idxAtual<0?0:idxAtual);
     const done = idxAtual>=0 && i<idxAtual;
     const atual = i===idxAtual;
     const log=(_ofStatusLog||[]).filter(l=>l.reparo_id===o.id && l.status===st).sort((a,b)=>String(a.data).localeCompare(String(b.data)))[0];
@@ -18105,24 +18122,6 @@ function _ofFichaFotosHtml(o){
   if(!fotos.length) return '';
   return `<div class="rd-field"><span class="rd-field-lbl">Fotos da chegada</span><div style="display:flex;gap:6px;flex-wrap:wrap">${fotos.map(f=>`<img src="${f}" style="width:70px;height:70px;object-fit:cover;border-radius:6px;border:1px solid var(--line-soft,var(--gray-light))">`).join('')}</div></div>`;
 }
-// Orçamento de conserto vinculado (Fase 3) — mostra status se já existe,
-// ou o botão pra criar um se ainda não tem nenhum.
-function _ofFichaOrcamentoHtml(o){
-  const orc=_ofOrcamentoVinculado(o.id);
-  if(!orc){
-    return `<div class="rd-field"><span class="rd-field-lbl">Orçamento de conserto</span>
-      <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" style="align-self:flex-start" onclick="criarOrcamentoDaOficina('${o.id}')">+ Gerar orçamento</button>
-    </div>`;
-  }
-  const statusLbl={pendente:'Pendente de aprovação',aprovado:'Aprovado',recusado:'Recusado',vencido:'Vencido'}[orc.status]||orc.status;
-  const statusCls={pendente:'rd-badge-warn',aprovado:'rd-badge-ok',recusado:'rd-badge-bad',vencido:'rd-badge-neutral'}[orc.status]||'rd-badge-neutral';
-  return `<div class="rd-field"><span class="rd-field-lbl">Orçamento de conserto</span>
-    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-      <span>#${String(orc.numero||'').padStart(3,'0')} — ${brl(orc.total||0)}</span>
-      <span class="rd-badge ${statusCls}">${esc(statusLbl)}</span>
-    </div>
-  </div>`;
-}
 // Custo do reparo (Fase 11, 18/08) — metade da "economia do serviço" que o
 // módulo não tinha: peça, mão de obra e técnico responsável. Peça: o custo
 // já é congelado no orçamento vinculado no momento da aprovação
@@ -18347,10 +18346,15 @@ function imprimirTermoOficina(reparoId, tipo){
   // garantia, não dois documentos do mesmo balcão. O que foi feito/garantia/
   // pagamento só existem nessa direção (entrada não tem nenhum dos três).
   const orc = tipo==='retirada' ? _ofOrcamentoVinculado(reparoId) : null;
+  // Cancelado (recusado): o valor cobrado é a taxa de diagnóstico
+  // (entrega_valor_cobrado, pode ser R$0), NUNCA o total do serviço
+  // recusado — mesmo achado/correção da 3h.5 (QA, 19/08).
+  const valorPago = o.status==='cancelado' ? (parseFloat(o.entrega_valor_cobrado)||0) : (orc?parseFloat(orc.total)||0:0);
   const entregaBloco = tipo==='retirada' ? `
     ${o.o_que_foi_feito?`<div class="bloco"><h3>O que foi feito</h3><div style="font-size:13px">${esc(o.o_que_foi_feito)}</div></div>`:''}
     ${o.garantia_propria_vencimento?`<div class="linha"><span>Garantia</span><b>Até ${esc(_dataBR(o.garantia_propria_vencimento))}</b></div>`:''}
-    ${o.entrega_forma_pagamento?`<div class="linha"><span>Pagamento</span><b>${esc(OFICINA_PAGAMENTO_LABEL[o.entrega_forma_pagamento]||o.entrega_forma_pagamento)}${orc?' · '+esc(brl(orc.total||0)):''}</b></div>`:''}
+    ${o.status==='cancelado'?`<div class="linha"><span>Taxa de diagnóstico</span><b>${valorPago>0?esc(brl(valorPago))+(o.entrega_forma_pagamento?' · '+esc(OFICINA_PAGAMENTO_LABEL[o.entrega_forma_pagamento]||o.entrega_forma_pagamento):''):'Sem cobrança'}</b></div>`
+      :(o.entrega_forma_pagamento?`<div class="linha"><span>Pagamento</span><b>${esc(OFICINA_PAGAMENTO_LABEL[o.entrega_forma_pagamento]||o.entrega_forma_pagamento)} · ${esc(brl(valorPago))}</b></div>`:'')}
   ` : '';
   const assinaturaLbl = tipo==='retirada' ? (o.entrega_retirado_por||'Assinatura de quem retirou') : 'Assinatura do cliente';
   const w=window.open('','_blank');
@@ -18396,11 +18400,22 @@ function _ofEntregaFotos(o){
   let f=o.fotos_pronto; if(typeof f==='string'){ try{ f=JSON.parse(f||'[]'); }catch(e){ f=[]; } }
   return (Array.isArray(f)?f:[]).filter(Boolean);
 }
+// Achado na revisão da 3h.5 (QA, 19/08): reparo CANCELADO (cliente recusou
+// o orçamento) mostrava o valor do orçamento INTEIRO recusado como "em
+// aberto" na entrega — contradiz FLUXO-OFICINA.md ("a entrega acontece
+// igual, só sem cobrança de serviço"). Decisão do Marcos: permite cobrar
+// uma TAXA DE DIAGNÓSTICO (valor livre, pode ser R$0), nunca o valor do
+// serviço recusado.
 function _ofEntregaRequisitosStatus(o){
+  const cancelado=o.status==='cancelado';
+  const taxa=o.entrega_valor_cobrado;
+  const pagamentoOk = cancelado
+    ? (taxa!=null && (parseFloat(taxa)===0 || !!o.entrega_forma_pagamento))
+    : !!o.entrega_forma_pagamento;
   return {
     foto: _ofEntregaFotos(o).length>0,
     garantia: !!(o.o_que_foi_feito && o.o_que_foi_feito.trim()),
-    pagamento: !!o.entrega_forma_pagamento,
+    pagamento: pagamentoOk,
     assinatura: !!(o.entrega_assinatura_base64 && o.entrega_retirado_por)
   };
 }
@@ -18446,6 +18461,31 @@ function _ofRenderEntregaModal(reparoId){
   const fotos=_ofEntregaFotos(o);
   const orc=_ofOrcamentoVinculado(reparoId);
   const valorOrc=orc?parseFloat(orc.total)||0:0;
+  const cancelado=o.status==='cancelado';
+  const taxa=o.entrega_valor_cobrado;
+  // Cancelado (cliente recusou): nunca mostra o valor do serviço recusado
+  // como "em aberto" — só permite uma taxa de diagnóstico livre (0 = sem
+  // cobrança), formas de pagamento reduzidas (sem "A prazo": taxa pequena,
+  // quitada na hora, sem gerar parcela em A Receber).
+  const pagamentoCard = cancelado ? `
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
+      <div style="display:flex;gap:8px;align-items:center">
+        <span style="font-size:12px;color:var(--tx3)">R$</span>
+        <input type="text" inputmode="decimal" id="of-entrega-taxa" class="rd-field-box" style="max-width:110px" placeholder="0,00" value="${taxa!=null?esc(String(taxa)):''}">
+        <span style="font-size:12px;color:var(--tx3)">taxa de diagnóstico (0 = sem cobrança)</span>
+      </div>
+      ${parseFloat(taxa)>0?`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">
+        ${['pix','cartao','dinheiro'].map(f=>`<button type="button" style="font-family:'Instrument Sans',sans-serif;font-size:12px;font-weight:600;padding:8px 4px;border-radius:8px;cursor:pointer;text-align:center;${o.entrega_forma_pagamento===f?'background:var(--c1);color:#fff;border:1.5px solid var(--c1)':'background:#fff;color:var(--tx2);border:1px solid var(--line)'}" onclick="_ofSalvarPagamentoEntrega('${reparoId}','${f}')">${OFICINA_PAGAMENTO_LABEL[f]}</button>`).join('')}
+      </div>`:''}
+      <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" style="align-self:flex-start" onclick="_ofSalvarTaxaEntrega('${reparoId}')">Salvar</button>
+    </div>
+  ` : `
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px">
+      ${['pix','cartao','dinheiro','a_prazo'].map(f=>`<button type="button" style="font-family:'Instrument Sans',sans-serif;font-size:12px;font-weight:600;padding:8px 4px;border-radius:8px;cursor:pointer;text-align:center;${o.entrega_forma_pagamento===f?'background:var(--c1);color:#fff;border:1.5px solid var(--c1)':'background:#fff;color:var(--tx2);border:1px solid var(--line)'}" onclick="_ofSalvarPagamentoEntrega('${reparoId}','${f}')">${OFICINA_PAGAMENTO_LABEL[f]}</button>`).join('')}
+    </div>`;
+  const pagamentoValorTxt = cancelado
+    ? (taxa==null?'Defina a taxa (pode ser R$0)':(parseFloat(taxa)===0?'Sem cobrança':brl(parseFloat(taxa))+(o.entrega_forma_pagamento?' · '+OFICINA_PAGAMENTO_LABEL[o.entrega_forma_pagamento]:' em aberto')))
+    : (o.entrega_forma_pagamento?OFICINA_PAGAMENTO_LABEL[o.entrega_forma_pagamento]:(valorOrc>0?brl(valorOrc)+' em aberto':'—'));
   document.getElementById('of-entrega-corpo').innerHTML=`
     ${_ofEntregaCard(req.foto, 'Foto do equipamento pronto', fotos.length?`${fotos.length} foto${fotos.length!==1?'s':''}`:'Nenhuma foto ainda',
       `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
@@ -18461,10 +18501,7 @@ function _ofRenderEntregaModal(reparoId){
         <textarea id="of-entrega-feito" class="rd-field-box" rows="2" placeholder="O que foi feito (entra no termo)…">${esc(o.o_que_foi_feito||'')}</textarea>
         <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" style="align-self:flex-start" onclick="_ofSalvarGarantiaEntrega('${reparoId}')">Salvar</button>
       </div>`)}
-    ${_ofEntregaCard(req.pagamento, 'Pagamento na retirada', o.entrega_forma_pagamento?OFICINA_PAGAMENTO_LABEL[o.entrega_forma_pagamento]:(valorOrc>0?brl(valorOrc)+' em aberto':'—'),
-      `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px">
-        ${['pix','cartao','dinheiro','a_prazo'].map(f=>`<button type="button" style="font-family:'Instrument Sans',sans-serif;font-size:12px;font-weight:600;padding:8px 4px;border-radius:8px;cursor:pointer;text-align:center;${o.entrega_forma_pagamento===f?'background:var(--c1);color:#fff;border:1.5px solid var(--c1)':'background:#fff;color:var(--tx2);border:1px solid var(--line)'}" onclick="_ofSalvarPagamentoEntrega('${reparoId}','${f}')">${OFICINA_PAGAMENTO_LABEL[f]}</button>`).join('')}
-      </div>`)}
+    ${_ofEntregaCard(req.pagamento, cancelado?'Taxa de diagnóstico':'Pagamento na retirada', pagamentoValorTxt, pagamentoCard)}
     ${_ofEntregaCard(req.assinatura, 'Assinatura de quem retirou', o.entrega_retirado_por||'Nome e assinatura no dedo',
       `<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" style="margin-top:8px" onclick="abrirModalAssinaturaOficina('${reparoId}','retirada')">${req.assinatura?'Assinado — refazer':'Assinar'}</button>`)}
   `;
@@ -18504,6 +18541,21 @@ async function _ofSalvarGarantiaEntrega(reparoId){
   todosOficinaReparos[idx]={...todosOficinaReparos[idx], garantia_propria_meses:meses, o_que_foi_feito:feito};
   lsOfSalvar(todosOficinaReparos);
   if(dbOk&&db){ try{ await dbUpdate('oficina_reparos', {garantia_propria_meses:meses, o_que_foi_feito:feito}, 'id', reparoId); }catch(e){ console.warn('[oficina garantia entrega]', e?.message||e); } }
+  toast('✅ Salvo');
+  _ofRenderEntregaModal(reparoId);
+}
+// Taxa de diagnóstico na entrega de um reparo CANCELADO (cliente recusou o
+// orçamento) — nunca o valor do serviço recusado, só uma taxa livre (achado
+// da revisão de QA da 3h.5, decisão do Marcos: 19/08). Zero é uma resposta
+// válida ("sem cobrança"), por isso o requisito olha != null, não > 0.
+async function _ofSalvarTaxaEntrega(reparoId){
+  const raw=(gV('of-entrega-taxa')||'').replace(',','.');
+  const valor=raw===''?0:parseFloat(raw);
+  if(isNaN(valor)||valor<0){ toast('⚠️ Valor inválido'); return; }
+  const idx=(todosOficinaReparos||[]).findIndex(x=>x.id===reparoId); if(idx<0) return;
+  todosOficinaReparos[idx]={...todosOficinaReparos[idx], entrega_valor_cobrado:valor};
+  lsOfSalvar(todosOficinaReparos);
+  if(dbOk&&db){ try{ await dbUpdate('oficina_reparos', {entrega_valor_cobrado:valor}, 'id', reparoId); }catch(e){ console.warn('[oficina taxa entrega]', e?.message||e); } }
   toast('✅ Salvo');
   _ofRenderEntregaModal(reparoId);
 }
