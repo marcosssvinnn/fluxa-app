@@ -2,6 +2,102 @@
 
 ---
 
+## 🔴 OS saindo duplicada — causa raiz achada e corrigida em 2 pontos (19/08)
+
+Marcos: testando a OS do Edifício Infinity Coast Residence, disse "tentei
+salvar lá, não sei se salvou" — pediu pra verificar o modal e o fluxo de
+salvar/PDF. Investigado direto contra produção (leitura, PAT) antes de
+mexer — achado o problema real, não só falta de feedback visual.
+
+### Achado em produção: 4 OS idênticas em 23 segundos
+
+`ordens_servico` #195/197/198/199 — mesmo cliente, mesmo endereço, mesma
+`obs_tecnica` ("Substituição da resistência defeituosa executada."), mesmo
+técnico, criadas entre 20:35:23 e 20:35:46 (23s de diferença). Mais um par,
+#193/#194, mesmo `orcamento_id`, 93s de diferença. **O usuário claramente
+tentou salvar mais de uma vez, sem certeza se tinha funcionado — e cada
+tentativa criou uma OS nova, nunca atualizou a mesma.**
+
+### Causa raiz 1 — `gerarOSPDF()` nunca "lembrava" que já tinha salvado
+
+Depois de um `dbInsertNumerado` bem-sucedido (criar OS nova), `osEditId`
+continuava `null` — nada na tela nem no estado interno indicava "esta OS já
+existe". Um segundo clique em "Salvar OS" (ansiedade por falta de feedback,
+ou toque duplo no celular) rodava a função de novo do zero: `osEditId` ainda
+null → cai no mesmo branch de INSERT → outra OS. Diferente do orçamento
+(que já tinha proteção via `_orcSyncEmVoo` contra uma corrida assíncrona
+diferente), aqui não tinha proteção NENHUMA — nem contra clique duplo
+rápido, nem contra clique deliberado minutos depois.
+
+**Corrigido, 3 partes:**
+1. **Botões travados durante o salvamento** (`btn-os-pdf`/`btn-os-both`
+   `disabled=true` no início, `false` no fim) — impede o clique duplo
+   rápido (toque duplo no celular) de disparar duas chamadas simultâneas.
+2. **`osEditId` passa a apontar pra OS recém-criada** assim que o insert
+   resolve — um clique seguinte (mesmo minutos depois) cai no branch de
+   UPDATE, nunca cria outra. Mesmo tratamento no caminho offline (local
+   `_pendingSync`) — antes também recriava um `local_os_*` novo a cada
+   clique.
+3. **Cache local (`todosOS`/`fluxa_os_hist`) atualizado depois de
+   INSERT e de UPDATE online** — antes, um save online bem-sucedido nunca
+   atualizava o estado em memória (só o banco sabia que a OS existia); um
+   segundo clique não tinha como saber que já tinha uma, e reabrir a OS sem
+   reload mostrava dado velho.
+
+**Feedback visual reforçado** (ataca o "não sei se salvou" na raiz):
+depois do primeiro save, o título muda de "Nova Ordem de Serviço" pra
+"Editar OS #NNN" e a barra de ações (badge "Agendada" + botão Concluir)
+aparece na hora — antes só aparecia se fechasse e reabrisse a OS.
+
+### Causa raiz 2 — `gerarOS_deOrc()` nunca checava se o orçamento já tinha OS
+
+Achado ao investigar o par #193/#194 (mesmo `orcamento_id`, 93s de
+diferença): diferente de `criarOSjunto`/`criarOSdeAprovacao` (os outros 2
+caminhos de gerar OS, que já checam "já existe uma OS pra este orçamento?"
+antes de criar — proteção do bug do Dom Carlos, 14/08), o botão "Gerar OS"
+da barra de ações do orçamento (`gerarOS_deOrc`) nunca tinha essa checagem.
+O botão normalmente já esconde essa opção quando o cache reflete a OS
+existente (mostra "OS#NNN" no lugar) — mas isso depende do cache estar
+atualizado, e não protege contra quem chegou no formulário por outro
+caminho (ex.: o link de ponte novo do modal rápido, ver seção "Mapa do
+fluxo Orçamento → OS" abaixo).
+
+**Corrigido**: mesma trava (`confirmar()` com "Ver a existente"/"Criar
+outra OS") já usada nos outros 2 caminhos — defesa em profundidade, não
+confia só no botão escondido.
+
+### Falso positivo descartado na varredura
+
+A varredura em produção também achou 6 OS (#177-182) com a mesma
+`obs_tecnica` ("Plano de acompanhamento mensal"), criadas em 4 segundos,
+mesmo `agendamento_id` — parecia o mesmo bug. **Não é**: são as 6 visitas
+dos próximos 6 meses que `gerarOSdoAgendamento()` já cria de propósito ao
+criar um plano de vistoria recorrente (`data_servico` confirmado diferente
+em cada uma: 03/08, 03/09, 03/10... até 03/01/2027). Comportamento
+correto, não mexido.
+
+**Testado no Browser pane** (offline, `dbOk` com mock de `db` simulando
+rede real — inserts/updates contados por tabela pra não confundir com o
+auto-save de cliente, que também insere): clique duplo real no botão
+(`.click()` duas vezes em sequência) → só 1 insert, botão trava e destrava
+certo; clique de novo minutos "depois" (assíncrono resolvido) → vira
+UPDATE, não outro insert, confirmado por tabela (`ordens_servico:1,
+UPDATE:ordens_servico:1` — zero duplicata); badge/título aparecem
+certos depois do 1º save; trava de `gerarOS_deOrc` disparando o diálogo
+certo quando já existe OS pro orçamento, e navegando normal quando não
+existe. Zero erro novo no console.
+
+**Pendência — decisão do Marcos**: as 6 OS de teste do Infinity Coast
+Residence (#193, #194, #195, #197, #198, #199) continuam em produção,
+claramente do teste dele mesmo hoje. Não apaguei — pra fazer isso preciso
+de autorização explícita (mesmo protocolo já usado pros orçamentos
+duplicados, 19/08 mais abaixo: dry-run em transação antes de apagar de
+verdade).
+
+sw.js: fluxa-v204 → fluxa-v205.
+
+---
+
 ## 🔴 OS — botão "Concluir" descartava em silêncio o que o técnico tinha acabado de digitar (19/08)
 
 Marcos relatou desconfiança geral no fluxo de OS ("parece bagunçado... preciso

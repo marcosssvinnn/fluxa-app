@@ -4327,6 +4327,19 @@ function updOSSvc(inp){ const s=osSvcs.find(x=>x.id===parseFloat(inp.dataset.id)
 function rmOSSvc(id){ if(osSvcs.length===1){toast('⚠️ Mín. 1');return;} osSvcs=osSvcs.filter(s=>s.id!==id); renderOSSvcs(); }
 
 async function gerarOSPDF(modo='os'){
+  // Achado real em produção (19/08, OS do Infinity Coast Residence saindo
+  // 4x duplicada em 23 segundos): depois de salvar com sucesso, osEditId
+  // continuava null — um segundo clique em "Salvar OS" (o usuário sem
+  // certeza se tinha funcionado, ou toque duplo no celular) rodava esta
+  // função de novo do zero e criava OUTRA OS inteira, não uma atualização.
+  // Mesma classe do bug de corrida já corrigido em orçamentos (dedução:
+  // aqui não é uma corrida assíncrona, é o próprio usuário clicando de
+  // novo) — travar os botões enquanto salva impede o clique duplo, e
+  // apontar osEditId pra OS recém-criada faz um clique seguinte virar
+  // atualização, nunca outro insert.
+  const btnPdf=document.getElementById('btn-os-pdf'), btnBoth=document.getElementById('btn-os-both');
+  if(btnPdf) btnPdf.disabled=true;
+  if(btnBoth) btnBoth.disabled=true;
   const dados={
     cli:gV('os-cli')||'—', loc:gV('os-loc'), cnpj:gV('os-cnpj')||null, data:gV('os-data'), hora:gV('os-hora'),
     tec:gV('os-tec'), tot:parseFloat(gV('os-total'))||0,
@@ -4348,11 +4361,31 @@ async function gerarOSPDF(modo='os'){
         await dbUpdate('ordens_servico', payload, 'id', osEditId);
         numStr=String(existente?.numero||'').padStart(3,'0')||'???';
         salvouOnline=true;
+        // Atualiza o cache em memória/local — sem isto, reabrir a OS ou
+        // clicar "Salvar" de novo enxergava dado velho até a próxima sync.
+        const idx=todosOS.findIndex(x=>x.id===osEditId);
+        if(idx>=0) todosOS[idx]={...todosOS[idx], ...payload};
+        try{
+          const lista=JSON.parse(ls('fluxa_os_hist')||'[]');
+          const i=lista.findIndex(x=>x.id===osEditId);
+          if(i>=0){ lista[i]={...lista[i], ...payload}; lsSet('fluxa_os_hist', JSON.stringify(lista.slice(0,200))); }
+        }catch(e){ console.warn('[gerarOSPDF cache]', e?.message||e); }
         toast('✅ OS atualizada');
       } else {
         const {data:insOS}=await dbInsertNumerado('ordens_servico',{...payload,status:'agendado'});
         numStr=String(insOS?.numero||'').padStart(3,'0')||'???';
         salvouOnline=true;
+        if(insOS?.id){
+          // A OS agora EXISTE de verdade — próximo clique em "Salvar"
+          // (ou reabertura) precisa atualizar esta, não criar outra.
+          osEditId=insOS.id;
+          todosOS=[insOS, ...todosOS.filter(x=>x.id!==insOS.id)];
+          try{
+            const lista=JSON.parse(ls('fluxa_os_hist')||'[]');
+            lista.unshift(insOS);
+            lsSet('fluxa_os_hist', JSON.stringify(lista.slice(0,200)));
+          }catch(e){ console.warn('[gerarOSPDF cache]', e?.message||e); }
+        }
       }
     }catch(e){ console.warn('[gerarOSPDF] falha ao salvar OS no banco:', e?.message||e); }
   }
@@ -4370,6 +4403,7 @@ async function gerarOSPDF(modo='os'){
       const n=(parseInt(ls('fluxa_os_num')||'0'))+1; lsSet('fluxa_os_num',String(n)); numStr=String(n).padStart(3,'0');
       const rec={...payload, id:'local_os_'+Date.now(), numero:n, status:'agendado', data_criacao:new Date().toISOString(), _pendingSync:true};
       _salvarOSLocal(rec);
+      osEditId=rec.id; // idem: próximo clique atualiza este registro local, não cria outro
       toast(dbOk&&db ? '⚠️ OS não sincronizou — salva neste aparelho, reenvio automático' : '💾 OS salva neste aparelho — sem conexão, reenvio automático quando voltar');
     }
   }
@@ -4401,6 +4435,17 @@ async function gerarOSPDF(modo='os'){
   imprimirDoc(modo);
   // OS salva → limpa o rascunho para não vazar dados na próxima OS
   if(numStr!=='???') limparRascunho('os');
+  // Depois do primeiro save, o formulário passa a refletir que a OS agora
+  // existe de verdade (número real + badge/ações na tela) — sem isto
+  // continuava parecendo "Nova Ordem de Serviço" mesmo já salva, mesmo
+  // com barra de ações escondida, reforçando a dúvida "salvou?".
+  if(numStr!=='???' && osEditId){
+    const tituloEl=document.getElementById('os-form-titulo');
+    if(tituloEl) tituloEl.textContent='Editar OS #'+numStr;
+    _renderOSAcoesEdit(todosOS.find(x=>x.id===osEditId));
+  }
+  if(btnPdf) btnPdf.disabled=false;
+  if(btnBoth) btnBoth.disabled=false;
 }
 
 function preencherDocOS(d, num){
@@ -6556,8 +6601,49 @@ function duplicarOrc(id){
 
 function gerarOS_deOrc(id){
   const o=todosOrc.find(x=>x.id===id); if(!o) return;
+  // Mesma trava já usada em criarOSjunto/criarOSdeAprovacao — achado real em
+  // produção (19/08, orçamento com OS #193 e #194 vinculadas, 93s de
+  // diferença): esta função nunca checava se já existia OS pro orçamento
+  // antes de abrir o formulário do zero. O botão da barra de ações já
+  // esconde "Gerar OS" quando o cache reflete a OS existente, mas essa
+  // checagem aqui é defesa em profundidade — mesmo princípio dos outros 2
+  // caminhos, não confiar só na UI escondendo o botão.
+  const osVinc=(todosOS||[]).find(x=>String(x.orcamento_id)===String(id));
+  if(osVinc){
+    confirmar(
+      `Este orçamento já tem a OS #${String(osVinc.numero||'').padStart(3,'0')} vinculada. Criar OUTRA OS mesmo assim?`,
+      ()=>_gerarOSdeOrcProsseguir(id),
+      'OS já existe pra este orçamento',
+      ()=>editarOS(osVinc.id),
+      'Ver a existente',
+      'Criar outra OS'
+    );
+    return;
+  }
+  _gerarOSdeOrcProsseguir(id);
+}
+function _gerarOSdeOrcProsseguir(id){
+  const o=todosOrc.find(x=>x.id===id); if(!o) return;
   osEditId = null;
   osOrcId = id;
+  // Reset do que sobra de uma OS anterior no formulário (achado 19/08,
+  // testando o fluxo de ponta a ponta): mesmo bug já corrigido em novaOS()
+  // ("dados da OS anterior ficavam no formulário"), mas esta função nunca
+  // tinha ganho o mesmo tratamento — abrir "Gerar OS" de um orçamento logo
+  // depois de mexer em outra OS vazava observação/material/checklist/foto
+  // da OS anterior pra dentro da nova.
+  _osClienteSelecionado = o.cliente_id ? {id:o.cliente_id, nome:o.cliente} : null;
+  checkinAt=null; if(checkinTimer){clearInterval(checkinTimer);checkinTimer=null;}
+  const checkinBarEl=document.getElementById('checkin-bar'); if(checkinBarEl) checkinBarEl.style.display='none';
+  const checkinFormEl=document.getElementById('checkin-form'); if(checkinFormEl) checkinFormEl.style.display='flex';
+  const checkinInfoEl=document.getElementById('checkin-info'); if(checkinInfoEl) checkinInfoEl.textContent='';
+  populaTecCheckIn();
+  osChecklist = OS_CHECKLIST_DEFAULT.map(x=>({...x}));
+  renderOsChecklist();
+  osMateriais=[]; _osMatRenderLista();
+  osFotos=[];
+  renderOSFotosSlots();
+  setV('os-video-link',''); setV('os-obs',''); setV('os-mat',''); setV('os-tec','');
   setV('os-cli',o.cliente||''); setV('os-loc',o.local_servico||''); setV('os-cnpj',o.cnpj||'');
   setV('os-loja',o.loja_id||lojaAtiva||LOJA_PADRAO_ID);
   setV('os-data',o.data_servico||''); setV('os-total',String(o.total||0));
