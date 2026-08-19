@@ -47,6 +47,59 @@ tracejada) renderizando certo. Zero erro novo no console.
 
 sw.js: fluxa-v205 → fluxa-v206.
 
+### ✅ 3i.2 — Histórico de orçamentos: a coluna "Execução"
+
+**Fazer primeiro, como o plano pedia** — "dá pra medir quantos orçamentos
+estão parados antes de mexer em mais nada".
+
+`_orcExecucao(o)` (nova, perto de `_orcProximaAcao`) — deriva de
+`ordens_servico.orcamento_id`, **sem tabela nova**, os 5 valores do
+diagnóstico + um 6º estado natural que a tabela do diagnóstico não citava
+(OS agendada, ainda sem check-in — precisa existir entre "sem OS" e "em
+campo", senão uma OS recém-criada pelo agendamento em lote ficaria sem
+rótulo): `—` (não aprovado) · `sem OS há N dias` (âmbar, linha
+`--warn-row`) · `OS #NNN agendada` (cinza) · `OS #NNN em campo · HH:MM`
+(azul, ponto `var(--c1)`) · `executado DD/MM · sem relatório` (âmbar-escuro,
+linha de aviso) · `relatório enviado DD/MM` (verde — inatingível até a
+3i.8 existir, mas a lógica já está pronta pra quando existir).
+
+`renderTabela()` ganhou a coluna (grid de 7→8 valores, `Execução` entre
+"Próxima ação" e "Origem", `1.1fr` por ter texto de tamanho bem variável) —
+**as colunas existentes (Idade, Próxima ação, Origem) não foram removidas**,
+decisão deliberada: o plano pedia "coluna nova", não uma reescrita da
+tabela inteira, e Idade/Origem continuam informação real que alguém usa.
+Linha ganha fundo `--warn-row` quando `warnRow:true` (sem OS ou executado
+sem relatório) — mesmo padrão visual já usado em Estoque/OS pra "isto
+precisa de atenção".
+
+**Chip "Sem OS N"** (`_orcRenderChips`) — mesmo padrão do "Atrasado" em OS:
+aparece só quando > 0, primeiro da fila, `rd-chip-alert`. Clicar filtra
+(`filtroSt='sem_os'`, novo branch em `_orcListaFiltrada`).
+
+**Ação em lote "Agendar as N aprovadas sem OS"** (rodapé, só aparece com
+N>0) — modal de verdade (`abrirAgendarEmLote`/`_confirmarAgendarEmLote`),
+não um toast genérico como o plano exigia explicitamente. Data/hora/técnico
+de partida compartilhados, lista cada orçamento com resultado POR ITEM
+("OS #NNN" verde, "já tinha OS" cinza, "erro" vermelho) — não trava a UI
+achando que é tudo-ou-nada. **Refatorado `criarOSdeAprovacao` pra reusar o
+mesmo núcleo** (`_criarOSRapida(orc,data,hora,tec)`, extraído, sem DOM) —
+o modal individual (turno 11/já existia) e o lote agora chamam a MESMA
+função de criar, zero lógica duplicada. Mesma trava contra duplicar (já
+existe OS pro orçamento) nos dois caminhos.
+
+Testado no Browser pane (offline, `dbOk=false;db=null;`, porta nova, 5
+orçamentos sintéticos cobrindo os 5+1 estados): cada estado derivado
+corretamente (bug pego no processo — data saía com ano, "12/08/2026" em
+vez de "12/08"; corrigido, `_dataBR` fatiado pros 5 primeiros caracteres);
+linha com fundo de aviso nos 2 estados que pedem atenção; chip "Sem OS 1"
+aparecendo e filtrando certo; modal de lote abrindo com o item certo,
+"Agendar 1 OS" executando de verdade (offline, `_pendingSync`), item
+mudando pra "OS #001 (offline)" em verde, botão primário sumindo e
+"Cancelar" virando "Fechar" ao concluir, chip/rodapé atualizando o novo
+total depois. Zero erro novo no console.
+
+sw.js: fluxa-v206 → fluxa-v207.
+
 ---
 
 ## 🔴 OS saindo duplicada — causa raiz achada e corrigida em 2 pontos (19/08)
