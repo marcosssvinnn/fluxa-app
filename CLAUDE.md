@@ -137,7 +137,89 @@ Worker já documentado).
 
 sw.js: fluxa-v194 → fluxa-v195.
 
-**Próximo:** 3h.3 (cartão escuro específico por estado — `_ofRenderRepCartao`).
+### ✅ 3h.3 — o cartão escuro que muda por estado
+
+Substituiu a versão simples do 3h.2 (só status + "avançar") por conteúdo
+específico dos 7 estados + cancelado, seguindo a tabela de
+`FLUXO-OFICINA.md`: `_ofCartaoRecebido`/`Diagnostico`/
+`AguardandoAprovacao`/`AguardandoPeca`/`EmReparo`/`Pronto`/`Entregue`,
+despachadas por um mapa em `_ofRenderRepCartao(o)` — só essa função foi
+tocada, o resto da coluna direita (histórico, retrabalho, select manual)
+ficou como o 3h.2 deixou.
+
+- **Recebido** → "Registrar diagnóstico" transiciona pra `diagnostico` E
+  foca o textarea (`_ofRegistrarDiagnosticoUI`) — o técnico já cai
+  digitando, não precisa clicar duas vezes.
+- **Diagnóstico** → mostra o valor do orçamento vinculado (ou "Gere o
+  orçamento antes" se ainda não existe — `_ofMandarParaAprovacao` bloqueia
+  com toast, não deixa abrir o modal sem orçamento). "Mandar para
+  aprovação" abre o modal de contato novo.
+- **Aguardando aprovação** → valor + badge de dias sem contato
+  (`_ofDiasSemContato`, 3h.1) + caixa "Pedidos de aprovação" com os
+  últimos 6 contatos (ponto azul=enviado, âmbar=sem resposta, verde=
+  aprovado) + 3 ações (Registrar aprovação/Cobrar de novo/Recusado).
+- **Aguardando peça** → lista só os itens do orçamento com saldo
+  insuficiente (`fisicaProduto(produto_id) < qty` — mesmo cálculo já usado
+  em "Peças e mão de obra", nada novo), cada um com fornecedor
+  (`produtos.fornecedor_id`) e previsão (`lead_time_dias`, já existente do
+  módulo de compras — Fase 7 do redesign) quando tem; sem fornecedor
+  cadastrado mostra "sem pedido" em âmbar. Zero itens faltando → some a
+  lista e aparece um atalho "Peça chegou — iniciar reparo".
+- **Em reparo** → dias no status + técnico responsável (se já setado na
+  Fase 11). **Pronto** → dias na prateleira + se já avisou o cliente
+  (contato `canal:'aviso_pronto'`) — "Avisar cliente" só aparece enquanto
+  não avisado. **Entregue** → data + garantia própria calculada.
+- **Cancelado** → motivo + "Entregar" (o equipamento cancelado ainda
+  precisa voltar pro cliente, por FLUXO-OFICINA.md — "recusado não é
+  descartado").
+
+**Novo componente: `abrirModalContatoOficina(reparoId, resultadoPadrao)`**
+— mini-modal (canal + resultado + observação opcional), usado por 4 dos
+7 estados. Modo especial pra "Avisar cliente" (`resultadoPadrao='avisado'`):
+esconde os selects de canal/resultado (é sempre o mesmo tipo de evento,
+canal fixo `aviso_pronto`), só pede confirmar. `_ofConfirmarContato()`
+grava o contato (3h.1) e decide a transição de status: `diagnostico` →
+`aguardando_aprovacao` sempre; `aguardando_aprovacao` + resultado
+`aprovado` → `aguardando_peca` (**interino** — a 3h.4 substitui esse ramo
+específico pela transação completa das "três consequências": criar OS +
+reservar estoque + lista de compra, com o pulo automático pra `em_reparo`
+quando não falta peça nenhuma); `avisado` nunca muda status, só registra.
+
+**Bug real achado e corrigido no próprio teste**: o botão "Entregar" do
+estado `cancelado` chamava `avancarStatusOficina()` — que usa
+`_ofProximoStatus()`, e `cancelado` não está em `OFICINA_STATUS_SEQ`
+(é saída lateral, não faz parte da sequência), então `_ofProximoStatus
+('cancelado')` sempre retorna `null` e o clique não fazia **nada** (só um
+toast de "já está na última etapa", enganoso). Corrigido pra
+`setOficinaStatus(id,'entregue')`, que chama `_ofAplicarStatus` direto com
+o destino explícito, sem depender de "próximo da sequência".
+
+Testado no Browser pane (offline, `dbOk=false;db=null;`, ciclo completo
+clicando de verdade pelos 7 estados + cancelado num reparo sintético):
+Recebido→Diagnóstico (foco automático confirmado); bloqueio de "Mandar
+pra aprovação" sem orçamento (modal não abre); com orçamento (1 item sem
+estoque + 1 com estoque, fornecedor com lead_time 7d cadastrado) → modal
+abre, confirma, transiciona pra Aguardando aprovação com o valor e o
+pedido registrado na caixa; "Registrar aprovação" com resultado=aprovado
+→ Aguardando peça mostrando só o item realmente faltando ("Serpentina ·
+Distribuidora Pooltec · 7d de previsão"), o item com estoque
+corretamente ausente da lista; simulei a peça chegando (nova entrada no
+ledger) → recarregado, 0 itens faltando, atalho "Peça chegou" aparece;
+Em reparo→Pronto→"Avisar cliente" (nota muda pra "✓ avisado" sem trocar
+status, botão some)→Entregue (data + garantia 3 meses calculada certa);
+Cancelado→"Entregar" (bug acima, corrigido, testado depois do fix)→
+Entregue. 1440px (grid intacto) e 375px (`scrollW===clientW===375`,
+cartão e histórico empilhando certo) sem overflow. Zero erro novo no
+console.
+
+sw.js: fluxa-v195 → fluxa-v196.
+
+**Com isso, `#page-reparo` está funcionalmente completa pros 7 estados +
+cancelado — falta só 3h.4 (as "três consequências" reais de "Registrar
+aprovação": criar OS, reservar estoque de verdade, lista de compra) e
+3h.5 (modal de entrega com os 4 requisitos + bancada mobile).**
+
+**Próximo:** 3h.4 — Registrar aprovação: as três consequências.
 
 ---
 

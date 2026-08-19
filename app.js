@@ -17531,6 +17531,11 @@ function fecharFichaOficina(){}
 function renderPageReparo(){
   const o=(todosOficinaReparos||[]).find(x=>x.id===_ofReparoAtivoId);
   if(!o){ voltar(); return; }
+  // Fornecedor/previsão do cartão "aguardando peça" (3h.3) precisam do
+  // cadastro de produto/fornecedor — carrega só se ainda não tiver, sem
+  // travar a primeira renderização (chega a tempo do próximo estado).
+  if(!(todosProdutos||[]).length && typeof loadEstoque==='function') loadEstoque();
+  if(!(todosFornecedores||[]).length && typeof loadFornecedores==='function') loadFornecedores();
   _ofRenderRepTopbar(o);
   _ofRenderRepTrilha(o);
   _ofRenderRepEsquerda(o);
@@ -17734,26 +17739,203 @@ function _ofRepTimelineHtml(o){
     </div>
   </div>`).join('');
 }
-// Cartão escuro — versão simples desta rodada (3h.2), só status + avançar.
-// A 3h.3 substitui #of-rep-cartao por conteúdo específico de cada estado
-// (pedidos de aprovação, peça/fornecedor/previsão, dias sem aviso — tabela
-// completa em FLUXO-OFICINA.md), sem precisar tocar o resto da coluna.
+// ── Cartão escuro por estado (Tarefa 3h.3, 19/08) ──
+// "Em cada estado, uma ação óbvia, no mesmo lugar da tela" (FLUXO-OFICINA.md).
+// Único elemento da ficha que muda de conteúdo — o resto da tela é sempre igual.
 function _ofRenderRepCartao(o){
   const el=document.getElementById('of-rep-cartao'); if(!el) return;
   if(o.status==='cancelado'){
     el.innerHTML=`<div class="of-rep-dark">
       <span class="of-rep-dark-lbl">Cancelado</span>
       ${o.cancelado_motivo?`<span style="font-size:13px;color:var(--nav-tx-strong)">${esc(o.cancelado_motivo)}</span>`:''}
+      <div class="of-rep-dark-acts">
+        <button type="button" class="rd-btn rd-btn-primary" onclick="setOficinaStatus('${o.id}','entregue')">Entregar</button>
+      </div>
+      <span class="of-rep-dark-nota">Recusado ainda precisa voltar pro cliente — a entrega acontece igual, só sem cobrança de serviço.</span>
     </div>`;
     return;
   }
-  const prox=_ofProximoStatus(o.status);
-  el.innerHTML=`<div class="of-rep-dark">
-    <span class="of-rep-dark-lbl">${esc(OFICINA_STATUS_LABEL[o.status]||o.status)}</span>
+  const map={
+    recebido:_ofCartaoRecebido, diagnostico:_ofCartaoDiagnostico,
+    aguardando_aprovacao:_ofCartaoAguardandoAprovacao, aguardando_peca:_ofCartaoAguardandoPeca,
+    em_reparo:_ofCartaoEmReparo, pronto:_ofCartaoPronto, entregue:_ofCartaoEntregue
+  };
+  el.innerHTML=(map[o.status]||(x=>''))(o);
+}
+function _ofCartaoRecebido(o){
+  const dias=_ofDiasNaBancada(o);
+  return `<div class="of-rep-dark">
+    <span class="of-rep-dark-lbl">Na bancada</span>
+    <span class="of-rep-dark-val">${dias} dia${dias!==1?'s':''}</span>
     <div class="of-rep-dark-acts">
-      ${prox?`<button type="button" class="rd-btn rd-btn-primary" onclick="avancarStatusOficina('${o.id}')">${esc(OFICINA_STATUS_LABEL[prox])} →</button>`:''}
+      <button type="button" class="rd-btn rd-btn-primary" onclick="_ofRegistrarDiagnosticoUI('${o.id}')">Registrar diagnóstico</button>
     </div>
   </div>`;
+}
+function _ofRegistrarDiagnosticoUI(id){
+  avancarStatusOficina(id);
+  setTimeout(()=>document.getElementById('of-ficha-diagnostico')?.focus(),150);
+}
+function _ofCartaoDiagnostico(o){
+  const orc=_ofOrcamentoVinculado(o.id);
+  const valorTxt=orc?brl(orc.total||0):'Nenhum valor ainda';
+  return `<div class="of-rep-dark">
+    <span class="of-rep-dark-lbl">Em diagnóstico</span>
+    <span class="of-rep-dark-val">${esc(valorTxt)}</span>
+    <div class="of-rep-dark-acts">
+      <button type="button" class="rd-btn rd-btn-primary" onclick="_ofMandarParaAprovacao('${o.id}')">Mandar para aprovação</button>
+    </div>
+    ${!orc?'<span class="of-rep-dark-nota">Gere o orçamento de conserto (ao lado) antes.</span>':''}
+  </div>`;
+}
+function _ofMandarParaAprovacao(id){
+  if(!_ofOrcamentoVinculado(id)){ toast('⚠️ Gere o orçamento de conserto antes de mandar para aprovação.'); return; }
+  abrirModalContatoOficina(id,'enviado');
+}
+function _ofCartaoAguardandoAprovacao(o){
+  const orc=_ofOrcamentoVinculado(o.id);
+  const valorTxt=orc?brl(orc.total||0):'—';
+  const diasSem=_ofDiasSemContato(o.id);
+  const contatos=_ofContatosDoReparo(o.id).slice(0,6);
+  const boxHtml=contatos.length?`<div class="of-rep-dark-box">
+    <span class="of-rep-dark-box-lbl">Pedidos de aprovação</span>
+    ${contatos.map(c=>{
+      const cor=c.resultado==='sem_resposta'?'var(--warn-dot)':(c.resultado==='aprovado'?'var(--ok)':'#6FA8E8');
+      return `<div class="of-rep-dark-item"><span class="of-rep-dark-dot" style="background:${cor}"></span><span style="flex:1">${esc(OFICINA_CANAL_LABEL[c.canal]||c.canal)}</span><span style="color:var(--tx4);font-variant-numeric:tabular-nums">${esc(_dataBR(String(c.data).split('T')[0]))}</span></div>`;
+    }).join('')}
+  </div>`:'';
+  return `<div class="of-rep-dark">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <span class="of-rep-dark-lbl">Esperando o cliente</span>
+      ${diasSem!=null?`<span style="font-size:11px;font-weight:600;color:#E8A15C">${diasSem}d</span>`:''}
+    </div>
+    <span class="of-rep-dark-val">${esc(valorTxt)}</span>
+    ${boxHtml}
+    <div class="of-rep-dark-acts">
+      <button type="button" class="rd-btn rd-btn-primary" onclick="abrirModalContatoOficina('${o.id}','aprovado')">Registrar aprovação</button>
+      <div class="of-rep-dark-sec-row">
+        <button type="button" class="of-rep-dark-sec" onclick="abrirModalContatoOficina('${o.id}','enviado')">Cobrar de novo</button>
+        <button type="button" class="of-rep-dark-sec" onclick="abrirModalCancelarOficina('${o.id}')">Recusado</button>
+      </div>
+    </div>
+    <span class="of-rep-dark-nota">Aprovado por qualquer canal — WhatsApp, ligação, balcão.</span>
+  </div>`;
+}
+// Peça faltando = disponível insuficiente pro que o orçamento pede — mesmo
+// cálculo já usado em "Peças e mão de obra". Fornecedor/previsão vêm do
+// cadastro do produto (fornecedor_id/lead_time_dias, já usados em
+// pontoDePedido) — nada novo gravado, só exibido junto.
+function _ofCartaoAguardandoPeca(o){
+  const orc=_ofOrcamentoVinculado(o.id);
+  let svcs=orc?orc.servicos:[]; if(typeof svcs==='string'){ try{ svcs=JSON.parse(svcs||'[]'); }catch(e){ svcs=[]; } }
+  svcs=Array.isArray(svcs)?svcs:[];
+  const faltantes=svcs.filter(s=>s.produto_id && fisicaProduto(s.produto_id) < Math.abs(parseInt(s.qty)||1));
+  const linhas=faltantes.map(s=>{
+    const p=produtoById(s.produto_id);
+    const forn=p&&p.fornecedor_id?(todosFornecedores||[]).find(f=>f.id===p.fornecedor_id):null;
+    const prev=p&&parseFloat(p.lead_time_dias)>0?Math.round(parseFloat(p.lead_time_dias))+'d de previsão':'sem pedido';
+    return `<div class="of-rep-dark-item"><span class="of-rep-dark-dot" style="background:${forn?'#6FA8E8':'var(--warn-dot)'}"></span><span style="flex:1">${esc(p?.nome||s.desc||'—')}${forn?' · '+esc(forn.nome):''}</span><span style="color:var(--tx4)">${esc(prev)}</span></div>`;
+  }).join('');
+  return `<div class="of-rep-dark">
+    <span class="of-rep-dark-lbl">Esperando peça</span>
+    <span class="of-rep-dark-val">${faltantes.length} ${faltantes.length===1?'item':'itens'}</span>
+    ${linhas?`<div class="of-rep-dark-box"><span class="of-rep-dark-box-lbl">Peças faltando</span>${linhas}</div>`:''}
+    <div class="of-rep-dark-acts">
+      <button type="button" class="rd-btn rd-btn-primary" onclick="abrirOCListModal()">Ver compra</button>
+      ${!faltantes.length?`<button type="button" class="of-rep-dark-sec" onclick="avancarStatusOficina('${o.id}')">Peça chegou — iniciar reparo</button>`:''}
+    </div>
+  </div>`;
+}
+function _ofCartaoEmReparo(o){
+  const dias=_ofDiasNoStatus(o)||0;
+  return `<div class="of-rep-dark">
+    <span class="of-rep-dark-lbl">Em reparo</span>
+    <span class="of-rep-dark-val">${dias} dia${dias!==1?'s':''}</span>
+    ${o.tecnico_responsavel?`<span class="of-rep-dark-nota">Com ${esc(o.tecnico_responsavel)}</span>`:''}
+    <div class="of-rep-dark-acts">
+      <button type="button" class="rd-btn rd-btn-primary" onclick="avancarStatusOficina('${o.id}')">Marcar pronto</button>
+    </div>
+  </div>`;
+}
+function _ofCartaoPronto(o){
+  const dias=_ofDiasNoStatus(o)||0;
+  const avisado=_ofContatosDoReparo(o.id).some(c=>c.canal==='aviso_pronto');
+  return `<div class="of-rep-dark">
+    <span class="of-rep-dark-lbl">Pronto pra retirar</span>
+    <span class="of-rep-dark-val">${dias} dia${dias!==1?'s':''} na prateleira</span>
+    <span class="of-rep-dark-nota">${avisado?'✓ Cliente já avisado':'Cliente ainda não foi avisado'}</span>
+    <div class="of-rep-dark-acts">
+      ${!avisado?`<button type="button" class="of-rep-dark-sec" onclick="abrirModalContatoOficina('${o.id}','avisado')">Avisar cliente</button>`:''}
+      <button type="button" class="rd-btn rd-btn-primary" onclick="avancarStatusOficina('${o.id}')">Entregar</button>
+    </div>
+  </div>`;
+}
+function _ofCartaoEntregue(o){
+  const dt=o.data_entrega?_dataBR(String(o.data_entrega).split('T')[0]):'—';
+  const garantia=o.garantia_propria_vencimento?_dataBR(o.garantia_propria_vencimento):null;
+  return `<div class="of-rep-dark">
+    <span class="of-rep-dark-lbl">Entregue</span>
+    <span class="of-rep-dark-val">${esc(dt)}</span>
+    ${garantia?`<span class="of-rep-dark-nota">Garantia até ${esc(garantia)}</span>`:''}
+    <div class="of-rep-dark-acts">
+      <button type="button" class="of-rep-dark-sec" onclick="imprimirTermoOficina('${o.id}','retirada')">Ver comprovante</button>
+    </div>
+  </div>`;
+}
+// Mini-modal de contato — canal + resultado + observação. Usado por "Mandar
+// para aprovação"/"Registrar aprovação"/"Cobrar de novo" (canal escolhido) e
+// por "Avisar cliente" (canal fixo aviso_pronto, sem escolha — é sempre o
+// mesmo tipo de evento). resultadoPadrao pré-seleciona o <select>, nunca
+// força — quem confirma pode trocar antes de enviar.
+function abrirModalContatoOficina(reparoId, resultadoPadrao){
+  const existing=document.getElementById('modal-of-contato'); if(existing) existing.remove();
+  const isAviso=resultadoPadrao==='avisado';
+  const canalHtml=isAviso?'':`<div class="rd-field"><span class="rd-field-lbl">Canal</span>
+    <select id="of-contato-canal" class="rd-field-box">
+      <option value="whatsapp">WhatsApp</option>
+      <option value="pdf">PDF do orçamento</option>
+      <option value="ligacao">Ligação</option>
+      <option value="balcao">Balcão</option>
+    </select></div>`;
+  const resultHtml=isAviso?'':`<div class="rd-field"><span class="rd-field-lbl">Resultado</span>
+    <select id="of-contato-resultado" class="rd-field-box">
+      <option value="enviado" ${resultadoPadrao==='enviado'?'selected':''}>Enviado</option>
+      <option value="sem_resposta" ${resultadoPadrao==='sem_resposta'?'selected':''}>Sem resposta</option>
+      <option value="aprovado" ${resultadoPadrao==='aprovado'?'selected':''}>Aprovado</option>
+    </select></div>`;
+  const m=document.createElement('div'); m.id='modal-of-contato'; m.className='cli-hist-overlay'; m.style.zIndex='1100';
+  m.innerHTML=`<div class="cli-hist-box" style="max-height:none">
+    <div class="cli-hist-hdr">
+      <div class="cli-hist-titulo">${isAviso?'Avisar cliente que está pronto':'Registrar contato'}</div>
+      <button class="cli-hist-close" onclick="document.getElementById('modal-of-contato').remove()">×</button>
+    </div>
+    <div style="padding:16px 20px 24px;display:flex;flex-direction:column;gap:12px">
+      ${canalHtml}
+      ${resultHtml}
+      <div class="rd-field"><span class="rd-field-lbl">Observação (opcional)</span><textarea id="of-contato-obs" class="rd-field-box" rows="2"></textarea></div>
+      <button type="button" class="rd-btn rd-btn-primary" style="align-self:flex-start" onclick="_ofConfirmarContato('${reparoId}',${isAviso?"'aviso_pronto'":'null'},${isAviso?"'avisado'":'null'})">Confirmar</button>
+    </div>
+  </div>`;
+  m.addEventListener('click',e=>{ if(e.target===m) m.remove(); });
+  document.body.appendChild(m);
+}
+// ⚠️ "aguardando_aprovacao + aprovado" avança só pra aguardando_peca aqui —
+// a 3h.4 substitui esse ramo pela transação real das "três consequências"
+// (criar OS + reservar estoque + entrar na lista de compra), sem tocar no
+// resto deste fluxo de contato.
+async function _ofConfirmarContato(reparoId, canalFixo, resultadoFixo){
+  const canal=canalFixo||gV('of-contato-canal')||'whatsapp';
+  const resultado=resultadoFixo||gV('of-contato-resultado')||'enviado';
+  const obs=gV('of-contato-obs')||'';
+  document.getElementById('modal-of-contato')?.remove();
+  await _ofRegistrarContato(reparoId, canal, resultado, obs);
+  const o=(todosOficinaReparos||[]).find(x=>x.id===reparoId);
+  if(o){
+    if(o.status==='diagnostico') await _ofAplicarStatus(reparoId,'aguardando_aprovacao');
+    else if(o.status==='aguardando_aprovacao' && resultado==='aprovado') await _ofAplicarStatus(reparoId,'aguardando_peca');
+  }
+  toast('✅ Contato registrado');
+  if(document.getElementById('page-reparo')?.classList.contains('on')) renderPageReparo();
 }
 // Garantia de fabricante (Fase 4) — só rastreio, sem data de vencimento.
 function _ofFichaFabricanteHtml(o){
