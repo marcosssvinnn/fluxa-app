@@ -2255,7 +2255,17 @@ function _orcSaldoAReceber(o){
   if(!o || o.status!=='aprovado') return 0;
   const parcelas=(todosReceb||[]).filter(r=>String(r.orcamento_id)===String(o.id));
   if(parcelas.length) return parcelas.filter(r=>!r.data_pagamento).reduce((a,r)=>a+(parseFloat(r.valor)||0),0);
-  return Math.max(0,(parseFloat(o.total)||0)-(parseFloat(o.valor_recebido)||0));
+  // Sem nenhuma parcela lançada — nada foi registrado como recebido ainda,
+  // saldo é o total (18/08, Tarefa 4: para de ler valor_recebido). A
+  // migração retroativa (migracao-recebimentos-retroativa-2026-08-18.sql,
+  // rodada e conferida em produção antes deste commit) já criou 1 parcela
+  // por orçamento aprovado histórico que dependia desse campo — aberta com
+  // o saldo real pra quem ainda devia, já paga pra quem já tinha quitado
+  // via valor_recebido. Esta linha só cobre o caso novo, daqui pra frente:
+  // orçamento aprovado que pulou o "Como vai receber?" na hora (o botão
+  // "Decidir depois" não cria parcela nenhuma) — sem isso ele sumiria da
+  // conta em vez de aparecer como devendo o total.
+  return Math.max(0, parseFloat(o.total)||0);
 }
 function _orcAprovadosSemReceb(){
   const comReceb=new Set((todosReceb||[]).map(r=>String(r.orcamento_id)));
@@ -5709,17 +5719,14 @@ function atualizarDash(){
   const tot=orcFiltrado.length, soma=orcFiltrado.reduce((a,o)=>a+(o.total||0),0);
   const aprov=orcFiltrado.filter(o=>o.status==='aprovado');
   const somaA=aprov.reduce((a,o)=>a+(o.total||0),0);
-  // Soma as duas fontes por orçamento (Tarefa 4, 15/08) — antes lia só
-  // valor_recebido, que fica parado desde que um orçamento ganha parcela em
-  // `recebimentos` (o pagamento passa a ser marcado lá, não mais aqui).
-  const aRec=aprov.reduce((a,o)=>a+_orcSaldoAReceber(o),0);
   const tick=tot>0?soma/tot:0;
   // Sub-label mostra o período
   const periodoSub=orcMesRef?_renderOrcMesLabelStr():'Todos os períodos';
   const taxaConv = tot>0 ? Math.round(aprov.length/tot*100) : 0;
   setV_el('d-emit',brl(soma),'textContent'); setV_el('d-emit-q',tot+' orç. · '+periodoSub,'textContent');
   setV_el('d-aprov',brl(somaA),'textContent'); setV_el('d-aprov-q',aprov.length+' aprov. · '+(tot>0?taxaConv+'% conversão':'—'),'textContent');
-  setV_el('d-rec',brl(Math.max(0,aRec)),'textContent');
+  // #d-rec (A Receber) saiu do dashboard do Histórico (Tarefa 4, 18/08) —
+  // era a fonte menos confiável dos 3 lugares que mostravam o número.
   setV_el('d-tick',tick>0?brl(tick):'—','textContent');
   renderOrigemDash();
 }

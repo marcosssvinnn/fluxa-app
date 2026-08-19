@@ -1412,10 +1412,15 @@
       <div id="orc-lista-rodape"></div>
     </div>
 
-    <div class="dash">
+    <!-- #d-rec (A Receber) saiu daqui (Tarefa 4, 18/08) — era o menos
+         confiável dos 3 lugares que mostravam o número (lia só
+         valor_recebido, que fica parado assim que um orçamento ganha
+         parcela em `recebimentos`). Quem quer o número tem o KPI do
+         Insights e a tela dedicada "A Receber", os dois já lendo
+         _orcSaldoAReceber() de verdade. -->
+    <div class="dash dash-3">
       <div class="dc o"><div class="dl">Total Emitido</div><div class="dv" id="d-emit">—</div><div class="ds" id="d-emit-q">— orç.</div></div>
       <div class="dc g"><div class="dl">Aprovados</div><div class="dv" id="d-aprov">—</div><div class="ds" id="d-aprov-q">— aprovados</div></div>
-      <div class="dc y"><div class="dl">A Receber</div><div class="dv" id="d-rec">—</div><div class="ds" id="d-rec-q">aprovado s/ pagto</div></div>
       <div class="dc b"><div class="dl">Ticket Médio</div><div class="dv" id="d-tick">—</div><div class="ds">por orçamento</div></div>
     </div>
 

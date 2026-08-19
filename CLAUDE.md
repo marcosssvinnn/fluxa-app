@@ -2,6 +2,101 @@
 
 ---
 
+## 📝 Pendência registrada — responsividade entre tamanhos de tela (18/08)
+
+Feedback do Marcos, de passagem, pra tratar depois (não pediu pra fazer
+agora): no notebook (tela menor) o layout fica apertado; no monitor externo
+(maior) sobra espaço em branco sem uso — provavelmente o mesmo tipo de
+problema aparece no celular. Nenhuma tela específica foi citada — parece
+ser um padrão geral do app (containers com `max-width` fixo que não
+escalam com a viewport, não um bug pontual de uma tela só). Vale investigar
+com telas reais em >1600px e <1280px antes de decidir a abordagem (fluid
+max-width vs. breakpoint adicional vs. densidade variável) — ainda não
+investigado.
+
+---
+
+## ✅ Tarefa 4 fechada de vez — migração retroativa de "A Receber" (18/08)
+
+Última pendência do segundo pacote de handoff (`PLANO-ACABAMENTO.md`, "Tarefa
+4 — Uma fonte só pra 'A Receber'"). A entrada de 15/08 já tinha resolvido
+isso uma vez com a **opção (b)** (somar as duas fontes) — mas o handoff novo
+reabriu a mesma decisão com as duas opções de novo, e desta vez, perguntado
+de novo, o Marcos escolheu a **opção (a)** (migração retroativa, a
+recomendada pelo próprio plano) — resolve de vez, sem carregar a ressalva
+"inclui R$X de registros antigos" pra sempre.
+
+**Antes de gravar em produção, perguntei de novo** (via `AskUserQuestion`,
+com números REAIS levantados por leitura direta do banco) — porque a
+mecânica exata de "1 parcela à vista por orçamento" tinha uma decisão que o
+texto do plano não deixava 100% explícita: o que fazer com o valor já
+recebido. Apresentei o cálculo: **103 orçamentos** aprovados sem nenhuma
+linha em `recebimentos`; **60** com saldo em aberto real (soma
+R$139.458,86) ganhariam parcela **aberta** no valor do saldo (não o total
+bruto — alguns já tinham pago parte); **43** já quitados via `valor_recebido`
+ganhariam parcela **já paga** (senão, assim que o código parasse de ler
+`valor_recebido`, viravam "nunca recebido" do nada). O Marcos aprovou,
+pedindo cuidado explícito pra não "bugar dados e KPIs".
+
+**Migração** (`migracao-recebimentos-retroativa-2026-08-18.sql`, rodada via
+Management API):
+- **Dry-run em transação primeiro** (`BEGIN; ... SELECT count/soma;
+  ROLLBACK;`) — confirmou 103 linhas, soma abertas R$139.458,86 batendo
+  exato com o número calculado antes de perguntar ao Marcos, soma pagas
+  R$74.768,77. Só depois rodei de verdade (`COMMIT`).
+- `id = 'rec_migr_' || orcamento_id` de propósito, não o padrão
+  `'rec_'+timestamp+random` do app — torna a migração **idempotente**:
+  rodar 2x por engano bate na PK duplicada e falha alto, em vez de duplicar
+  a parcela em silêncio.
+- Verificado depois: 108 linhas totais em `recebimentos` (5 antigas + 103
+  novas), zero duplicata por `orcamento_id`, spot-check de 5 orçamentos
+  reais com o valor batendo exato (`total − valor_recebido` pra quem tinha
+  saldo; `valor_recebido` completo, pago, pra quem já tinha quitado).
+
+**Código, só depois de confirmar a migração em produção** (nunca no mesmo
+commit, como o próprio plano manda):
+- **`_orcSaldoAReceber(o)`** — parou de ler `orcamentos.valor_recebido`.
+  Sem nenhuma parcela em `recebimentos` pro orçamento, o fallback agora é
+  **o total** (não mais `total − valor_recebido`) — cobre o caso NOVO,
+  daqui pra frente: aprovar um orçamento e clicar "Decidir depois" no modal
+  "Como vai receber?" não cria parcela nenhuma (`pularRecebimento()`,
+  confirmado lendo o código), então sem esse fallback ele desapareceria da
+  conta em vez de aparecer devendo o total. **Achado importante durante a
+  revisão, evitou um bug real**: `_orcAprovadosSemReceb()` (o "card de
+  gap") tinha um filtro extra `_orcSaldoAReceber(o)>0` que dependia do
+  fallback antigo — se eu tivesse só apagado a leitura de `valor_recebido`
+  sem pensar no fallback, esse filtro passaria a excluir TODO orçamento sem
+  parcela nenhuma (porque a soma de um array vazio é 0), quebrando o card
+  de gap pra sempre, silenciosamente. Escolhendo "total" como fallback em
+  vez de "zero", o card continua funcionando sem nenhuma outra mudança.
+- **`#d-rec`** (card "A Receber" do dashboard antigo do Histórico) —
+  removido, junto com o cálculo `aRec` em `atualizarDash()`. Era o menos
+  confiável dos 3 lugares que mostravam o número (só lia `valor_recebido`
+  puro, sem sequer a soma das duas fontes que os outros 2 já tinham desde
+  15/08). O grid `.dash` (4 colunas) ficou com 3 cards — criada
+  `.dash-3` (modificador escopado, não mudei `.dash` em si porque
+  `#ident-kpis` também usa a classe com contagem própria de cards) pra não
+  sobrar coluna vazia no desktop.
+
+**Testado com dado real de produção** (leitura, `dbOk=true`, nenhuma
+escrita além da migração já commitada e verificada): KPI "A receber" do
+Insights e o subtítulo "X em aberto" da tela A Receber batendo **exatos**
+(R$143.012,36 nos dois — confirma que as duas telas agora leem a mesma
+fonte, o objetivo inteiro da tarefa); dashboard do Histórico com 3 cards
+alinhados (`.dash-3`, sem coluna vazia, testado em 1280px e mobile);
+`#d-rec` confirmado ausente do DOM. Zero erro novo no console.
+
+**Registrado, não é bug**: as parcelas migradas aparecem com `vencimento`
+= data de aprovação (como o plano pediu) — para orçamentos aprovados há
+meses, isso significa nascerem já "vencidas" no aging da tela A Receber.
+É o comportamento correto e esperado (o dinheiro já estava em atraso desde
+aquela data, só nunca tinha sido registrado formalmente) — não é um efeito
+colateral a corrigir.
+
+sw.js: fluxa-v189 → fluxa-v190.
+
+---
+
 ## ✅ 3f.4 — Migrados `#mov-modal` e `#resv-modal` pro shell `.rd-modal` (18/08)
 
 Último item do índice 3f (`PLANO-3F-OFICINA.md`). Os dois nasceram depois

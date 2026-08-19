@@ -708,6 +708,13 @@
        valor longo (ex.: "R$ 4.200,00" com rotulo grande) empurra o ultimo card
        para fora da area visivel — apareceu em Contas a Receber. */
     .dash{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:14px}
+    /* Dashboard do Histórico ficou com 3 cards depois que #d-rec saiu
+       (Tarefa 4, 18/08) — modificador escopado em vez de mudar .dash (que
+       #ident-kpis também usa, com contagem própria de cards). Vem DEPOIS de
+       .dash de propósito pra vencer no desktop; a media query mobile de
+       .dash (abaixo) continua valendo por igual — mesma classe, ordem de
+       origem decide, e ela vem depois de tudo isso no arquivo. */
+    .dash-3{grid-template-columns:repeat(3,minmax(0,1fr))}
     .dc{background:var(--white);border-radius:var(--r);padding:12px 14px;box-shadow:var(--sh);border-top:3px solid var(--gray-mid)}
     .dc.o{border-top-color:var(--c1)}.dc.g{border-top-color:var(--green)}.dc.y{border-top-color:var(--yellow)}.dc.b{border-top-color:var(--blue)}
     .dc.r{border-top-color:var(--red)}
