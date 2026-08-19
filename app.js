@@ -1234,7 +1234,7 @@ document.addEventListener('keydown', function(e){
     if(!activePage) return;
     const pid = activePage.id;
     if(pid === 'page-form') salvarApenas();
-    else if(pid === 'page-os') { const btn=document.getElementById('btn-os-pdf'); if(btn) btn.click(); }
+    else if(pid === 'page-os') { const btn=document.getElementById(osEditId?'btn-os-imprimir':'btn-os-criar'); if(btn) btn.click(); }
     else if(pid === 'page-empresa') salvarEmpresa();
     else if(pid === 'page-visitas') salvarVistoria();
   }
@@ -4378,7 +4378,6 @@ function toggleChk(i, checked){
 }
 function updChkObs(i, val){ if(osChecklist[i]) osChecklist[i].obs=val; }
 function rmChkItem(i){ osChecklist.splice(i,1); renderOsChecklist(); }
-function resetChecklist(){ osChecklist=OS_CHECKLIST_DEFAULT.map(x=>({...x})); renderOsChecklist(); }
 function addChkItem(){
   const inp=document.getElementById('chk-add-inp'); if(!inp) return;
   const nome=inp.value.trim(); if(!nome){ toast('⚠️ Digite o nome do item'); return; }
@@ -4403,20 +4402,13 @@ function renderOSSvcs(){
 function updOSSvc(inp){ const s=osSvcs.find(x=>x.id===parseFloat(inp.dataset.id)); if(s) s.d=inp.value; }
 function rmOSSvc(id){ if(osSvcs.length===1){toast('⚠️ Mín. 1');return;} osSvcs=osSvcs.filter(s=>s.id!==id); renderOSSvcs(); }
 
-async function gerarOSPDF(modo='os'){
-  // Achado real em produção (19/08, OS do Infinity Coast Residence saindo
-  // 4x duplicada em 23 segundos): depois de salvar com sucesso, osEditId
-  // continuava null — um segundo clique em "Salvar OS" (o usuário sem
-  // certeza se tinha funcionado, ou toque duplo no celular) rodava esta
-  // função de novo do zero e criava OUTRA OS inteira, não uma atualização.
-  // Mesma classe do bug de corrida já corrigido em orçamentos (dedução:
-  // aqui não é uma corrida assíncrona, é o próprio usuário clicando de
-  // novo) — travar os botões enquanto salva impede o clique duplo, e
-  // apontar osEditId pra OS recém-criada faz um clique seguinte virar
-  // atualização, nunca outro insert.
-  const btnPdf=document.getElementById('btn-os-pdf'), btnBoth=document.getElementById('btn-os-both');
-  if(btnPdf) btnPdf.disabled=true;
-  if(btnBoth) btnBoth.disabled=true;
+// Núcleo de persistência da OS (extraído 19/08, Tarefa 3i.6, pra reaproveitar
+// no autosave — a mesma trava de osEditId de sempre, defesa em profundidade
+// contra duplicar). NÃO imprime, NÃO mexe em botão/título — só grava. Quem
+// chama decide o resto (gerarOSPDF imprime depois; o autosave só atualiza o
+// indicador "salvo às HH:MM"). `silencioso` evita toast a cada tick do
+// autosave — só avisa quando é ação explícita da pessoa.
+async function _persistirOS(silencioso){
   const dados={
     cli:gV('os-cli')||'—', loc:gV('os-loc'), cnpj:gV('os-cnpj')||null, data:gV('os-data'), hora:gV('os-hora'),
     tec:gV('os-tec'), tot:parseFloat(gV('os-total'))||0,
@@ -4439,32 +4431,32 @@ async function gerarOSPDF(modo='os'){
         numStr=String(existente?.numero||'').padStart(3,'0')||'???';
         salvouOnline=true;
         // Atualiza o cache em memória/local — sem isto, reabrir a OS ou
-        // clicar "Salvar" de novo enxergava dado velho até a próxima sync.
+        // salvar de novo enxergava dado velho até a próxima sync.
         const idx=todosOS.findIndex(x=>x.id===osEditId);
         if(idx>=0) todosOS[idx]={...todosOS[idx], ...payload};
         try{
           const lista=JSON.parse(ls('fluxa_os_hist')||'[]');
           const i=lista.findIndex(x=>x.id===osEditId);
           if(i>=0){ lista[i]={...lista[i], ...payload}; lsSet('fluxa_os_hist', JSON.stringify(lista.slice(0,200))); }
-        }catch(e){ console.warn('[gerarOSPDF cache]', e?.message||e); }
-        toast('✅ OS atualizada');
+        }catch(e){ console.warn('[_persistirOS cache]', e?.message||e); }
+        if(!silencioso) toast('✅ OS atualizada');
       } else {
         const {data:insOS}=await dbInsertNumerado('ordens_servico',{...payload,status:'agendado'});
         numStr=String(insOS?.numero||'').padStart(3,'0')||'???';
         salvouOnline=true;
         if(insOS?.id){
-          // A OS agora EXISTE de verdade — próximo clique em "Salvar"
-          // (ou reabertura) precisa atualizar esta, não criar outra.
+          // A OS agora EXISTE de verdade — próxima gravação (ou reabertura)
+          // precisa atualizar esta, não criar outra.
           osEditId=insOS.id;
           todosOS=[insOS, ...todosOS.filter(x=>x.id!==insOS.id)];
           try{
             const lista=JSON.parse(ls('fluxa_os_hist')||'[]');
             lista.unshift(insOS);
             lsSet('fluxa_os_hist', JSON.stringify(lista.slice(0,200)));
-          }catch(e){ console.warn('[gerarOSPDF cache]', e?.message||e); }
+          }catch(e){ console.warn('[_persistirOS cache]', e?.message||e); }
         }
       }
-    }catch(e){ console.warn('[gerarOSPDF] falha ao salvar OS no banco:', e?.message||e); }
+    }catch(e){ console.warn('[_persistirOS] falha ao salvar OS no banco:', e?.message||e); }
   }
   if(!salvouOnline){
     // Offline, ou o salvamento online falhou: NUNCA deixa a OS existir só no
@@ -4475,15 +4467,68 @@ async function gerarOSPDF(modo='os'){
       const rec={...(existente||{}), ...payload, id:osEditId, numero:existente?.numero, _pendingSync:true};
       _salvarOSLocal(rec);
       numStr=String(existente?.numero||'').padStart(3,'0')||'???';
-      toast('💾 OS salva neste aparelho — sem conexão para sincronizar');
+      if(!silencioso) toast('💾 OS salva neste aparelho — sem conexão para sincronizar');
     } else {
       const n=(parseInt(ls('fluxa_os_num')||'0'))+1; lsSet('fluxa_os_num',String(n)); numStr=String(n).padStart(3,'0');
       const rec={...payload, id:'local_os_'+Date.now(), numero:n, status:'agendado', data_criacao:new Date().toISOString(), _pendingSync:true};
       _salvarOSLocal(rec);
-      osEditId=rec.id; // idem: próximo clique atualiza este registro local, não cria outro
-      toast(dbOk&&db ? '⚠️ OS não sincronizou — salva neste aparelho, reenvio automático' : '💾 OS salva neste aparelho — sem conexão, reenvio automático quando voltar');
+      osEditId=rec.id; // idem: próxima gravação atualiza este registro local, não cria outro
+      if(!silencioso) toast(dbOk&&db ? '⚠️ OS não sincronizou — salva neste aparelho, reenvio automático' : '💾 OS salva neste aparelho — sem conexão, reenvio automático quando voltar');
     }
   }
+  return {numStr, dados, online:salvouOnline};
+}
+// Marca "salvo automaticamente às HH:MM" no rodapé (3i.6) — chamada depois
+// de qualquer persistência bem-sucedida, manual ou automática.
+function _marcarOSSalva(){
+  const el=document.getElementById('os-autosave-indicator'); if(!el) return;
+  const hh=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  el.textContent='Salvo automaticamente às '+hh;
+  el.style.display='flex';
+}
+// Autosave (3i.6) — roda a cada 20s enquanto a OS está aberta e já existe
+// de verdade (osEditId setado). Antes disso (OS ainda não criada), não há
+// o que atualizar — o primeiro save é sempre o clique explícito em "Criar
+// OS". Silencioso: sem toast a cada tick, só o indicador do rodapé muda.
+let _osAutoSaveTimer=null;
+function _osAutoSaveTick(){
+  if(!document.getElementById('page-os')?.classList.contains('on')) return;
+  if(!osEditId) return;
+  _persistirOS(true).then(()=>_marcarOSSalva()).catch(e=>console.warn('[autosave OS]', e?.message||e));
+}
+if(!_osAutoSaveTimer) _osAutoSaveTimer=setInterval(_osAutoSaveTick, 20000);
+
+// Handler do botão "Criar OS" (rodapé, só existe antes do 1º save) — cria a
+// OS sem imprimir nada. 3i.6: "uma ação primária por estado" — imprimir é
+// uma ação separada ("Imprimir ordem", no topo), que só existe depois que a
+// OS já existe de verdade. Depois deste primeiro save, o autosave (20s)
+// assume a persistência silenciosa.
+async function criarOSInicial(){
+  const btn=document.getElementById('btn-os-criar');
+  if(btn){ btn.disabled=true; btn.textContent='Criando…'; }
+  const {numStr}=await _persistirOS(false);
+  if(numStr!=='???' && osEditId){
+    const tituloEl=document.getElementById('os-form-titulo');
+    if(tituloEl) tituloEl.textContent='Editar OS #'+numStr;
+    limparRascunho('os');
+    _renderOSEstado(todosOS.find(x=>x.id===osEditId));
+    if(btn) btn.style.display='none';
+    _marcarOSSalva();
+  } else if(btn){ btn.disabled=false; btn.textContent='Criar OS'; }
+}
+
+async function gerarOSPDF(modo='os'){
+  // Achado real em produção (19/08, OS do Infinity Coast Residence saindo
+  // 4x duplicada em 23 segundos): depois de salvar com sucesso, osEditId
+  // continuava null — um segundo clique em "Salvar OS" (o usuário sem
+  // certeza se tinha funcionado, ou toque duplo no celular) rodava a
+  // gravação de novo do zero e criava OUTRA OS inteira, não uma
+  // atualização. Travar o botão enquanto salva impede o clique duplo, e
+  // apontar osEditId pra OS recém-criada (dentro de _persistirOS) faz uma
+  // gravação seguinte virar atualização, nunca outro insert.
+  const btnImprimir=document.getElementById('btn-os-imprimir');
+  if(btnImprimir) btnImprimir.disabled=true;
+  const {numStr, dados}=await _persistirOS(false);
 
   // Se modo 'both', preenche também o orçamento vinculado
   if(modo==='both' && osOrcId){
@@ -4513,16 +4558,16 @@ async function gerarOSPDF(modo='os'){
   // OS salva → limpa o rascunho para não vazar dados na próxima OS
   if(numStr!=='???') limparRascunho('os');
   // Depois do primeiro save, o formulário passa a refletir que a OS agora
-  // existe de verdade (número real + badge/ações na tela) — sem isto
-  // continuava parecendo "Nova Ordem de Serviço" mesmo já salva, mesmo
-  // com barra de ações escondida, reforçando a dúvida "salvou?".
+  // existe de verdade (número real + topo/trilha/cartão) — sem isto
+  // continuava parecendo "Nova Ordem de Serviço" mesmo já salva, reforçando
+  // a dúvida "salvou?".
   if(numStr!=='???' && osEditId){
     const tituloEl=document.getElementById('os-form-titulo');
     if(tituloEl) tituloEl.textContent='Editar OS #'+numStr;
-    _renderOSAcoesEdit(todosOS.find(x=>x.id===osEditId));
+    _renderOSEstado(todosOS.find(x=>x.id===osEditId));
+    _marcarOSSalva();
   }
-  if(btnPdf) btnPdf.disabled=false;
-  if(btnBoth) btnBoth.disabled=false;
+  if(btnImprimir) btnImprimir.disabled=false;
 }
 
 function preencherDocOS(d, num){
@@ -7034,8 +7079,10 @@ function _gerarOSdeOrcProsseguir(id){
   if(!osSvcs.length) osSvcs=[{id:Date.now(),d:''}];
   renderOSSvcs();
   document.getElementById('os-src-badge').textContent='· do Orçamento #'+String(o.numero).padStart(3,'0');
-  document.getElementById('btn-os-both').style.display='flex';
-  document.getElementById('btn-os-pdf').style.gridColumn='';
+  _renderOSEstado(null); // OS ainda não existe — barra unificada some, rodapé mostra "Criar OS"
+  _osAtualizarValorTravado(); // Valor Total travado no valor do orçamento
+  const btnCriar=document.getElementById('btn-os-criar'); if(btnCriar){ btnCriar.style.display='flex'; btnCriar.disabled=false; btnCriar.textContent='Criar OS'; }
+  const indicador=document.getElementById('os-autosave-indicator'); if(indicador) indicador.style.display='none';
   // Lista de materiais do estoque para o técnico separar
   const matEl=document.getElementById('os-mat');
   const prodsSvc=(o.servicos||[]).filter(s=>s.produto_id);
@@ -7053,7 +7100,7 @@ function _gerarOSdeOrcProsseguir(id){
 function novaOS(){
   osEditId=null; // OS nova
   _osClienteSelecionado=null;
-  const acoesEl=document.getElementById('os-acoes-edit'); if(acoesEl){ acoesEl.style.display='none'; acoesEl.innerHTML=''; }
+  _renderOSEstado(null);
   checkinAt=null; if(checkinTimer){clearInterval(checkinTimer);checkinTimer=null;}
   const checkinBarEl=document.getElementById('checkin-bar'); if(checkinBarEl) checkinBarEl.style.display='none';
   const checkinFormEl=document.getElementById('checkin-form'); if(checkinFormEl) checkinFormEl.style.display='flex';
@@ -7065,8 +7112,6 @@ function novaOS(){
   setV('os-video-link','');
   setV('os-loja', lojaAtiva||LOJA_PADRAO_ID);
   document.getElementById('os-src-badge').textContent='';
-  document.getElementById('btn-os-both').style.display='none';
-  document.getElementById('btn-os-pdf').style.gridColumn='1/-1';
   const tituloEl=document.getElementById('os-form-titulo');
   if(tituloEl) tituloEl.textContent='Nova Ordem de Serviço';
   // Reseta checklist
@@ -7078,6 +7123,11 @@ function novaOS(){
   setV('os-hora','08:00');
   osSvcs=[{id:Date.now(),d:''}]; renderOSSvcs();
   osMateriais=[]; _osMatRenderLista();
+  _osAtualizarValorTravado(); // sem orçamento vinculado ainda → campo destravado
+  // Bottom "Criar OS" volta a aparecer (só existe antes do 1º save) — some
+  // de novo assim que _renderOSEstado(o) rodar com uma OS real.
+  const btnCriar=document.getElementById('btn-os-criar'); if(btnCriar){ btnCriar.style.display='flex'; btnCriar.disabled=false; btnCriar.textContent='Criar OS'; }
+  const indicador=document.getElementById('os-autosave-indicator'); if(indicador) indicador.style.display='none';
 }
 
 
@@ -7559,24 +7609,113 @@ function _renderCargaTecnico(base){
 // Barra de ações da OS aberta (Fase 8, mesmo padrão de #form-acoes-edit) — a
 // "Agenda" em page-os-history virou clique só; os botões que viviam na linha
 // (PDF/WhatsApp/Concluir/Excluir) se mudaram pra cá.
-function _renderOSAcoesEdit(o){
-  const el=document.getElementById('os-acoes-edit'); if(!el) return;
-  if(!o){ el.style.display='none'; el.innerHTML=''; return; }
+// ── Trilha de 5 nós da OS (Tarefa 3i.6, 19/08) — Orçamento aprovado (ou
+// "OS criada", quando avulsa) → Agendada → Em campo → Concluída →
+// Relatório enviado. O último nó nasce sempre tracejado ("novo") porque a
+// 3i.8 (o relatório em si) ainda não existe no sistema.
+function _osTrilhaNos(o){
+  const ddmm=iso=>iso?_dataBR(String(iso).slice(0,10)).slice(0,5):'';
+  const emCampo=!!(o.checkin_time && !o.checkout_time);
+  const concluida=o.status==='concluido';
+  const temRelatorio=!!o.relatorio_enviado_em;
+  let idxAtual=0;
+  if(o.status==='agendado'||o.status==='cancelado') idxAtual=1;
+  if(emCampo) idxAtual=2;
+  if(concluida) idxAtual=3;
+  if(temRelatorio) idxAtual=5;
+  const nos=[
+    {label:o.orcamento_id?'Orçamento aprovado':'OS criada', data:ddmm(o.data_criacao)},
+    {label:'Agendada', data:ddmm(o.data_servico)},
+    {label:'Em campo', data:emCampo?'desde '+String(o.checkin_time).slice(11,16):''},
+    {label:'Concluída', data:concluida?ddmm(o.checkout_time||o.data_servico):''},
+    {label:'Relatório enviado', data:''}
+  ];
+  return nos.map((n,i)=>({
+    label:n.label, data:n.data,
+    estado: i<idxAtual?'done' : i===idxAtual?'atual' : (i===4?'novo':'futuro')
+  }));
+}
+// Cartão de estado da OS (3i.6) — reusa _renderCartaoEstado (3i.1).
+// TRAVA do diagnóstico: em campo, quem está OLHANDO no gestor/desktop
+// nunca vê "Concluir" aqui — só quem está no local conclui (via check-out,
+// no card abaixo). Fechar remotamente era o que produzia OS concluída e
+// vazia (bug de 19/08, causa raiz, não só o sintoma já corrigido).
+function _osCartaoEstado(o){
+  const emCampo=!!(o.checkin_time && !o.checkout_time);
+  if(o.status==='concluido'){
+    const dur=o.duracao_min?Math.floor(o.duracao_min/60)+'h '+String(o.duracao_min%60).padStart(2,'0'):'';
+    return _renderCartaoEstado({
+      label:'Esta OS', valor:'Concluída', sub:dur?('duração '+dur):'',
+      nota:'Relatório de serviço executado ainda não existe no sistema — fica pra uma etapa futura.'
+    });
+  }
+  if(emCampo){
+    const min=Math.max(0,Math.floor((Date.now()-new Date(o.checkin_time).getTime())/60000));
+    const hh=String(Math.floor(min/60)).padStart(2,'0'), mm=String(min%60).padStart(2,'0');
+    const gestorVendo=eGestor();
+    return _renderCartaoEstado({
+      label:(o.tecnico||'Técnico')+' está no local', timer:hh+':'+mm,
+      valor:'Em campo', sub:'chegou às '+String(o.checkin_time).slice(11,16),
+      nota: gestorVendo
+        ? 'Quem finaliza é quem está no local — feche pelo celular de quem está lá, não por aqui.'
+        : 'Faça o check-out abaixo quando terminar o serviço.'
+    });
+  }
+  return _renderCartaoEstado({
+    label:'Esta OS', valor:'Agendada',
+    sub:(o.data_servico?_dataBR(o.data_servico):'')+(o.hora?' às '+o.hora:'')+(o.tecnico?' · '+o.tecnico:'')
+  });
+}
+// Barra única + trilha + cartão da OS aberta (3i.6) — substitui
+// #os-acoes-edit. Some/aparece igual ao par equivalente do orçamento
+// (3i.4/3i.5): oculto em "Nova OS" (sem osEditId), visível editando.
+function _renderOSEstado(o){
+  const topoEl=document.getElementById('os-topbar-unificada');
+  const trilhaEl=document.getElementById('os-trilha');
+  const cartaoEl=document.getElementById('os-cartao-estado');
+  if(!topoEl) return;
+  if(!o){
+    topoEl.style.display='none'; topoEl.innerHTML='';
+    if(trilhaEl){ trilhaEl.style.display='none'; trilhaEl.innerHTML=''; }
+    if(cartaoEl){ cartaoEl.style.display='none'; cartaoEl.innerHTML=''; }
+    return;
+  }
   const _hoje=_hojeLocal();
   const atrasado=o.status==='agendado'&&o.data_servico&&o.data_servico<_hoje;
   const stTx=o.status==='concluido'?'Concluída':o.status==='cancelado'?'Cancelada':atrasado?'Atrasada':'Agendada';
-  el.innerHTML=`
-    <span class="rd-badge ${o.status==='concluido'?'rd-badge-ok':o.status==='cancelado'?'rd-badge-neutral':atrasado?'rd-badge-warn':'rd-badge-neutral'}">${stTx}</span>
-    <span style="flex:1"></span>
-    <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Gerar PDF desta OS" onclick="_gerarPDFdaOS('${o.id}')">PDF</button>
-    ${o.status!=='concluido'&&o.status!=='cancelado'?`<button type="button" class="rd-btn rd-btn-primary rd-btn-sm" title="Marcar como concluída (baixa de estoque automática)" onclick="concluirOSHistorico('${o.id}')">Concluir</button>`:''}
-    ${o.status==='concluido'?`<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Notif. OS concluída" onclick="enviarNotifWA(notifConcluida(getNC('${o.id}')), '${o.tel_cliente||''}')">Concluída</button>`:''}
-    ${o.status==='agendado'||atrasado?`<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Lembrete de visita" onclick="enviarNotifWA(notifVisita(getNC('${o.id}')), '${o.tel_cliente||''}')">Lembrete</button>`:''}
-    ${o.status!=='cancelado'?`<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Levar equipamento pra bancada" onclick="_ofEnviarDeOS('${o.id}')">🔧 Enviar pra Oficina</button>`:''}
-    <button type="button" class="rd-btn rd-btn-danger-text rd-btn-sm" title="Excluir" onclick="excluirOS('${o.id}')">Excluir</button>
+  const stCls=o.status==='concluido'?'rd-badge-ok':o.status==='cancelado'?'rd-badge-neutral':atrasado?'rd-badge-warn':'rd-badge-neutral';
+  const numOS='#'+String(o.numero||'').padStart(3,'0');
+  const modoImprimir=o.orcamento_id?'both':'os';
+  const itensMais=[
+    o.status!=='concluido'&&o.status!=='cancelado'?{label:'Marcar como concluída', onclick:`concluirOSHistorico('${o.id}')`}:null,
+    o.status==='concluido'?{label:'Notificar conclusão', onclick:`enviarNotifWA(notifConcluida(getNC('${o.id}')), '${o.tel_cliente||''}')`}:null,
+    (o.status==='agendado'||atrasado)?{label:'Lembrete de visita', onclick:`enviarNotifWA(notifVisita(getNC('${o.id}')), '${o.tel_cliente||''}')`}:null,
+    o.status!=='cancelado'?{label:'Levar pra Oficina', onclick:`_ofEnviarDeOS('${o.id}')`}:null,
+    {label:'Excluir', onclick:`excluirOS('${o.id}')`, danger:true}
+  ].filter(Boolean);
+  topoEl.innerHTML=`
+    <button type="button" class="of-rep-back" onclick="voltar()" aria-label="Voltar">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 6l-6 6 6 6"></path></svg>
+    </button>
+    <div class="of-rep-titulos">
+      <span class="of-rep-titulo">OS ${numOS} · ${esc(o.cliente||'—')}</span>
+      <span class="of-rep-sub">${esc(o.local_servico||'')}</span>
+    </div>
+    <span class="rd-badge ${stCls}">${esc(stTx)}</span>
+    <button type="button" class="rd-btn rd-btn-secondary" id="btn-os-imprimir" onclick="gerarOSPDF('${modoImprimir}')">Imprimir ordem</button>
+    <div class="rd-dropdown-wrap" id="os-mais-wrap">
+      <button type="button" class="rd-btn rd-btn-secondary" onclick="_toggleOSMais()">Mais ▾</button>
+      <div class="rd-dropdown-menu" id="os-mais-menu">
+        ${itensMais.map(it=>`<button type="button" class="${it.danger?'danger':''}" onclick="document.getElementById('os-mais-menu').classList.remove('on');${it.onclick}">${esc(it.label)}</button>`).join('')}
+      </div>
+    </div>
   `;
-  el.style.display='flex';
+  topoEl.style.display='flex';
+  if(trilhaEl){ trilhaEl.innerHTML=_renderTrilhaEstados(_osTrilhaNos(o)); trilhaEl.style.display='flex'; }
+  if(cartaoEl){ cartaoEl.innerHTML=_osCartaoEstado(o); cartaoEl.style.display='block'; }
 }
+function _toggleOSMais(){ document.getElementById('os-mais-menu')?.classList.toggle('on'); }
+document.addEventListener('click',e=>{ if(!e.target.closest('#os-mais-wrap')) document.getElementById('os-mais-menu')?.classList.remove('on'); });
 
 // Tipo da OS: vistoria mensal (agendamento), do orçamento, ou serviço avulso
 function _osTipo(o){ return o?.agendamento_id?'vistoria':o?.orcamento_id?'orcamento':'servico'; }
@@ -7633,12 +7772,16 @@ function _abrirOSForm(o){
   renderOSSvcs();
   renderOsChecklist();
   document.getElementById('os-src-badge').textContent=osOrcId?'· vinculada a ORC':'';
-  document.getElementById('btn-os-both').style.display=osOrcId?'flex':'none';
-  document.getElementById('btn-os-pdf').style.gridColumn=osOrcId?'':'1/-1';
+  _osAtualizarValorTravado();
   const numStr='#'+String(o.numero||o.id||'').toString().padStart(3,'0');
   const tituloEl=document.getElementById('os-form-titulo');
   if(tituloEl) tituloEl.textContent='Editar OS '+numStr;
-  _renderOSAcoesEdit(o);
+  _renderOSEstado(o);
+  // OS já existe de verdade (estamos editando) — o botão "Criar OS" do
+  // rodapé (só existe pra OS nova) some, autosave e "Imprimir ordem" (no
+  // topo) assumem a partir daqui.
+  const btnCriar=document.getElementById('btn-os-criar'); if(btnCriar) btnCriar.style.display='none';
+  _marcarOSSalva();
   go('os');
   // Após go() — aplicar modo técnico (campos do gestor read-only)
   const _tecMode = eTecnico();
@@ -7667,6 +7810,24 @@ function _abrirOSForm(o){
   }
 }
 
+// Trava o Valor Total quando a OS está vinculada a um orçamento aprovado
+// (3i.6) — o valor já foi fechado lá; editar aqui divergia da cobrança
+// real. Sem vínculo (OS avulsa, criada do zero), o campo continua
+// editável — não tem de onde travar.
+function _osAtualizarValorTravado(){
+  const inp=document.getElementById('os-total'); if(!inp) return;
+  const orc=osOrcId?(todosOrc||[]).find(o=>o.id===osOrcId):null;
+  if(orc){
+    inp.value=String(orc.total||0);
+    inp.setAttribute('readonly','');
+    inp.style.background='var(--gray-light)'; inp.style.color='var(--gray)';
+    inp.title='Vem do orçamento #'+String(orc.numero||'').padStart(3,'0')+' aprovado — alterar exige aprovar de novo.';
+  } else {
+    inp.removeAttribute('readonly');
+    inp.style.background=''; inp.style.color='';
+    inp.title='';
+  }
+}
 // ── Painel de itens (produtos do orçamento) para validar/baixar na OS ──
 function atualizarPainelItensOS(){
   const card=document.getElementById('os-itens-card'); if(!card) return;
@@ -10784,6 +10945,22 @@ function fazerCheckin(){
     const el=document.getElementById('checkin-timer'); if(el) el.textContent=h+':'+m+':'+s;
   },1000);
   toast('📍 Check-in realizado!');
+  // Achado 19/08 (Tarefa 3i.6): checkin_time só era gravado no banco no
+  // CHECK-OUT (junto com checkout_time+duracao_min), nunca no check-in em
+  // si — "em campo" (cartão/trilha novos, e a coluna Execução da 3i.2, que
+  // já dependiam de checkin_time&&!checkout_time) nunca detectava esse
+  // estado de verdade, porque o dado só existia na variável em memória
+  // checkinAt, nunca no registro. Grava agora, na hora — pequeno, isolado,
+  // não muda nada do fluxo de checkout que já funcionava.
+  if(osCheckinId){
+    const idx=(todosOS||[]).findIndex(x=>x.id===osCheckinId);
+    if(idx>=0) todosOS[idx]={...todosOS[idx], checkin_time:checkinAt.toISOString()};
+    if(dbOk&&db&&!String(osCheckinId).startsWith('local_')){
+      dbUpdate('ordens_servico', {checkin_time:checkinAt.toISOString()}, 'id', osCheckinId)
+        .catch(e=>console.warn('[fazerCheckin]', e?.message||e));
+    }
+    if(typeof _renderOSEstado==='function' && osEditId===osCheckinId) _renderOSEstado(todosOS.find(x=>x.id===osCheckinId));
+  }
 }
 
 function fazerCheckout(){
@@ -10835,6 +11012,7 @@ function _fazerCheckoutConfirmado(){
   logAcao('os_concluida', `OS #${_osConcl?.numero||'?'} ${_osConcl?.cliente||''} · ${duracaoMin} min · ${dadosPreenchidos.tecnico||''}`);
   // Se era OS de agendamento recorrente, gera a próxima ocorrência automaticamente
   if(_osConcl?.agendamento_id) _gerarProximaOSdoAg(_osConcl.agendamento_id, _osConcl.data_servico).catch(e=>console.warn('[nextOS]',e?.message||e));
+  if(typeof _renderOSEstado==='function' && osEditId===osCheckinId) _renderOSEstado(_osConcl);
   checkinAt=null; osCheckinId=null; _checkoutEmAndamento=false;
   _toastOSConcluida(_osConcl, `✅ Check-out! OS concluída · ${duracaoMin} min`);
 }
@@ -15489,7 +15667,7 @@ function concluirOSHistorico(osId){
     // Formulário continua aberto na mesma OS agora concluída — atualiza a
     // barra de ações/badge na hora (senão mostrava "Agendada" e o botão
     // "Concluir" continuava lá, como se nada tivesse acontecido).
-    if(formAberto) _renderOSAcoesEdit(os);
+    if(formAberto) _renderOSEstado(os);
     _toastOSConcluida(os);
   }, 'Concluir OS');
 }

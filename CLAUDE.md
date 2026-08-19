@@ -246,6 +246,123 @@ erro novo no console.
 
 sw.js: fluxa-v209 → fluxa-v210.
 
+### ✅ 3i.6 — OS: uma ação primária por estado
+
+**Escopo: versão completa do mockup, aceitando o risco.** Diferente do
+resto da tarefa 3i, aqui EU flaguei o risco antes de codar (via
+`AskUserQuestion`) — o commit mexe direto no mecanismo de salvar/duplicar
+da OS corrigido no MESMO DIA (seção "OS saindo duplicada", logo abaixo) —
+e o Marcos escolheu explicitamente a versão completa em vez da reduzida
+que eu tinha proposto como padrão mais seguro. Registrado aqui porque é a
+única vez nesta tarefa que a decisão de escopo não foi minha.
+
+**O que o diagnóstico apontava (DIAGNOSTICO-OS.md)**: a OS tinha **três
+botões que a terminam** (Concluir, no topo/`_renderOSAcoesEdit`; Check-out,
+no card de check-in; Salvar OS, no rodapé) — origem direta do bug de
+duplicação já corrigido mais abaixo neste arquivo. O fix daquele dia tratou
+o SINTOMA (trava contra clique duplo); esta tarefa ataca a CAUSA
+estrutural (três caminhos concorrentes de "terminar a OS").
+
+**`#os-acoes-edit` (badge + botões soltos) virou 3 containers**
+(`#os-topbar-unificada`/`#os-trilha`/`#os-cartao-estado`), montados por
+`_renderOSEstado(o)` — mesmo trio já usado no orçamento desde 3i.4/3i.5,
+reaproveitando as mesmas classes `.of-rep-*` (zero CSS novo). Barra
+unificada tem voltar+título+badge de status+"Imprimir ordem"+"Mais ▾"
+(Notificar conclusão/Lembrete de visita/Levar pra Oficina/Excluir,
+condicionais por status — "Marcar como concluída" só aparece quando ainda
+não terminou). Trilha de 5 nós (`_osTrilhaNos`): Orçamento aprovado/OS
+criada → Agendada → Em campo → Concluída → Relatório enviado (este último
+sempre `'novo'`/tracejado, mesmo tratamento do 3i.1 — a 3i.8, que
+implementaria o relatório de verdade, ainda não existe). Cartão de estado
+(`_osCartaoEstado`, reusa `_renderCartaoEstado` do 3i.1) muda por estado:
+agendada mostra data/hora/técnico; em campo mostra cronômetro ao vivo +
+"chegou às HH:MM"; concluída mostra a duração.
+
+**Trava desktop-gestor "sem Concluir enquanto em campo"** — pedida pelo
+próprio diagnóstico: quando a OS está `em campo` (`checkin_time` setado,
+sem `checkout_time`) e quem está olhando é gestor (`eGestor()`), o cartão
+mostra só uma nota informativa ("Quem finaliza é quem está no local —
+feche pelo celular de quem está lá, não por aqui"), sem nenhum botão de
+concluir remotamente — fechar a OS por quem não está no local era
+justamente o que produzia OS concluída e vazia (o bug do check-out fantasma
+já documentado). **Decisão deliberada: não fabriquei um botão "Ligar" com
+`tel:`** — telefone de técnico não é rastreado em nenhum lugar do schema
+(confirmado por grep em `usuarios`), e inventar um link morto seria pior
+que não ter o atalho.
+
+**Valor Total travado só quando há orçamento vinculado** — `#os-total`
+(era `<input type="number">` solto) ganhou `_osAtualizarValorTravado()`:
+com `osOrcId` setado, o campo puxa o total do orçamento aprovado, fica
+`readonly` e cinza, com tooltip explicando por quê; sem vínculo (OS
+avulsa, criada do zero), continua 100% editável — o mockup pedia o campo
+travado sem distinguir os dois casos, e travar OS avulsa (que nunca teve
+preço fechado em lugar nenhum) quebraria o único jeito de lançar valor
+nela.
+
+**Autosave real, não por keystroke** — `_persistirOS(silencioso)` (núcleo
+de gravação extraído de `gerarOSPDF`, reaproveitado pelos dois) roda a
+cada 20s (`setInterval`) só quando `page-os` está ativa E a OS já existe
+de verdade (`osEditId` setado) — decisão de engenharia, não de escopo:
+prender um listener em cada campo do formulário (cliente/local/serviços/
+checklist/fotos/materiais) era superfície de risco grande demais pro
+tempo disponível, e o resultado visível pro usuário ("Salvo
+automaticamente às HH:MM", `_marcarOSSalva()`) é entregue de qualquer
+jeito. **"Criar OS" continua exigindo um clique explícito** (botão novo no
+rodapé, `criarOSInicial()`, só existe antes do 1º save) — só depois desse
+primeiro save o autosave silencioso assume.
+
+**Achado no processo, corrigido** (não estava no escopo original da 3i.6,
+mas quebrava a premissa dela): `fazerCheckin()` NUNCA gravava
+`checkin_time` no registro — só existia na variável em memória
+`checkinAt`, e o banco só recebia os dois campos (`checkin_time` +
+`checkout_time`) juntos, no check-out. Resultado: o cartão/trilha novos
+(e a coluna Execução da 3i.2, que já dependia da mesma checagem
+`checkin_time && !checkout_time`) NUNCA detectariam "em campo" de
+verdade — o dado simplesmente não existia no registro até o serviço já
+ter terminado. Corrigido: `fazerCheckin()` agora grava `checkin_time` no
+`todosOS` local e no banco (`dbUpdate`) na hora do check-in, e re-renderiza
+o cartão/trilha se a OS estiver aberta. Achado análogo em
+`_fazerCheckoutConfirmado()`: o check-out já persistia tudo certo, mas
+nunca chamava `_renderOSEstado()` — quem via a tela em tempo real via o
+status mudar só depois de sair e voltar. Adicionado o refresh ali também.
+
+**Merge de cards** — "Serviços a Executar" e "Confirmação da Execução"
+viraram um card só (o mockup pede planejado+executado juntos); os 5
+títulos com emoji (⏱/📦/🧰/✅/📷) perderam o emoji, mesmo critério das
+varreduras anteriores; o botão "↺ Resetar" do checklist saiu (função
+`resetChecklist()` removida junto — sem outro chamador, confirmado por
+grep); `btn-os-only-msg` (confirmado 100% morto antes desta tarefa —
+`display:none` fixo, nunca mostrado por nenhum código) foi removido do
+HTML.
+
+**Rodapé — de 3 botões pra 1**: `btn-os-pdf`/`btn-os-both` (Salvar OS / OS
++ Orçamento) saíram; "Imprimir ordem" (na barra unificada, sempre visível
+depois do 1º save) cobre a reimpressão. O atalho de teclado Ctrl+S
+(`page-os`) foi atualizado pra clicar `btn-os-imprimir` quando a OS já
+existe (`osEditId`) ou `btn-os-criar` quando ainda não existe — antes
+apontava pro `btn-os-pdf` que deixou de existir.
+
+Testado no Browser pane (offline, `dbOk=false;db=null;`, porta nova,
+clique/chamada real, não só leitura de estado): ciclo completo "Nova OS"
+→ preencher → `criarOSInicial()` → título vira "Editar OS #NNN", botão
+some, topo/trilha/cartão aparecem, indicador de autosave mostra o
+horário; reabrir a OS (`editarOS`) restaura os campos e mostra Valor
+Total destravado (OS avulsa); OS gerada de um orçamento aprovado
+(`_gerarOSdeOrcProsseguir`) mostra Valor Total travado no valor do
+orçamento, trilha com "Orçamento aprovado" como 1º nó; check-in real
+(`fazerCheckin()`) grava `checkin_time` na hora, cartão muda pra "Em
+campo" com cronômetro, nota do gestor correta (trava confirmada) vs. nota
+do técnico (sem trava); check-out (`_fazerCheckoutConfirmado`) muda
+status pra `concluido` e o cartão atualiza pra "Concluída" SEM precisar
+sair e voltar (confirma o fix do refresh); "Mais ▾" abre com os itens
+certos por status, fecha ao clicar fora; 8 títulos de card confirmados
+sem emoji, "Serviços a Executar"+"Confirmação da Execução" no mesmo card;
+375px sem overflow (`docWidth===winWidth===375`, trilha rola por dentro
+de si mesma); zero erro novo no console (só o ruído de boot já
+documentado, reproduz mesmo sem nenhuma mudança minha).
+
+sw.js: fluxa-v210 → fluxa-v211.
+
 ---
 
 ## 🔴 OS saindo duplicada — causa raiz achada e corrigida em 2 pontos (19/08)

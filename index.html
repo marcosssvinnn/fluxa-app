@@ -1094,13 +1094,19 @@
 <!-- ══ PAGE: ORDEM DE SERVIÇO ══ -->
 <div class="page" id="page-os">
   <div class="wrap">
-    <button class="btn-voltar" onclick="voltar()">← Voltar</button>
-    <!-- Barra de ações da OS aberta (Fase 8 do redesign, 13/08) — a "Agenda"
-         em page-os-history virou clique só; os botões que viviam na linha
-         (PDF, WhatsApp, Concluir, Excluir) se mudaram pra cá, montados por
-         _renderOSAcoesEdit(o) em _abrirOSForm(). Vazio/oculto em "Nova OS"
-         (sem osEditId) — mesmo padrão de #form-acoes-edit (Orçamentos). -->
-    <div id="os-acoes-edit" class="rd-card rd-card-dense" style="display:none;margin-bottom:14px;flex-wrap:wrap;gap:10px;align-items:center"></div>
+    <!-- Barra única + trilha + cartão de estado (Tarefa 3i.6, 19/08) —
+         substitui o antigo #os-acoes-edit (badge+botões soltos) pelo mesmo
+         padrão já usado em Orçamento (3i.4/3i.5): uma barra
+         (#os-topbar-unificada, reaproveita .of-rep-topbar/.of-rep-back/
+         .of-rep-titulos), uma trilha de estados (#os-trilha, reaproveita
+         .of-rep-trilha) e um cartão escuro com a ação primária do estado
+         atual (#os-cartao-estado, reaproveita _renderCartaoEstado do 3i.1).
+         Montados por _renderOSEstado(o) em app.js. Todos ocultos em "Nova
+         OS" (sem osEditId ainda) — o título abaixo (#os-form-titulo) é o
+         único cabeçalho até o primeiro save. -->
+    <div id="os-topbar-unificada" class="of-rep-topbar" style="display:none;border-radius:var(--r-lg);margin-bottom:14px"></div>
+    <div id="os-trilha" class="of-rep-trilha" style="display:none;border-radius:var(--r-lg);margin-bottom:14px"></div>
+    <div id="os-cartao-estado" style="display:none;margin-bottom:14px"></div>
     <div class="card">
       <div class="ct"><span id="os-form-titulo">Nova Ordem de Serviço</span> <span id="os-src-badge" style="font-size:11px;color:var(--gray);font-weight:400;text-transform:none;letter-spacing:0"></span></div>
       <div class="row">
@@ -1128,15 +1134,26 @@
       </div>
     </div>
 
+    <!-- Serviços a Executar + Confirmação da Execução mesclados num card só
+         (3i.6, 19/08) — o mockup pede "planejado e executado juntos": o
+         técnico vê o que foi orçado e confirma o que fez sem trocar de
+         cartão. Nenhuma das duas listas (osSvcs/osChecklist) mudou de
+         mecanismo, só a moldura visual que as agrupa. -->
     <div class="card">
       <div class="ct">Serviços a Executar</div>
       <div class="slist" id="os-slist"></div>
       <button class="btn-add" onclick="addOSSvc()">＋ Adicionar serviço</button>
+      <div class="ct" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--gray-light)">Confirmação da Execução</div>
+      <div class="chk-list" id="os-chklist"></div>
+      <div class="chk-add-row">
+        <input type="text" class="chk-add-inp" id="chk-add-inp" placeholder="＋ Adicionar item personalizado…" onkeydown="if(event.key==='Enter'){addChkItem();event.preventDefault()}">
+        <button class="btn-add" style="font-size:12px;padding:7px 12px;border-width:1.5px;flex-shrink:0" onclick="addChkItem()">＋</button>
+      </div>
     </div>
 
     <!-- Check-in / Check-out -->
     <div class="card" id="os-checkin-card">
-      <div class="ct">⏱ Check-in / Check-out</div>
+      <div class="ct">Check-in / Check-out</div>
       <div id="checkin-bar" style="display:none" class="checkin-bar">
         <span>✅ Check-in realizado</span>
         <span class="checkin-timer" id="checkin-timer">00:00</span>
@@ -1152,7 +1169,7 @@
     </div>
 
     <div class="card" id="os-itens-card" style="display:none">
-      <div class="ct">📦 Itens a levar / validar</div>
+      <div class="ct">Itens a levar / validar</div>
       <p style="font-size:12px;color:var(--gray);margin:-4px 0 10px">Confirme o que foi realmente levado. Ao confirmar, dá baixa no estoque. Desmarque o que não levou.</p>
       <div id="os-itens-lista"></div>
       <button class="btn-primary" id="os-itens-btn" onclick="confirmarItensOS()" style="width:100%;margin-top:8px">✅ Confirmar itens e dar baixa</button>
@@ -1166,7 +1183,7 @@
          baixa no estoque na hora, sem exigir que alguém depois interprete
          texto livre e lance manualmente. -->
     <div class="card">
-      <div class="ct">🧰 Materiais utilizados</div>
+      <div class="ct">Materiais utilizados</div>
       <div class="row f1"><div class="fl">
         <label>Adicionar material do estoque</label>
         <input type="text" id="os-mat-busca" placeholder="Digite o nome ou código…" oninput="osMatBuscarProduto(this.value)" autocomplete="off">
@@ -1185,20 +1202,8 @@
       </div>
     </div>
 
-    <!-- ── Checklist de Execução ── -->
     <div class="card">
-      <div class="ct">✅ Confirmação da Execução
-        <button class="btn-add" style="font-size:11px;padding:4px 10px;border-width:1.5px" onclick="resetChecklist()" title="Restaurar itens padrão">↺ Resetar</button>
-      </div>
-      <div class="chk-list" id="os-chklist"></div>
-      <div class="chk-add-row">
-        <input type="text" class="chk-add-inp" id="chk-add-inp" placeholder="＋ Adicionar item personalizado…" onkeydown="if(event.key==='Enter'){addChkItem();event.preventDefault()}">
-        <button class="btn-add" style="font-size:12px;padding:7px 12px;border-width:1.5px;flex-shrink:0" onclick="addChkItem()">＋</button>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="ct">📷 Fotos e Vídeo</div>
+      <div class="ct">Fotos e Vídeo</div>
       <!-- Grid dinâmico (14/08) — antes eram 3 slots fixos no HTML; virou o
            mesmo padrão já usado nas fotos do orçamento (renderFotosOrcSlots),
            até 6 fotos, mesma classe CSS (fotos-orc-grid), sem CSS novo. -->
@@ -1208,20 +1213,16 @@
       </div>
     </div>
 
-    <div class="acts" style="grid-template-columns:1fr 1fr">
-      <button class="ba ba-pdf" id="btn-os-pdf" onclick="gerarOSPDF('os')">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h9l5 5v15a2 2 0 01-2 2H6a2 2 0 01-2-2V4a2 2 0 012-2z"/><polyline points="14 2 14 8 20 8"/></svg>
-        Salvar OS
-      </button>
-      <button class="ba ba-save" id="btn-os-both" onclick="gerarOSPDF('both')" style="display:none">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h9l5 5v15a2 2 0 01-2 2H6a2 2 0 01-2-2V4a2 2 0 012-2z"/><polyline points="14 2 14 8 20 8"/></svg>
-        OS + Orçamento
-      </button>
-      <button class="ba" style="background:#6b7280;color:white;display:none" id="btn-os-only-msg">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        OS sem orçamento vinculado
-      </button>
-    </div>
+    <!-- Rodapé (3i.6, 19/08) — "uma ação primária por estado": antes eram 3
+         botões terminais (Salvar OS / OS + Orçamento / mensagem morta) que
+         competiam com "Concluir"/"Check-out" no topo — origem direta do bug
+         de duplicação corrigido em 19/08. Agora só existe UMA ação aqui, e
+         só antes do 1º save: "Criar OS" (criarOSInicial, app.js). Depois
+         disso o botão some — "Imprimir ordem" (barra unificada, no topo)
+         cobre reimpressão, e o autosave (20s) assume a persistência
+         silenciosa, refletida no indicador abaixo. -->
+    <button type="button" class="rd-btn rd-btn-primary" id="btn-os-criar" onclick="criarOSInicial()" style="width:100%;margin-top:4px">Criar OS</button>
+    <div id="os-autosave-indicator" style="display:none;justify-content:center;font-size:12px;color:var(--gray);margin-top:8px"></div>
   </div>
 </div>
 
@@ -2083,8 +2084,9 @@
          num dia sem nada agendado) viraram um cartão escuro único
          (#os-kpis-novo, ver _renderOSHero) que mostra o maior problema do
          dia. Tabela densa "Agenda" continua clique-só (botões que viviam
-         na linha se mudaram pra dentro da OS, #os-acoes-edit em page-os),
-         ganhou checkbox+seleção em lote (#os-lote-barra). Coluna direita:
+         na linha se mudaram pra dentro da OS, #os-topbar-unificada em
+         page-os desde a 3i.6), ganhou checkbox+seleção em lote
+         (#os-lote-barra). Coluna direita:
          carga por técnico hoje. -->
     <div class="novo-orc-topbar">
       <div>
