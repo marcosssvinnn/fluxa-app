@@ -751,32 +751,30 @@
 <!-- ══ PAGE: FORM ══ -->
 <div class="page" id="page-form">
   <div class="wrap">
-    <!-- Voltar ao histórico (visível só ao editar) -->
-    <div id="form-back-bar" style="display:none;align-items:center;justify-content:space-between;margin-bottom:10px;padding-top:4px;flex-wrap:wrap;gap:8px">
-      <button onclick="go('history')" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:13px;font-weight:600;font-family:'Instrument Sans',sans-serif;display:flex;align-items:center;gap:5px">← Voltar aos Orçamentos</button>
-      <div style="display:flex;align-items:center;gap:10px">
-        <!-- Registrar contato direto no orçamento (13/08, crítica de design:
-             "enquanto for uma tela separada que exige lembrar de visitar, a
-             posição é irrelevante" — a pessoa já está aqui, é o momento em
-             que ela sabe o que aconteceu com esse cliente). -->
-        <button id="form-btn-contato" onclick="abrirCrmContato(editId)" style="display:none;background:var(--c1-light);color:var(--c1);border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Instrument Sans',sans-serif">📞 Registrar contato</button>
-      </div>
-    </div>
-    <!-- Barra de ações do orçamento aberto (Fase 5, 13/08) — a lista de
-         Orçamentos virou um clique só (linha inteira abre aqui); os botões
-         que viviam na linha da tabela (status, OS, entrega, NF, pagamento,
-         WhatsApp, excluir…) se mudaram pra cá, montados por
-         _renderFormAcoesEdit(o) em abrirOrc(). Vazio/oculto em "Novo
-         orçamento" (sem editId). -->
-    <div id="form-acoes-edit" class="rd-card rd-card-dense" style="display:none;margin-bottom:14px;flex-wrap:wrap;gap:10px;align-items:center"></div>
+    <!-- Barra única (Tarefa 3i.4, 19/08) — substitui as 3 barras que
+         empilhavam antes do primeiro campo (form-back-bar + form-acoes-edit
+         + o título dentro de novo-orc-topbar, DIAGNOSTICO-ORCAMENTOS.md,
+         "problema 1": doze controles em três fileiras). Reaproveita
+         .of-rep-topbar/.of-rep-back/.of-rep-titulos (mesma classe que a
+         ficha da Oficina já usa) — zero CSS novo pra essa parte. Visível só
+         ao editar um orçamento existente (_renderFormTopoUnificado em
+         app.js); em "Novo orçamento" fica oculta, só o .novo-orc-topbar
+         abaixo aparece, como sempre foi. -->
+    <div id="form-topbar-unificada" class="of-rep-topbar" style="display:none;border-radius:var(--r-lg);margin-bottom:14px"></div>
 
     <!-- Barra superior (Fase 6, 13/08) — título do orçamento + indicador de
          rascunho automático (draft-indicator já existia, só mudou de lugar)
          à esquerda; "Salvar rascunho" (= salvarApenas, sem gerar PDF) e
          "Gerar PDF e enviar" (= gerarPDF, salva E gera o documento) à
-         direita — os dois botões que ficavam soltos no rodapé da tela. -->
+         direita — os dois botões que ficavam soltos no rodapé da tela.
+         "Não mexer" explícito da Tarefa 3i.4: este par já está certo, é
+         justamente o padrão que faltou na OS (lá "Salvar OS" fazia as duas
+         coisas de uma vez, ver 3i.6). O título aqui (#novo-orc-titulo-wrap)
+         some quando a barra unificada acima já está mostrando o título —
+         evita repetir "Orçamento #416" duas vezes; em "Novo orçamento"
+         (sem barra unificada) continua sendo o único título da tela. -->
     <div class="novo-orc-topbar">
-      <div>
+      <div id="novo-orc-titulo-wrap">
         <div class="novo-orc-titulo" id="novo-orc-titulo">Novo orçamento</div>
         <div class="novo-orc-sub" id="draft-indicator" style="display:none">💾 Rascunho salvo às <span id="draft-time"></span></div>
       </div>

@@ -143,6 +143,59 @@ parados", Taxa de fechamento 50% (2 aprovados de 4 emitidos nos últimos
 
 sw.js: fluxa-v207 → fluxa-v208.
 
+### ✅ 3i.4 — Orçamento aberto: uma barra em vez de três
+
+`#form-back-bar` + `#form-acoes-edit` + o título do `.novo-orc-topbar` —
+"doze controles em três fileiras" (DIAGNOSTICO-ORCAMENTOS.md, "problema
+1") — viraram uma barra só, `#form-topbar-unificada`. Reaproveita
+`.of-rep-topbar`/`.of-rep-back`/`.of-rep-titulos` (mesma classe que a
+ficha da Oficina já usa) — zero CSS novo pra essa parte, só o dropdown
+"Mais ▾" é novo (`.rd-dropdown-wrap`/`.rd-dropdown-menu`, mesmo padrão
+visual do menu de engrenagem existente, `.gear-wrap`/`.gear-menu`, classe
+própria e reaproveitável).
+
+**Conteúdo da barra**: voltar · "Orçamento #NNN · Cliente" · linha de
+apoio (valor + aprovado/criado DD-MM) · badge "preço a revalidar" quando
+aplicável · **select de status continua editável** (não virou badge só de
+leitura — trocar status manualmente, ex. recusar/reverter aprovação, é
+ação real e frequente demais pra tirar do controle principal só porque o
+mockup mostra um pill estático) · ação secundária (Registrar contato
+quando aberto/pendente, PDF quando não) · Mais ▾ (Gerar OS ou Abrir OS
+#NNN, Comprovante de entrega, WhatsApp, Mês de aprovação, NF, Duplicar,
+Excluir).
+
+**Registrado como temporário, não é decisão final**: "Gerar OS"/"Abrir
+OS"/"Entregar"/"Comprovante de entrega"/WhatsApp foram pra dentro de
+"Mais" porque a ação PRIMÁRIA por estado (cartão escuro, 3i.5) ainda não
+existe nesta tela neste commit — a 3i.5 (próxima) deve puxar "OS" pra
+fora do menu e pra dentro do cartão de estado, sobrando só o que
+realmente é ocasional dentro de "Mais".
+
+**"Salvar rascunho"/"Gerar PDF e enviar" não foram tocados** — ficam no
+`.novo-orc-topbar` de sempre, só o título dali (`#novo-orc-titulo-wrap`)
+some quando a barra unificada já está mostrando o título (evita repetir
+"Orçamento #416" duas vezes); em "Novo orçamento" (sem editId) a barra
+unificada fica oculta e o título volta a aparecer ali, exatamente como
+sempre foi — zero mudança nesse fluxo.
+
+`_renderFormAcoesEdit` foi renomeada pra `_renderFormTopoUnificado`
+(3 call sites atualizados: `abrirOrc`, `_limparCamposOrc`, `duplicarOrc`)
+— `#form-back-bar`/`#form-acoes-edit`/`#form-btn-contato` saíram do HTML;
+qualquer `getElementById` residual dessas ids em código não tocado vira
+no-op seguro (`setV_el` e os guardas `if(el)` já protegiam isso).
+
+Testado no Browser pane (offline, `dbOk=false;db=null;`, porta nova):
+orçamento aprovado com item — barra mostra título/valor/data/badge/select/
+PDF/Mais certos, batendo visualmente com a referência (turno 12a);
+dropdown "Mais" abre com os 7 itens certos, fecha ao clicar fora; perfil
+vendas — dropdown sem "Emitir Nota Fiscal" nem "Excluir" (`ocultarFinanceiro`
+respeitado); `novoOrc()` — barra unificada continua oculta, título antigo
+volta a aparecer "Novo orçamento", zero regressão; 390px sem overflow
+(`docWidth===winWidth===390`), barra quebra em 2 linhas de forma limpa.
+Zero erro novo no console.
+
+sw.js: fluxa-v208 → fluxa-v209.
+
 ---
 
 ## 🔴 OS saindo duplicada — causa raiz achada e corrigida em 2 pontos (19/08)

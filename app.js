@@ -3224,9 +3224,7 @@ function _limparCamposOrc(){
   const tog=document.getElementById('toggle-os'); if(tog) tog.checked=false;
   const osf=document.getElementById('os-inline-fields'); if(osf) osf.style.display='none';
   ['os-inline-data','os-inline-hora','os-inline-tec'].forEach(id=>{const el=document.getElementById(id);if(el){el.value=id==='os-inline-hora'?'08:00':'';}});
-  const bb=document.getElementById('form-back-bar'); if(bb) bb.style.display='none';
-  const btnContato=document.getElementById('form-btn-contato'); if(btnContato) btnContato.style.display='none';
-  _renderFormAcoesEdit(null);
+  _renderFormTopoUnificado(null);
   setV_el('novo-orc-titulo','Novo orçamento','textContent');
 }
 function novoOrc(){
@@ -6690,38 +6688,71 @@ async function _excluirOrcConfirmado(id){
   }
 }
 
-// ── Barra de ações do orçamento aberto (Fase 5, 13/08) — a lista virou clique
-// só (linha abre o orçamento); os botões que viviam na linha da tabela se
-// mudaram pra cá. Reaproveita as MESMAS funções que a tabela já chamava —
-// só muda onde o botão mora, não o que ele faz.
-function _renderFormAcoesEdit(o){
-  const el=document.getElementById('form-acoes-edit'); if(!el) return;
-  if(!o){ el.style.display='none'; el.innerHTML=''; return; }
+// ── Barra única do orçamento aberto (Tarefa 3i.4, 19/08 — substitui
+// _renderFormAcoesEdit + #form-back-bar + o título do .novo-orc-topbar,
+// DIAGNOSTICO-ORCAMENTOS.md "problema 1": doze controles em três fileiras).
+// Reaproveita .of-rep-topbar/.of-rep-back/.of-rep-titulos (mesma classe da
+// ficha da Oficina). O status continua um <select> (mudarSt) — não virou
+// badge só de leitura: trocar status manualmente (recusar, reverter
+// aprovação) é ação real e frequente demais pra tirar do lugar principal
+// só porque o mockup mostra um pill estático.
+// A ação PRIMÁRIA por estado (3i.5, cartão escuro) ainda não existe nesta
+// tela — até lá, "Gerar OS"/"Entregar"/"Entrega"/WA ficam dentro de "Mais"
+// como ficavam antes, só temporariamente menos em evidência.
+function _renderFormTopoUnificado(o){
+  const el=document.getElementById('form-topbar-unificada');
+  const wrapTitulo=document.getElementById('novo-orc-titulo-wrap');
+  if(!el) return;
+  if(!o){ el.style.display='none'; el.innerHTML=''; if(wrapTitulo) wrapTitulo.style.display=''; return; }
+  if(wrapTitulo) wrapTitulo.style.display='none';
   const ocultarFinanceiro=eVendas();
   const sopts=s=>['pendente','aprovado','recusado','vencido'].map(x=>`<option value="${x}" ${x===s?'selected':''}>${x.charAt(0).toUpperCase()+x.slice(1)}</option>`).join('');
+  const num='#'+String(o.numero||'').padStart(3,'0');
+  const ddmm=iso=>_dataBR(String(iso||'').slice(0,10)).slice(0,5); // DD/MM, mesmo formato compacto da coluna Execução (3i.2)
+  const partesApoio=[brl(o.total||0)];
+  if(o.status==='aprovado'&&o.data_aprovacao) partesApoio.push('aprovado '+ddmm(o.data_aprovacao));
+  else if(o.status==='recusado') partesApoio.push('recusado');
+  else if(o.data_criacao) partesApoio.push('criado '+ddmm(o.data_criacao));
+  const aberto=o.status==='pendente'||o.status==='vencido';
+  const secundaria = aberto
+    ? `<button type="button" class="rd-btn rd-btn-secondary" onclick="abrirCrmContato('${o.id}')">Registrar contato</button>`
+    : `<button type="button" class="rd-btn rd-btn-secondary" onclick="verOrcPDF('${o.id}')">PDF</button>`;
   const osVinc=(todosOS||[]).find(x=>x.orcamento_id===o.id);
-  const btnOS = osVinc
-    ? (()=>{ const stOS=osVinc.status||'agendado'; const stLabel={agendado:'agendada',em_andamento:'em andamento',concluido:'concluída'}[stOS]||stOS;
-        return `<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="OS #${String(osVinc.numero||'').padStart(3,'0')} — ${stLabel}" onclick="verDetalhesOS('${osVinc.id}')">OS#${String(osVinc.numero||'').padStart(3,'0')}</button>`; })()
-    : (o.status==='aprovado'
-        ? `<button type="button" class="rd-btn rd-btn-primary rd-btn-sm" title="Abre o formulário completo — dá pra editar serviços, data e técnico antes de criar" onclick="gerarOS_deOrc('${o.id}')">Gerar OS</button>`
-        : `<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Abre o formulário completo de OS pra este orçamento" onclick="gerarOS_deOrc('${o.id}')">OS</button>`);
+  const itemOS = osVinc
+    ? {label:'Abrir OS #'+String(osVinc.numero||'').padStart(3,'0'), onclick:`verDetalhesOS('${osVinc.id}')`}
+    : {label:'Gerar OS', onclick:`gerarOS_deOrc('${o.id}')`};
+  const itensMais=[
+    itemOS,
+    orcTemEntregaPendente(o)?{label:'Marcar como entregue', onclick:`entregarOrcamento(getNC('${o.id}'),'manual')`}:null,
+    o.status==='aprovado'&&_orcTemItens(o)?{label:'Comprovante de entrega', onclick:`gerarOrdemEntrega('${o.id}')`}:null,
+    {label:'Enviar no WhatsApp', onclick:`enviarNotifWA(notifOrcamento(getNC('${o.id}')), '${o.tel_cliente||''}')`},
+    o.status==='aprovado'?{label:'Corrigir mês de aprovação', onclick:`corrigirDataAprovacao('${o.id}')`}:null,
+    !ocultarFinanceiro&&o.status==='aprovado'?{label:'Emitir Nota Fiscal', onclick:`abrirModalNFe('${o.id}')`}:null,
+    {label:'Duplicar', onclick:`duplicarOrc('${o.id}')`},
+    ocultarFinanceiro?null:{label:'Excluir', onclick:`excluirOrc('${o.id}')`, danger:true}
+  ].filter(Boolean);
   el.innerHTML=`
-    <select class="ss ${o.status||'pendente'}" style="flex-shrink:0" onchange="mudarSt('${o.id}',this)">${sopts(o.status||'pendente')}</select>
+    <button type="button" class="of-rep-back" onclick="voltar()" aria-label="Voltar aos Orçamentos">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 6l-6 6 6 6"></path></svg>
+    </button>
+    <div class="of-rep-titulos">
+      <span class="of-rep-titulo">Orçamento ${num} · ${esc(o.cliente||'—')}</span>
+      <span class="of-rep-sub">${esc(partesApoio.join(' · '))}</span>
+    </div>
     ${orcPrecoARevalidar(o)?'<span class="rd-badge rd-badge-warn">preço a revalidar</span>':''}
-    <span style="flex:1"></span>
-    <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Ver PDF" onclick="verOrcPDF('${o.id}')">PDF</button>
-    <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Duplicar" onclick="duplicarOrc('${o.id}')">Duplicar</button>
-    ${btnOS}
-    ${orcTemEntregaPendente(o)?`<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Marcar como entregue (baixa do estoque)" onclick="entregarOrcamento(getNC('${o.id}'),'manual')">Entregar</button>`:''}
-    ${o.status==='aprovado'&&_orcTemItens(o)?`<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Comprovante de entrega" onclick="gerarOrdemEntrega('${o.id}')">Entrega</button>`:''}
-    ${o.status==='aprovado'?`<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Corrigir mês de aprovação" onclick="corrigirDataAprovacao('${o.id}')">Mês</button>`:''}
-    ${!ocultarFinanceiro&&o.status==='aprovado'?`<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Emitir Nota Fiscal" onclick="abrirModalNFe('${o.id}')">NF</button>`:''}
-    <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Enviar no WhatsApp" onclick="enviarNotifWA(notifOrcamento(getNC('${o.id}')), '${o.tel_cliente||''}')">WA</button>
-    ${ocultarFinanceiro?'':`<button type="button" class="rd-btn rd-btn-danger-text rd-btn-sm" title="Excluir" onclick="excluirOrc('${o.id}')">Excluir</button>`}
+    <select class="ss ${o.status||'pendente'}" style="flex-shrink:0" onchange="mudarSt('${o.id}',this)">${sopts(o.status||'pendente')}</select>
+    ${secundaria}
+    <div class="rd-dropdown-wrap" id="form-mais-wrap">
+      <button type="button" class="rd-btn rd-btn-secondary" onclick="_toggleFormMais()">Mais ▾</button>
+      <div class="rd-dropdown-menu" id="form-mais-menu">
+        ${itensMais.map(it=>`<button type="button" class="${it.danger?'danger':''}" onclick="document.getElementById('form-mais-menu').classList.remove('on');${it.onclick}">${esc(it.label)}</button>`).join('')}
+      </div>
+    </div>
   `;
   el.style.display='flex';
 }
+function _toggleFormMais(){ document.getElementById('form-mais-menu')?.classList.toggle('on'); }
+document.addEventListener('click',e=>{ if(!e.target.closest('#form-mais-wrap')) document.getElementById('form-mais-menu')?.classList.remove('on'); });
 
 function abrirOrc(id){
   const o=todosOrc.find(x=>x.id===id); if(!o) return;
@@ -6753,12 +6784,8 @@ function abrirOrc(id){
   }catch(e){ fotosB64=[]; }
   renderFotosOrcSlots();
   renderSvcs(); upd(); go('form');
-  const bb=document.getElementById('form-back-bar');
-  if(bb){ bb.style.display='flex'; }
   setV_el('novo-orc-titulo','Orçamento #'+String(o.numero).padStart(3,'0'),'textContent');
-  const btnContato=document.getElementById('form-btn-contato');
-  if(btnContato) btnContato.style.display='';
-  _renderFormAcoesEdit(o);
+  _renderFormTopoUnificado(o);
   _orcMobileStep=1; _orcApplyMobileStep();
   toast('✏️ Editando Orçamento #'+String(o.numero).padStart(3,'0'));
 }
@@ -6806,12 +6833,10 @@ function duplicarOrc(id){
   const osf=document.getElementById('os-inline-fields'); if(osf) osf.style.display='none';
   limparRascunho('form'); window._skipDraftForm=true; // não deixar rascunho antigo sobrescrever os dados duplicados
   renderSvcs(); upd(); go('form');
-  // editId virou null — a barra de ações (Fase 5) e o back-bar eram do
-  // orçamento original; sem isto, "Duplicar" a partir da própria barra
-  // deixava os botões do orçamento velho na tela de um rascunho novo.
-  const bb=document.getElementById('form-back-bar'); if(bb) bb.style.display='none';
-  const btnContato=document.getElementById('form-btn-contato'); if(btnContato) btnContato.style.display='none';
-  _renderFormAcoesEdit(null);
+  // editId virou null — a barra unificada era do orçamento original; sem
+  // isto, "Duplicar" a partir da própria barra deixava os botões do
+  // orçamento velho na tela de um rascunho novo.
+  _renderFormTopoUnificado(null);
   setV_el('novo-orc-titulo','Novo orçamento','textContent');
   _orcMobileStep=1; _orcApplyMobileStep();
   toast('📋 Orçamento duplicado — edite e salve como novo');
