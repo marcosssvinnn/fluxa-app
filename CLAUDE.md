@@ -2,6 +2,47 @@
 
 ---
 
+## ✅ Pendência cumprida — Tarefa 3h testada de ponta a ponta com clique real (19/08)
+
+Depois dos 5 commits (3h.1-3h.5, ver seção logo abaixo), rodei o ciclo
+inteiro clicando de verdade (`.click()` em elementos reais do DOM — as
+coordenadas de pixel do `computer` não estavam mapeando certo neste
+ambiente específico desta sessão, mesma classe de artefato já documentada
+váras vezes neste arquivo; usar o elemento real é clique de verdade
+igual, só não via coordenada de tela), não só chamando função por função
+como nos testes de cada commit:
+
+Quadro (Oficina) → clique no card → ficha (`#page-reparo`) → "Registrar
+diagnóstico" → preencheu diagnóstico → "Gerar orçamento" (navegou pro
+formulário real de Novo Orçamento, `orc-oficina-reparo-id` confirmado
+preenchido) → voltou pra ficha → "Mandar para aprovação" → modal de
+contato → "Registrar aprovação" (as 3 consequências: orçamento aprovado,
+OS criada, pulou "aguardando peça" por não ter produto vinculado) →
+"Marcar pronto" → "Entregar" → modal com os 4 requisitos, cada um
+preenchido por clique real (garantia+"o que foi feito", pagamento
+"Dinheiro", foto, assinatura com nome + traço real no canvas) →
+"Confirmar entrega" → status `entregue`, garantia calculada (3 meses),
+modal fechado.
+
+**Achado no processo, corrigido no próprio teste** (não upgrade de
+função, era um seletor errado no MEU script de teste, registrado aqui só
+por transparência): o primeiro clique em "Assinar" pegou o botão de
+Assinatura de ENTRADA em vez de RETIRADA, porque `abrirModalAssinaturaOficina`
+aparece duas vezes no DOM da ficha (o card "Termo de entrada" sempre
+visível + o botão dentro do modal de entrega) — um seletor genérico
+`button[onclick*="abrirModalAssinaturaOficina"]` pega o primeiro em ordem
+de documento. Não é bug do app — cada botão passa o `tipo` certo
+(`'entrada'`/`'retirada'`) para o handler certo; só meu script de teste
+precisou ser mais específico (`#of-entrega-corpo button[onclick*="retirada"]`).
+
+Trilha final mostrando os 8 nós corretos (7 concluídos + Entregue atual),
+histórico com os 7 eventos reais em ordem cronológica (sem
+"Aguardando peça", que foi pulado de verdade — a trilha marca "concluído"
+por posição, o histórico é que é o registro fiel do que aconteceu — os
+dois têm papéis diferentes, de propósito). Zero erro novo no console.
+
+---
+
 ## 🔧 Tarefa 3h — A ficha do reparo (fluxo da Oficina), EM ANDAMENTO (19/08)
 
 Novo pacote no handoff (`PLANO-3H-FICHA-REPARO.md` + `FLUXO-OFICINA.md`,
