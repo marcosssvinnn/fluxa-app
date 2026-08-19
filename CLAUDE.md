@@ -52,13 +52,41 @@ função termina, o insert já resolveu, então não há janela de corrida com
 uma navegação subsequente. Conferido antes de dar por certo que o mesmo
 padrão não se repete lá.
 
-**Pendência real, não resolvida sozinho**: os **5 pares já duplicados em
-produção** (Maison Lafayette #382/380, Edifício Infinity Coast Residence
-#379/377, Ivan Seleme #368/370, Asael #360/364, Eduardo Domingos Silva
-#353/351) continuam no banco — **não apaguei nada**, exclusão é decisão do
-Marcos. Fica pra ele decidir qual dos dois manter em cada par (ou se algum
-já foi editado de forma diferente depois de criado, o que mudaria qual é
-"o certo").
+### ✅ Limpeza dos duplicados já existentes — feita, autorizada pelo Marcos
+
+Pedido explícito: "apague todos que tem duplicados com mesmos produtos e
+valores por cliente". Antes de apagar, varredura **completa** (sem limite
+de 7 dias, comparando `cliente`+`total`+`servicos`, não só cliente+total)
+achou **6 pares reais** (um a mais que os 5 do primeiro scan — Maison
+Lafayette só não bateu na comparação exata porque um dos dois tinha "02
+Trocadores..." e o outro "Trocador..." no texto do item, mesmo
+`produto_id`/valor; e um caso mais antigo, DENILSON SERTÃO de 10/07,
+que também é a mesma corrida — confirma que o bug já era mais velho e
+mais espalhado do que os 7 dias do primeiro scan sugeriam).
+
+**Checado uso real de cada par antes de decidir qual apagar** — 5 dos 6
+eram seguros (status `pendente`/`vencido`, sem OS nem recebimento
+vinculado). **1 exigiu cuidado**: Eduardo Domingos Silva (#351/#353) — os
+DOIS tinham sido aprovados (em datas diferentes, `data_aprovacao`
+divergente: alguém aprovou de novo dias depois sem perceber que já tinha
+aprovado o duplicado) e os DOIS tinham parcela em `recebimentos`. Só o
+**#353** tinha uma OS real vinculada (#188, `agendado`) — mantive esse,
+apaguei o #351 (órfão) e a parcela dele junto. Confirmado depois: OS #188
+continua apontando certo pro orçamento mantido.
+
+**Dry-run em transação primeiro** (`BEGIN;...ROLLBACK;`, confirmou 0
+linhas restantes nos dois casos antes de rodar de verdade) — mesmo
+protocolo já usado nas migrações financeiras deste projeto.
+
+**5 outros pares "mesmo cliente+valor" achados na verificação final —
+NÃO são duplicata, não mexi**: `CONDOMINIO GOLDEN HOME`, `ITALO SILVA`,
+`MK PISCINAS`, `Pousada Casa do Mar`, `SNI BRASIL` — datas de criação
+espalhadas por dias/semanas/meses (não ao milissegundo) e status
+divergentes entre os dois (ex.: um `vencido`, o outro `aprovado` meses
+depois) — é o mesmo cliente pedindo o mesmo serviço de novo, coincidência
+de valor, não o bug da corrida. Distinguir isso do bug real foi
+justamente o motivo de checar `data_criacao`/status par a par em vez de
+confiar só em "mesmo cliente + mesmo total".
 
 sw.js: fluxa-v199 → fluxa-v200.
 
