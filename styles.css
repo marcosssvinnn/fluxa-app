@@ -384,6 +384,11 @@
     .of-rep-no-dot.atual{background:var(--c1);box-shadow:0 0 0 4px rgba(11,98,206,.18)}
     .of-rep-no-dot.futuro{border:2px solid var(--line);background:#fff}
     .of-rep-no-dot.cancel{background:var(--bad)}
+    /* Etapa que ainda não existe no sistema (3i.1) — ex.: "Relatório enviado"
+       na trilha de OS, hoje o app não gera esse documento. Borda tracejada
+       distingue de "futuro" (etapa real, só não chegou lá ainda). */
+    .of-rep-no-dot.novo{border:2px dashed var(--line);background:#fff}
+    .of-rep-no-tag{font-size:10px;font-weight:600;color:var(--warn)}
     .of-rep-no-lbl{font-size:11px;font-weight:600;color:var(--c2);white-space:nowrap}
     .of-rep-no-lbl.futuro{font-weight:500;color:var(--tx4)}
     .of-rep-no-data{font-size:10px;color:var(--tx3);white-space:nowrap}
@@ -424,8 +429,13 @@
        mesma família visual da sidebar/os-hero, independente da cor de marca
        da empresa (branding usa --c2, que muda por empresa; este não). */
     .of-rep-dark{background:#101720;border-radius:var(--r-lg);padding:17px 19px;display:flex;flex-direction:column;gap:13px}
+    .of-rep-dark-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
     .of-rep-dark-lbl{font-size:11px;font-weight:600;letter-spacing:.10em;text-transform:uppercase;color:var(--tx4)}
+    .of-rep-dark-timer{font-size:11px;font-weight:600;color:#6FA8E8;font-variant-numeric:tabular-nums}
     .of-rep-dark-val{font-size:27px;font-weight:600;color:var(--nav-tx-strong);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+    /* Barra de progresso do cartão escuro (3i.1) — "N de M serviços confirmados" */
+    .of-rep-dark-bar{height:7px;border-radius:4px;background:#2A3543;overflow:hidden}
+    .of-rep-dark-bar-fill{height:100%;background:var(--c1)}
     .of-rep-dark-box{background:#1B2430;border-radius:9px;padding:11px 13px;display:flex;flex-direction:column;gap:8px}
     .of-rep-dark-box-lbl{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--tx4)}
     .of-rep-dark-item{display:flex;align-items:center;gap:9px;font-size:12px;color:var(--nav-tx-strong)}

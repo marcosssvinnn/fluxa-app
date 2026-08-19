@@ -2,6 +2,53 @@
 
 ---
 
+## 🔧 Tarefa 3i — O ciclo Orçamento → OS → Relatório, EM ANDAMENTO (19/08)
+
+Novo pacote no handoff (`PLANO-3I-CICLO-OS.md` + `DIAGNOSTICO-OS.md` +
+`DIAGNOSTICO-ORCAMENTOS.md`, `~/Downloads/design_handoff_fluxa_redesign/`).
+Achado central dos diagnósticos: o ciclo "orçamento → OS → relatório" tem só
+as duas primeiras etapas — **relatório de serviço executado não existe no
+código** (`gerarOSPDF` imprime a ORDEM, antes de ir; nada imprime o que foi
+FEITO, depois de voltar). E a OS tem **três botões que a terminam**
+(Concluir/Check-out/Salvar), origem direta do bug de duplicação já corrigido
+em 19/08 — o fix tratou o sintoma, a causa é estrutural.
+
+**8 commits, um por vez**, ordem do próprio plano (3i.2 antes do resto — "dá
+pra medir quantos orçamentos estão parados antes de mexer em mais nada").
+Referências visuais: `Fluxa OS Fluxo.dc.html` (turno 11a) e
+`Fluxa Orcamento Fluxo.dc.html` (turno 12a). Este arquivo documenta cada
+commit conforme fecha.
+
+### ✅ 3i.1 — Componentes compartilhados
+
+`_renderTrilhaEstados(nos)` e `_renderCartaoEstado(cfg)` (novas, `app.js`,
+antes de `_orcSituacao`) — as duas peças que os turnos 11 e 12 usam.
+**Reaproveitam as classes CSS que a Oficina já tem** (`.of-rep-trilha`/
+`.of-rep-no*`/`.of-rep-linha` para a trilha, `.of-rep-dark*`/
+`.of-rep-timeline*` para o cartão escuro) — mesma linguagem visual, zero CSS
+duplicado. **A Oficina não foi tocada** (`_ofRenderRepTrilha`/
+`_ofRenderRepCartao` continuam exatamente como estavam) — esta dupla nova é
+genérica (recebe array de nós / objeto de config), a da Oficina continua
+acoplada a `OFICINA_STATUS_SEQ`.
+
+Só 2 adições pontuais ao CSS existente, nada quebrado: `.of-rep-no-dot.novo`
+(borda tracejada — nó "etapa que ainda não existe no sistema", ex.:
+"Relatório enviado" na trilha de OS) e `.of-rep-dark-bar`/`.of-rep-dark-top`
+(barra de progresso + linha de cabeçalho com rótulo+timer, que a Oficina não
+precisava e o turno 11/12 pedem).
+
+Testado no Browser pane (offline, `dbOk=false;db=null;`, porta nova): as
+duas funções chamadas com dado sintético batendo com o mock do turno 11a
+("Marcos está no local", 00:42, 2 de 4 serviços, barra 50%, caixa "O
+relatório precisa de" com 2 itens, botão "Ligar para o Marcos") — visual
+conferido por screenshot, bate com a referência. Trilha com 5 nós (2
+concluídos verde-check, 1 atual azul, 1 futuro borda sólida, 1 "novo" borda
+tracejada) renderizando certo. Zero erro novo no console.
+
+sw.js: fluxa-v205 → fluxa-v206.
+
+---
+
 ## 🔴 OS saindo duplicada — causa raiz achada e corrigida em 2 pontos (19/08)
 
 Marcos: testando a OS do Edifício Infinity Coast Residence, disse "tentei

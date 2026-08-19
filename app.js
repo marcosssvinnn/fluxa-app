@@ -6109,6 +6109,67 @@ function renderOrcMiniKpis(lista){
     </div>`;
 }
 
+// ══════════════════════════════════════════════════════════════════════
+//  TAREFA 3i.1 — componentes compartilhados: trilha de estados e cartão
+//  escuro por estado (19/08, PLANO-3I-CICLO-OS.md). Turnos 11 (OS) e 12
+//  (orçamento) usam os dois; construídos uma vez pra não duplicar markup
+//  três vezes (a Oficina já tem o par equivalente, `_ofRenderRepTrilha`/
+//  `_ofRenderRepCartao` — não mexidos, esta dupla é NOVA e genérica,
+//  reaproveitando as MESMAS classes CSS .of-rep-trilha/.of-rep-dark que a
+//  Oficina já usa, mesma linguagem visual, sem duplicar CSS).
+// ══════════════════════════════════════════════════════════════════════
+
+// nos: [{label, data, estado:'done'|'atual'|'futuro'|'novo', atraso?, tag?}]
+// estado 'novo' = etapa que ainda não existe no sistema (borda tracejada) —
+// ex.: "Relatório enviado" na trilha de OS, hoje o app não gera esse doc.
+function _renderTrilhaEstados(nos){
+  return (nos||[]).map((n,i)=>{
+    const dotCls = n.estado==='novo' ? 'novo' : n.estado; // done|atual|futuro|novo
+    const icone = n.estado==='done'
+      ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#FFF" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg>'
+      : n.estado==='atual' ? '<div style="width:7px;height:7px;border-radius:999px;background:#FFF"></div>' : '';
+    const semLbl = n.estado==='futuro'||n.estado==='novo';
+    const conectorCls = i<nos.length-1 ? (n.estado==='done'?'done':(n.atraso?'atraso':'')) : '';
+    return `<div class="of-rep-no">
+      <div class="of-rep-no-dot ${dotCls}">${icone}</div>
+      <span class="of-rep-no-lbl ${semLbl?'futuro':''}">${esc(n.label)}</span>
+      ${n.data?`<span class="of-rep-no-data ${n.atraso?'atraso':''}">${esc(n.data)}</span>`:''}
+      ${n.tag?`<span class="of-rep-no-tag">${esc(n.tag)}</span>`:''}
+    </div>${i<nos.length-1?`<div class="of-rep-linha ${conectorCls}"></div>`:''}`;
+  }).join('');
+}
+
+// cfg: {label, timer?, valor, sub?, barraPct?, stats?:[{lbl,val}],
+//       caixa?:{titulo,itens:[{cor,texto}]}, primaria?:{label,onclick},
+//       secundarias?:[{label,onclick}], nota?}
+// O único elemento que muda de conteúdo por estado (topo da coluna
+// direita) — quem chama decide o conteúdo por estado, esta função só
+// monta o cartão a partir do que recebeu.
+function _renderCartaoEstado(cfg){
+  if(!cfg) return '';
+  return `<div class="of-rep-dark">
+    <div class="of-rep-dark-top">
+      <span class="of-rep-dark-lbl">${esc(cfg.label||'')}</span>
+      ${cfg.timer?`<span class="of-rep-dark-timer">${esc(cfg.timer)}</span>`:''}
+    </div>
+    <div style="display:flex;flex-direction:column;gap:3px">
+      <span class="of-rep-dark-val" style="font-size:22px">${esc(cfg.valor||'')}</span>
+      ${cfg.sub?`<span style="font-size:12px;color:var(--tx4)">${esc(cfg.sub)}</span>`:''}
+    </div>
+    ${cfg.barraPct!=null?`<div class="of-rep-dark-bar"><div class="of-rep-dark-bar-fill" style="width:${Math.max(0,Math.min(100,cfg.barraPct))}%"></div></div>`:''}
+    ${cfg.stats?.length?`<div class="of-rep-dark-stats">${cfg.stats.map(s=>`<div class="of-rep-dark-stat"><span>${esc(s.lbl)}</span><strong>${esc(s.val)}</strong></div>`).join('')}</div>`:''}
+    ${cfg.caixa?`<div class="of-rep-dark-box">
+      <span class="of-rep-dark-box-lbl">${esc(cfg.caixa.titulo)}</span>
+      ${(cfg.caixa.itens||[]).map(it=>`<div class="of-rep-dark-item"><span class="of-rep-dark-dot" style="background:${it.cor}"></span><span>${esc(it.texto)}</span></div>`).join('')}
+    </div>`:''}
+    ${(cfg.primaria||cfg.secundarias?.length)?`<div class="of-rep-dark-acts">
+      ${cfg.primaria?`<button type="button" class="rd-btn rd-btn-primary" onclick="${cfg.primaria.onclick}">${esc(cfg.primaria.label)}</button>`:''}
+      ${cfg.secundarias?.length?`<div class="of-rep-dark-sec-row">${cfg.secundarias.map(s=>`<button type="button" class="of-rep-dark-sec" onclick="${s.onclick}">${esc(s.label)}</button>`).join('')}</div>`:''}
+    </div>`:''}
+    ${cfg.nota?`<span class="of-rep-dark-nota">${esc(cfg.nota)}</span>`:''}
+  </div>`;
+}
+
 // ── Situação (badge) e Próxima ação (texto) — Fase 5 do redesign, 13/08.
 // O handoff separa "o que é" (Situação, deriva do status bruto) de "o que
 // fazer agora" (Próxima ação, deriva de sinais que a fila de follow-up já
