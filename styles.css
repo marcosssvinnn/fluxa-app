@@ -362,6 +362,80 @@
     .os-hero-tec strong{font-size:15px;font-weight:600;color:#F2F6FB;font-variant-numeric:tabular-nums}
     .os-hero .rd-btn-primary{white-space:nowrap}
 
+    /* ── Ficha do reparo (#page-reparo, Tarefa 3h.2, 19/08) ──
+       Era modal (#of-ficha-overlay), virou página própria — topbar 62px +
+       trilha de estados + corpo 1fr 380px, mesmo grid do handoff
+       (Fluxa Oficina Fluxo.dc.html, turno 10a). */
+    .of-rep-topbar{display:flex;align-items:center;gap:12px;background:#fff;border:1px solid var(--line);border-radius:var(--r-lg) var(--r-lg) 0 0;padding:14px 20px;flex-wrap:wrap}
+    .of-rep-back{background:none;border:none;cursor:pointer;color:var(--tx3);display:flex;align-items:center;padding:4px;flex-shrink:0}
+    .of-rep-back:hover{color:var(--c2)}
+    .of-rep-titulos{display:flex;flex-direction:column;flex:1;min-width:180px}
+    .of-rep-titulo{font-size:16px;font-weight:600;color:var(--c2);letter-spacing:-.01em}
+    .of-rep-sub{font-size:12px;color:var(--tx3)}
+    .of-rep-badge-bancada{font-size:11px;font-weight:600;padding:6px 11px;border-radius:var(--r-sm);white-space:nowrap}
+    .of-rep-badge-bancada.b-ok{background:var(--line2);color:var(--tx2)}
+    .of-rep-badge-bancada.b-warn{background:var(--warn-bg);color:var(--warn)}
+    .of-rep-badge-bancada.b-bad{background:var(--bad-bg);color:var(--bad)}
+
+    .of-rep-trilha{display:flex;align-items:center;gap:0;background:#fff;border:1px solid var(--line);border-top:none;padding:16px 24px 12px;overflow-x:auto}
+    .of-rep-no{display:flex;flex-direction:column;gap:5px;align-items:center;min-width:88px;flex-shrink:0}
+    .of-rep-no-dot{width:22px;height:22px;border-radius:999px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+    .of-rep-no-dot.done{background:var(--ok)}
+    .of-rep-no-dot.atual{background:var(--c1);box-shadow:0 0 0 4px rgba(11,98,206,.18)}
+    .of-rep-no-dot.futuro{border:2px solid var(--line);background:#fff}
+    .of-rep-no-dot.cancel{background:var(--bad)}
+    .of-rep-no-lbl{font-size:11px;font-weight:600;color:var(--c2);white-space:nowrap}
+    .of-rep-no-lbl.futuro{font-weight:500;color:var(--tx4)}
+    .of-rep-no-data{font-size:10px;color:var(--tx3);white-space:nowrap}
+    .of-rep-no-data.atraso{font-weight:600;color:var(--bad)}
+    .of-rep-linha{flex:1;height:2px;background:var(--line);margin-bottom:26px;min-width:20px}
+    .of-rep-linha.done{background:var(--ok)}
+    .of-rep-linha.atraso{background:var(--warn-dot)}
+
+    .of-rep-body{padding:16px 0 40px;display:grid;grid-template-columns:1fr 380px;gap:16px;align-items:start}
+    @media(max-width:960px){ .of-rep-body{grid-template-columns:1fr} }
+    #of-rep-esquerda,#of-rep-direita{display:flex;flex-direction:column;gap:14px;min-width:0}
+
+    .of-rep-chip{font-size:11px;font-weight:600;padding:5px 9px;border-radius:var(--r-xs);display:inline-block}
+    .of-rep-chip.ok{color:var(--ok);background:var(--ok-bg)}
+    .of-rep-chip.warn{color:var(--warn);background:var(--warn-bg)}
+    .of-rep-chip.neutral{color:#5D6A7B;background:var(--line2)}
+
+    .of-rep-pecas-tabela{width:100%;border-collapse:collapse}
+    .of-rep-pecas-tabela th{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--tx3);text-align:left;padding:9px 0;border-bottom:1px solid var(--line)}
+    .of-rep-pecas-tabela th.num,.of-rep-pecas-tabela td.num{text-align:right}
+    .of-rep-pecas-tabela td{font-size:13px;color:var(--c2);padding:10px 0;border-bottom:1px solid var(--line2)}
+    .of-rep-pecas-foot{display:flex;align-items:baseline;justify-content:space-between;padding-top:10px;font-size:12px;color:var(--tx2)}
+    .of-rep-pecas-total{font-size:20px;font-weight:600;color:var(--c2);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+
+    /* Cartão escuro que muda de conteúdo por estado (3h.3) — fixo #101720,
+       mesma família visual da sidebar/os-hero, independente da cor de marca
+       da empresa (branding usa --c2, que muda por empresa; este não). */
+    .of-rep-dark{background:#101720;border-radius:var(--r-lg);padding:17px 19px;display:flex;flex-direction:column;gap:13px}
+    .of-rep-dark-lbl{font-size:11px;font-weight:600;letter-spacing:.10em;text-transform:uppercase;color:var(--tx4)}
+    .of-rep-dark-val{font-size:27px;font-weight:600;color:var(--nav-tx-strong);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+    .of-rep-dark-box{background:#1B2430;border-radius:9px;padding:11px 13px;display:flex;flex-direction:column;gap:8px}
+    .of-rep-dark-box-lbl{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--tx4)}
+    .of-rep-dark-item{display:flex;align-items:center;gap:9px;font-size:12px;color:var(--nav-tx-strong)}
+    .of-rep-dark-dot{width:6px;height:6px;border-radius:999px;flex-shrink:0}
+    .of-rep-dark-acts{display:flex;flex-direction:column;gap:7px}
+    .of-rep-dark-acts .rd-btn-primary{width:100%}
+    .of-rep-dark-sec-row{display:flex;gap:7px}
+    .of-rep-dark-sec{flex:1;background:#1B2430;color:#B4C1D1;font-size:12px;font-weight:600;padding:10px;border-radius:9px;text-align:center;border:none;cursor:pointer;font-family:'Instrument Sans',sans-serif}
+    .of-rep-dark-sec:hover{background:#232E3C}
+    .of-rep-dark-nota{font-size:11px;color:var(--tx4);line-height:1.45}
+    .of-rep-dark-stats{display:flex;align-items:center;gap:22px;flex-wrap:wrap}
+    .of-rep-dark-stat{display:flex;flex-direction:column;gap:2px}
+    .of-rep-dark-stat span{font-size:11px;color:var(--tx4)}
+    .of-rep-dark-stat strong{font-size:15px;font-weight:600;color:var(--nav-tx-strong);font-variant-numeric:tabular-nums}
+
+    .of-rep-timeline{display:flex;flex-direction:column;gap:10px}
+    .of-rep-tl-item{display:flex;gap:10px}
+    .of-rep-tl-dot{width:7px;height:7px;border-radius:999px;margin-top:5px;flex-shrink:0;background:var(--tx4)}
+    .of-rep-tl-dot.warn{background:var(--warn-dot)}
+    .of-rep-tl-titulo{font-size:12px;font-weight:600;color:var(--c2)}
+    .of-rep-tl-meta{font-size:11px;color:var(--tx3)}
+
     /* Checkbox + barra de ação em lote (Tarefa 3e.2) */
     .os-check{width:15px;height:15px;cursor:pointer;accent-color:var(--c1)}
     .os-lote-barra{padding:11px 18px;border-top:1px solid var(--line);background:var(--row-hl);display:flex;align-items:center;gap:12px;flex-wrap:wrap}

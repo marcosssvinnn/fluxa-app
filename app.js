@@ -1761,8 +1761,8 @@ function go(p){
   // guardrail de go() nenhum — virou página de verdade, então precisa
   // aparecer aqui pros 2 perfis que já tinham o atalho na sidebar
   // (snbRules: gestor||vendas||tecnico).
-  const pagesVendas  = ['form','history','clientes','agendamentos','os','venda-balcao','oficina','oficina-recepcao'];
-  const pagesTecnico = ['minhas-os','visitas','os','venda-balcao','oficina','oficina-recepcao']; // 'os' para abrir/preencher a OS atribuída
+  const pagesVendas  = ['form','history','clientes','agendamentos','os','venda-balcao','oficina','oficina-recepcao','reparo'];
+  const pagesTecnico = ['minhas-os','visitas','os','venda-balcao','oficina','oficina-recepcao','reparo']; // 'os' para abrir/preencher a OS atribuída
   if(_vendas  && !pagesVendas.includes(p))  { toast('Você não tem acesso a essa área.'); return; }
   if(_tecnico && !pagesTecnico.includes(p)) { toast('Você não tem acesso a essa área.'); return; }
   if(!_gestor && !_vendas && !_tecnico &&
@@ -1795,6 +1795,7 @@ function go(p){
   if(p==='venda-balcao') _vbAbrir();
   if(p==='oficina-recepcao') _ofRecepcaoAbrir();
   if(p==='oficina') loadOficinaReparos();
+  if(p==='reparo') renderPageReparo();
   if(p==='portal') { /* página gerenciada por checkPortalHash */ }
   // "Insights" (rótulo "Hoje") — de volta a UMA tela só em 13/08 (handoff de
   // design substitui o desdobramento "Hoje"/"Resultado" feito mais cedo hoje:
@@ -17223,7 +17224,10 @@ async function _ofAplicarStatus(reparoId, novoStatus, extra){
   logAcao('oficina_status', `${OFICINA_STATUS_LABEL[novoStatus]||novoStatus} · ${todosOficinaReparos[idx].cliente_nome||''}`);
   _ofRenderAtiva();
   renderOficinaMetricas();
-  if(document.getElementById('of-ficha-overlay')){ fecharFichaOficina(); abrirFichaOficina(reparoId); }
+  // Ficha é página agora (#page-reparo), não overlay — se for a mesma que
+  // está aberta na tela, re-renderiza no lugar em vez de checar um id de
+  // modal que não existe mais.
+  if(document.getElementById('page-reparo')?.classList.contains('on') && _ofReparoAtivoId===reparoId) renderPageReparo();
 }
 function avancarStatusOficina(id){
   const o=todosOficinaReparos.find(x=>x.id===id); if(!o) return;
@@ -17504,66 +17508,252 @@ function _ofCardKanban(o){
 }
 
 // ── Ficha do reparo ──
+// Tarefa 3h.2 (19/08): a ficha DEIXOU de ser modal (#of-ficha-overlay) —
+// virou página própria (#page-reparo), porque tem conteúdo demais pra caber
+// num modal e precisa de estado de navegação de verdade (voltar() já lida
+// com isso via _navHist). abrirFichaOficina(id) manteve o NOME e a
+// ASSINATURA de propósito — é chamada de ~15 pontos do código (kanban,
+// histórico, badges de fila, pós-assinatura, etc.) e todos continuam
+// funcionando sem alteração: só guarda qual reparo está ativo e navega.
 function abrirFichaOficina(id){
-  const o=(todosOficinaReparos||[]).find(x=>x.id===id); if(!o) return;
+  _ofReparoAtivoId=id;
+  go('reparo');
+}
+// Era quem removia o overlay do DOM — não existe mais overlay pra remover.
+// Mantida como no-op só por compatibilidade: os ~15 call sites que faziam
+// "fecharFichaOficina(); abrirFichaOficina(id);" pra forçar reload continuam
+// funcionando (abrirFichaOficina/go('reparo') já re-renderiza sozinho), e os
+// que chamavam sozinha antes de navegar pra outro lugar (_ofAbrirOSVinculada,
+// criarOrcamentoDaOficina) também — o go()/editarOS() que vem depois já troca
+// de página por conta própria.
+function fecharFichaOficina(){}
+
+function renderPageReparo(){
+  const o=(todosOficinaReparos||[]).find(x=>x.id===_ofReparoAtivoId);
+  if(!o){ voltar(); return; }
+  _ofRenderRepTopbar(o);
+  _ofRenderRepTrilha(o);
+  _ofRenderRepEsquerda(o);
+  _ofRenderRepDireita(o);
+}
+// Dias desde a ENTRADA (data_criacao), sempre — diferente de _ofDiasNoStatus
+// (que reseta a cada transição). É "tempo na bancada" mesmo, do jeito que o
+// cliente pergunta: "faz quanto tempo que meu equipamento está aí".
+function _ofDiasNaBancada(o){
+  if(!o.data_criacao) return 0;
+  const dt=new Date(o.data_criacao).getTime(); if(isNaN(dt)) return 0;
+  return Math.max(0, Math.floor((Date.now()-dt)/86400000));
+}
+function _ofRepOrigemTxt(o){
+  if(o.origem==='os_campo' && o.os_campo_id){
+    const os=_acharOS(o.os_campo_id);
+    return 'OS #'+(os?String(os.numero||'').padStart(3,'0'):'?')+' de campo';
+  }
+  return OFICINA_ORIGEM_LABEL[o.origem]||o.origem||'—';
+}
+function _ofRenderRepTopbar(o){
+  const el=document.getElementById('of-rep-topbar'); if(!el) return;
   const num=o.numero?'OF-'+String(o.numero).padStart(5,'0'):'OF-…';
-  const bg=document.createElement('div');
-  bg.className='cli-hist-overlay'; bg.id='of-ficha-overlay';
-  bg.onclick=(e)=>{ if(e.target===bg) fecharFichaOficina(); };
-  const statusOpts=[...OFICINA_STATUS_SEQ,'cancelado'].map(st=>`<option value="${st}" ${st===o.status?'selected':''}>${esc(OFICINA_STATUS_LABEL[st])}</option>`).join('');
-  bg.innerHTML=`<div class="cli-hist-box">
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 18px;border-bottom:1px solid var(--line-soft,var(--gray-light))">
-      <div>
-        <div style="font-size:16px;font-weight:700;color:var(--c2)">${esc(num)}</div>
-        <div style="font-size:12px;color:var(--gray)">${esc(o.cliente_nome||'—')}</div>
-      </div>
-      <div style="display:flex;align-items:center;gap:4px">
-        <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="verQROficina('${o.id}')" title="Etiqueta / QR">🏷️</button>
-        <button type="button" class="cli-hist-close" onclick="fecharFichaOficina()" aria-label="Fechar">✕</button>
+  const equip=[o.eq_tipo,o.eq_marca,o.eq_modelo,o.eq_potencia].filter(Boolean).join(' · ')||'Equipamento';
+  const entrada=o.data_criacao?_dataBR(String(o.data_criacao).split('T')[0]):'—';
+  const dias=_ofDiasNaBancada(o);
+  const naBancada=!['entregue','cancelado'].includes(o.status);
+  const badgeCls=dias>15?'b-bad':dias>7?'b-warn':'b-ok';
+  el.innerHTML=`
+    <button type="button" class="of-rep-back" onclick="voltar()" aria-label="Voltar">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 6l-6 6 6 6"></path></svg>
+    </button>
+    <div class="of-rep-titulos">
+      <span class="of-rep-titulo">${esc(num)} · ${esc(equip)}</span>
+      <span class="of-rep-sub">${esc(o.cliente_nome||'—')} · entrou ${esc(entrada)} · ${esc(_ofRepOrigemTxt(o))}${o.tecnico_responsavel?' · '+esc(o.tecnico_responsavel):''}</span>
+    </div>
+    ${naBancada?`<span class="of-rep-badge-bancada ${badgeCls}">${dias} dia${dias!==1?'s':''} na bancada</span>`:''}
+    <button type="button" class="rd-btn rd-btn-secondary" onclick="verQROficina('${o.id}')">Imprimir etiqueta</button>
+  `;
+}
+// Trilha de 7 nós (FLUXO-OFICINA.md) — cancelado substitui o nó ATUAL, não
+// entra como um 8º nó: é saída lateral da sequência, não um passo dela.
+function _ofRenderRepTrilha(o){
+  const el=document.getElementById('of-rep-trilha'); if(!el) return;
+  const idxAtual=OFICINA_STATUS_SEQ.indexOf(o.status);
+  const travado=(_ofDiasNoStatus(o)||0)>=OFICINA_TRAVADO_DIAS && ['aguardando_peca','aguardando_aprovacao'].includes(o.status);
+  el.innerHTML=OFICINA_STATUS_SEQ.map((st,i)=>{
+    const cancelAqui=o.status==='cancelado' && i===Math.max(0,idxAtual<0?0:idxAtual);
+    const done = idxAtual>=0 && i<idxAtual;
+    const atual = i===idxAtual;
+    const log=(_ofStatusLog||[]).filter(l=>l.reparo_id===o.id && l.status===st).sort((a,b)=>String(a.data).localeCompare(String(b.data)))[0];
+    let dataTxt='';
+    if(done && log) dataTxt=_dataBR(String(log.data).split('T')[0]);
+    else if(atual) dataTxt=(_ofDiasNoStatus(o)||0)===0?'hoje':'há '+(_ofDiasNoStatus(o)||0)+'d';
+    const dotCls = done?'done':atual?'atual':'futuro';
+    const conectorCls = i<OFICINA_STATUS_SEQ.length-1 ? (done?'done':(atual&&travado?'atraso':'')) : '';
+    return `<div class="of-rep-no">
+      <div class="of-rep-no-dot ${dotCls}">${done?'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#FFF" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg>':(atual?'<div style="width:7px;height:7px;border-radius:999px;background:#FFF"></div>':'')}</div>
+      <span class="of-rep-no-lbl ${dotCls==='futuro'?'futuro':''}">${esc(OFICINA_STATUS_LABEL[st])}</span>
+      <span class="of-rep-no-data ${atual&&travado?'atraso':''}">${esc(dataTxt)}</span>
+    </div>${i<OFICINA_STATUS_SEQ.length-1?`<div class="of-rep-linha ${conectorCls}"></div>`:''}`;
+  }).join('');
+}
+function _ofRenderRepEsquerda(o){
+  const el=document.getElementById('of-rep-esquerda'); if(!el) return;
+  const osCampo=_ofFichaOSCampoHtml(o), fabricante=_ofFichaFabricanteHtml(o), entregaCampo=_ofFichaEntregaCampoHtml(o);
+  el.innerHTML=`
+    ${_ofFichaPecasMaoObraHtml(o)}
+    ${_ofFichaEstadoChegadaHtml(o)}
+    <div class="rd-card">${_ofFichaDiagnosticoHtml(o)}</div>
+    <div class="rd-card">${_ofFichaPrazoHtml(o)}</div>
+    <div class="rd-card">${_ofFichaCustoHtml(o)}</div>
+    <div class="rd-card">${_ofFichaTerceiroHtml(o)}</div>
+    ${osCampo?`<div class="rd-card">${osCampo}</div>`:''}
+    ${fabricante?`<div class="rd-card">${fabricante}</div>`:''}
+    ${entregaCampo?`<div class="rd-card">${entregaCampo}</div>`:''}
+    <div class="rd-card">
+      <div class="rd-card-title" style="margin-bottom:11px">Termo de entrada</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${o.termo_entrada_assinatura_base64
+          ? `<span class="rd-badge rd-badge-ok">✍️ Assinado</span><button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="imprimirTermoOficina('${o.id}','entrada')">Imprimir</button>`
+          : `<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="abrirModalAssinaturaOficina('${o.id}','entrada')">Assinar</button><button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="imprimirTermoOficina('${o.id}','entrada')">Imprimir em branco</button>`}
       </div>
     </div>
-    <div style="padding:18px;overflow-y:auto;display:flex;flex-direction:column;gap:14px">
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        <span class="rd-badge ${OFICINA_STATUS_CLS[o.status]||'rd-badge-neutral'}">${esc(OFICINA_STATUS_LABEL[o.status]||o.status)}</span>
-        ${o.status==='cancelado'&&o.cancelado_motivo?`<span style="font-size:12px;color:var(--gray)">${esc(o.cancelado_motivo)}</span>`:''}
+    <div class="rd-card">
+      <div class="rd-card-title" style="margin-bottom:11px">Termo de retirada</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${o.entrega_assinatura_base64
+          ? `<span class="rd-badge rd-badge-ok">✍️ Assinado</span><button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="imprimirTermoOficina('${o.id}','retirada')">Imprimir</button>`
+          : `<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="abrirModalAssinaturaOficina('${o.id}','retirada')">Assinar</button><button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="imprimirTermoOficina('${o.id}','retirada')">Imprimir em branco</button>`}
       </div>
-      <div class="rd-field"><span class="rd-field-lbl">Mudar status</span>
-        <select class="rd-field-box" onchange="setOficinaStatus('${o.id}', this.value)">${statusOpts}</select>
-      </div>
-      <div class="rd-field"><span class="rd-field-lbl">Equipamento</span><div>${esc([o.eq_tipo,o.eq_marca,o.eq_modelo,o.eq_potencia].filter(Boolean).join(' · ')||'—')}</div></div>
-      ${o.eq_numero_serie?`<div class="rd-field"><span class="rd-field-lbl">Número de série</span><div>${esc(o.eq_numero_serie)}</div></div>`:''}
-      <div class="rd-field"><span class="rd-field-lbl">Origem</span><div>${esc(OFICINA_ORIGEM_LABEL[o.origem]||o.origem||'—')}</div></div>
-      ${_ofFichaOSCampoHtml(o)}
-      ${_ofFichaFabricanteHtml(o)}
-      ${_ofFichaRetrabalhoHtml(o)}
-      ${_ofFichaAvariasHtml(o)}
-      ${_ofFichaFotosHtml(o)}
-      ${o.obs_entrada?`<div class="rd-field"><span class="rd-field-lbl">Observação na entrada</span><div>${esc(o.obs_entrada)}</div></div>`:''}
-      ${_ofFichaDiagnosticoHtml(o)}
-      ${_ofFichaPrazoHtml(o)}
-      ${_ofFichaOrcamentoHtml(o)}
-      ${_ofFichaCustoHtml(o)}
-      ${_ofFichaTerceiroHtml(o)}
-      ${_ofFichaEntregaCampoHtml(o)}
-      <div class="rd-field">
-        <span class="rd-field-lbl">Termo de entrada</span>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          ${o.termo_entrada_assinatura_base64
-            ? `<span class="rd-badge rd-badge-ok">✍️ Assinado</span><button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="imprimirTermoOficina('${o.id}','entrada')">🖨️ Imprimir</button>`
-            : `<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="abrirModalAssinaturaOficina('${o.id}','entrada')">✍️ Assinar</button><button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="imprimirTermoOficina('${o.id}','entrada')">🖨️ Imprimir em branco</button>`}
-        </div>
-      </div>
-      <div class="rd-field">
-        <span class="rd-field-lbl">Termo de retirada</span>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          ${o.entrega_assinatura_base64
-            ? `<span class="rd-badge rd-badge-ok">✍️ Assinado</span><button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="imprimirTermoOficina('${o.id}','retirada')">🖨️ Imprimir</button>`
-            : `<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="abrirModalAssinaturaOficina('${o.id}','retirada')">✍️ Assinar</button><button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="imprimirTermoOficina('${o.id}','retirada')">🖨️ Imprimir em branco</button>`}
-        </div>
-      </div>
+    </div>
+  `;
+}
+// Peças e mão de obra (3h.2) — lê do orçamento de conserto vinculado
+// (mesma tabela orcamentos de sempre, Fase 3). "Origem" por item É DERIVADA
+// na hora (fisicaProduto < qtd → "Comprar"), não é um campo novo gravado —
+// o sistema já sabe o saldo, não precisa que ninguém marque isso à mão.
+function _ofFichaPecasMaoObraHtml(o){
+  const orc=_ofOrcamentoVinculado(o.id);
+  if(!orc){
+    return `<div class="rd-card">
+      <div class="rd-card-title" style="margin-bottom:8px">Peças e mão de obra</div>
+      <div class="rd-card-sub" style="margin-bottom:11px">Nenhum orçamento de conserto gerado ainda.</div>
+      <button type="button" class="rd-btn rd-btn-primary" onclick="criarOrcamentoDaOficina('${o.id}')">+ Gerar orçamento</button>
+    </div>`;
+  }
+  let svcs=orc.servicos; if(typeof svcs==='string'){ try{ svcs=JSON.parse(svcs||'[]'); }catch(e){ svcs=[]; } }
+  svcs=Array.isArray(svcs)?svcs:[];
+  const statusLbl={pendente:'Pendente de aprovação',aprovado:'Aprovado',recusado:'Recusado',vencido:'Vencido'}[orc.status]||orc.status;
+  const statusCls={pendente:'rd-badge-warn',aprovado:'rd-badge-ok',recusado:'rd-badge-bad',vencido:'rd-badge-neutral'}[orc.status]||'rd-badge-neutral';
+  let nComprar=0, nEstoque=0;
+  const linhas=svcs.map(s=>{
+    const qty=Math.abs(parseInt(s.qty)||1);
+    const total=(parseFloat(s.p)||0)*qty;
+    let origemHtml='<span style="font-size:12px;color:var(--tx4)">—</span>';
+    if(s.produto_id){
+      const comprar=fisicaProduto(s.produto_id) < qty;
+      if(comprar) nComprar++; else nEstoque++;
+      origemHtml=`<span class="of-rep-chip ${comprar?'warn':'ok'}">${comprar?'Comprar':'Estoque'}</span>`;
+    }
+    return `<tr><td>${esc(s.desc||'—')}</td><td>${origemHtml}</td><td class="num">${fmtQtd(qty)}</td><td class="num" style="font-weight:600">${brl(total)}</td></tr>`;
+  }).join('');
+  const rodapeTxt=[nComprar?`${nComprar} peça${nComprar!==1?'s':''} a comprar`:'', nEstoque?`${nEstoque} do estoque${nEstoque!==1?', reservadas':', reservada'}`:''].filter(Boolean).join(' · ')||'Sem peça vinculada ao estoque';
+  return `<div class="rd-card" style="padding:0;overflow:hidden">
+    <div style="padding:14px 18px 11px;display:flex;align-items:baseline;justify-content:space-between;border-bottom:1px solid var(--line)">
+      <span class="rd-card-title">Peças e mão de obra</span>
+      <span class="rd-badge ${statusCls}">${esc(statusLbl)}</span>
+    </div>
+    <div style="padding:0 18px">
+      <table class="of-rep-pecas-tabela">
+        <thead><tr><th>Item</th><th>Origem</th><th class="num">Qtd</th><th class="num">Total</th></tr></thead>
+        <tbody>${linhas||`<tr><td colspan="4" style="color:var(--tx4);font-size:12px;padding:14px 0">Nenhum item.</td></tr>`}</tbody>
+      </table>
+    </div>
+    <div class="of-rep-pecas-foot" style="padding:0 18px 14px">
+      <span>${esc(rodapeTxt)}</span>
+      <span>Total <span class="of-rep-pecas-total">${brl(orc.total||0)}</span></span>
     </div>
   </div>`;
-  document.body.appendChild(bg);
+}
+// Estado de chegada em chips (3h.2) — upgrade de _ofFichaAvariasHtml: antes
+// só listava as AVARIAS; agora mostra TODO item já avaliado (ok verde,
+// avaria âmbar), igual ao handoff (Fluxa Oficina Fluxo.dc.html, turno 10a).
+function _ofFichaEstadoChegadaHtml(o){
+  let itens=o.estado_entrada;
+  if(typeof itens==='string'){ try{ itens=JSON.parse(itens||'{}'); }catch(e){ itens={}; } }
+  itens=(itens&&itens.itens)||{};
+  const chips=_ofChecklistParaTipo(o.eq_tipo).filter(it=>itens[it.id]?.status).map(it=>{
+    const st=itens[it.id], ok=st.status==='ok';
+    return `<span class="of-rep-chip ${ok?'ok':'warn'}">${esc(it.label)}${!ok&&st.obs?': '+esc(st.obs):''}</span>`;
+  }).join('');
+  let fotos=o.fotos_entrada;
+  if(typeof fotos==='string'){ try{ fotos=JSON.parse(fotos||'[]'); }catch(e){ fotos=[]; } }
+  fotos=(Array.isArray(fotos)?fotos:[]).filter(Boolean);
+  if(!chips && !o.obs_entrada && !fotos.length) return '';
+  return `<div class="rd-card">
+    <div class="rd-card-title" style="margin-bottom:11px">Estado de chegada</div>
+    ${chips?`<div style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:11px">${chips}</div>`:''}
+    ${o.obs_entrada?`<div style="font-size:12px;color:var(--tx2);line-height:1.45${fotos.length?';margin-bottom:11px':''}">Relato do cliente: "${esc(o.obs_entrada)}"</div>`:''}
+    ${fotos.length?`<div style="display:flex;gap:6px;flex-wrap:wrap">${fotos.map(f=>`<img src="${f}" style="width:54px;height:54px;object-fit:cover;border-radius:9px;border:1px solid var(--line)">`).join('')}</div>`:''}
+  </div>`;
+}
+function _ofRenderRepDireita(o){
+  const el=document.getElementById('of-rep-direita'); if(!el) return;
+  const retrabalhoHtml=_ofFichaRetrabalhoHtml(o);
+  const statusOpts=[...OFICINA_STATUS_SEQ,'cancelado'].map(st=>`<option value="${st}" ${st===o.status?'selected':''}>${esc(OFICINA_STATUS_LABEL[st])}</option>`).join('');
+  el.innerHTML=`
+    <div id="of-rep-cartao"></div>
+    <div class="rd-card">
+      <div class="rd-card-title" style="margin-bottom:11px">Histórico</div>
+      <div class="of-rep-timeline">${_ofRepTimelineHtml(o)}</div>
+    </div>
+    ${retrabalhoHtml?`<div class="rd-card">${retrabalhoHtml}</div>`:''}
+    <div class="rd-card">
+      <div class="rd-card-title" style="margin-bottom:8px;font-size:13px">Mudar status manualmente</div>
+      <select class="rd-field-box" onchange="setOficinaStatus('${o.id}', this.value)">${statusOpts}</select>
+    </div>
+  `;
+  _ofRenderRepCartao(o);
+}
+// Linha do tempo — status log + contatos, intercalados por data (mais
+// recente primeiro). Duas fontes, um só rastro visual.
+function _ofRepTimelineHtml(o){
+  const eventos=[];
+  (_ofStatusLog||[]).filter(l=>l.reparo_id===o.id).forEach(l=>{
+    eventos.push({data:l.data, titulo:OFICINA_STATUS_LABEL[l.status]||l.status, meta:(l.usuario?l.usuario+' · ':'')+_dataBR(String(l.data).split('T')[0]), warn:false});
+  });
+  _ofContatosDoReparo(o.id).forEach(c=>{
+    const canalLbl=OFICINA_CANAL_LABEL[c.canal]||c.canal;
+    const resLbl=c.resultado?(OFICINA_RESULTADO_LABEL[c.resultado]||c.resultado):null;
+    eventos.push({data:c.data, titulo: resLbl && resLbl!==canalLbl ? resLbl+' · '+canalLbl : canalLbl, meta:_dataBR(String(c.data).split('T')[0])+(c.usuario_id?' · '+c.usuario_id:''), warn:c.resultado==='sem_resposta'});
+  });
+  eventos.sort((a,b)=>String(b.data||'').localeCompare(String(a.data||'')));
+  if(!eventos.length) return `<span style="font-size:12px;color:var(--tx4)">Sem eventos registrados ainda.</span>`;
+  return eventos.map(e=>`<div class="of-rep-tl-item">
+    <span class="of-rep-tl-dot${e.warn?' warn':''}"></span>
+    <div style="display:flex;flex-direction:column;gap:1px">
+      <span class="of-rep-tl-titulo">${esc(e.titulo)}</span>
+      <span class="of-rep-tl-meta">${esc(e.meta)}</span>
+    </div>
+  </div>`).join('');
+}
+// Cartão escuro — versão simples desta rodada (3h.2), só status + avançar.
+// A 3h.3 substitui #of-rep-cartao por conteúdo específico de cada estado
+// (pedidos de aprovação, peça/fornecedor/previsão, dias sem aviso — tabela
+// completa em FLUXO-OFICINA.md), sem precisar tocar o resto da coluna.
+function _ofRenderRepCartao(o){
+  const el=document.getElementById('of-rep-cartao'); if(!el) return;
+  if(o.status==='cancelado'){
+    el.innerHTML=`<div class="of-rep-dark">
+      <span class="of-rep-dark-lbl">Cancelado</span>
+      ${o.cancelado_motivo?`<span style="font-size:13px;color:var(--nav-tx-strong)">${esc(o.cancelado_motivo)}</span>`:''}
+    </div>`;
+    return;
+  }
+  const prox=_ofProximoStatus(o.status);
+  el.innerHTML=`<div class="of-rep-dark">
+    <span class="of-rep-dark-lbl">${esc(OFICINA_STATUS_LABEL[o.status]||o.status)}</span>
+    <div class="of-rep-dark-acts">
+      ${prox?`<button type="button" class="rd-btn rd-btn-primary" onclick="avancarStatusOficina('${o.id}')">${esc(OFICINA_STATUS_LABEL[prox])} →</button>`:''}
+    </div>
+  </div>`;
 }
 // Garantia de fabricante (Fase 4) — só rastreio, sem data de vencimento.
 function _ofFichaFabricanteHtml(o){
@@ -17820,7 +18010,6 @@ async function oficinaVoltouTerceiro(reparoId){
   toast('✅ De volta da terceirização');
   fecharFichaOficina(); abrirFichaOficina(reparoId);
 }
-function fecharFichaOficina(){ document.getElementById('of-ficha-overlay')?.remove(); }
 
 // ── Termo de entrada/retirada com assinatura (Fase 1c) ──
 // Reusa o canvas genérico (initSigCanvas/limparAssinatura, app.js:~8775) já

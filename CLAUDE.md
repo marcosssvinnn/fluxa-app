@@ -51,7 +51,93 @@ erro no console.
 
 sw.js: fluxa-v193 → fluxa-v194.
 
-**Próximo:** 3h.2 (`#page-reparo` — a ficha vira página, não mais modal).
+### ✅ 3h.2 — `#page-reparo`: a ficha vira página
+
+A ficha (`abrirFichaOficina`) era modal dinâmico (`.cli-hist-overlay`
+criado/apagado do DOM a cada abertura, ~350 linhas concatenando 10
+`_ofFicha*Html()` helpers numa lista vertical). Virou rota própria
+(`#page-reparo`) com topbar 62px, trilha de 7 estados, e corpo em grid
+`1fr 380px` (esquerda: diagnóstico, peças e mão de obra, estado de chegada,
+prazo, custo, terceiro, termos; direita: cartão escuro + histórico +
+aviso de retrabalho), igual ao handoff (`Fluxa Oficina Fluxo.dc.html`,
+turno 10a).
+
+**`abrirFichaOficina(id)` manteve nome e assinatura de propósito** — é
+chamada de ~15 pontos (kanban, histórico, badges de fila, pós-assinatura,
+criação de orçamento, etc.) — só passou a fazer `_ofReparoAtivoId=id;
+go('reparo')` em vez de montar HTML. `fecharFichaOficina()` virou no-op
+(não existe mais overlay pra remover) — os ~15 call sites que faziam
+`fecharFichaOficina(); abrirFichaOficina(id);` pra forçar reload continuam
+funcionando sem tocar em nenhum deles, porque `abrirFichaOficina` já
+re-renderiza sozinha. **Achado e corrigido no próprio processo**: o check
+em `_ofAplicarStatus` que decidia se recarregava a ficha aberta olhava
+`document.getElementById('of-ficha-overlay')` — esse id não existe mais,
+então status mudado com a ficha aberta parava de atualizar a tela em
+silêncio. Trocado por checar se `#page-reparo` está ativo e é o mesmo
+`_ofReparoAtivoId`.
+
+**Reaproveitado sem tocar** (só re-empacotados em `.rd-card` dentro da
+nova coluna esquerda): `_ofFichaDiagnosticoHtml`, `_ofFichaPrazoHtml`,
+`_ofFichaCustoHtml`, `_ofFichaTerceiroHtml`, `_ofFichaOSCampoHtml`,
+`_ofFichaFabricanteHtml`, `_ofFichaEntregaCampoHtml`, os dois blocos de
+termo de assinatura. **Novo nesta rodada**:
+- `_ofFichaPecasMaoObraHtml(o)` — tabela Item/Origem/Qtd/Total lendo o
+  orçamento vinculado. "Origem" (Estoque/Comprar) é **derivada na hora**
+  (`fisicaProduto(produto_id) < qty`), não um campo novo gravado — o
+  sistema já sabe o saldo.
+- `_ofFichaEstadoChegadaHtml(o)` — upgrade de `_ofFichaAvariasHtml`: antes
+  só listava avarias; agora mostra chip por item JÁ avaliado (verde ok,
+  âmbar avaria), igual ao handoff.
+- `_ofRepTimelineHtml(o)` — intercala `oficina_status_log` (Fase 2) com
+  `oficina_contatos` (3h.1) por data, um rastro só.
+- `_ofRenderRepCartao(o)` — versão simples desta rodada (status + botão
+  "avançar"). **A 3h.3 substitui só esta função** pelo conteúdo específico
+  de cada estado (pedidos de aprovação, peça/fornecedor/previsão, dias sem
+  aviso — tabela completa em `FLUXO-OFICINA.md`), sem tocar o resto da
+  coluna direita.
+- Select "Mudar status manualmente" preservado (era a única saída pra
+  gestor pular/voltar estado livremente) — movido pro fim da coluna
+  direita, não é mais a ação primária da tela.
+- "← Voltar" usa `voltar()` (histórico de navegação já existente), não um
+  `go('oficina')` fixo — abrir a ficha a partir do Histórico ou de outro
+  lugar volta pra onde a pessoa realmente estava.
+
+**Bug achado e corrigido no próprio teste**: os containers `#of-rep-topbar`
+e `#of-rep-trilha` no `index.html` tinham só `id`, sem a `class` que o CSS
+mira (`class="of-rep-topbar"` etc.) — o conteúdo interno renderizava com
+seus próprios estilos corretos (badges, texto), mas o CONTAINER ficava
+`display:block` em vez de `flex`, empilhando tudo verticalmente em vez do
+layout de topbar/trilha horizontal. Só ficou óbvio testando de verdade no
+browser (comparando `getComputedStyle` antes/depois) — corrigido
+adicionando a classe que faltava nos dois.
+
+**Achado no processo, não é bug**: o preview reaproveitado (`fluxa-dev`,
+porta 3457/4321) estava servindo `styles.css` desatualizado mesmo com
+`navigate({force:true})` — confirmado comparando `document.styleSheets`
+(1268 regras, sem `.of-rep-*`) contra `fetch('/styles.css')` direto (1320
+regras, com `.of-rep-*`). Mesma classe de armadilha já documentada várias
+vezes neste arquivo ("ao testar na MESMA porta reaproveitada, usar porta
+nova ou hard-reload de verdade") — resolvido subindo um `http.server` cru
+numa porta nova (6931).
+
+Testado no Browser pane (offline, `dbOk=false;db=null;`, dado sintético
+cobrindo trilha com estados passados/atual/futuro, peças com 1 "Comprar"+1
+"Estoque", contatos, orçamento vinculado): topbar com badge "31 dias na
+bancada" em âmbar, trilha com ✓ verde nos concluídos e ponto azul pulsante
+no atual, "Peças e mão de obra" com origem derivada certa e total batendo,
+Histórico intercalando status+contato por data; clique real em "← Voltar"
+retorna pra Oficina (via `_navHist`, simulado o fluxo real: entrar por
+Oficina → abrir ficha → voltar); `avancarStatusOficina` muda o status E
+re-renderiza o cartão em tempo real (`await` explícito, confirmado que o
+refresh não é mais condicionado ao overlay morto); 1440px (grid
+761px/380px, sem overflow) e 375px (`scrollW===clientW===375`, trilha
+rola por dentro horizontalmente, resto empilha em coluna única) sem
+overflow de página. Zero erro novo no console (só o ruído de Service
+Worker já documentado).
+
+sw.js: fluxa-v194 → fluxa-v195.
+
+**Próximo:** 3h.3 (cartão escuro específico por estado — `_ofRenderRepCartao`).
 
 ---
 

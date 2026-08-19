@@ -2864,6 +2864,24 @@
   </div>
 </div>
 
+<!-- ══ PAGE: FICHA DO REPARO (Tarefa 3h, 19/08) ══
+     Era modal dinâmico (abrirFichaOficina/#of-ficha-overlay) — virou página
+     própria: conteúdo demais pra caber num modal, e precisa de URL/estado
+     de navegação de verdade. abrirFichaOficina(id) agora só seta
+     _ofReparoAtivoId e chama go('reparo'); todo o conteúdo é montado por
+     renderPageReparo() (app.js) nos 4 containers abaixo — mesmo padrão
+     100% JS-driven de #of-hero/#of-metricas na página Oficina. -->
+<div class="page" id="page-reparo">
+  <div class="wrap">
+    <div class="of-rep-topbar" id="of-rep-topbar"></div>
+    <div class="of-rep-trilha" id="of-rep-trilha"></div>
+    <div class="of-rep-body">
+      <div id="of-rep-esquerda"></div>
+      <div id="of-rep-direita"></div>
+    </div>
+  </div>
+</div>
+
 <!-- Migrado pro shell .rd-modal (3f.4, 18/08) — mesmo mecanismo de
      crm-contato-bg/receb-bg/aprov-os-bg (Tarefa 3c/14/08): classList
      add/remove('on'), não style.display. Id do modal mantido igual
