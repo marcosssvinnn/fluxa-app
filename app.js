@@ -5888,19 +5888,52 @@ function atualizarDash(){
   // trata "Orçamentos" como fila de trabalho, não relatório contábil), então
   // quem ainda dá sentido ao recorte de mês é este dashboard, não a lista.
   if(typeof renderOrcMiniKpis==='function') renderOrcMiniKpis(orcFiltrado);
-  const tot=orcFiltrado.length, soma=orcFiltrado.reduce((a,o)=>a+(o.total||0),0);
-  const aprov=orcFiltrado.filter(o=>o.status==='aprovado');
-  const somaA=aprov.reduce((a,o)=>a+(o.total||0),0);
-  const tick=tot>0?soma/tot:0;
-  // Sub-label mostra o período
-  const periodoSub=orcMesRef?_renderOrcMesLabelStr():'Todos os períodos';
-  const taxaConv = tot>0 ? Math.round(aprov.length/tot*100) : 0;
-  setV_el('d-emit',brl(soma),'textContent'); setV_el('d-emit-q',tot+' orç. · '+periodoSub,'textContent');
-  setV_el('d-aprov',brl(somaA),'textContent'); setV_el('d-aprov-q',aprov.length+' aprov. · '+(tot>0?taxaConv+'% conversão':'—'),'textContent');
-  // #d-rec (A Receber) saiu do dashboard do Histórico (Tarefa 4, 18/08) —
-  // era a fonte menos confiável dos 3 lugares que mostravam o número.
-  setV_el('d-tick',tick>0?brl(tick):'—','textContent');
+  _renderOrcKPIsNovo();
   renderOrigemDash();
+}
+// 4 KPIs do histórico de orçamentos (3i.3, 19/08) — substitui o antigo
+// .dash.dash-3 (Total Emitido/Aprovados/Ticket Médio, último bloco em
+// estilo pré-redesign da tela; Ticket Médio não gerava ação nenhuma —
+// ninguém muda de comportamento por causa dele, DIAGNOSTICO-ORCAMENTOS.md).
+// "Resumo do período" (com navegação de mês) continua como estava, logo
+// abaixo — o recorte mensal tem lugar, só não é mais o KPI principal.
+function _renderOrcKPIsNovo(){
+  const el=document.getElementById('orc-kpis-novo'); if(!el) return;
+  const todosDaLoja=filtrarPorLoja(todosOrc||[]);
+  const abertos=todosDaLoja.filter(orcAbertoNoPipeline);
+  const pipelineSoma=abertos.reduce((a,o)=>a+(o.total||0),0);
+  const mesAtual=_hojeISO().slice(0,7);
+  const aprovMes=todosDaLoja.filter(o=>o.status==='aprovado' && String(o.data_aprovacao||'').slice(0,7)===mesAtual);
+  const aprovMesSoma=aprovMes.reduce((a,o)=>a+(o.total||0),0);
+  const semOS=_orcAprovadosSemOS();
+  const semOSSoma=semOS.reduce((a,o)=>a+(o.total||0),0);
+  // Taxa de fechamento: aprovados / emitidos nos últimos 90 dias — janela
+  // fixa, independente do mês navegado em "Resumo do período" (esse recorte
+  // já tem lugar próprio, este KPI é sobre ritmo recente, não sobre um mês).
+  const corte90=Date.now()-90*86400000;
+  const base90=todosDaLoja.filter(o=>new Date(o.data_criacao||0).getTime()>=corte90);
+  const taxa90 = base90.length ? Math.round(base90.filter(o=>o.status==='aprovado').length/base90.length*100) : 0;
+  el.innerHTML=`
+    <div class="rd-card rd-card-dense rd-card-dark">
+      <div class="rd-kpi-lbl">Pipeline aberto</div>
+      <div class="rd-kpi-num rd-kpi-num-sm">${brl(pipelineSoma)}</div>
+      <div class="rd-kpi-apoio">${abertos.length} orçamento${abertos.length!==1?'s':''}</div>
+    </div>
+    <div class="rd-card rd-card-dense">
+      <div class="rd-kpi-lbl">Aprovados no mês</div>
+      <div class="rd-kpi-num rd-kpi-num-sm">${brl(aprovMesSoma)}</div>
+      <div class="rd-kpi-apoio">${aprovMes.length} orçamento${aprovMes.length!==1?'s':''}</div>
+    </div>
+    <div class="rd-card rd-card-dense${semOS.length?' rd-card-warn':''}">
+      <div class="rd-kpi-lbl"${semOS.length?' style="color:var(--warn)"':''}>Aprovado sem OS</div>
+      <div class="rd-kpi-num rd-kpi-num-sm"${semOS.length?' style="color:var(--warn)"':''}>${semOS.length}</div>
+      <div class="rd-kpi-apoio"${semOS.length?' style="color:var(--warn)"':''}>${semOS.length?brl(semOSSoma)+' vendidos e parados':'nenhum'}</div>
+    </div>
+    <div class="rd-card rd-card-dense">
+      <div class="rd-kpi-lbl">Taxa de fechamento</div>
+      <div class="rd-kpi-num rd-kpi-num-sm">${taxa90}%</div>
+      <div class="rd-kpi-apoio">últimos 90 dias</div>
+    </div>`;
 }
 
 // ── Origem dos clientes (métricas de captação) ──

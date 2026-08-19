@@ -100,6 +100,49 @@ total depois. Zero erro novo no console.
 
 sw.js: fluxa-v206 → fluxa-v207.
 
+**Número real medido em produção, direto do banco (leitura, PAT)**: **98
+orçamentos aprovados sem OS, R$ 167.895,76 vendidos e parados** — confirma
+o achado central dos diagnósticos, não é exagero de mockup. Só 2 OS
+concluídas sem relatório (baixo, mas o relatório nem existe ainda —
+3i.8).
+
+### ✅ 3i.3 — Histórico: os quatro KPIs
+
+Trocado `.dash.dash-3` (Total Emitido/Aprovados/Ticket Médio, último bloco
+em estilo pré-redesign da tela — Ticket Médio não gerava ação nenhuma)
+por `_renderOrcKPIsNovo()`, 4 `.rd-card.rd-card-dense` no container
+`#orc-kpis-novo` (`.ins-kpis`, mesma grade de 4 colunas → 2 em ≤900px já
+usada por Estoque/Despesas — zero CSS novo):
+
+- **Pipeline aberto** (escuro, `rd-card-dark`) — soma dos abertos
+  (pendente+vencido), mesmo critério de `orcAbertoNoPipeline` já usado
+  nos chips.
+- **Aprovados no mês** — mês corrente fixo (não segue a navegação de mês
+  do card "Resumo do período" logo abaixo, que continua como estava — os
+  dois recortes coexistem de propósito, um é KPI principal, o outro é
+  navegável).
+- **Aprovado sem OS** — reusa `_orcAprovadosSemOS()` (3i.2, mesma função
+  do chip e da ação em lote — três lugares, um cálculo só). Borda/texto
+  `--warn` quando > 0, some o alerta visual quando 0 (nunca fica vermelho
+  por padrão).
+- **Taxa de fechamento** — aprovados/emitidos nos últimos 90 dias, janela
+  fixa (não é o mês navegado — é sobre ritmo recente).
+
+`atualizarDash()` chama `_renderOrcKPIsNovo()` no lugar dos 3 `setV_el`
+antigos (`d-emit`/`d-aprov`/`d-tick` — os ids saíram do HTML,
+`setV_el` é no-op seguro em elemento ausente, não precisou de guarda
+extra).
+
+Testado no Browser pane (offline, `dbOk=false;db=null;`, porta nova, 4
+orçamentos sintéticos — 2 aprovados este mês um com OS outro sem, 1
+pendente, 1 recusado): Pipeline aberto R$90 (só o pendente), Aprovados no
+mês R$300 (os 2 aprovados), Aprovado sem OS "1 · R$100 vendidos e
+parados", Taxa de fechamento 50% (2 aprovados de 4 emitidos nos últimos
+90 dias) — todos batendo com o cálculo manual. 390px sem overflow
+(`docWidth===winWidth===390`). Zero erro novo no console.
+
+sw.js: fluxa-v207 → fluxa-v208.
+
 ---
 
 ## 🔴 OS saindo duplicada — causa raiz achada e corrigida em 2 pontos (19/08)

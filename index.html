@@ -1426,12 +1426,12 @@
          valor_recebido, que fica parado assim que um orçamento ganha
          parcela em `recebimentos`). Quem quer o número tem o KPI do
          Insights e a tela dedicada "A Receber", os dois já lendo
-         _orcSaldoAReceber() de verdade. -->
-    <div class="dash dash-3">
-      <div class="dc o"><div class="dl">Total Emitido</div><div class="dv" id="d-emit">—</div><div class="ds" id="d-emit-q">— orç.</div></div>
-      <div class="dc g"><div class="dl">Aprovados</div><div class="dv" id="d-aprov">—</div><div class="ds" id="d-aprov-q">— aprovados</div></div>
-      <div class="dc b"><div class="dl">Ticket Médio</div><div class="dv" id="d-tick">—</div><div class="ds">por orçamento</div></div>
-    </div>
+         _orcSaldoAReceber() de verdade.
+         Tarefa 3i.3 (19/08): Total Emitido/Aprovados/Ticket Médio (último
+         bloco em estilo pré-redesign da tela) viraram 4 cards .rd-card —
+         Pipeline aberto/Aprovados no mês/Aprovado sem OS/Taxa de
+         fechamento, preenchidos por _renderOrcKPIsNovo() em app.js. -->
+    <div class="ins-kpis" id="orc-kpis-novo"></div>
 
     <!-- Navegação de mês + mini-KPIs (segue orcMesRef, que o dashboard
          .dash lá em cima também usa — só o card por fora virou .rd-card,
