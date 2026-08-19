@@ -16,11 +16,24 @@ Galeria") — só que na OS o atributo tinha ficado, provavelmente de antes
 dessa convenção existir.
 
 **Corrigido**: removido `capture="environment"` do input de foto da OS —
-mesmo padrão já usado em Vistoria. Não mexi nos outros 3 pontos que ainda têm
-o mesmo atributo (Equipamentos `eq-foto-input`, Despesas `desp-foto-input`,
-Orçamento `forc-inp-*`) — são o mesmo bug em potencial, mas o Marcos só
-reportou o caso da OS; registrado aqui pra decidir se vale corrigir os outros
-também. sw.js: fluxa-v200 → fluxa-v201.
+mesmo padrão já usado em Vistoria.
+
+**Marcos pediu pra corrigir tudo ("não quero nenhum problema rodando")** —
+achados mais 3 pontos com o mesmo `capture` fixo, mesmo bug em potencial:
+Equipamentos (`eq-foto-input`), Despesas (`desp-foto-input`) e Orçamento
+(`forc-inp-*`, grid de até 6 fotos). Os 3 removidos também. **Vistoria não
+foi tocada, de propósito** — lá o design já é diferente: 2 botões
+("📷 Tirar foto" / "🖼️ Galeria"), cada um com seu próprio `<input>`, um com
+`capture` e o outro sem — funciona certo, não é o mesmo bug (o `capture`
+sozinho aqui é intencional, forçando câmera só quando o usuário escolhe
+explicitamente "Tirar foto").
+
+Testado no Browser pane (offline, `dbOk=false;db=null;`, porta nova):
+`eq-foto-input`/`desp-foto-input`/`forc-inp-0`/`os-finp-0` confirmados sem o
+atributo `capture` via `hasAttribute('capture')===false`, nos 4 formulários
+(Equipamentos, Despesas, Orçamento, OS) — nenhum erro novo no console.
+
+sw.js: fluxa-v200 → fluxa-v202.
 
 **Nota do Marcos**: o fluxo de geração de OS em geral está dando outros
 problemas de uso — fica pra revisão numa próxima rodada, ainda não
