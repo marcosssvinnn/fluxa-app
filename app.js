@@ -17749,7 +17749,7 @@ function _ofRenderRepCartao(o){
       <span class="of-rep-dark-lbl">Cancelado</span>
       ${o.cancelado_motivo?`<span style="font-size:13px;color:var(--nav-tx-strong)">${esc(o.cancelado_motivo)}</span>`:''}
       <div class="of-rep-dark-acts">
-        <button type="button" class="rd-btn rd-btn-primary" onclick="setOficinaStatus('${o.id}','entregue')">Entregar</button>
+        <button type="button" class="rd-btn rd-btn-primary" onclick="abrirModalEntregaOficina('${o.id}')">Entregar</button>
       </div>
       <span class="of-rep-dark-nota">Recusado ainda precisa voltar pro cliente — a entrega acontece igual, só sem cobrança de serviço.</span>
     </div>`;
@@ -17866,7 +17866,7 @@ function _ofCartaoPronto(o){
     <span class="of-rep-dark-nota">${avisado?'✓ Cliente já avisado':'Cliente ainda não foi avisado'}</span>
     <div class="of-rep-dark-acts">
       ${!avisado?`<button type="button" class="of-rep-dark-sec" onclick="abrirModalContatoOficina('${o.id}','avisado')">Avisar cliente</button>`:''}
-      <button type="button" class="rd-btn rd-btn-primary" onclick="avancarStatusOficina('${o.id}')">Entregar</button>
+      <button type="button" class="rd-btn rd-btn-primary" onclick="abrirModalEntregaOficina('${o.id}')">Entregar</button>
     </div>
   </div>`;
 }
@@ -18268,7 +18268,12 @@ function abrirModalAssinaturaOficina(reparoId, tipo){
   const texto = tipo==='retirada'
     ? 'Assine para confirmar que recebeu o equipamento conforme reparado, encerrando a responsabilidade da oficina.'
     : 'Assine para confirmar o estado do equipamento registrado na entrada.';
-  const m=document.createElement('div'); m.id='modal-assinatura'; m.className='cli-hist-overlay'; m.style.zIndex='1100';
+  // Requisito 4 da entrega (3h.5, FLUXO-OFICINA.md): "nome + assinatura no
+  // dedo — quem retira pode não ser o cliente do cadastro". Campo de nome
+  // só na retirada; a entrada nunca precisou disso.
+  const o=(todosOficinaReparos||[]).find(x=>x.id===reparoId);
+  const nomeHtml = tipo==='retirada' ? `<div class="rd-field" style="margin-bottom:12px"><span class="rd-field-lbl">Nome de quem retirou</span><input type="text" id="of-assinatura-nome" class="rd-field-box" placeholder="${esc(o?.cliente_nome||'Nome completo')}" value="${esc(o?.entrega_retirado_por||'')}"></div>` : '';
+  const m=document.createElement('div'); m.id='modal-assinatura'; m.className='cli-hist-overlay'; m.style.zIndex='1200';
   m.innerHTML=`<div class="cli-hist-box" style="max-height:none">
     <div class="cli-hist-hdr">
       <div class="cli-hist-titulo">${titulo}</div>
@@ -18276,6 +18281,7 @@ function abrirModalAssinaturaOficina(reparoId, tipo){
     </div>
     <div style="padding:16px 20px 24px">
       <p style="font-size:13px;color:var(--gray);margin-bottom:12px">${texto}</p>
+      ${nomeHtml}
       <div class="sig-wrap">
         <canvas id="sig-canvas" class="sig-canvas"></canvas>
         <div class="sig-placeholder" id="sig-placeholder">✍️ Assine aqui com o dedo ou mouse</div>
@@ -18292,6 +18298,8 @@ function abrirModalAssinaturaOficina(reparoId, tipo){
 }
 async function confirmarAssinaturaOficina(reparoId, tipo){
   if(!_sigHasMark){ toast('⚠️ Por favor, assine antes de confirmar'); return; }
+  const nomeInp=document.getElementById('of-assinatura-nome');
+  if(tipo==='retirada' && nomeInp && !nomeInp.value.trim()){ toast('⚠️ Diga o nome de quem está retirando'); return; }
   const canvas=document.getElementById('sig-canvas'); if(!canvas) return;
   const sigB64=canvas.toDataURL('image/png');
   document.getElementById('modal-assinatura').remove();
@@ -18301,6 +18309,7 @@ async function confirmarAssinaturaOficina(reparoId, tipo){
     [`${campo}_assinatura_data`]: new Date().toISOString(),
     [`${campo}_assinatura_meta`]: (navigator.userAgent||'').slice(0,180)
   };
+  if(tipo==='retirada' && nomeInp) changes.entrega_retirado_por=nomeInp.value.trim();
   const idx=todosOficinaReparos.findIndex(x=>x.id===reparoId);
   if(idx>=0) todosOficinaReparos[idx]={...todosOficinaReparos[idx], ...changes};
   lsOfSalvar(todosOficinaReparos);
@@ -18313,8 +18322,11 @@ async function confirmarAssinaturaOficina(reparoId, tipo){
     catch(e){ console.warn('[oficina assinatura sync]', e?.message||e); }
   }
   toast(tipo==='retirada' ? '✅ Assinatura de retirada registrada' : '✅ Assinatura de entrada registrada');
-  fecharFichaOficina();
-  abrirFichaOficina(reparoId); // reabre já refletindo a assinatura
+  // A entrega (3h.5) é um modal PRÓPRIO, separado da ficha — se estiver
+  // aberto, só atualiza o card de requisito; senão, comportamento de
+  // sempre (reabre a ficha refletindo a assinatura).
+  if(document.getElementById('of-entrega-modal')){ _ofRenderEntregaModal(reparoId); }
+  else { fecharFichaOficina(); abrirFichaOficina(reparoId); }
 }
 
 // ── Impressão do termo (entrada ou retirada) ──
@@ -18331,6 +18343,16 @@ function imprimirTermoOficina(reparoId, tipo){
     .map(it=>esc(it.label+(itens[it.id].obs?': '+itens[it.id].obs:'')));
   const sigCampo = tipo==='retirada' ? 'entrega_assinatura_base64' : 'termo_entrada_assinatura_base64';
   const sigB64 = o[sigCampo];
+  // Na retirada (3h.5): "um PDF só" — comprovante de pagamento + termo de
+  // garantia, não dois documentos do mesmo balcão. O que foi feito/garantia/
+  // pagamento só existem nessa direção (entrada não tem nenhum dos três).
+  const orc = tipo==='retirada' ? _ofOrcamentoVinculado(reparoId) : null;
+  const entregaBloco = tipo==='retirada' ? `
+    ${o.o_que_foi_feito?`<div class="bloco"><h3>O que foi feito</h3><div style="font-size:13px">${esc(o.o_que_foi_feito)}</div></div>`:''}
+    ${o.garantia_propria_vencimento?`<div class="linha"><span>Garantia</span><b>Até ${esc(_dataBR(o.garantia_propria_vencimento))}</b></div>`:''}
+    ${o.entrega_forma_pagamento?`<div class="linha"><span>Pagamento</span><b>${esc(OFICINA_PAGAMENTO_LABEL[o.entrega_forma_pagamento]||o.entrega_forma_pagamento)}${orc?' · '+esc(brl(orc.total||0)):''}</b></div>`:''}
+  ` : '';
+  const assinaturaLbl = tipo==='retirada' ? (o.entrega_retirado_por||'Assinatura de quem retirou') : 'Assinatura do cliente';
   const w=window.open('','_blank');
   w.document.write(`<!DOCTYPE html><html><head><title>${esc(titulo)} — ${esc(num)}</title>
   <style>body{font-family:Inter,sans-serif;margin:0;padding:40px;color:#1a1a2e}
@@ -18352,12 +18374,167 @@ function imprimirTermoOficina(reparoId, tipo){
   ${o.eq_numero_serie?`<div class="linha"><span>Número de série</span><b>${esc(o.eq_numero_serie)}</b></div>`:''}
   ${avarias.length?`<div class="bloco"><h3>Estado na chegada</h3><ul>${avarias.map(a=>`<li>${a}</li>`).join('')}</ul></div>`:''}
   ${o.obs_entrada?`<div class="bloco"><h3>Observação</h3><div style="font-size:13px">${esc(o.obs_entrada)}</div></div>`:''}
+  ${entregaBloco}
   <div class="assinatura">
-    ${sigB64?`<img src="${sigB64}">`:`<div class="assinatura-linha">Assinatura do cliente</div>`}
+    ${sigB64?`<img src="${sigB64}">`:`<div class="assinatura-linha">${esc(assinaturaLbl)}</div>`}
+    ${sigB64&&tipo==='retirada'?`<div class="assinatura-linha" style="margin-top:6px;border-top:none">${esc(assinaturaLbl)}</div>`:''}
   </div>
   <script>window.onload=()=>{window.print();}<\/script>
   </body></html>`);
   w.document.close();
+}
+
+// ── Entrega: os 4 requisitos num passo só (Tarefa 3h.5, 19/08) ──
+// "Nada sai da loja sem os quatro" — cada card SALVA na hora que é
+// preenchido (mesmo princípio de diagnóstico/prazo/custo na ficha, campo a
+// campo, nunca um rascunho que se perde) — o modal só reflete o estado real
+// do reparo a cada re-render, nunca guarda valor "pendente de confirmar"
+// separado. "Confirmar entrega" só finaliza (muda status + imprime),
+// nenhum dos 4 dados é gravado nesse clique.
+const OFICINA_PAGAMENTO_LABEL={pix:'Pix', cartao:'Cartão', dinheiro:'Dinheiro', a_prazo:'A prazo'};
+function _ofEntregaFotos(o){
+  let f=o.fotos_pronto; if(typeof f==='string'){ try{ f=JSON.parse(f||'[]'); }catch(e){ f=[]; } }
+  return (Array.isArray(f)?f:[]).filter(Boolean);
+}
+function _ofEntregaRequisitosStatus(o){
+  return {
+    foto: _ofEntregaFotos(o).length>0,
+    garantia: !!(o.o_que_foi_feito && o.o_que_foi_feito.trim()),
+    pagamento: !!o.entrega_forma_pagamento,
+    assinatura: !!(o.entrega_assinatura_base64 && o.entrega_retirado_por)
+  };
+}
+function abrirModalEntregaOficina(reparoId){
+  const existing=document.getElementById('of-entrega-modal'); if(existing) existing.remove();
+  const m=document.createElement('div'); m.id='of-entrega-modal'; m.className='rd-modal-bg on';
+  m.innerHTML=`<div class="rd-modal rd-modal-wide">
+    <div class="rd-modal-grip"></div>
+    <h3 id="of-entrega-titulo"></h3>
+    <p class="rd-modal-sub" id="of-entrega-sub"></p>
+    <div id="of-entrega-corpo" style="display:flex;flex-direction:column;gap:10px"></div>
+    <div class="rd-modal-acts">
+      <button type="button" class="rd-modal-btn rd-modal-btn-nao" onclick="document.getElementById('of-entrega-modal').remove()">Cancelar</button>
+      <button type="button" class="rd-modal-btn rd-modal-btn-sim" id="of-entrega-confirmar" onclick="_ofConfirmarEntrega('${reparoId}')">Confirmar entrega</button>
+    </div>
+    <span id="of-entrega-falta" style="font-size:11px;color:var(--tx3);text-align:center"></span>
+  </div>`;
+  m.addEventListener('click',e=>{ if(e.target===m) m.remove(); });
+  document.body.appendChild(m);
+  _ofRenderEntregaModal(reparoId);
+}
+function _ofEntregaCard(ok, titulo, valorTxt, extra){
+  return `<div style="border:1px solid ${ok?'var(--line)':'var(--warn-border)'};background:${ok?'#fff':'var(--warn-row,#FDF9F3)'};border-radius:10px;padding:12px 14px">
+    <div style="display:flex;align-items:center;gap:11px">
+      <div style="width:18px;height:18px;border-radius:5px;flex-shrink:0;${ok?'background:var(--c1);display:flex;align-items:center;justify-content:center':'border:1.5px solid var(--warn-dot)'}">
+        ${ok?'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#FFF" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg>':''}
+      </div>
+      <div style="display:flex;flex-direction:column;gap:1px;flex:1;min-width:0">
+        <span style="font-size:13px;font-weight:600;color:var(--c2)">${esc(titulo)}</span>
+        <span style="font-size:11px;color:${ok?'var(--tx3)':'var(--warn)'}">${esc(String(valorTxt))}</span>
+      </div>
+    </div>
+    ${extra||''}
+  </div>`;
+}
+function _ofRenderEntregaModal(reparoId){
+  const modal=document.getElementById('of-entrega-modal'); if(!modal) return;
+  const o=(todosOficinaReparos||[]).find(x=>x.id===reparoId); if(!o) return;
+  const num=o.numero?'OF-'+String(o.numero).padStart(5,'0'):'OF-…';
+  document.getElementById('of-entrega-titulo').textContent='Entregar '+num;
+  document.getElementById('of-entrega-sub').textContent=([o.eq_tipo,o.eq_marca,o.eq_modelo].filter(Boolean).join(' · ')||'Equipamento')+' · '+(o.cliente_nome||'—');
+  const req=_ofEntregaRequisitosStatus(o);
+  const fotos=_ofEntregaFotos(o);
+  const orc=_ofOrcamentoVinculado(reparoId);
+  const valorOrc=orc?parseFloat(orc.total)||0:0;
+  document.getElementById('of-entrega-corpo').innerHTML=`
+    ${_ofEntregaCard(req.foto, 'Foto do equipamento pronto', fotos.length?`${fotos.length} foto${fotos.length!==1?'s':''}`:'Nenhuma foto ainda',
+      `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+        ${fotos.map((f,i)=>`<div style="position:relative"><img src="${f}" style="width:48px;height:48px;object-fit:cover;border-radius:7px;border:1px solid var(--line)"><button type="button" onclick="_ofRemoverFotoPronto('${reparoId}',${i})" style="position:absolute;top:-6px;right:-6px;width:18px;height:18px;border-radius:999px;background:var(--bad);color:#fff;border:none;font-size:11px;line-height:1;cursor:pointer">✕</button></div>`).join('')}
+        <label style="width:48px;height:48px;border:1px dashed var(--line);border-radius:7px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--tx4);font-size:20px">+<input type="file" accept="image/*" style="display:none" onchange="_ofAdicionarFotoPronto('${reparoId}', this)"></label>
+      </div>`)}
+    ${_ofEntregaCard(req.garantia, 'Termo de garantia', o.o_que_foi_feito?(o.garantia_propria_meses||3)+' meses de garantia':'Descreva o que foi feito',
+      `<div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="number" id="of-entrega-meses" class="rd-field-box" style="max-width:90px" value="${esc(String(o.garantia_propria_meses||3))}" min="1">
+          <span style="font-size:12px;color:var(--tx3)">meses de garantia</span>
+        </div>
+        <textarea id="of-entrega-feito" class="rd-field-box" rows="2" placeholder="O que foi feito (entra no termo)…">${esc(o.o_que_foi_feito||'')}</textarea>
+        <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" style="align-self:flex-start" onclick="_ofSalvarGarantiaEntrega('${reparoId}')">Salvar</button>
+      </div>`)}
+    ${_ofEntregaCard(req.pagamento, 'Pagamento na retirada', o.entrega_forma_pagamento?OFICINA_PAGAMENTO_LABEL[o.entrega_forma_pagamento]:(valorOrc>0?brl(valorOrc)+' em aberto':'—'),
+      `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px">
+        ${['pix','cartao','dinheiro','a_prazo'].map(f=>`<button type="button" style="font-family:'Instrument Sans',sans-serif;font-size:12px;font-weight:600;padding:8px 4px;border-radius:8px;cursor:pointer;text-align:center;${o.entrega_forma_pagamento===f?'background:var(--c1);color:#fff;border:1.5px solid var(--c1)':'background:#fff;color:var(--tx2);border:1px solid var(--line)'}" onclick="_ofSalvarPagamentoEntrega('${reparoId}','${f}')">${OFICINA_PAGAMENTO_LABEL[f]}</button>`).join('')}
+      </div>`)}
+    ${_ofEntregaCard(req.assinatura, 'Assinatura de quem retirou', o.entrega_retirado_por||'Nome e assinatura no dedo',
+      `<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" style="margin-top:8px" onclick="abrirModalAssinaturaOficina('${reparoId}','retirada')">${req.assinatura?'Assinado — refazer':'Assinar'}</button>`)}
+  `;
+  const todosOk=Object.values(req).every(Boolean);
+  const btn=document.getElementById('of-entrega-confirmar');
+  btn.disabled=!todosOk;
+  btn.style.opacity=todosOk?'1':'.5';
+  btn.style.cursor=todosOk?'pointer':'not-allowed';
+  const nomes={foto:'foto',garantia:'garantia',pagamento:'pagamento',assinatura:'assinatura'};
+  const faltando=Object.keys(nomes).filter(k=>!req[k]).map(k=>nomes[k]);
+  document.getElementById('of-entrega-falta').textContent=faltando.length?'Falta: '+faltando.join(', ')+'.':'Tudo certo — o comprovante e o termo saem num PDF só.';
+}
+async function _ofAdicionarFotoPronto(reparoId, input){
+  const file=input.files?.[0]; if(!file) return;
+  let b64;
+  try{ b64=await compressImage(file); }catch(e){ toast('⚠️ Não deu pra processar a foto'); return; }
+  const idx=(todosOficinaReparos||[]).findIndex(x=>x.id===reparoId); if(idx<0) return;
+  const fotos=_ofEntregaFotos(todosOficinaReparos[idx]); fotos.push(b64);
+  todosOficinaReparos[idx]={...todosOficinaReparos[idx], fotos_pronto:fotos};
+  lsOfSalvar(todosOficinaReparos);
+  if(dbOk&&db){ try{ await dbUpdate('oficina_reparos', {fotos_pronto:fotos}, 'id', reparoId); }catch(e){ console.warn('[oficina foto pronto]', e?.message||e); } }
+  _ofRenderEntregaModal(reparoId);
+}
+async function _ofRemoverFotoPronto(reparoId, fotoIdx){
+  const idx=(todosOficinaReparos||[]).findIndex(x=>x.id===reparoId); if(idx<0) return;
+  const fotos=_ofEntregaFotos(todosOficinaReparos[idx]); fotos.splice(fotoIdx,1);
+  todosOficinaReparos[idx]={...todosOficinaReparos[idx], fotos_pronto:fotos};
+  lsOfSalvar(todosOficinaReparos);
+  if(dbOk&&db){ try{ await dbUpdate('oficina_reparos', {fotos_pronto:fotos}, 'id', reparoId); }catch(e){ console.warn('[oficina foto pronto]', e?.message||e); } }
+  _ofRenderEntregaModal(reparoId);
+}
+async function _ofSalvarGarantiaEntrega(reparoId){
+  const meses=parseInt(gV('of-entrega-meses'))||3;
+  const feito=(gV('of-entrega-feito')||'').trim();
+  if(!feito){ toast('⚠️ Descreva o que foi feito'); return; }
+  const idx=(todosOficinaReparos||[]).findIndex(x=>x.id===reparoId); if(idx<0) return;
+  todosOficinaReparos[idx]={...todosOficinaReparos[idx], garantia_propria_meses:meses, o_que_foi_feito:feito};
+  lsOfSalvar(todosOficinaReparos);
+  if(dbOk&&db){ try{ await dbUpdate('oficina_reparos', {garantia_propria_meses:meses, o_que_foi_feito:feito}, 'id', reparoId); }catch(e){ console.warn('[oficina garantia entrega]', e?.message||e); } }
+  toast('✅ Salvo');
+  _ofRenderEntregaModal(reparoId);
+}
+// "A prazo" vira parcela em A Receber (mesma tabela recebimentos de
+// sempre, 1 parcela à vista) — id previsível pra ser idempotente (não
+// duplica se o atendente clicar "A prazo" de novo por engano). Pix/
+// Cartão/Dinheiro não geram parcela — a OS é considerada quitada na hora.
+async function _ofSalvarPagamentoEntrega(reparoId, forma){
+  const idx=(todosOficinaReparos||[]).findIndex(x=>x.id===reparoId); if(idx<0) return;
+  todosOficinaReparos[idx]={...todosOficinaReparos[idx], entrega_forma_pagamento:forma};
+  lsOfSalvar(todosOficinaReparos);
+  if(dbOk&&db){ try{ await dbUpdate('oficina_reparos', {entrega_forma_pagamento:forma}, 'id', reparoId); }catch(e){ console.warn('[oficina pagamento entrega]', e?.message||e); } }
+  if(forma==='a_prazo'){
+    const orc=_ofOrcamentoVinculado(reparoId);
+    if(orc && !(todosReceb||[]).some(r=>String(r.id)==='rec_of_'+orc.id)){
+      const parc={id:'rec_of_'+orc.id, orcamento_id:orc.id, parcela_n:1, parcelas_total:1, vencimento:_addDias(_hojeLocal(),30), valor:parseFloat(orc.total)||0, data_pagamento:null, forma:'a_prazo', obs:'Entrega da oficina', origem:'oficina', loja_id:orc.loja_id||null, data_criacao:new Date().toISOString()};
+      todosReceb=todosReceb||[]; todosReceb.unshift(parc);
+      lsRecebSalvar(todosReceb);
+      if(dbOk&&db){ try{ await dbInsert('recebimentos', parc); }catch(e){ console.warn('[oficina receb entrega]', e?.message||e); } }
+    }
+  }
+  _ofRenderEntregaModal(reparoId);
+}
+async function _ofConfirmarEntrega(reparoId){
+  const o=(todosOficinaReparos||[]).find(x=>x.id===reparoId); if(!o) return;
+  const req=_ofEntregaRequisitosStatus(o);
+  if(!Object.values(req).every(Boolean)){ toast('⚠️ Complete os 4 requisitos antes de confirmar.'); return; }
+  document.getElementById('of-entrega-modal')?.remove();
+  await _ofAplicarStatus(reparoId,'entregue');
+  imprimirTermoOficina(reparoId,'retirada'); // "um PDF só" — comprovante + termo
+  toast('✅ Entrega confirmada');
 }
 
 // ── Orçamento de conserto (Fase 3) ──

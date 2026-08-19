@@ -394,6 +394,18 @@
 
     .of-rep-body{padding:16px 0 40px;display:grid;grid-template-columns:1fr 380px;gap:16px;align-items:start}
     @media(max-width:960px){ .of-rep-body{grid-template-columns:1fr} }
+    /* Bancada mobile (Tarefa 3h.5, 19/08) — "cartão escuro 'Sua vez' no
+       topo" (FLUXO-OFICINA.md): abaixo de 680px a coluna direita (que
+       começa com o cartão escuro) sobe pra ANTES da esquerda — o técnico
+       vê a ação do estado sem rolar, mesmo sem restruturar o DOM (troca
+       pra flex só nessa faixa, resto do documento intacto). Alvos de
+       toque dos botões do cartão sobem pra 44px, mesmo padrão de
+       acessibilidade já usado no resto do app em mobile. */
+    @media(max-width:680px){
+      .of-rep-body{display:flex;flex-direction:column}
+      #of-rep-direita{order:-1}
+      .of-rep-dark-acts .rd-btn,.of-rep-dark-sec{min-height:44px}
+    }
     #of-rep-esquerda,#of-rep-direita{display:flex;flex-direction:column;gap:14px;min-width:0}
 
     .of-rep-chip{font-size:11px;font-weight:600;padding:5px 9px;border-radius:var(--r-xs);display:inline-block}

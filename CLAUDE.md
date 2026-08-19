@@ -283,7 +283,123 @@ no stack trace, não é código do app).
 
 sw.js: fluxa-v196 → fluxa-v197.
 
-**Próximo e último:** 3h.5 — modal de entrega (4 requisitos) + bancada mobile.
+### ✅ 3h.5 — modal de entrega (4 requisitos) + bancada mobile — FECHA A TAREFA 3h
+
+Último dos 5 commits. `migracao-oficina-entrega.sql` (aplicada e
+verificada em produção): 4 colunas aditivas em `oficina_reparos` —
+`fotos_pronto jsonb`, `o_que_foi_feito text`, `entrega_forma_pagamento
+text`, `entrega_retirado_por text` (a assinatura em si já tinha coluna
+própria desde a Fase 1c).
+
+**`abrirModalEntregaOficina(reparoId)`** — modal `.rd-modal-bg`/`.rd-modal
+rd-modal-wide` (560px, mesmo shell da Tarefa 3c/3f.4), 4 cartões de
+requisito + "Confirmar entrega" desabilitado até os 4 estarem cumpridos.
+**Cada cartão salva na hora que é preenchido** (mesmo princípio de
+diagnóstico/prazo/custo já usados no resto da ficha — nunca um rascunho
+que se perde se a pessoa fechar o modal no meio): foto sobe pro campo
+`fotos_pronto` assim que escolhida (reusa `compressImage()`, mesmo padrão
+de `carregarFotoOf`), garantia+"o que foi feito" salvam num botão
+"Salvar" próprio, forma de pagamento salva no clique do botão (Pix/
+Cartão/Dinheiro/A prazo). O modal só REFLETE o estado real do reparo a
+cada re-render — "Confirmar entrega" não grava nenhum dos 4 dados, só
+finaliza.
+
+- **Requisito 1 (foto)**: cumprido com 1+ foto em `fotos_pronto`.
+- **Requisito 2 (garantia)**: cumprido quando `o_que_foi_feito` está
+  preenchido — os meses de garantia sempre têm default (3), o que falta
+  de verdade é o texto que "usa o que foi feito" (FLUXO-OFICINA.md).
+- **Requisito 3 (pagamento)**: Pix/Cartão/Dinheiro **não geram parcela** —
+  a OS é considerada quitada na hora, como o plano pede. **A prazo** cria
+  UMA parcela em `recebimentos` (mesma tabela e mesmo princípio "1 parcela
+  à vista" já usado na migração retroativa de 15/08) — id previsível
+  (`rec_of_<orcamento_id>`), idempotente: clicar "A prazo" duas vezes não
+  duplica a parcela.
+- **Requisito 4 (assinatura+nome)**: reaproveita `abrirModalAssinaturaOficina`/
+  `confirmarAssinaturaOficina` (Fase 1c) **sem duplicar o mecanismo de
+  canvas** — só ganhou um campo de nome, condicional a `tipo==='retirada'`
+  (a assinatura de ENTRADA nunca precisou disso), gravado em
+  `entrega_retirado_por`. Bloqueia confirmar sem nome, do mesmo jeito que
+  já bloqueava sem traço no canvas. Como esse modal é uma tela própria,
+  separada da entrega — ao confirmar, verifica se `#of-entrega-modal` está
+  aberto e, se estiver, só atualiza o card de requisito (`_ofRenderEntregaModal`)
+  em vez do comportamento padrão (reabrir a ficha inteira).
+
+**`imprimirTermoOficina(id,'retirada')` enriquecida** — "um PDF só" como o
+plano pede: além do que já tinha (cliente/equipamento/avarias/assinatura),
+ganhou "O que foi feito", "Garantia até", "Pagamento" (forma + valor do
+orçamento) quando `tipo==='retirada'` — a entrada continua exatamente como
+era, esses três blocos só existem nessa direção.
+
+**Bancada mobile** — escopo ajustado ao que a arquitetura da 3h.2 já
+permite (registrado com transparência, não é lacuna silenciosa): "cartão
+escuro 'Sua vez' no topo" **implementado** — abaixo de 680px,
+`.of-rep-body` vira flex-column e `#of-rep-direita` (que começa com o
+cartão) recebe `order:-1`, subindo pra ANTES do bloco esquerdo sem
+reestruturar DOM/JS; alvos de toque dos botões do cartão sobem pra 44px.
+**Não implementado**: os atalhos de falha comum em chips e o picker de
+peças com "tem N no estoque"/"precisa comprar" + total fixo no rodapé —
+o mockup descreve um formulário de diagnóstico com peças escolhidas
+INLINE na própria ficha, mas a 3h.2 decidiu (de propósito, registrado
+naquele commit) reaproveitar o formulário de orçamento JÁ EXISTENTE pra
+isso ("+ Gerar orçamento" navega pra lá) em vez de duplicar a lógica de
+precificação/estoque numa segunda tela — construir o picker inline
+description no mock seria abrir uma segunda via de editar orçamento,
+mesma classe de risco (dado financeiro duplicado, dessincroniza) já
+evitada em outras decisões deste projeto.
+
+Testado no Browser pane (offline, `dbOk=false;db=null;`, ciclo completo
+clicando de verdade): modal abre com os 4 cartões vermelhos/pendentes,
+"Confirmar entrega" desabilitado; preenchi garantia+"o que foi feito"
+(salva, card fica azul), pagamento "Pix" (card fica azul), foto (1
+adicionada, card fica azul), assinatura — **bloqueado sem traço no
+canvas** (confirmado), **bloqueado sem nome** (confirmado, mensagem
+certa), preenchido nome "Zelador João" + traço real
+(`MouseEvent`) → confirma → modal de assinatura fecha, modal de entrega
+CONTINUA aberto e atualiza sozinho (não reabre a ficha por cima); com os
+4 cumpridos, botão habilita e a nota muda pra "Tudo certo"; "Confirmar
+entrega" → status vira `entregue`, modal fecha, PDF interceptado
+(`window.open`) confirmado com "O que foi feito"/"Pix"/"Zelador João"
+todos presentes. **Caminho "A prazo" testado à parte**: cria 1 parcela em
+`recebimentos` com valor/vencimento certos; chamado 2x de propósito —
+delta continua 1 (idempotente, não duplicou). Mobile 375px: cartão escuro
+aparece ANTES do bloco de peças/diagnóstico (`getBoundingClientRect().top`
+comparado, confirmado antes de confiar no screenshot — mesma cautela já
+documentada nesta sessão pra viewports não-triviais), modal de entrega
+sem overflow horizontal. Zero erro novo no console.
+
+sw.js: fluxa-v197 → fluxa-v198.
+
+---
+
+## 🔧 Resumo da Tarefa 3h — a ficha do reparo (fluxo da Oficina), COMPLETA (19/08)
+
+Os 5 commits fecham o pacote inteiro (`FLUXO-OFICINA.md`/
+`PLANO-3H-FICHA-REPARO.md`): **3h.1** tabela `oficina_contatos` (rastro de
+cada tentativa de contato) → **3h.2** ficha vira página própria
+(`#page-reparo`, topbar+trilha+grid, reaproveitando os `_ofFicha*Html`
+já existentes) → **3h.3** cartão escuro específico por estado (Recebido/
+Diagnóstico/Aguardando aprovação/Aguardando peça/Em reparo/Pronto/
+Entregue/Cancelado) → **3h.4** "Registrar aprovação" com as três
+consequências de verdade (aprova orçamento, reserva estoque, cria OS,
+pula peça quando não falta nada) → **3h.5** modal de entrega com os 4
+requisitos + PDF único + bancada mobile.
+
+**Duas migrações aplicadas em produção**: `migracao-oficina-contatos.sql`
+(3h.1), `migracao-oficina-entrega.sql` (3h.5). **Zero lógica de estoque
+nova escrita** — as reservas/baixas reaproveitam `sincronizarReservaOrcamento`/
+`entregarOrcamento`, já existentes e testados desde antes deste pacote.
+
+**Decisões tomadas com o Marcos antes de codar** (perguntadas via
+`AskUserQuestion` antes do 3h.1, ver início desta seção mais acima):
+técnico manda diagnóstico/valor direto ao cliente sem gate de gestor;
+garantia própria cobra mão de obra só se o defeito mudou (informado via
+badge, não automatizado — preço final sempre no orçamento).
+
+**Registrado como fora de escopo, não esquecido**: atalhos de falha comum
+em chips e picker de peças inline com total fixo no rodapé mobile (a
+ficha reaproveita o formulário de orçamento existente pra isso, decisão
+da 3h.2); "quem pode aprovar" e "recusa não toca o orçamento" continuam
+como o Marcos decidiu; `sw.js` v192→v198 ao longo do pacote inteiro.
 
 ---
 
