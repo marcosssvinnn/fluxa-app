@@ -15880,8 +15880,7 @@ function abrirMovModal(produtoId, tipo){
     ajuste:{  titulo:'⚖️ Inventário / Corrigir saldo', dica:'Use para corrigir a quantidade real após contar o estoque fisicamente.' }
   };
   const cfg=config[tipo]||config.entrada;
-  document.getElementById('mov-modal-titulo').innerHTML=
-    `<span>${cfg.titulo}</span><button onclick="fecharMovModal()" aria-label="Fechar" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;line-height:1;margin-left:auto;padding:0 4px">×</button>`;
+  document.getElementById('mov-modal-titulo').textContent=cfg.titulo;
   // Deixa explícito em QUAL unidade o movimento vai cair e qual saldo está sendo
   // comparado — no ajuste, contar contra o saldo de outra loja lança diferença errada.
   const _lm=_lojaParaMovimento();
@@ -15902,10 +15901,10 @@ function abrirMovModal(produtoId, tipo){
   document.getElementById('mov-qtd-label').textContent = tipo==='ajuste' ? 'Quantidade real contada agora' : 'Quantidade';
   const cw=document.getElementById('mov-custo-wrap'); if(cw) cw.style.display = tipo==='entrada' ? '' : 'none';
   setV('mov-custo', p.custo?String(p.custo):'');
-  document.getElementById('mov-modal').style.display='flex';
+  document.getElementById('mov-modal').classList.add('on');
   setTimeout(()=>document.getElementById('mov-qtd')?.focus(),80);
 }
-function fecharMovModal(){ document.getElementById('mov-modal').style.display='none'; }
+function fecharMovModal(){ document.getElementById('mov-modal').classList.remove('on'); }
 
 // ══════════════════════════════════════════════════════════════════════════════
 //  BAIXA RÁPIDA DE MATERIAL
@@ -16401,40 +16400,33 @@ function abrirResvModal(produtoId){
   const b=_reservaBreakdown(produtoId, loja);
   const un=esc(p.unidade||'un');
   const bate=Math.abs(b.atual-b.esperado)<0.001;
-  document.getElementById('resv-info').innerHTML=
-    `<strong style="color:var(--c2)">${esc(p.nome)}</strong><br>`+
-    `<span style="color:var(--gray)">Unidade: <strong>${esc(getLojaNome(loja)||loja)}</strong></span>`;
-  let det=`<div style="border:1px solid var(--line,#e5e7eb);border-radius:8px;padding:10px;font-size:12px">`+
-    `<div style="display:flex;justify-content:space-between;margin-bottom:4px">`+
-      `<span>Reservado registrado hoje</span>`+
-      `<strong style="color:${b.atual<0?'var(--red)':'var(--c2)'}">${fmtQtd(b.atual)} ${un}</strong></div>`+
-    `<div style="display:flex;justify-content:space-between">`+
-      `<span>Pelos orçamentos aprovados</span><strong style="color:var(--c2)">${fmtQtd(b.esperado)} ${un}</strong></div>`;
+  document.getElementById('resv-info').textContent=`${p.nome} · ${getLojaNome(loja)||loja}`;
+  // Bloco .rd-modal-detail (3f.4, 18/08) — pares rótulo/valor, mesmo shell
+  // que confirmar() já usa; os orçamentos individuais entram como linhas
+  // menores dentro do mesmo bloco, e a linha de status (bate/diverge/
+  // negativo) fecha como texto livre — não é um par rótulo/valor.
+  let det=`<div class="rd-modal-detail-row"><span>Reservado registrado hoje</span><span style="color:${b.atual<0?'var(--bad,#9C3A2E)':''}">${fmtQtd(b.atual)} ${un}</span></div>`+
+    `<div class="rd-modal-detail-row"><span>Pelos orçamentos aprovados</span><span>${fmtQtd(b.esperado)} ${un}</span></div>`;
   if(b.abertos.length){
-    det+=`<div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--line,#e5e7eb)">`+
-      b.abertos.map(o=>`<div style="display:flex;justify-content:space-between;color:var(--gray)">`+
-        `<span>#${esc(String(o.numero||'?'))} · ${esc(String(o.cliente).slice(0,26))}</span>`+
-        `<span>${fmtQtd(o.qtd)} ${un}</span></div>`).join('')+`</div>`;
+    det+=b.abertos.map(o=>`<div class="rd-modal-detail-row" style="font-size:11.5px"><span>#${esc(String(o.numero||'?'))} · ${esc(String(o.cliente).slice(0,26))}</span><span style="font-weight:500">${fmtQtd(o.qtd)} ${un}</span></div>`).join('');
   } else {
-    det+=`<div style="margin-top:6px;color:var(--gray)">Nenhum orçamento aprovado pendente com este produto.</div>`;
+    det+=`<div style="font-size:12px;color:#6B7686">Nenhum orçamento aprovado pendente com este produto.</div>`;
   }
   if(Math.abs(b.manual)>0.001)
-    det+=`<div style="margin-top:6px;color:var(--gray)">Inclui ${fmtQtd(b.manual)} ${un} de correção manual anterior.</div>`;
+    det+=`<div style="font-size:12px;color:#6B7686">Inclui ${fmtQtd(b.manual)} ${un} de correção manual anterior.</div>`;
   if(b.atual<-0.001)
-    det+=`<div style="margin-top:8px;color:var(--red);font-weight:600">⚠️ Reserva negativa — o disponível está sendo mostrado maior do que existe.</div>`;
+    det+=`<div style="font-size:12px;color:var(--bad,#9C3A2E);font-weight:600;margin-top:2px">⚠️ Reserva negativa — o disponível está sendo mostrado maior do que existe.</div>`;
   else if(!bate)
-    det+=`<div style="margin-top:8px;color:var(--orange,#b45309)">Diferença de ${fmtQtd(b.atual-b.esperado)} ${un} em relação aos orçamentos.</div>`;
+    det+=`<div style="font-size:12px;color:var(--warn,#A6521A);margin-top:2px">Diferença de ${fmtQtd(b.atual-b.esperado)} ${un} em relação aos orçamentos.</div>`;
   else
-    det+=`<div style="margin-top:8px;color:var(--green,#15803d)">✅ Bate com os orçamentos — nada a corrigir.</div>`;
-  det+=`</div>`;
+    det+=`<div style="font-size:12px;color:var(--ok,#2F7D3A);margin-top:2px">✅ Bate com os orçamentos — nada a corrigir.</div>`;
   document.getElementById('resv-detalhe').innerHTML=det;
-  document.getElementById('resv-btn-recalc').innerHTML=
-    `↻ Usar o valor dos orçamentos (${fmtQtd(b.esperado)} ${un})`;
+  document.getElementById('resv-btn-recalc').textContent=`↻ Usar o valor dos orçamentos (${fmtQtd(b.esperado)} ${un})`;
   setV('resv-qtd', String(b.esperado)); setV('resv-motivo','');
-  document.getElementById('resv-modal').style.display='flex';
+  document.getElementById('resv-modal').classList.add('on');
   setTimeout(()=>document.getElementById('resv-motivo')?.focus(),80);
 }
-function fecharResvModal(){ document.getElementById('resv-modal').style.display='none'; }
+function fecharResvModal(){ document.getElementById('resv-modal').classList.remove('on'); }
 function resvUsarEsperado(){
   if(!_resvProdId) return;
   setV('resv-qtd', String(_reservaBreakdown(_resvProdId,_resvLoja).esperado));

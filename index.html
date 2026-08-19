@@ -2845,14 +2845,20 @@
   </div>
 </div>
 
-<div class="qr-modal-bg" id="mov-modal" style="display:none" onclick="if(event.target===this)fecharMovModal()">
-  <div class="card" style="max-width:420px;width:92%">
-    <div class="ct" id="mov-modal-titulo">Movimento <button onclick="fecharMovModal()" aria-label="Fechar" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;float:right;line-height:1">×</button></div>
-    <div id="mov-saldo-atual" style="font-size:12px;color:var(--gray);margin-bottom:10px"></div>
-    <div class="row f1"><div class="fl"><label id="mov-qtd-label">Quantidade</label><input type="text" inputmode="decimal" id="mov-qtd" placeholder="0"></div></div>
-    <div class="row f1" id="mov-custo-wrap"><div class="fl"><label>Custo por unidade (R$)</label><input type="text" inputmode="decimal" id="mov-custo" placeholder="0,00"></div></div>
-    <div class="row f1" id="mov-motivo-cod-wrap" style="display:none"><div class="fl"><label>O que aconteceu?</label>
-      <select id="mov-motivo-cod">
+<!-- Migrado pro shell .rd-modal (3f.4, 18/08) — mesmo mecanismo de
+     crm-contato-bg/receb-bg/aprov-os-bg (Tarefa 3c/14/08): classList
+     add/remove('on'), não style.display. Id do modal mantido igual
+     (mov-modal) — só a moldura mudou. -->
+<div class="rd-modal-bg" id="mov-modal" role="dialog" aria-modal="true" aria-labelledby="mov-modal-titulo" onclick="if(event.target===this)fecharMovModal()">
+  <div class="rd-modal" style="max-width:420px">
+    <div class="rd-modal-grip"></div>
+    <h3 id="mov-modal-titulo">Movimento</h3>
+    <p class="rd-modal-sub" id="mov-saldo-atual"></p>
+    <div class="rd-field"><span class="rd-field-lbl" id="mov-qtd-label">Quantidade</span><input type="text" inputmode="decimal" id="mov-qtd" class="rd-field-box" placeholder="0"></div>
+    <div class="rd-field" id="mov-custo-wrap"><span class="rd-field-lbl">Custo por unidade (R$)</span><input type="text" inputmode="decimal" id="mov-custo" class="rd-field-box" placeholder="0,00"></div>
+    <div class="rd-field" id="mov-motivo-cod-wrap" style="display:none">
+      <span class="rd-field-lbl">O que aconteceu?</span>
+      <select id="mov-motivo-cod" class="rd-field-box">
         <option value="">Selecione…</option>
         <option value="contagem">Erro de contagem</option>
         <option value="quebra">Quebra / avaria</option>
@@ -2861,23 +2867,34 @@
         <option value="furto">Furto</option>
         <option value="inventario">Inventário geral</option>
         <option value="outro">Outro</option>
-      </select></div></div>
-    <div class="row f1"><div class="fl"><label>Motivo</label><input type="text" id="mov-motivo" placeholder="opcional — ex: compra, perda, acerto de inventário"></div></div>
-    <button class="btn-primary" onclick="confirmarMovimento()" style="width:100%">Confirmar</button>
+      </select>
+    </div>
+    <div class="rd-field"><span class="rd-field-lbl">Motivo</span><input type="text" id="mov-motivo" class="rd-field-box" placeholder="opcional — ex: compra, perda, acerto de inventário"></div>
+    <div class="rd-modal-acts">
+      <button type="button" class="rd-modal-btn rd-modal-btn-nao" onclick="fecharMovModal()">Cancelar</button>
+      <button type="button" class="rd-modal-btn rd-modal-btn-sim" onclick="confirmarMovimento()">Confirmar</button>
+    </div>
   </div>
 </div>
 
 <!-- Modal: corrigir reserva (gestor) — a reserva vem dos orçamentos aprovados e
-     não tem campo editável; esta tela mostra a origem e permite acertar. -->
-<div class="qr-modal-bg" id="resv-modal" style="display:none" onclick="if(event.target===this)fecharResvModal()">
-  <div class="card" style="max-width:460px;width:92%;max-height:90vh;overflow:auto">
-    <div class="ct">Corrigir reserva <button onclick="fecharResvModal()" aria-label="Fechar" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;float:right;line-height:1">×</button></div>
-    <div id="resv-info" style="font-size:12px;color:var(--gray);margin-bottom:10px"></div>
-    <div id="resv-detalhe" style="margin-bottom:12px"></div>
-    <button class="eb eico fix" id="resv-btn-recalc" onclick="resvUsarEsperado()" style="width:100%;margin-bottom:10px">↻ Usar o valor dos orçamentos</button>
-    <div class="row f1"><div class="fl"><label>Quantidade reservada correta</label><input type="text" inputmode="decimal" id="resv-qtd" placeholder="0"></div></div>
-    <div class="row f1"><div class="fl"><label>Motivo</label><input type="text" id="resv-motivo" placeholder="ex: acerto após conferir os orçamentos"></div></div>
-    <button class="btn-primary" onclick="confirmarResv()" style="width:100%">Confirmar correção</button>
+     não tem campo editável; esta tela mostra a origem e permite acertar.
+     Migrado pro shell .rd-modal (3f.4, 18/08) — #resv-info/#resv-detalhe
+     (bloco solto com borda própria) viraram .rd-modal-sub + .rd-modal-detail
+     (pares rótulo/valor), mesmo bloco que confirmar() já usa. -->
+<div class="rd-modal-bg" id="resv-modal" role="dialog" aria-modal="true" aria-labelledby="resv-modal-titulo" onclick="if(event.target===this)fecharResvModal()">
+  <div class="rd-modal" style="max-width:460px;max-height:90vh;overflow-y:auto">
+    <div class="rd-modal-grip"></div>
+    <h3 id="resv-modal-titulo">Corrigir reserva</h3>
+    <p class="rd-modal-sub" id="resv-info"></p>
+    <div class="rd-modal-detail" id="resv-detalhe"></div>
+    <button type="button" class="rd-btn rd-btn-secondary" id="resv-btn-recalc" onclick="resvUsarEsperado()" style="width:100%">↻ Usar o valor dos orçamentos</button>
+    <div class="rd-field"><span class="rd-field-lbl">Quantidade reservada correta</span><input type="text" inputmode="decimal" id="resv-qtd" class="rd-field-box" placeholder="0"></div>
+    <div class="rd-field"><span class="rd-field-lbl">Motivo</span><input type="text" id="resv-motivo" class="rd-field-box" placeholder="ex: acerto após conferir os orçamentos"></div>
+    <div class="rd-modal-acts">
+      <button type="button" class="rd-modal-btn rd-modal-btn-nao" onclick="fecharResvModal()">Cancelar</button>
+      <button type="button" class="rd-modal-btn rd-modal-btn-sim" onclick="confirmarResv()">Confirmar correção</button>
+    </div>
   </div>
 </div>
 

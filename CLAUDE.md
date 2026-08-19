@@ -2,6 +2,71 @@
 
 ---
 
+## ✅ 3f.4 — Migrados `#mov-modal` e `#resv-modal` pro shell `.rd-modal` (18/08)
+
+Último item do índice 3f (`PLANO-3F-OFICINA.md`). Os dois nasceram depois
+da Tarefa 3c (que migrou `confirmar()`) e ficaram na pilha antiga inteira
+(`.qr-modal-bg`/`.card`/`.ct`/`.row f1`/`.fl`/`<label>`/`.btn-primary`) —
+abriam instantâneos (sem animação), com título peso 800, ao lado de modais
+que já animam com título 600 desde a Tarefa 3c/13/14/08.
+
+- **Shell**: `.qr-modal-bg`/`.card`/`.ct` → `.rd-modal-bg`/`.rd-modal`
+  (mesmo raio 14, sombra, fade+card, sheet mobile com grip). Ids dos dois
+  modais mantidos idênticos (`mov-modal`/`resv-modal`) — só a moldura
+  mudou, nenhum outro código que os referencia precisou saber da migração.
+- **Mecanismo de abrir/fechar mudou** (diferente da migração anterior, que
+  só trocava classe CSS sem tocar JS): estes dois usavam
+  `style.display='flex'/'none'`, não `classList.add/remove('on')` como o
+  shell `.rd-modal-bg` espera (`display:none` por padrão, `.on` vira
+  `display:flex`). `abrirMovModal`/`fecharMovModal`/`abrirResvModal`/
+  `fecharResvModal` atualizados para `classList`.
+- **`.row f1`/`.fl`/`<label>` → `.rd-field`/`.rd-field-lbl`/`.rd-field-box`**
+  nos dois — campo a campo, mesmo padrão já usado nos cartões da Oficina
+  desta sessão.
+- **`#mov-modal-titulo`** — antes fazia `innerHTML` com o título E um botão
+  ✕ embutido (`float:right`) porque o shell antigo não tinha X de fechar
+  próprio. O shell novo fecha por Cancelar/clique no fundo (mesmo padrão
+  de `crm-contato-bg`/`receb-bg`/`aprov-os-bg`, nenhum tem ✕ visível) —
+  virou um `<h3>` simples com `.textContent`, sem botão embutido.
+- **`#resv-info` + `#resv-detalhe` (bloco solto com borda `ad-hoc`)** viraram
+  `.rd-modal-sub` (nome do produto + unidade) + **`.rd-modal-detail`**
+  (pares rótulo/valor, mesmo bloco `#F7F9FC` que `confirmar()` já usa) —
+  exatamente o que o plano pedia. Linhas de orçamento individual entram
+  como `.rd-modal-detail-row` menores dentro do mesmo bloco; a linha de
+  status final (bate/diverge/negativo) é texto livre, não um par rótulo/
+  valor, então ficou fora do formato de linha — mas dentro do mesmo bloco.
+- **`resv-btn-recalc`** (`.eb.eico.fix`, sistema antigo) → `.rd-btn
+  rd-btn-secondary`, full width, mesmo comportamento (`resvUsarEsperado()`
+  inalterada).
+- **Botões finais**: `.btn-primary` solto → `.rd-modal-acts` com
+  `.rd-modal-btn-nao`/`.rd-modal-btn-sim`, mesmo par Cancelar/Confirmar
+  dos outros 3 modais já migrados.
+
+Nenhuma lógica de negócio tocada — `confirmarMovimento()`, `confirmarResv()`
+e `resvUsarEsperado()` só leem `gV()`/`setV()` dos mesmos ids, que
+continuam existindo nos mesmos lugares.
+
+Testado no Browser pane (offline após a 1ª rodada — achado no processo:
+`dbOk` estava `true` por padrão no boot desta sessão de teste, e uma
+sincronização real sobrescreveu o produto sintético que eu tinha criado à
+mão antes de eu perceber — mesma classe de armadilha já documentada várias
+vezes neste arquivo; sem risco real, foi só leitura, nenhum `confirmar*()`
+chegou a ser clicado nessa janela. Corrigido setando `dbOk=false;db=null`
+e testando com produto real da base carregada): `abrirMovModal` nos 3 tipos
+(entrada/saída/ajuste — campo "O que aconteceu?" aparecendo só no ajuste);
+`abrirResvModal` com o bloco de detalhe completo (reservado/esperado/lista
+de orçamentos/linha de status), botão "Usar valor dos orçamentos"; os dois
+fechando por Cancelar e por `classList.remove('on')`; sheet mobile (375px)
+com grip, ancorada no rodapé, sem overflow. Zero erro novo no console.
+
+sw.js: fluxa-v188 → fluxa-v189.
+
+**Com isso, o pacote 3f do handoff (`PLANO-3F-OFICINA.md`) está fechado
+por completo**: 3f.1 (emojis→SVG), 3f.2 (topbar/chips/cartão escuro),
+3f.3 (recepção em 3 cartões), 3f.4 (migração dos 2 modais restantes).
+
+---
+
 ## ✅ 3f.3 — Recepção: três cartões em vez de um (18/08)
 
 Quarto item do índice (`PLANO-3F-OFICINA.md`). A tela cheia e o `.vb-topbar`
