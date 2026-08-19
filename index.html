@@ -761,6 +761,12 @@
          app.js); em "Novo orçamento" fica oculta, só o .novo-orc-topbar
          abaixo aparece, como sempre foi. -->
     <div id="form-topbar-unificada" class="of-rep-topbar" style="display:none;border-radius:var(--r-lg);margin-bottom:14px"></div>
+    <!-- Trilha de 6 nós (Tarefa 3i.5, 19/08) — Enviado → Negociado →
+         Aprovado → OS → Relatório → Recebido, o ciclo inteiro numa linha
+         (DIAGNOSTICO-ORCAMENTOS.md, "problema 2": hoje está partido em 3
+         telas que não se referenciam). Reaproveita .of-rep-trilha (mesma
+         classe da Oficina). Só aparece editando um orçamento existente. -->
+    <div id="form-trilha" class="of-rep-trilha" style="display:none;border-radius:var(--r-lg);margin-bottom:14px"></div>
 
     <!-- Barra superior (Fase 6, 13/08) — título do orçamento + indicador de
          rascunho automático (draft-indicator já existia, só mudou de lugar)
@@ -975,6 +981,17 @@
         </div>
       </div>
     </div>
+
+    <!-- "Como este orçamento andou" (3i.5) — mistura contato + eventos de
+         OS na mesma linha do tempo, de propósito: a pergunta é "o que
+         aconteceu com este negócio", não "listar os contatos" separado do
+         "listar as OS" (DIAGNOSTICO-ORCAMENTOS.md). Reaproveita
+         .of-rep-timeline (mesma classe da Oficina). Só aparece editando um
+         orçamento existente com pelo menos 1 evento. -->
+    <div class="card" id="form-como-andou-card" style="display:none">
+      <div class="ct">Como este orçamento andou</div>
+      <div class="of-rep-timeline" id="form-como-andou"></div>
+    </div>
     </div><!-- /novo-orc-left -->
 
     <!-- Prévia do PDF (Fase 6, 13/08) — folha em miniatura que atualiza a
@@ -983,6 +1000,13 @@
          de texto que já existia (txtWA()/gerarPrev()) — só mudou de
          endereço, saiu do fim da coluna esquerda pra cá. -->
     <div class="novo-orc-right">
+      <!-- Cartão de estado da OS (3i.5) — substitui o antigo botão que só
+           alternava "Gerar OS"/"OS#NNN" (DIAGNOSTICO-ORCAMENTOS.md,
+           "problema 2": "isso responde SE existe, e nada além"). Fica
+           ACIMA da prévia — não cede o espaço dela (a prévia continua
+           "a melhor coisa da tela", não mexida); só aparece quando há
+           algo real pra mostrar (orçamento aprovado). -->
+      <div id="form-cartao-os" style="display:none;margin-bottom:14px"></div>
       <div class="novo-orc-prev-hdr">
         <span class="novo-orc-prev-lbl">Prévia do PDF</span>
         <div class="ins-period">

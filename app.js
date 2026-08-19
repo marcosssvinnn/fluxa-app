@@ -3225,6 +3225,7 @@ function _limparCamposOrc(){
   const osf=document.getElementById('os-inline-fields'); if(osf) osf.style.display='none';
   ['os-inline-data','os-inline-hora','os-inline-tec'].forEach(id=>{const el=document.getElementById(id);if(el){el.value=id==='os-inline-hora'?'08:00':'';}});
   _renderFormTopoUnificado(null);
+  _renderFormEstadoOS(null);
   setV_el('novo-orc-titulo','Novo orçamento','textContent');
 }
 function novoOrc(){
@@ -6349,6 +6350,143 @@ function _orcExecucao(o){
 function _orcAprovadosSemOS(){
   return filtrarPorLoja(todosOrc||[]).filter(o=>o.status==='aprovado' && !(todosOS||[]).some(x=>String(x.orcamento_id)===String(o.id)));
 }
+// ── OS mais recente vinculada a um orçamento (3i.5) — um orçamento pode,
+// em tese, ter mais de uma OS (segunda visita, retrabalho); a mais recente
+// é a que representa "a execução deste orçamento" agora.
+function _orcOSVinculadaAtual(o){
+  const lista=(todosOS||[]).filter(x=>String(x.orcamento_id)===String(o.id));
+  return lista.length ? lista.slice().sort((a,b)=>String(b.data_criacao||'').localeCompare(String(a.data_criacao||'')))[0] : null;
+}
+// Trilha de 6 nós (3i.5) — Enviado → Negociado → Aprovado → OS → Relatório
+// → Recebido, o ciclo inteiro numa linha (hoje partido em 3 telas que não
+// se referenciam, DIAGNOSTICO-ORCAMENTOS.md "problema 2").
+function _orcTrilhaNos(o){
+  const ddmm=iso=>iso?_dataBR(String(iso).slice(0,10)).slice(0,5):'';
+  if(o.status==='recusado'){
+    return [
+      {label:'Enviado', data:ddmm(o.data_criacao), estado:'done'},
+      {label:'Negociado', estado:'done'},
+      {label:'Recusado', data:ddmm(o.data_aprovacao||o.data_criacao), estado:'cancel'},
+      {label:'OS', estado:'futuro'},
+      {label:'Relatório', estado:'novo'},
+      {label:'Recebido', estado:'futuro'}
+    ];
+  }
+  const temContato=Array.isArray(o.crm_notas)&&o.crm_notas.length>0;
+  const aprovado=o.status==='aprovado';
+  const os=_orcOSVinculadaAtual(o);
+  const temRelatorio=!!(os&&os.relatorio_enviado_em);
+  const saldo=(typeof _orcSaldoAReceber==='function')?_orcSaldoAReceber(o):null;
+  const recebido=aprovado && saldo!=null && saldo<=0.005;
+  let idxAtual=0;
+  if(temContato) idxAtual=1;
+  if(aprovado) idxAtual=2;
+  if(aprovado&&os) idxAtual=3;
+  if(temRelatorio) idxAtual=4;
+  if(recebido) idxAtual=6;
+  const nos=[
+    {label:'Enviado', data:ddmm(o.data_criacao)},
+    {label:'Negociado', data:temContato?(o.crm_notas.length+' contato'+(o.crm_notas.length!==1?'s':'')):''},
+    {label:'Aprovado', data:aprovado?ddmm(o.data_aprovacao):''},
+    {label:os?('OS '+'#'+String(os.numero||'').padStart(3,'0')):'OS', data:os&&os.checkin_time&&!os.checkout_time?'em campo':os?(os.status==='concluido'?'concluída':'agendada'):''},
+    {label:'Relatório', data:temRelatorio?ddmm(os.relatorio_enviado_em):''},
+    {label:'Recebido', data:''}
+  ];
+  return nos.map((n,i)=>({
+    label:n.label, data:n.data,
+    estado: i<idxAtual?'done' : i===idxAtual?'atual' : (i===4?'novo':'futuro')
+  }));
+}
+// Cartão de estado da OS (3i.5) — substitui o antigo botão "Gerar OS"/
+// "OS#NNN" (só respondia SE existe). null quando não há nada real a
+// mostrar (orçamento nem aprovado ainda — a ação relevante aí é aprovar,
+// não agendar OS).
+function _orcCartaoOS(o){
+  if(o.status!=='aprovado') return null;
+  const os=_orcOSVinculadaAtual(o);
+  if(!os){
+    const dias=o.data_aprovacao?Math.max(0,Math.floor((Date.now()-new Date(o.data_aprovacao).getTime())/86400000)):0;
+    return _renderCartaoEstado({
+      label:'A execução deste orçamento',
+      valor:'Sem OS agendada',
+      sub:'aprovado há '+dias+' dia'+(dias!==1?'s':''),
+      primaria:{label:'Agendar a execução', onclick:`gerarOS_deOrc('${o.id}')`},
+      nota:'Vendido e ainda no papel — sem OS, o serviço não sai do lugar.'
+    });
+  }
+  const numOS='#'+String(os.numero||'').padStart(3,'0');
+  if(os.status==='concluido'){
+    return _renderCartaoEstado({
+      label:'A execução deste orçamento',
+      valor:'OS '+numOS+' concluída',
+      sub:os.data_servico?_dataBR(os.data_servico):'',
+      primaria:{label:'Abrir OS '+numOS, onclick:`verDetalhesOS('${os.id}')`}
+    });
+  }
+  if(os.checkin_time && !os.checkout_time){
+    const min=Math.max(0,Math.floor((Date.now()-new Date(os.checkin_time).getTime())/60000));
+    const hh=String(Math.floor(min/60)).padStart(2,'0'), mm=String(min%60).padStart(2,'0');
+    return _renderCartaoEstado({
+      label:'A execução deste orçamento', timer:hh+':'+mm,
+      valor:numOS+' · em campo',
+      sub:(os.tecnico?os.tecnico+' está no local':'Técnico está no local'),
+      primaria:{label:'Abrir OS '+numOS, onclick:`verDetalhesOS('${os.id}')`}
+    });
+  }
+  return _renderCartaoEstado({
+    label:'A execução deste orçamento',
+    valor:'OS '+numOS+' agendada',
+    sub:(os.data_servico?_dataBR(os.data_servico):'')+(os.hora?' às '+os.hora:''),
+    primaria:{label:'Abrir OS '+numOS, onclick:`verDetalhesOS('${os.id}')`}
+  });
+}
+// "Como este orçamento andou" (3i.5) — mistura contato + eventos de OS na
+// mesma linha do tempo, de propósito: a pergunta é "o que aconteceu com
+// este negócio", não duas listas separadas.
+function _orcComoAndou(o){
+  const ev=[];
+  if(o.data_criacao) ev.push({titulo:'Orçamento emitido', meta:_dataBR(String(o.data_criacao).slice(0,10)), data:o.data_criacao});
+  (Array.isArray(o.crm_notas)?o.crm_notas:[]).forEach(n=>{
+    const rot={enviado:'Contato — enviado',sem_resposta:'Contato — sem resposta',assembleia:'Vai pra assembleia',perdido:'Marcado como perdido'}[n.resultado]||'Contato registrado';
+    ev.push({titulo:rot+(n.texto?': '+n.texto.slice(0,70):''), meta:_dataBR(String(n.em||'').slice(0,10))+(n.por?' · '+n.por:''), data:n.em});
+  });
+  if(o.data_aprovacao) ev.push({titulo:'Aprovado', meta:_dataBR(String(o.data_aprovacao).slice(0,10)), data:o.data_aprovacao, warn:false});
+  if(o.status==='recusado') ev.push({titulo:'Recusado'+(o.motivo_perda?' — '+o.motivo_perda:''), meta:_dataBR(String(o.data_aprovacao||o.data_criacao||'').slice(0,10)), data:o.data_aprovacao||o.data_criacao, warn:true});
+  (todosOS||[]).filter(x=>String(x.orcamento_id)===String(o.id)).forEach(os=>{
+    const numOS='#'+String(os.numero||'').padStart(3,'0');
+    if(os.data_criacao) ev.push({titulo:'OS '+numOS+' criada'+(os.data_servico?' · agendada '+_dataBR(os.data_servico):''), meta:_dataBR(String(os.data_criacao).slice(0,10)), data:os.data_criacao});
+    if(os.checkin_time) ev.push({titulo:'Técnico chegou ao local', meta:_dataBR(String(os.checkin_time).slice(0,10))+' '+String(os.checkin_time).slice(11,16), data:os.checkin_time});
+    if(os.checkout_time) ev.push({titulo:'OS '+numOS+' concluída', meta:_dataBR(String(os.checkout_time).slice(0,10))+' '+String(os.checkout_time).slice(11,16), data:os.checkout_time});
+  });
+  return ev.filter(e=>e.data).sort((a,b)=>String(b.data).localeCompare(String(a.data)));
+}
+// Junta trilha + cartão de estado + "como andou" — chamada de abrirOrc().
+// Some tudo em "Novo orçamento" (sem editId), igual à barra unificada.
+function _renderFormEstadoOS(o){
+  const trilhaEl=document.getElementById('form-trilha');
+  const cartaoEl=document.getElementById('form-cartao-os');
+  const andouCard=document.getElementById('form-como-andou-card');
+  const andouEl=document.getElementById('form-como-andou');
+  if(!o){
+    if(trilhaEl){ trilhaEl.style.display='none'; trilhaEl.innerHTML=''; }
+    if(cartaoEl){ cartaoEl.style.display='none'; cartaoEl.innerHTML=''; }
+    if(andouCard) andouCard.style.display='none';
+    return;
+  }
+  if(trilhaEl){ trilhaEl.innerHTML=_renderTrilhaEstados(_orcTrilhaNos(o)); trilhaEl.style.display='flex'; }
+  const cartaoHtml=_orcCartaoOS(o);
+  if(cartaoEl){
+    if(cartaoHtml){ cartaoEl.innerHTML=cartaoHtml; cartaoEl.style.display='block'; }
+    else{ cartaoEl.innerHTML=''; cartaoEl.style.display='none'; }
+  }
+  const eventos=_orcComoAndou(o);
+  if(andouCard && andouEl){
+    if(eventos.length){
+      andouEl.innerHTML=eventos.map(e=>`<div class="of-rep-tl-item"><span class="of-rep-tl-dot${e.warn?' warn':''}"></span><div><div class="of-rep-tl-titulo">${esc(e.titulo)}</div><div class="of-rep-tl-meta">${esc(e.meta)}</div></div></div>`).join('');
+      andouCard.style.display='block';
+    } else { andouCard.style.display='none'; }
+  }
+}
 // Etapa 7 do roadmap de CRM (14/08) — sinal de "há quanto tempo sem NENHUM
 // contato registrado", diferente de _orcProximaAcao (que é o que fazer
 // DEPOIS). O baseline de atribuição (docs/crm-baseline-atribuicao-2026-08-
@@ -6786,6 +6924,7 @@ function abrirOrc(id){
   renderSvcs(); upd(); go('form');
   setV_el('novo-orc-titulo','Orçamento #'+String(o.numero).padStart(3,'0'),'textContent');
   _renderFormTopoUnificado(o);
+  _renderFormEstadoOS(o);
   _orcMobileStep=1; _orcApplyMobileStep();
   toast('✏️ Editando Orçamento #'+String(o.numero).padStart(3,'0'));
 }
@@ -6837,6 +6976,7 @@ function duplicarOrc(id){
   // isto, "Duplicar" a partir da própria barra deixava os botões do
   // orçamento velho na tela de um rascunho novo.
   _renderFormTopoUnificado(null);
+  _renderFormEstadoOS(null);
   setV_el('novo-orc-titulo','Novo orçamento','textContent');
   _orcMobileStep=1; _orcApplyMobileStep();
   toast('📋 Orçamento duplicado — edite e salve como novo');

@@ -196,6 +196,56 @@ Zero erro novo no console.
 
 sw.js: fluxa-v208 → fluxa-v209.
 
+### ✅ 3i.5 — Orçamento: a OS como estado, não como botão
+
+**Escopo ajustado deliberadamente**, registrado com transparência: o
+mockup (turno 12a) mostra a coluna esquerda inteira virando um resumo
+travado ("Serviços orçados" só-leitura + "Como este orçamento andou") no
+lugar do formulário editável quando aprovado, e a prévia do PDF cedendo
+espaço pro cartão de estado. **Não fiz essa troca** — desabilitar o
+formulário de edição pra orçamento aprovado é mudança de comportamento
+grande demais pra decidir sozinho (Revisar preço/serviço depois de
+aprovar é caso real, e a prévia do PDF é "a melhor coisa da tela",
+propositalmente marcada como não mexer). Implementei as 3 peças de valor
+real do commit **como adição, não substituição** — zero risco pro
+formulário existente:
+
+- **Trilha de 6 nós** (Enviado → Negociado → Aprovado → OS → Relatório →
+  Recebido) logo abaixo da barra unificada (3i.4). `_orcTrilhaNos(o)`
+  deriva o nó atual de sinais que já existem (crm_notas, data_aprovacao,
+  OS vinculada, `_orcSaldoAReceber`) — "Relatório" sempre nasce tracejado
+  (`estado:'novo'`, mesmo tratamento do 3i.1) porque a 3i.8 ainda não
+  existe; "Recusado" substitui o nó "Aprovado" com a cor de cancelamento
+  (`.of-rep-no-dot.cancel`, já existia, reaproveitado) — recusa é saída
+  lateral, não um nó a mais na sequência linear.
+- **Cartão de estado da OS** (`_orcCartaoOS`, reusa `_renderCartaoEstado`
+  de 3i.1) — só aparece quando aprovado (sem OS = "Agendar a execução";
+  agendada = "Abrir OS #NNN"; em campo = cronômetro + técnico; concluída =
+  data). Fica **acima** da prévia do PDF, não no lugar dela.
+- **"Como este orçamento andou"** (`_orcComoAndou`) — card novo no fim da
+  coluna esquerda, junta `crm_notas` + marcos da OS (criada, chegada do
+  técnico, concluída) numa timeline só, mais recente primeiro. Mistura de
+  propósito: a pergunta é "o que aconteceu com este negócio", não duas
+  listas separadas.
+
+As 3 peças reaproveitam `.of-rep-trilha`/`.of-rep-dark`/`.of-rep-timeline`
+(mesmas classes já usadas por Oficina e pelos 3i.1-3i.4 anteriores) —
+zero CSS novo neste commit.
+
+Testado no Browser pane (offline, `dbOk=false;db=null;`, porta nova):
+orçamento aprovado com OS em campo — trilha com 3 nós verdes + 1 azul
+atual + 1 tracejado + 1 futuro, cartão escuro "#212 · em campo /
+Marcos G. está no local / 00:42 / Abrir OS #212" acima da prévia (prévia
+intacta, testada renderizando normalmente do lado), timeline com os 5
+eventos em ordem cronológica correta; orçamento recusado — trilha com nó
+"Recusado" na cor de cancelamento, cartão de OS corretamente ausente
+(`display:none`, só aparece quando aprovado); `novoOrc()` — os 3 elementos
+somem, zero regressão. 390px sem overflow (a trilha rola por dentro de si
+mesma, `.of-rep-trilha` já tinha `overflow-x:auto` desde a Oficina). Zero
+erro novo no console.
+
+sw.js: fluxa-v209 → fluxa-v210.
+
 ---
 
 ## 🔴 OS saindo duplicada — causa raiz achada e corrigida em 2 pontos (19/08)
