@@ -14952,24 +14952,47 @@ function _entregarPelaOS(osId){
 // clique (mesmo padrão do aviso de item sem vínculo de estoque em mudarSt).
 function concluirOSHistorico(osId){
   const osAtual=_acharOS(osId);
-  let fotosAtual=osAtual?.fotos;
+  // Achado 19/08: o botão "Concluir" da barra de ações (topo do formulário
+  // de edição) chama esta MESMA função do atalho de 1 toque (Minhas OS) —
+  // mas lia só o registro já salvo, nunca os campos do formulário aberto na
+  // tela. Um técnico que preenchia obs/material/foto e clicava "Concluir"
+  // sem antes clicar "Salvar OS" tinha tudo descartado em silêncio, sem
+  // aviso — reproduzido e confirmado. Se a OS sendo concluída é a mesma
+  // aberta no formulário agora (osEditId===osId), captura os campos AO VIVO
+  // (mesmo padrão de gerarOSPDF/_fazerCheckoutConfirmado) e salva junto.
+  const formAberto = typeof osEditId!=='undefined' && osEditId===osId;
+  const extra = formAberto ? {
+    cliente: gV('os-cli')||osAtual?.cliente,
+    local_servico: gV('os-loc')||osAtual?.local_servico,
+    tecnico: gV('os-tec')||osAtual?.tecnico,
+    total: parseFloat(gV('os-total'))||osAtual?.total||0,
+    servicos: (osSvcs||[]).filter(s=>s.d.trim()).map(s=>s.d.trim()),
+    obs_tecnica: gV('os-obs')||'',
+    materiais: _osMatTextoFinal(),
+    fotos: (osFotos||[]).filter(Boolean),
+    video_link: gV('os-video-link')||null,
+    checklist: (osChecklist||[]).filter(x=>x.checked).length ? JSON.stringify((osChecklist||[]).filter(x=>x.checked)) : null
+  } : null;
+  let fotosAtual = extra ? extra.fotos : osAtual?.fotos;
   if(typeof fotosAtual==='string'){ try{ fotosAtual=JSON.parse(fotosAtual||'[]'); }catch(e){ fotosAtual=[]; } }
-  const semDetalhes = osAtual && !(osAtual.obs_tecnica||'').trim() && !(osAtual.materiais||'').trim() && !(Array.isArray(fotosAtual)&&fotosAtual.filter(Boolean).length);
+  const obsCheck = extra ? extra.obs_tecnica : osAtual?.obs_tecnica;
+  const matCheck = extra ? extra.materiais : osAtual?.materiais;
+  const semDetalhes = osAtual && !(obsCheck||'').trim() && !(matCheck||'').trim() && !(Array.isArray(fotosAtual)&&fotosAtual.filter(Boolean).length);
   const msg = semDetalhes
     ? 'Esta OS não tem nenhuma observação, material ou foto registrada — vai ficar marcada como concluída em branco.\n\nPara preencher, abra a OS em vez de usar este atalho. Concluir mesmo assim?'
     : 'Marcar OS como concluída?\n\nIsso registrará a baixa de estoque automaticamente se houver orçamento vinculado.';
   confirmar(msg, ()=>{
-    // Atualiza status local
+    // Atualiza status local (+ campos capturados do formulário, se aberto)
     const idx=todosOS.findIndex(x=>x.id===osId);
-    if(idx>=0) todosOS[idx].status='concluido';
+    if(idx>=0) todosOS[idx]={...todosOS[idx], ...(extra||{}), status:'concluido'};
     try{
       const lista=JSON.parse(ls('fluxa_os_hist')||'[]');
       const i=lista.findIndex(x=>x.id===osId);
-      if(i>=0){ lista[i].status='concluido'; lsSet('fluxa_os_hist',JSON.stringify(lista.slice(0,200))); }
+      if(i>=0){ lista[i]={...lista[i], ...(extra||{}), status:'concluido'}; lsSet('fluxa_os_hist',JSON.stringify(lista.slice(0,200))); }
     }catch(e){ console.warn('[concluirOSHistorico local]',e?.message||e); }
     // Sync banco
     if(dbOk&&db&&!String(osId).startsWith('local_'))
-      dbUpdate('ordens_servico',{status:'concluido'},'id',osId).catch(e=>console.warn('[concluirOS sync]',e?.message||e));
+      dbUpdate('ordens_servico',{...(extra||{}),status:'concluido'},'id',osId).catch(e=>console.warn('[concluirOS sync]',e?.message||e));
     // Baixa de estoque automática
     _entregarPelaOS(osId);
     const os=_acharOS(osId);
@@ -14979,6 +15002,10 @@ function concluirOSHistorico(osId){
     renderOSTabela();
     // Atualiza também a lista do técnico (Minhas OS) quando concluído pelo campo
     if(document.getElementById('page-minhas-os')?.classList.contains('on')) loadMinhasOS();
+    // Formulário continua aberto na mesma OS agora concluída — atualiza a
+    // barra de ações/badge na hora (senão mostrava "Agendada" e o botão
+    // "Concluir" continuava lá, como se nada tivesse acontecido).
+    if(formAberto) _renderOSAcoesEdit(os);
     _toastOSConcluida(os);
   }, 'Concluir OS');
 }

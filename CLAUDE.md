@@ -2,6 +2,73 @@
 
 ---
 
+## 🔴 OS — botão "Concluir" descartava em silêncio o que o técnico tinha acabado de digitar (19/08)
+
+Marcos relatou desconfiança geral no fluxo de OS ("parece bagunçado... preciso
+verificar se os botões estão funcionando"). Investiguei o código antes de
+mexer e **reproduzi um bug real e sério**, não só confusão de UX.
+
+**Causa raiz:** o botão **"Concluir"** que aparece no topo do formulário de
+edição de OS (`os-acoes-edit`, `_renderOSAcoesEdit`) chama
+`concluirOSHistorico(id)` — a MESMA função do atalho de 1 toque em "Minhas
+OS" (pensado pra quem NUNCA abriu a OS, só quer marcar pronto rapidinho).
+Essa função sempre leu o **registro já salvo no banco/cache**, nunca os
+campos do formulário aberto na tela. Resultado: um técnico preenchendo
+observação técnica, material usado, foto — e clicando "Concluir" (o botão
+primário, destacado em azul, bem no topo) **antes** de rolar até o fim da
+tela e clicar "Salvar OS" — tinha tudo descartado em silêncio, sem aviso
+nenhum. A OS ficava marcada como concluída, mas vazia.
+
+**Reproduzido e confirmado** (offline, `dbOk=false;db=null;`, OS sintética
+aberta via `editarOS()`): preenchi observação + material no formulário,
+cliquei "Concluir" sem salvar antes — status virou `concluido`, mas
+`obs_tecnica`/`materiais` continuaram vazios no registro. Bate exatamente
+com o que o Marcos descreveu.
+
+**Corrigido**: `concluirOSHistorico(osId)` agora checa se a OS sendo
+concluída é a mesma aberta no formulário (`osEditId===osId`) — se for,
+captura os campos AO VIVO da tela (mesmo padrão já usado por
+`gerarOSPDF`/`_fazerCheckoutConfirmado`: cliente, local, técnico, total,
+serviços, obs, materiais, fotos, vídeo, checklist marcado) e salva junto com
+o status. Se a OS NÃO está aberta no formulário (o atalho de 1 toque de
+"Minhas OS", uso original da função), o comportamento é **idêntico ao de
+antes** — lê o registro já salvo, sem regressão. A barra de ações
+(`_renderOSAcoesEdit`) também é re-renderizada na hora — o badge muda pra
+"Concluída" e o botão "Concluir" some, sem precisar sair e voltar pra ver.
+
+**Retestado com o fix**: mesmo cenário (preencher sem salvar → Concluir) —
+agora `obs_tecnica`/`materiais` persistem corretos; cenário do atalho de
+lista (sem formulário aberto) continua preservando o que já estava salvo,
+mensagem de aviso "sem detalhes" continua disparando certo quando realmente
+não há nada. Zero erro novo no console.
+
+sw.js: fluxa-v202 → fluxa-v203.
+
+### 🗺️ Mapa do fluxo Orçamento → OS (achado, não mexido — pra decidir com o Marcos)
+
+Existem **3 lugares diferentes** que oferecem "gerar OS" a partir de um
+orçamento, cada um num momento distinto do ciclo de vida — não é bug, mas
+é a origem real da sensação de bagunça:
+
+1. **No próprio formulário de Novo Orçamento** — card "📋 Gerar Ordem de
+   Serviço junto" (toggle `#toggle-os`): decide ANTES de gerar o PDF que
+   quer criar OS+ORC juntos.
+2. **Modal automático depois de aprovar** (`_perguntarCriarOS`, disparado
+   por `mudarSt`/aprovação no portal): "Deseja agendar uma OS?" — cria a OS
+   direto, sem abrir formulário nenhum (só data/hora/técnico).
+3. **Botão "Gerar OS" na barra de ações do orçamento já aberto**
+   (`gerarOS_deOrc`, `_renderFormAcoesEdit`): navega pro formulário completo
+   de OS, pré-preenchido — vira "OS#NNN" assim que existe uma vinculada.
+
+Os 3 têm proteção contra duplicar (checam se já existe OS pro orçamento
+antes de criar outra) — não é o mesmo bug do Dom Carlos (14/08, já
+corrigido). Mas são 3 portas de entrada genuinamente diferentes pro mesmo
+resultado, em 3 momentos diferentes da tela — fica registrado pra decidir
+com o Marcos se vale simplificar/unificar, ou só deixar mais claro qual usar
+quando.
+
+---
+
 ## 🔧 OS — foto/vídeo só abria a câmera, sem opção de galeria (19/08)
 
 Marcos relatou testando uma OS real (Edifício Infinity Coast Residence): ao
