@@ -385,7 +385,11 @@
       <button onclick="go('form')" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:13px;font-weight:600;font-family:'Instrument Sans',sans-serif;display:flex;align-items:center;gap:5px">← Voltar</button>
       <span style="font-size:18px;font-weight:800;color:var(--c2)">🔌 Banco de Dados</span>
     </div>
-    <div class="card" style="margin-top:8px">
+    <!-- Assistente de conexão inicial — visto só uma vez, ao configurar uma
+         empresa nova do zero. .setup-h/.steps ficam como estão de propósito
+         (componente próprio de onboarding numerado, não o par .card/.ct
+         compartilhado) — só a moldura e os 2 campos finais migraram. -->
+    <div class="rd-card" style="margin-top:8px">
       <div class="setup-h">
         <h1>Conectar Banco de Dados</h1>
         <p>Use o Supabase (gratuito) para salvar tudo na nuvem e acessar de qualquer dispositivo.</p>
@@ -398,9 +402,9 @@
         </div></div>
         <div class="step"><div class="sn">4</div><div class="sb"><strong>Cole URL e chave anon abaixo</strong><p>Project Settings → API Keys → copie a <b>Project URL</b> e a chave <b>anon public</b>.</p></div></div>
       </div>
-      <div class="fl" style="margin-bottom:12px"><label>Project URL</label><input type="url" id="sb-url" placeholder="https://xxxxx.supabase.co"></div>
-      <div class="fl" style="margin-bottom:16px"><label>Anon Public Key</label><input type="text" id="sb-key" placeholder="eyJhbGciOiJIUzI1NiIs…"></div>
-      <button class="btn-primary" onclick="salvarBD()" id="btn-bd">Conectar e Salvar</button>
+      <div class="rd-field" style="margin-bottom:12px"><span class="rd-field-lbl">Project URL</span><input type="url" class="rd-field-box" id="sb-url" placeholder="https://xxxxx.supabase.co"></div>
+      <div class="rd-field" style="margin-bottom:16px"><span class="rd-field-lbl">Anon Public Key</span><input type="text" class="rd-field-box" id="sb-key" placeholder="eyJhbGciOiJIUzI1NiIs…"></div>
+      <button type="button" class="rd-btn rd-btn-primary" onclick="salvarBD()" id="btn-bd">Conectar e Salvar</button>
       <p id="bd-msg" style="margin-top:10px;font-size:13px;text-align:center;min-height:18px"></p>
     </div>
   </div>
@@ -409,42 +413,42 @@
 <!-- ══ PAGE: EMPRESA ══ -->
 <div class="page" id="page-empresa">
   <div class="wrap" style="max-width:660px">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;padding-top:8px">
-      <button onclick="go('form')" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:13px;font-weight:600;font-family:'Instrument Sans',sans-serif;display:flex;align-items:center;gap:5px">← Voltar</button>
-      <span style="font-size:18px;font-weight:800;color:var(--c2)">⚙️ Configurações da Empresa</span>
+    <button class="btn-voltar" onclick="go('form')">← Voltar</button>
+    <div class="novo-orc-topbar">
+      <div class="novo-orc-titulo">Configurações da Empresa</div>
     </div>
-    <div class="card">
-      <div class="ct">Identidade da Empresa</div>
+    <div class="rd-card">
+      <div class="rd-card-title" style="margin-bottom:12px">Identidade da Empresa</div>
 
       <div class="row">
-        <div class="fl"><label>Nome da Empresa</label><input type="text" id="cfg-nome" placeholder="Ex: Fluxa Piscinas" oninput="previewCfg()"></div>
-        <div class="fl"><label>Subtítulo / Segmento</label><input type="text" id="cfg-sub" placeholder="Ex: Manutenção de Piscinas" oninput="previewCfg()"></div>
+        <div class="rd-field"><span class="rd-field-lbl">Nome da Empresa</span><input type="text" class="rd-field-box" id="cfg-nome" placeholder="Ex: Fluxa Piscinas" oninput="previewCfg()"></div>
+        <div class="rd-field"><span class="rd-field-lbl">Subtítulo / Segmento</span><input type="text" class="rd-field-box" id="cfg-sub" placeholder="Ex: Manutenção de Piscinas" oninput="previewCfg()"></div>
       </div>
       <div class="row f1">
-        <div class="fl"><label>Slogan / Tagline <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--gray)">(opcional — aparece no cabeçalho do PDF)</span></label><input type="text" id="cfg-tagline" placeholder="Ex: Qualidade e confiança em cada projeto" oninput="previewCfg()"></div>
+        <div class="rd-field"><span class="rd-field-lbl">Slogan / Tagline <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--gray)">(opcional — aparece no cabeçalho do PDF)</span></span><input type="text" class="rd-field-box" id="cfg-tagline" placeholder="Ex: Qualidade e confiança em cada projeto" oninput="previewCfg()"></div>
       </div>
       <div class="row">
-        <div class="fl"><label>Telefone / WhatsApp</label><input type="tel" id="cfg-tel" placeholder="(47) 99235-4750" oninput="previewCfg()"></div>
-        <div class="fl"><label>Cidades / Regiões atendidas</label><input type="text" id="cfg-cidades" placeholder="BC, Camboriú e Itapema" oninput="previewCfg()"></div>
+        <div class="rd-field"><span class="rd-field-lbl">Telefone / WhatsApp</span><input type="tel" class="rd-field-box" id="cfg-tel" placeholder="(47) 99235-4750" oninput="previewCfg()"></div>
+        <div class="rd-field"><span class="rd-field-lbl">Cidades / Regiões atendidas</span><input type="text" class="rd-field-box" id="cfg-cidades" placeholder="BC, Camboriú e Itapema" oninput="previewCfg()"></div>
       </div>
 
       <div class="row">
-        <div class="fl"><label>Cor principal</label>
+        <div class="rd-field"><span class="rd-field-lbl">Cor principal</span>
           <div class="color-row">
-            <input type="color" id="cfg-cor" value="#C45E0A" oninput="previewCfg()">
-            <input type="text" id="cfg-cor-txt" value="#C45E0A" oninput="syncCor(this.value)">
+            <input type="color" id="cfg-cor" value="#0B62CE" oninput="previewCfg()">
+            <input type="text" class="rd-field-box" id="cfg-cor-txt" value="#0B62CE" oninput="syncCor(this.value)">
           </div>
         </div>
-        <div class="fl"><label>Cor secundária (textos/fundo)</label>
+        <div class="rd-field"><span class="rd-field-lbl">Cor secundária (textos/fundo)</span>
           <div class="color-row">
-            <input type="color" id="cfg-cor2" value="#2B3244" oninput="previewCfg()">
-            <input type="text" id="cfg-cor2-txt" value="#2B3244" oninput="syncCor2(this.value)">
+            <input type="color" id="cfg-cor2" value="#101720" oninput="previewCfg()">
+            <input type="text" class="rd-field-box" id="cfg-cor2-txt" value="#101720" oninput="syncCor2(this.value)">
           </div>
         </div>
       </div>
 
-      <div class="fl" style="margin-bottom:14px">
-        <label>Logo da Empresa</label>
+      <div class="rd-field" style="margin-bottom:0">
+        <span class="rd-field-lbl">Logo da Empresa</span>
         <div class="logo-upload">
           <input type="file" accept="image/*" onchange="uploadLogo(this)">
           <div class="foto-icon">🖼️</div>
@@ -454,88 +458,88 @@
       </div>
     </div>
 
-    <div class="card">
-      <div class="ct">Serviços Padrão</div>
+    <div class="rd-card">
+      <div class="rd-card-title" style="margin-bottom:4px">Serviços Padrão</div>
       <p style="font-size:13px;color:var(--gray);margin-bottom:14px">Serviços que aparecem no botão de adicionar rápido em todos os orçamentos. Um por linha.</p>
-      <div class="fl"><textarea id="cfg-servicos" rows="8" placeholder="Troca de Motobomba&#10;Troca de Filtro / Areia&#10;Instalação de Gerador de Cloro a Sal&#10;Troca de LED Subaquático&#10;Limpeza de Trocador de Calor&#10;Manutenção de Sauna e Spa"></textarea></div>
+      <div class="rd-field" style="margin-bottom:0"><textarea class="rd-field-box" id="cfg-servicos" rows="8" placeholder="Troca de Motobomba&#10;Troca de Filtro / Areia&#10;Instalação de Gerador de Cloro a Sal&#10;Troca de LED Subaquático&#10;Limpeza de Trocador de Calor&#10;Manutenção de Sauna e Spa"></textarea></div>
     </div>
 
-    <div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap">
+    <div class="rd-card" style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap">
       <div>
-        <div style="font-size:14px;font-weight:700;color:var(--c2);margin-bottom:3px">👥 Técnicos e Usuários</div>
+        <div style="font-size:14px;font-weight:700;color:var(--c2);margin-bottom:3px">Técnicos e Usuários</div>
         <div style="font-size:13px;color:var(--gray)">Gerencie usuários, perfis e PINs de acesso em um só lugar.</div>
       </div>
-      <button class="btn-primary" style="padding:9px 18px;font-size:13px;white-space:nowrap" onclick="go('usuarios')">Gerenciar Usuários →</button>
+      <button type="button" class="rd-btn rd-btn-primary" onclick="go('usuarios')">Gerenciar Usuários</button>
     </div>
     <textarea id="cfg-tecnicos" style="display:none"></textarea>
 
-    <div class="card">
-      <div class="ct">Segurança</div>
+    <div class="rd-card">
+      <div class="rd-card-title" style="margin-bottom:12px">Segurança</div>
       <div class="row f1">
-        <div class="fl"><label>PIN de Acesso <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--gray)">(4 dígitos — padrão: 1234)</span></label><input type="password" id="cfg-pin" placeholder="••••" maxlength="4" inputmode="numeric"></div>
+        <div class="rd-field" style="margin-bottom:0"><span class="rd-field-lbl">PIN de Acesso <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--gray)">(4 dígitos — padrão: 1234)</span></span><input type="password" class="rd-field-box" id="cfg-pin" placeholder="••••" maxlength="4" inputmode="numeric"></div>
       </div>
     </div>
 
-    <div class="card">
-      <div class="ct">💬 Templates de Notificação WhatsApp</div>
+    <div class="rd-card">
+      <div class="rd-card-title" style="margin-bottom:4px">Templates de Notificação WhatsApp</div>
       <p style="font-size:13px;color:var(--gray);margin-bottom:14px">Use as variáveis abaixo nos templates. Elas serão substituídas automaticamente.</p>
       <div class="notif-vars" style="margin-bottom:14px">
         Variáveis: <code>{nome}</code> <code>{hora}</code> <code>{tecnico}</code> <code>{servico}</code> <code>{valor}</code> <code>{link_portal}</code> <code>{empresa}</code> <code>{tel_empresa}</code>
       </div>
       <div class="notif-template">
-        <div class="notif-template-label">📅 Lembrete de Visita (24h antes)</div>
-        <textarea id="cfg-notif-visita" rows="5"></textarea>
+        <div class="notif-template-label">Lembrete de Visita (24h antes)</div>
+        <textarea class="rd-field-box" id="cfg-notif-visita" rows="5"></textarea>
       </div>
       <div class="notif-template">
-        <div class="notif-template-label">✅ OS Concluída</div>
-        <textarea id="cfg-notif-concluida" rows="5"></textarea>
+        <div class="notif-template-label">OS Concluída</div>
+        <textarea class="rd-field-box" id="cfg-notif-concluida" rows="5"></textarea>
       </div>
       <div class="notif-template">
-        <div class="notif-template-label">📋 Orçamento Enviado</div>
-        <textarea id="cfg-notif-orcamento" rows="5"></textarea>
+        <div class="notif-template-label">Orçamento Enviado</div>
+        <textarea class="rd-field-box" id="cfg-notif-orcamento" rows="5"></textarea>
       </div>
-      <div class="notif-template">
-        <div class="notif-template-label">⚠️ Garantia Vencendo</div>
-        <textarea id="cfg-notif-garantia" rows="4"></textarea>
+      <div class="notif-template" style="margin-bottom:0">
+        <div class="notif-template-label">Garantia Vencendo</div>
+        <textarea class="rd-field-box" id="cfg-notif-garantia" rows="4"></textarea>
       </div>
     </div>
 
-    <button class="btn-primary" onclick="salvarEmpresa()" style="margin-bottom:20px">💾 Salvar Configurações</button>
+    <button type="button" class="rd-btn rd-btn-primary" onclick="salvarEmpresa()" style="margin-bottom:20px">Salvar Configurações</button>
 
     <!-- NOTA FISCAL -->
-    <div class="card">
-      <div class="ct">📄 Nota Fiscal — Focus NFe</div>
+    <div class="rd-card">
+      <div class="rd-card-title" style="margin-bottom:4px">Nota Fiscal — Focus NFe</div>
       <p style="font-size:13px;color:var(--gray);margin-bottom:14px">Configure o token da API Focus NFe para emitir NF-e (produtos) e NFS-e (serviços). Obtenha o token em <strong>focusnfe.com.br</strong> → Conta → API Tokens.</p>
       <div class="row">
-        <div class="fl">
-          <label>Token Focus NFe (Produção)</label>
-          <input type="text" id="cfg-nfe-token-prod" placeholder="token_producao_…">
+        <div class="rd-field">
+          <span class="rd-field-lbl">Token Focus NFe (Produção)</span>
+          <input type="text" class="rd-field-box" id="cfg-nfe-token-prod" placeholder="token_producao_…">
         </div>
-        <div class="fl">
-          <label>Token Focus NFe (Homologação)</label>
-          <input type="text" id="cfg-nfe-token-hom" placeholder="token_homologacao_…">
+        <div class="rd-field">
+          <span class="rd-field-lbl">Token Focus NFe (Homologação)</span>
+          <input type="text" class="rd-field-box" id="cfg-nfe-token-hom" placeholder="token_homologacao_…">
         </div>
       </div>
       <div class="row f3">
-        <div class="fl">
-          <label>CNPJ da Empresa (para NF)</label>
-          <input type="text" id="cfg-nfe-cnpj" placeholder="00.000.000/0001-00">
+        <div class="rd-field">
+          <span class="rd-field-lbl">CNPJ da Empresa (para NF)</span>
+          <input type="text" class="rd-field-box" id="cfg-nfe-cnpj" placeholder="00.000.000/0001-00">
         </div>
-        <div class="fl">
-          <label>Alíquota ISS (%)</label>
-          <input type="number" id="cfg-nfe-iss" placeholder="2.0" step="0.01" min="0" max="5" value="2.0">
+        <div class="rd-field">
+          <span class="rd-field-lbl">Alíquota ISS (%)</span>
+          <input type="number" class="rd-field-box" id="cfg-nfe-iss" placeholder="2.0" step="0.01" min="0" max="5" value="2.0">
         </div>
-        <div class="fl">
-          <label>Código Serviço (LC 116)</label>
-          <input type="text" id="cfg-nfe-cod-svc" placeholder="7.10">
+        <div class="rd-field">
+          <span class="rd-field-lbl">Código Serviço (LC 116)</span>
+          <input type="text" class="rd-field-box" id="cfg-nfe-cod-svc" placeholder="7.10">
         </div>
       </div>
-      <button class="btn-primary" onclick="salvarEmpresa()" style="margin-bottom:0">💾 Salvar Configurações</button>
+      <button type="button" class="rd-btn rd-btn-primary" onclick="salvarEmpresa()" style="margin-bottom:0">Salvar Configurações</button>
     </div>
 
     <!-- ══ EMAIL AUTOMÁTICO ══ -->
-    <div class="card">
-      <div class="ct">📧 E-mail Automático de Vistoria</div>
+    <div class="rd-card">
+      <div class="rd-card-title" style="margin-bottom:4px">E-mail Automático de Vistoria</div>
       <p style="font-size:13px;color:var(--gray);margin-bottom:14px">
         Configure o <strong>EmailJS</strong> para enviar o relatório de vistoria automaticamente ao síndico/responsável.
         Crie uma conta gratuita em <a href="https://www.emailjs.com" target="_blank" style="color:var(--c1)">emailjs.com</a>
@@ -562,21 +566,21 @@
         3. No template do EmailJS, adicione o link: <code>{{link_pdf}}</code> — será um link direto para baixar o PDF gerado.
       </div>
       <div class="row f3">
-        <div class="fl"><label>Public Key (User ID)</label><input type="text" id="cfg-ejs-pubkey" placeholder="xxxxxxxxxxxxxxxx"></div>
-        <div class="fl"><label>Service ID</label><input type="text" id="cfg-ejs-service" placeholder="service_xxxxxxx"></div>
-        <div class="fl"><label>Template ID</label><input type="text" id="cfg-ejs-template" placeholder="template_xxxxxxx"></div>
+        <div class="rd-field"><span class="rd-field-lbl">Public Key (User ID)</span><input type="text" class="rd-field-box" id="cfg-ejs-pubkey" placeholder="xxxxxxxxxxxxxxxx"></div>
+        <div class="rd-field"><span class="rd-field-lbl">Service ID</span><input type="text" class="rd-field-box" id="cfg-ejs-service" placeholder="service_xxxxxxx"></div>
+        <div class="rd-field"><span class="rd-field-lbl">Template ID</span><input type="text" class="rd-field-box" id="cfg-ejs-template" placeholder="template_xxxxxxx"></div>
       </div>
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-        <button class="btn-primary" onclick="salvarEmpresa()" style="padding:9px 18px">💾 Salvar</button>
-        <input type="email" id="ejs-test-email" placeholder="seu@email.com" style="flex:1;min-width:180px;border:1.5px solid var(--gray-mid);border-radius:8px;padding:9px 12px;font-size:13px;font-family:'Instrument Sans',sans-serif">
-        <button class="ba" style="background:var(--gray-light);color:var(--c2);padding:9px 14px;font-size:13px" onclick="testarEmailJS()">📨 Testar Envio</button>
+        <button type="button" class="rd-btn rd-btn-primary" onclick="salvarEmpresa()">Salvar</button>
+        <input type="email" class="rd-field-box" id="ejs-test-email" placeholder="seu@email.com" style="flex:1;min-width:180px">
+        <button type="button" class="rd-btn rd-btn-secondary" onclick="testarEmailJS()">Testar Envio</button>
         <span id="ejs-status" style="font-size:12px;color:var(--gray)"></span>
       </div>
     </div>
 
     <!-- ══ BRANDING POR EMPRESA ══ -->
-    <div class="card" id="lojas-branding-card" style="display:none">
-      <div class="ct">🏢 Identidade por Empresa</div>
+    <div class="rd-card" id="lojas-branding-card" style="display:none">
+      <div class="rd-card-title" style="margin-bottom:4px">Identidade por Empresa</div>
       <p style="font-size:13px;color:var(--gray);margin-bottom:16px">Configure logo e dados independentes para cada empresa. O que for preenchido aqui sobrescreve as configurações globais <strong>somente nos documentos daquela empresa</strong> (orçamentos, OS, relatórios de vistoria).</p>
       <div id="lojas-branding-body"></div>
     </div>
@@ -587,22 +591,20 @@
 <!-- ══ PAGE: USUÁRIOS ══ -->
 <div class="page" id="page-usuarios">
   <div class="wrap" style="max-width:700px">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding-top:8px;flex-wrap:wrap;gap:10px">
-      <div>
-        <button onclick="go('empresa')" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:13px;font-weight:600;font-family:'Instrument Sans',sans-serif">← Voltar</button>
-        <span style="font-size:18px;font-weight:800;color:var(--c2);margin-left:8px">👥 Usuários do Sistema</span>
-      </div>
-      <button class="btn-primary" style="padding:8px 16px;font-size:13px" onclick="abrirFormUsuario()">＋ Novo Usuário</button>
+    <button class="btn-voltar" onclick="go('empresa')">← Voltar</button>
+    <div class="novo-orc-topbar">
+      <div class="novo-orc-titulo">Usuários do Sistema</div>
+      <button type="button" class="rd-btn rd-btn-primary" onclick="abrirFormUsuario()">+ Novo Usuário</button>
     </div>
 
     <!-- Form novo usuário -->
-    <div class="card" id="usr-form-card" style="display:none">
-      <div class="ct"><span id="usr-form-titulo">Novo Usuário</span> <button onclick="fecharFormUsuario()" aria-label="Fechar" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;line-height:1">×</button></div>
+    <div class="rd-card" id="usr-form-card" style="display:none">
+      <div class="rd-card-title" style="margin-bottom:12px" id="usr-form-titulo">Novo Usuário</div>
       <div class="row">
-        <div class="fl"><label>Nome</label><input type="text" id="usr-nome" placeholder="Ex: João Silva"></div>
-        <div class="fl">
-          <label>Perfil (nível de acesso)</label>
-          <select id="usr-perfil" onchange="updUsrForm()">
+        <div class="rd-field"><span class="rd-field-lbl">Nome</span><input type="text" class="rd-field-box" id="usr-nome" placeholder="Ex: João Silva"></div>
+        <div class="rd-field">
+          <span class="rd-field-lbl">Perfil (nível de acesso)</span>
+          <select class="rd-field-box" id="usr-perfil" onchange="updUsrForm()">
             <option value="tecnico">Técnico (campo)</option>
             <option value="vendas">Vendas</option>
             <option value="gestor">Gestor (gestão)</option>
@@ -612,30 +614,33 @@
         </div>
       </div>
       <div class="row">
-        <div class="fl">
-          <label>Empresa <span style="font-weight:400;color:var(--gray);text-transform:none">(obrigatório para técnico/gestor)</span></label>
-          <select id="usr-loja-id">
+        <div class="rd-field">
+          <span class="rd-field-lbl">Empresa <span style="font-weight:400;color:var(--gray);text-transform:none">(obrigatório para técnico/gestor)</span></span>
+          <select class="rd-field-box" id="usr-loja-id">
             <option value="">— Selecione —</option>
           </select>
         </div>
-        <div class="fl">
-          <label id="usr-pin-label">PIN (4 dígitos)</label>
-          <input type="password" id="usr-pin" maxlength="4" inputmode="numeric" placeholder="••••">
+        <div class="rd-field">
+          <span class="rd-field-lbl" id="usr-pin-label">PIN (4 dígitos)</span>
+          <input type="password" class="rd-field-box" id="usr-pin" maxlength="4" inputmode="numeric" placeholder="••••">
         </div>
       </div>
       <!-- Acessos a empresas separadas (ex.: Aquamotor) — checkboxes gerados pelo JS -->
       <div class="row f1" id="usr-acessos-row" style="display:none">
-        <div class="fl">
-          <label>Acessos extras <span style="font-weight:400;color:var(--gray);text-transform:none">(empresas separadas que este usuário pode acessar)</span></label>
+        <div class="rd-field">
+          <span class="rd-field-lbl">Acessos extras <span style="font-weight:400;color:var(--gray);text-transform:none">(empresas separadas que este usuário pode acessar)</span></span>
           <div id="usr-acessos-wrap" style="display:flex;gap:16px;flex-wrap:wrap;padding:8px 0"></div>
         </div>
       </div>
-      <button class="btn-primary" onclick="salvarUsuario()">💾 Salvar Usuário</button>
+      <div style="display:flex;gap:10px">
+        <button type="button" class="rd-btn rd-btn-secondary" onclick="fecharFormUsuario()">Cancelar</button>
+        <button type="button" class="rd-btn rd-btn-primary" onclick="salvarUsuario()">Salvar Usuário</button>
+      </div>
     </div>
 
     <!-- Lista de usuários -->
-    <div class="card">
-      <div class="ct">Usuários Cadastrados</div>
+    <div class="rd-card">
+      <div class="rd-card-title" style="margin-bottom:12px">Usuários Cadastrados</div>
       <div id="usr-lista">
         <div class="load"><div class="spin"></div> Carregando…</div>
       </div>
@@ -691,8 +696,10 @@
 
 <div class="page" id="page-identidade">
   <div class="wrap">
-    <button class="tb" onclick="go('clientes')" style="margin-bottom:12px">← Voltar para Clientes</button>
-    <h2 style="margin:0 0 4px;font-size:22px;font-weight:800">🪪 Ligar orçamentos às fichas</h2>
+    <button class="btn-voltar" onclick="go('clientes')">← Voltar para Clientes</button>
+    <div class="novo-orc-topbar">
+      <div class="novo-orc-titulo">Ligar orçamentos às fichas</div>
+    </div>
     <p style="margin:0 0 6px;font-size:13px;color:var(--gray);max-width:62ch">
       <strong>Cadastro de clientes</strong> é a tela anterior — é onde ficam as fichas.
       Esta aqui é uma faxina: o nome do cliente no orçamento é texto livre, então o mesmo
@@ -705,13 +712,13 @@
 
     <div class="dash" id="ident-kpis"></div>
 
-    <div class="card">
-      <div class="ct">Filtrar</div>
+    <div class="rd-card">
+      <div class="rd-card-title" style="margin-bottom:10px">Filtrar</div>
       <div id="ident-filtros" style="display:flex;gap:7px;flex-wrap:wrap"></div>
     </div>
 
-    <div class="card">
-      <div class="ct">Nomes <span id="ident-contagem" style="font-size:11px;font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0"></span></div>
+    <div class="rd-card">
+      <div class="rd-card-title" style="margin-bottom:10px">Nomes <span id="ident-contagem" style="font-size:11px;font-weight:400;color:var(--tx3);text-transform:none;letter-spacing:0"></span></div>
       <div id="ident-lista"></div>
     </div>
   </div>
@@ -720,10 +727,13 @@
 <div class="page" id="page-auditoria">
   <div class="wrap" style="max-width:760px">
     <button class="btn-voltar" onclick="voltar()">← Voltar</button>
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">
-      <div style="font-size:18px;font-weight:800;color:var(--c2)">🔐 Auditoria de Acessos</div>
+    <div class="novo-orc-topbar">
+      <div>
+        <div class="novo-orc-titulo">Auditoria de Acessos</div>
+        <div class="novo-orc-sub">Registro de quem entrou e fez ações no sistema — para segurança e responsabilidade.</div>
+      </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-        <select id="audit-filtro-acao" onchange="renderAuditoria()" style="padding:6px 10px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Instrument Sans',sans-serif;outline:none;background:white;cursor:pointer;color:var(--c2)">
+        <select id="audit-filtro-acao" class="rd-field-box" onchange="renderAuditoria()" style="max-width:170px">
           <option value="">Todas as ações</option>
           <option value="login">Logins</option>
           <option value="orcamento">Orçamentos</option>
@@ -731,11 +741,10 @@
           <option value="os">OS</option>
           <option value="usuario">Usuários</option>
         </select>
-        <select id="audit-filtro-user" onchange="renderAuditoria()" style="padding:6px 10px;border:1.5px solid var(--gray-mid);border-radius:50px;font-size:12px;font-family:'Instrument Sans',sans-serif;outline:none;background:white;cursor:pointer;color:var(--c2)"><option value="">Todos os usuários</option></select>
+        <select id="audit-filtro-user" class="rd-field-box" onchange="renderAuditoria()" style="max-width:170px"><option value="">Todos os usuários</option></select>
       </div>
     </div>
-    <p style="font-size:12px;color:var(--gray);margin:-6px 0 12px">Registro de quem entrou e fez ações no sistema — para segurança e responsabilidade.</p>
-    <div class="card"><div id="audit-body"></div></div>
+    <div class="rd-card"><div id="audit-body"></div></div>
   </div>
 </div>
 
@@ -1424,11 +1433,13 @@
       <div class="dc b"><div class="dl">Ticket Médio</div><div class="dv" id="d-tick">—</div><div class="ds">por orçamento</div></div>
     </div>
 
-    <!-- Navegação de mês + mini-KPIs (dashboard antigo, não redesenhado ainda —
-         segue orcMesRef, que o dashboard .dash lá em cima também usa). -->
-    <div class="card">
+    <!-- Navegação de mês + mini-KPIs (segue orcMesRef, que o dashboard
+         .dash lá em cima também usa — só o card por fora virou .rd-card,
+         o grid .dash/.dc é componente compartilhado com outras telas,
+         fora do escopo desta migração). -->
+    <div class="rd-card">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:10px">
-        <div style="font-size:17px;font-weight:800;color:var(--c2)">📅 Resumo do período</div>
+        <div class="rd-card-title">Resumo do período</div>
         <div class="orc-mes-nav">
           <button class="orc-mes-btn" onclick="orcNavMes(-1)" title="Mês anterior">◀</button>
           <span class="orc-mes-lbl" id="orc-mes-label">—</span>
@@ -2267,29 +2278,29 @@
 <div class="page" id="page-despesas">
   <div class="wrap">
     <button class="btn-voltar" onclick="voltar()">← Voltar</button>
-    <div class="card" id="desp-form-card" style="display:none">
-      <div class="ct">Nova Despesa <button onclick="fecharFormDesp()" aria-label="Fechar" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;line-height:1">×</button></div>
+    <div class="rd-card" id="desp-form-card" style="display:none">
+      <div class="rd-card-title" style="margin-bottom:12px">Nova Despesa</div>
       <!-- Natureza da despesa. Antes o formulário exigia técnico, então aluguel,
            salário, contador e software não cabiam — e a tabela ficou com 0
            registros, o que impede qualquer cálculo de margem. -->
-      <div class="row f1"><div class="fl"><label>Natureza</label>
-        <select id="desp-natureza" onchange="_despNatureza()">
+      <div class="row f1"><div class="rd-field"><span class="rd-field-lbl">Natureza</span>
+        <select class="rd-field-box" id="desp-natureza" onchange="_despNatureza()">
           <option value="campo">De campo — técnico gastou em serviço</option>
           <option value="empresa">Da empresa — aluguel, salário, software…</option>
         </select></div></div>
       <div class="row">
-        <div class="fl" id="desp-wrap-tec"><label>Técnico</label><select id="desp-tec"><option value="">Selecione…</option></select></div>
-        <div class="fl"><label id="desp-lbl-data">Data</label><input type="date" id="desp-data"></div>
+        <div class="rd-field" id="desp-wrap-tec"><span class="rd-field-lbl">Técnico</span><select class="rd-field-box" id="desp-tec"><option value="">Selecione…</option></select></div>
+        <div class="rd-field"><span class="rd-field-lbl" id="desp-lbl-data">Data</span><input type="date" class="rd-field-box" id="desp-data"></div>
       </div>
       <div class="row" id="desp-wrap-empresa" style="display:none">
-        <div class="fl"><label>Centro de custo</label>
-          <select id="desp-centro">
+        <div class="rd-field"><span class="rd-field-lbl">Centro de custo</span>
+          <select class="rd-field-box" id="desp-centro">
             <option value="fixo">Fixo — não muda com a venda</option>
             <option value="variavel">Variável — acompanha a venda</option>
             <option value="administrativo">Administrativo</option>
             <option value="campo">Campo</option>
           </select></div>
-        <div class="fl"><label>Competência</label><input type="month" id="desp-competencia"></div>
+        <div class="rd-field"><span class="rd-field-lbl">Competência</span><input type="month" class="rd-field-box" id="desp-competencia"></div>
       </div>
       <div class="row f1" id="desp-wrap-recorrente" style="display:none">
         <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;color:var(--c2)">
@@ -2298,8 +2309,8 @@
         </label>
       </div>
       <div class="row">
-        <div class="fl"><label>Tipo</label>
-          <select id="desp-tipo">
+        <div class="rd-field"><span class="rd-field-lbl">Tipo</span>
+          <select class="rd-field-box" id="desp-tipo">
             <option value="">Selecione…</option>
             <optgroup label="De campo" id="desp-grp-campo">
               <option>Combustível</option><option>Pedágio</option>
@@ -2315,19 +2326,19 @@
             <option>Outro</option>
           </select>
         </div>
-        <div class="fl"><label>Valor (R$)</label><input type="number" id="desp-valor" placeholder="0,00" step="0.01" min="0" inputmode="decimal"></div>
+        <div class="rd-field"><span class="rd-field-lbl">Valor (R$)</span><input type="number" class="rd-field-box" id="desp-valor" placeholder="0,00" step="0.01" min="0" inputmode="decimal"></div>
       </div>
       <div class="row f1">
-        <div class="fl"><label>Descrição</label><input type="text" id="desp-desc" placeholder="Ex: Gasolina ida/volta Camboriú"></div>
+        <div class="rd-field"><span class="rd-field-lbl">Descrição</span><input type="text" class="rd-field-box" id="desp-desc" placeholder="Ex: Gasolina ida/volta Camboriú"></div>
       </div>
       <div class="row f1" style="margin-bottom:4px" id="desp-wrap-os">
-        <div class="fl"><label>OS Vinculada (opcional)</label>
-          <input type="text" id="desp-os-num" placeholder="Número da OS (ex: 042)" list="desp-os-list" oninput="filtrarOSDesp(this.value)">
+        <div class="rd-field"><span class="rd-field-lbl">OS Vinculada (opcional)</span>
+          <input type="text" class="rd-field-box" id="desp-os-num" placeholder="Número da OS (ex: 042)" list="desp-os-list" oninput="filtrarOSDesp(this.value)">
           <datalist id="desp-os-list"></datalist>
         </div>
       </div>
-      <div class="fl" style="margin-bottom:14px">
-        <label>Foto do Comprovante (opcional)</label>
+      <div class="rd-field" style="margin-bottom:14px">
+        <span class="rd-field-lbl">Foto do Comprovante (opcional)</span>
         <div class="foto-area" onclick="document.getElementById('desp-foto-input').click()">
           <input type="file" id="desp-foto-input" accept="image/*" capture="environment" onchange="carregarFotoDesp(this)" style="display:none">
           <div class="foto-icon">🧾</div>
@@ -2336,7 +2347,10 @@
         </div>
         <button id="desp-btn-rm-foto" style="display:none;margin-top:6px;font-size:12px;color:var(--red);background:none;border:none;cursor:pointer;font-family:'Instrument Sans',sans-serif" onclick="removerFotoDesp()">✕ Remover</button>
       </div>
-      <button class="btn-primary" onclick="salvarDespesa()">💾 Registrar Despesa</button>
+      <div style="display:flex;gap:10px">
+        <button type="button" class="rd-btn rd-btn-secondary" onclick="fecharFormDesp()">Cancelar</button>
+        <button type="button" class="rd-btn rd-btn-primary" onclick="salvarDespesa()">Registrar Despesa</button>
+      </div>
     </div>
 
     <div id="desp-recorrentes-aviso" style="display:none"></div>

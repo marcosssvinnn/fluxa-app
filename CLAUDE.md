@@ -2,6 +2,66 @@
 
 ---
 
+## ✅ Migração `.card`→`.rd-card`: telas antigas restantes (18/08)
+
+Item "registrado como depois" do handoff, retomado a pedido do Marcos
+("vamos resolver esses então" — os 5 itens da lista de pendências
+adiadas, incluindo os 3 com ressalva). Antes de mexer, investiguei um
+deles à parte (unificar "Ordens de Serviço"/"Minhas OS") e achei que a
+premissa mudou — hoje `snbRules` já mostra só uma delas por perfil
+(`snb-os-history: gestor`, `snb-minhas-os: tecnico`, mutuamente
+exclusivos), diferente do que o documento de análise original registrava
+("o técnico vê as duas"). O ganho de unificar o CÓDIGO por trás (hoje são
+2 funções de render totalmente separadas) seria só de manutenção interna,
+não visível ao usuário, contra o risco real de mexer no fluxo diário do
+técnico em campo — perguntei ao Marcos e ele concordou em não fazer.
+
+**Migradas 7 telas** (`#page-empresa`/`#page-usuarios`/`#page-auditoria`,
+os 3 citados nominalmente pelo plano, mais `#page-identidade`,
+"Resumo do período" em `#page-history`, `#page-despesas` e `#page-setup`,
+achados no caminho como do mesmo tipo — `.card`/`.ct`/`.row`/`.fl`/
+`<label>`/`.btn-primary` → `.rd-card`/`.rd-card-title`/`.rd-field`/
+`.rd-field-lbl`/`.rd-field-box`/`.rd-btn`, mesmo padrão de sempre). Emoji
+saiu dos títulos estáticos e botões (mesmo critério da varredura de
+14/08 — conteúdo dinâmico como o log de auditoria mantém o emoji, não
+precisa às pressas). `#cfg-cor`/`#cfg-cor2` (inputs de cor) tinham o
+`value` default hardcoded em `#C45E0A`/`#2B3244` (laranja Forthemp) —
+trocado pro azul/escuro padrão do redesign (`#0B62CE`/`#101720`), como o
+plano já registrava como pendência ("é onde mora o hex hardcoded"); sem
+efeito prático (o JS sempre sobrescreve com `CFG.cor` real ao abrir a
+tela), só o estado antes do JS rodar.
+
+**Achado real no processo, corrigido**: ao remover o botão "×" do
+cabeçalho do formulário "Nova Despesa"/"Novo Usuário" (o shell novo não
+usa × embutido, mesmo padrão dos modais já migrados — fecha por
+Cancelar), quase deixei os dois formulários SEM nenhuma forma de fechar
+sem salvar — o × era a única saída. Adicionado botão "Cancelar" ao lado
+de "Salvar" nos dois, testado que `fecharFormUsuario()`/`fecharFormDesp()`
+continuam alcançáveis.
+
+**Não migrado nesta rodada, registrado**: o restante de `page-equipamentos`
+(formulário "Novo Equipamento" + import em massa de vistoria) e os 3
+modais de `page-estoque` (lista de compras, novo produto, dar baixa) —
+nenhum foi citado nominalmente pelo plano; ficam pro próximo "tela
+tocada por outro motivo", mesmo critério que já regia esse item desde o
+início. `page-form`/`page-os` (formulário de orçamento e de OS) **não
+entram nesta categoria** — nunca estiveram na lista de pendências, e
+seguem protegidos pela mesma cautela já registrada dezenas de vezes
+neste arquivo (captura de dado real, interação demais pra arriscar sem
+necessidade).
+
+Testado no Browser pane (offline, clique real): as 7 telas abrindo sem
+erro, formulários preenchendo/salvando (`previewCfg()`, `gV/setV`
+confirmados funcionando com os ids preservados), "Cancelar" fechando os
+2 formulários sem salvar, `page-setup` (visto raramente — só em empresa
+nova) com o assistente numerado intacto (`.setup-h`/`.steps`, deixado
+como componente próprio, não redesenhado). 1280px/375px sem overflow em
+nenhuma das 7. Zero erro novo no console.
+
+sw.js: fluxa-v191 → fluxa-v192.
+
+---
+
 ## ✅ Responsividade — sidebar mais estreita no notebook, container mais largo no monitor grande (18/08)
 
 Retomando a pendência registrada mais cedo hoje (feedback do Marcos: "no
