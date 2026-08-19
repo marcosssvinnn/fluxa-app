@@ -34,6 +34,7 @@ let todosOficinaReparos = [], _ofClienteSelecionado = null, _ofEquipamentoSeleci
 let _ofFotos = [], _ofEstadoEntrada = {};
 let _ofStatusLog = [], _ofFiltroBusca = '', _ofFiltroOrigem = '', _ofView = 'quadro';
 let _ofRetrabalhoDe = null;
+let _ofContatos = [], _ofReparoAtivoId = null; // Tarefa 3h — ficha do reparo
 let _ofOSCampoVinculada = null; // id da OS de campo vinculada (Fase 7, 18/08)
 
 // ── Log de auditoria (quem fez o quê) ──
@@ -16582,6 +16583,7 @@ async function loadOficinaReparos(){
   }
   await _reenviarOficinaLocais();
   await loadOficinaStatusLog();
+  await loadOficinaContatos();
   _ofRenderAtiva();
   renderOficinaMetricas();
 }
@@ -16608,6 +16610,50 @@ async function _ofRegistrarStatusLog(reparoId, status){
     catch(e){ console.warn('[oficina status log]', e?.message||e); }
   }
 }
+
+// ── Contatos com o cliente (Tarefa 3h.1, 18/08) — a base do fluxo novo ──
+// Um reparo "aguardando aprovação" há 31 dias não está travado por falta de
+// tela, está travado porque ninguém sabe se já foi cobrado. Uma linha por
+// TENTATIVA (nunca sobrescreve) — canal/data/quem/resultado — é o rastro que
+// falta pra saber há quantos dias desde o último contato e cobrar de novo
+// sem perguntar a ninguém. Mesmo padrão local-first de oficina_status_log.
+function lsOfContatosLer(){ try{ return JSON.parse(ls('fluxa_oficina_contatos')||'[]'); }catch(e){ return []; } }
+function lsOfContatosSalvar(lista){ lsSet('fluxa_oficina_contatos', JSON.stringify(lista.slice(0,1000))); }
+async function loadOficinaContatos(){
+  _ofContatos = lsOfContatosLer();
+  if(dbOk&&db){
+    try{
+      const {data}=await db.from('oficina_contatos').select('*').order('data',{ascending:false}).limit(1000);
+      if(data){ _ofContatos=data; lsOfContatosSalvar(data); }
+    }catch(e){ console.warn('[oficina contatos load]', e?.message||e); }
+  }
+}
+// canal: 'whatsapp'|'pdf'|'ligacao'|'balcao'|'aviso_pronto'
+// resultado: 'enviado'|'sem_resposta'|'aprovado'|'recusado'|'avisado'
+async function _ofRegistrarContato(reparoId, canal, resultado, obs){
+  const rec={id:'ofc_'+Date.now()+'_'+Math.random().toString(36).slice(2,6), reparo_id:reparoId, canal, resultado:resultado||null, obs:(obs||'').trim()||null, usuario_id:(getSessao()?.nome||''), data:new Date().toISOString()};
+  _ofContatos.unshift(rec);
+  lsOfContatosSalvar(_ofContatos);
+  if(dbOk&&db){
+    try{ const r=await dbInsert('oficina_contatos', rec); if(r?.error) console.warn('[oficina contato]', r.error.message); }
+    catch(e){ console.warn('[oficina contato]', e?.message||e); }
+  }
+  return rec;
+}
+function _ofContatosDoReparo(reparoId){
+  return (_ofContatos||[]).filter(c=>c.reparo_id===reparoId).sort((a,b)=>String(b.data||'').localeCompare(String(a.data||'')));
+}
+// Dias desde o ÚLTIMO contato registrado — null sem nenhum contato ainda
+// (diferente de 0, que seria "contatado hoje"; null vira "nunca contatado"
+// na tela, o próprio buraco que este commit existe pra expor).
+function _ofDiasSemContato(reparoId){
+  const contatos=_ofContatosDoReparo(reparoId);
+  if(!contatos.length) return null;
+  const dt=new Date(contatos[0].data).getTime(); if(isNaN(dt)) return null;
+  return Math.max(0, Math.floor((Date.now()-dt)/86400000));
+}
+const OFICINA_CANAL_LABEL={whatsapp:'WhatsApp', pdf:'PDF do orçamento', ligacao:'Ligação', balcao:'Balcão', aviso_pronto:'Avisou que está pronto'};
+const OFICINA_RESULTADO_LABEL={enviado:'Enviado', sem_resposta:'Sem resposta', aprovado:'Aprovado', recusado:'Recusado', avisado:'Avisado'};
 
 // Reparo criado offline (`_pendingSync:true`) sobe via dbInsertNumerado
 // assim que a conexão volta — mesmo padrão de _reenviarOSLocais/

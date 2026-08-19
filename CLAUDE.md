@@ -2,6 +2,59 @@
 
 ---
 
+## 🔧 Tarefa 3h — A ficha do reparo (fluxo da Oficina), EM ANDAMENTO (19/08)
+
+Novo pacote no handoff (`PLANO-3H-FICHA-REPARO.md` + `FLUXO-OFICINA.md`,
+`~/Downloads/design_handoff_fluxa_redesign/`). O Marcos deu a direção
+(diagnóstico é feito por técnico celular/computador e gestor; aprovação vem
+por WhatsApp/PDF/ligação/balcão — quatro canais; reparo aprovado vira OS;
+entrega exige assinatura+foto+garantia+pagamento; peça sai do estoque ou é
+comprada) e pediu pra eu propor o fluxo e a arquitetura. **5 commits, não
+juntar** — este arquivo documenta cada um conforme fecha.
+
+**Duas decisões perguntadas ao Marcos antes de começar** (o próprio plano
+exigia isso antes do commit 3h.4, mas afetam o desenho desde o início):
+1. **Aprovação de valor**: técnico da bancada monta diagnóstico/valor e manda
+   **direto ao cliente** — sem gate de revisão do gestor. Logo, `diagnóstico
+   → aguardando_aprovação` é transição direta, sem estado intermediário de
+   "proposta pendente".
+2. **Retrabalho em garantia própria**: cobra mão de obra **só se o defeito
+   mudou** (mesmo defeito coberto = grátis; defeito novo = cobra normal). Fica
+   pra registrar no diagnóstico quando o commit 3h.4 chegar lá — não dá pra
+   automatizar o valor sem risco, então o sistema vai **informar** a
+   condição de garantia, o técnico decide o preço final no orçamento como
+   sempre.
+
+### ✅ 3h.1 — tabela `oficina_contatos` (a base de tudo)
+
+`migracao-oficina-contatos.sql`, aplicada e verificada em produção via
+Management API (schema confirmado: `id/reparo_id/canal/resultado/obs/
+usuario_id/data`, todos `text` exceto `data` timestamptz). Mesmo padrão de
+`oficina_status_log` — id `text` app-gerado (`ofc_<timestamp>_<rand>`), local-
+first, **uma linha por tentativa, nunca UPDATE**: é o rastro que falta pra
+saber que um reparo em "aguardando aprovação" está há 31 dias sem ninguém
+saber se já foi cobrado.
+
+`loadOficinaContatos()` (mesmo padrão de `loadOficinaStatusLog`, chamado
+dentro de `loadOficinaReparos()`), `_ofRegistrarContato(reparoId, canal,
+resultado, obs)`, `_ofContatosDoReparo(reparoId)`, e
+**`_ofDiasSemContato(reparoId)`** — a peça que faltava: `null` quando nunca
+houve contato (diferente de `0`, que é "contatado hoje" — a UI precisa
+distinguir "nunca cobrado" de "cobrado hoje" e não dava antes). `canal`:
+`whatsapp`/`pdf`/`ligacao`/`balcao`/`aviso_pronto`; `resultado`:
+`enviado`/`sem_resposta`/`aprovado`/`recusado`/`avisado`.
+
+Testado no Browser pane (offline, `dbOk=false;db=null;`): `_ofRegistrarContato`
+grava local e retorna o registro certo; `_ofDiasSemContato` retorna `0` para
+contato de hoje e `null` para reparo sem nenhum contato registrado. Zero
+erro no console.
+
+sw.js: fluxa-v193 → fluxa-v194.
+
+**Próximo:** 3h.2 (`#page-reparo` — a ficha vira página, não mais modal).
+
+---
+
 ## ✅ Item 5 do pacote de handoff — calendário/formulário de vistoria (18/08)
 
 Último item pendente do segundo pacote de handoff (`vamos resolver esses
