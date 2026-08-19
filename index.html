@@ -3670,7 +3670,7 @@
       <div class="rd-modal-ico" style="background:#E9F3EB;color:#2F7D3A">✓</div>
       <div class="rd-modal-headtx">
         <h3 id="aprov-os-titulo">Orçamento aprovado!</h3>
-        <p>Deseja agendar uma OS? Data e técnico podem ser preenchidos agora ou depois.</p>
+        <p>Agenda rápido, sem abrir a OS inteira — só data, hora e técnico. Os serviços seguem os do orçamento.</p>
       </div>
     </div>
     <input type="hidden" id="aprov-os-orc-id">
@@ -3689,6 +3689,13 @@
         </select>
       </div>
     </div>
+    <!-- Ponte pro caminho "editar antes de criar" (gerarOS_deOrc, botão "Gerar
+         OS" na tela do orçamento) — pedido do Marcos (19/08): manter os dois
+         caminhos, só deixar claro que são modos diferentes da MESMA ação, não
+         duas coisas competindo. -->
+    <div id="aprov-os-editar-row" style="text-align:center;margin-bottom:14px">
+      <button type="button" class="rd-btn rd-btn-link" style="font-size:12.5px;padding:0;height:auto;white-space:normal" onclick="_aprovOSAbrirFormularioCompleto()">Prefere editar os serviços da OS antes de criar? Abrir formulário completo →</button>
+    </div>
     <!-- Venda de produto avulso (químico, peça) não vira OS: o material só é
          entregue. Por isso o atalho da Ordem de Entrega fica aqui, ao lado da OS. -->
     <div id="aprov-entrega-row" style="display:none;border-top:1px dashed var(--gray-mid);padding-top:12px">
@@ -3697,7 +3704,7 @@
     </div>
     <div class="rd-modal-acts">
       <button type="button" class="rd-modal-btn rd-modal-btn-nao" onclick="fecharAprovOS()" id="aprov-os-fechar-lbl">Não por agora</button>
-      <button type="button" id="aprov-os-btn" class="rd-modal-btn rd-modal-btn-sim" onclick="criarOSdeAprovacao()">Criar OS agendada</button>
+      <button type="button" id="aprov-os-btn" class="rd-modal-btn rd-modal-btn-sim" onclick="criarOSdeAprovacao()">Agendar rápido</button>
     </div>
   </div>
 </div>

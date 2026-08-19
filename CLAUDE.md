@@ -44,7 +44,7 @@ não há nada. Zero erro novo no console.
 
 sw.js: fluxa-v202 → fluxa-v203.
 
-### 🗺️ Mapa do fluxo Orçamento → OS (achado, não mexido — pra decidir com o Marcos)
+### 🗺️ Mapa do fluxo Orçamento → OS + decisão do Marcos (19/08)
 
 Existem **3 lugares diferentes** que oferecem "gerar OS" a partir de um
 orçamento, cada um num momento distinto do ciclo de vida — não é bug, mas
@@ -54,18 +54,57 @@ orçamento, cada um num momento distinto do ciclo de vida — não é bug, mas
    Serviço junto" (toggle `#toggle-os`): decide ANTES de gerar o PDF que
    quer criar OS+ORC juntos.
 2. **Modal automático depois de aprovar** (`_perguntarCriarOS`, disparado
-   por `mudarSt`/aprovação no portal): "Deseja agendar uma OS?" — cria a OS
-   direto, sem abrir formulário nenhum (só data/hora/técnico).
+   por `mudarSt`/aprovação no portal): "agenda rápido" — cria a OS direto,
+   sem abrir formulário nenhum (só data/hora/técnico, serviços copiados do
+   orçamento sem poder editar ali).
 3. **Botão "Gerar OS" na barra de ações do orçamento já aberto**
    (`gerarOS_deOrc`, `_renderFormAcoesEdit`): navega pro formulário completo
-   de OS, pré-preenchido — vira "OS#NNN" assim que existe uma vinculada.
+   de OS, pré-preenchido, dá pra editar serviços/data/técnico antes de criar
+   — vira "OS#NNN" assim que existe uma vinculada.
 
-Os 3 têm proteção contra duplicar (checam se já existe OS pro orçamento
-antes de criar outra) — não é o mesmo bug do Dom Carlos (14/08, já
-corrigido). Mas são 3 portas de entrada genuinamente diferentes pro mesmo
-resultado, em 3 momentos diferentes da tela — fica registrado pra decidir
-com o Marcos se vale simplificar/unificar, ou só deixar mais claro qual usar
-quando.
+**Perguntado ao Marcos**: simplificar pra um caminho só, ou manter os dois
+principais (2 e 3) e só deixar claro que são dois MODOS da mesma ação, não
+coisas concorrentes. Ele escolheu **manter os dois, só esclarecer**. Feito:
+
+- **Modal rápido (2)** — subtítulo reescrito ("Agenda rápido, sem abrir a
+  OS inteira — só data, hora e técnico. Os serviços seguem os do
+  orçamento.") e botão renomeado de "📋 Criar OS agendada" pra **"Agendar
+  rápido"** — deixa explícito que é o caminho enxuto, sem edição.
+- **Ponte nova entre os dois** — link "Prefere editar os serviços da OS
+  antes de criar? Abrir formulário completo →" dentro do próprio modal
+  rápido (`_aprovOSAbrirFormularioCompleto`, novo): fecha o modal e chama
+  `gerarOS_deOrc` — quem cai no caminho rápido por padrão não precisa
+  fechar o modal, ir achar o botão na tela e clicar de novo; um clique já
+  leva pro formulário completo pré-preenchido. Só aparece quando ainda NÃO
+  existe OS pro orçamento (escondido junto com os campos/botão de criar
+  quando `jaTemOS`).
+- **Botão da barra de ações (3)** — tooltip (`title=`) explicitado:
+  "Abre o formulário completo — dá pra editar serviços, data e técnico
+  antes de criar" (versão aprovado, primário) / "Abre o formulário completo
+  de OS pra este orçamento" (versão pendente, secundário). Rótulo visível
+  continua "Gerar OS"/"OS" — texto curto de propósito, é botão pequeno
+  numa barra com ~8 outros; a diferença fica no tooltip, mesmo padrão já
+  usado nos outros botões dessa barra ("Entregar", "Mês", "NF").
+
+O toggle do Novo Orçamento (1) não foi tocado — é um momento different (antes
+de aprovar, não depois), não é ele que gera a confusão "na mesma tela"
+relatada pelo Marcos (que era especificamente entre o modal pós-aprovação e
+o botão da tela do orçamento).
+
+Os 3 continuam com a mesma proteção contra duplicar (checam se já existe OS
+antes de criar outra) — não é o bug do Dom Carlos (14/08, já corrigido),
+não mexi nessa parte.
+
+Testado no Browser pane (offline, `dbOk=false;db=null;`, porta nova):
+subtítulo/botão do modal com o texto novo confirmado via
+`textContent`/`.value`; link de ponte visível quando NÃO há OS vinculada,
+escondido quando já existe; clicar no link fecha o modal e abre
+`page-os` com cliente/local/orçamento vinculado pré-preenchidos
+(`osOrcId` batendo, badge "· do Orçamento #NNN" certo); tooltip do botão da
+barra de ações confirmado com o texto novo nos dois estados (aprovado/
+pendente). Zero erro novo no console.
+
+sw.js: fluxa-v203 → fluxa-v204.
 
 ---
 

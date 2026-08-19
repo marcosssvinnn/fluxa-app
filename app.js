@@ -3014,11 +3014,14 @@ function _perguntarCriarOS(orc){
   document.getElementById('aprov-os-titulo').textContent=`Orçamento #${String(orc.numero||'?').padStart(3,'0')} aprovado!`;
   document.querySelector('#aprov-os-bg .rd-modal-headtx p').textContent=jaTemOS
     ? 'Este orçamento já tem uma OS agendada.'
-    : 'Deseja agendar uma OS? Data e técnico podem ser preenchidos agora ou depois.';
+    : 'Agenda rápido, sem abrir a OS inteira — só data, hora e técnico. Os serviços seguem os do orçamento.';
   const camposEl=document.getElementById('aprov-os-campos');
   if(camposEl) camposEl.style.display=jaTemOS?'none':'';
   const btnOS=document.getElementById('aprov-os-btn');
   if(btnOS) btnOS.style.display=jaTemOS?'none':'';
+  // Ponte "editar antes de criar" só faz sentido enquanto ainda não existe OS
+  const editarRow=document.getElementById('aprov-os-editar-row');
+  if(editarRow) editarRow.style.display=jaTemOS?'none':'';
   const dataEl=document.getElementById('aprov-os-data');
   dataEl.value=orc.data_servico||_hojeLocal();
   document.getElementById('aprov-os-hora').value='08:00';
@@ -3047,6 +3050,18 @@ function gerarEntregaDaAprovacao(){
   fecharAprovOS();
   // deixa o modal fechar antes de abrir a impressão (senão o modal entra no PDF)
   setTimeout(()=>gerarOrdemEntrega(id), 180);
+}
+
+// Ponte "editar antes de criar" do modal rápido de aprovação pro formulário
+// completo de OS (19/08, pedido do Marcos: manter os dois caminhos de gerar
+// OS, só deixar claro que são dois MODOS da mesma ação, não coisas
+// concorrentes — este link fecha o modal rápido e abre gerarOS_deOrc, que já
+// pré-preenche tudo a partir do orçamento).
+function _aprovOSAbrirFormularioCompleto(){
+  const id=document.getElementById('aprov-os-orc-id').value;
+  if(!id){ toast('⚠️ Orçamento não identificado'); return; }
+  fecharAprovOS();
+  setTimeout(()=>gerarOS_deOrc(id), 180);
 }
 
 async function criarOSdeAprovacao(){
@@ -3108,7 +3123,7 @@ async function criarOSdeAprovacao(){
   }catch(e){
     console.error('criarOSdeAprovacao:',e); toast('⚠️ Erro ao criar OS: '+e.message);
   }finally{
-    if(btn){ btn.disabled=false; btn.textContent='📋 Criar OS agendada'; }
+    if(btn){ btn.disabled=false; btn.textContent='Agendar rápido'; }
   }
 }
 
@@ -6426,8 +6441,8 @@ function _renderFormAcoesEdit(o){
     ? (()=>{ const stOS=osVinc.status||'agendado'; const stLabel={agendado:'agendada',em_andamento:'em andamento',concluido:'concluída'}[stOS]||stOS;
         return `<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="OS #${String(osVinc.numero||'').padStart(3,'0')} — ${stLabel}" onclick="verDetalhesOS('${osVinc.id}')">OS#${String(osVinc.numero||'').padStart(3,'0')}</button>`; })()
     : (o.status==='aprovado'
-        ? `<button type="button" class="rd-btn rd-btn-primary rd-btn-sm" onclick="gerarOS_deOrc('${o.id}')">Gerar OS</button>`
-        : `<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Gerar OS" onclick="gerarOS_deOrc('${o.id}')">OS</button>`);
+        ? `<button type="button" class="rd-btn rd-btn-primary rd-btn-sm" title="Abre o formulário completo — dá pra editar serviços, data e técnico antes de criar" onclick="gerarOS_deOrc('${o.id}')">Gerar OS</button>`
+        : `<button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" title="Abre o formulário completo de OS pra este orçamento" onclick="gerarOS_deOrc('${o.id}')">OS</button>`);
   el.innerHTML=`
     <select class="ss ${o.status||'pendente'}" style="flex-shrink:0" onchange="mudarSt('${o.id}',this)">${sopts(o.status||'pendente')}</select>
     ${orcPrecoARevalidar(o)?'<span class="rd-badge rd-badge-warn">preço a revalidar</span>':''}
