@@ -2,6 +2,72 @@
 
 ---
 
+## ✅ Item 5 do pacote de handoff — calendário/formulário de vistoria (18/08)
+
+Último item pendente do segundo pacote de handoff (`vamos resolver esses
+então` — os 5 itens "registrados como depois", ver entrada logo abaixo).
+Dois pontos: `#page-agendamentos` e `#page-visitas` (formulário de
+vistoria + cards de equipamento) — este último é a captura de dado mais
+usada em campo do app inteiro, então recebeu a mesma disciplina reforçada
+de sempre: **shell-only, zero toque em id/onclick/lógica interna**.
+
+**`#page-agendamentos`** — `#ag-form-card` ("Novo Agendamento
+Recorrente") migrado pro `.rd-card`/`.rd-field`, mesmo padrão de sempre;
+ganhou botão "Cancelar" ao lado de "Salvar Agendamento" (mesmo achado já
+registrado nas outras migrações desta rodada — o shell novo não tem ✕
+embutido). Emoji do título da topbar removido ("📅 Agendamentos" →
+"Agendamentos"). Calendário (`table.cal`) **não tocado** — paradigma
+visual de grade, sem equivalente `.rd-*`, mesmo critério já registrado
+desde a Fase 8/redesign das 4 telas sem handoff.
+
+**`#page-visitas`** — 6 blocos convertidos, só a moldura externa
+(`.card`→`.rd-card`, `.ct`→`.rd-card-title`, título+span dividido em
+`.rd-card-title`+`.rd-card-sub` onde havia subtítulo): Dados da Visita
+(mantém `onclick="toggleVisDados()"` no título, recolhe/expande igual),
+Check-in/Check-out (emoji removido do título), "Equipamentos do Local",
+`#vis-equip-card` ("Vistoria dos Equipamentos"), Recomendações,
+Observações Gerais, mais `#vis-ranking-card` e o wrapper da lista de
+Histórico. **Absolutamente nada por dentro foi tocado**: `.row`/`.fl` dos
+campos de Cliente/Local/Piscina/Data/Hora/Técnico, `#vis-checkin-bar`/
+`#vis-checkin-form`/`#vis-checkin-info`, `.vis-chips`/`#vis-equip-chips`,
+`.vis-progresso-mobile`/`.vis-equip-grid` (o alvo real da renderização
+dinâmica de equipamento), textareas `#vis-recom`/`#vis-obs` — confirmado
+por grep que todo id referenciado pelo JS (`vis-ranking-card`,
+`vis-hist-body`, `vis-dados-card`, `vis-equip-card`) só é alcançado por
+`getElementById`, nunca por seletor de classe — a troca de classe do
+container não quebra nada.
+
+Testado no Browser pane com dado real de produção (sessão técnico
+sintética via `dbOk=false;db=null;setSessao(...)`, clique real e
+`javascript_exec` como fallback quando o clique visual não registrava —
+tela grande e alta, alguns cliques em `ref` miravam texto fora do
+viewport atual): busca de cliente real (`abrirBuscaCli('vis')`, 304
+clientes de produção) selecionando "DI MARIA" corretamente; seleção de
+chip de equipamento (`toggleVisEquip`) renderizando o card
+"Vistoria dos Equipamentos" com o `.rd-card-title` novo; clique de status
+(`setVisEquipStatus('motobomba','bom')`) atualizando badge e borda do
+bloco na hora; check-in (`visCheckin()`) trocando a barra pra verde com
+cronômetro, escondendo o formulário; aba Histórico
+(`visTab('hist')`) renderizando dashboard + ranking + lista com dado real
+sem quebra; 375px mobile — os 6 cartões migrados, a barra fixa
+Finalizar/Descartar, e a progress bar "N de M vistoriados" (Fase 9c-rev)
+todos sem overflow horizontal (`scrollWidth===clientWidth===375`
+confirmado via JS, não só olhando a imagem). Zero erro novo no console
+(só o ruído de Service Worker já documentado, reproduz mesmo sem
+mudança).
+
+**Com isso, os 5 itens "registrados como depois" (pedido do Marcos "vamos
+resolver esses então") estão fechados**: revisão de segurança do portal,
+migração `.card`→`.rd-card` das 7 telas administrativas, migração
+retroativa de A Receber, responsividade do container/sidebar, e este
+item (calendário/formulário de vistoria). O item "Unificar OS/Minhas OS"
+foi investigado à parte e descartado por mútuo acordo (premissa já
+resolvida no código atual, ver entrada de 18/08 mais abaixo).
+
+sw.js: fluxa-v192 → fluxa-v193.
+
+---
+
 ## ✅ Migração `.card`→`.rd-card`: telas antigas restantes (18/08)
 
 Item "registrado como depois" do handoff, retomado a pedido do Marcos

@@ -3118,8 +3118,8 @@
       </div>
 
       <!-- Dados gerais -->
-      <div class="card" id="vis-dados-card">
-        <div class="ct" style="cursor:pointer;user-select:none;display:flex;align-items:center;justify-content:space-between" onclick="toggleVisDados()">
+      <div class="rd-card" id="vis-dados-card">
+        <div class="rd-card-title" style="cursor:pointer;user-select:none;display:flex;align-items:center;justify-content:space-between;margin-bottom:12px" onclick="toggleVisDados()">
           <span>Dados da Visita</span>
           <span id="vis-dados-toggle" style="font-size:12px;font-weight:400;color:var(--gray)">▲ recolher</span>
         </div>
@@ -3171,8 +3171,8 @@
       </div>
 
       <!-- Check-in -->
-      <div class="card">
-        <div class="ct">⏱ Check-in / Check-out</div>
+      <div class="rd-card">
+        <div class="rd-card-title" style="margin-bottom:12px">Check-in / Check-out</div>
         <div id="vis-checkin-bar" style="display:none" class="checkin-bar">
           <span>✅ Check-in realizado</span>
           <span class="checkin-timer" id="vis-checkin-timer">00:00</span>
@@ -3186,10 +3186,9 @@
       </div>
 
       <!-- Equipamentos presentes neste local -->
-      <div class="card">
-        <div class="ct">⚙️ Equipamentos do Local
-          <span style="font-size:11px;font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0">Toque nos que existem — ou adicione vários do mesmo tipo abaixo</span>
-        </div>
+      <div class="rd-card">
+        <div class="rd-card-title" style="margin-bottom:4px">Equipamentos do Local</div>
+        <div class="rd-card-sub" style="margin-bottom:12px">Toque nos que existem — ou adicione vários do mesmo tipo abaixo</div>
         <div class="vis-chips" id="vis-equip-chips"></div>
         <!-- Adicionar VÁRIOS do mesmo tipo (ex.: 15 motobombas), nomeados/numerados -->
         <div style="margin-top:12px;padding-top:12px;border-top:1px dashed var(--gray-mid)">
@@ -3204,8 +3203,8 @@
       </div>
 
       <!-- Vistoria por equipamento -->
-      <div class="card" id="vis-equip-card" style="display:none">
-        <div class="ct">🔧 Vistoria dos Equipamentos</div>
+      <div class="rd-card" id="vis-equip-card" style="display:none">
+        <div class="rd-card-title" style="margin-bottom:12px">Vistoria dos Equipamentos</div>
         <!-- Fase 9c do redesign (13/08) — versão mobile do handoff ("Turno 1
              · Proposta A"): barra de progresso "N de M vistoriados". Some
              no desktop; os cards de equipamento em si (status Bom/Atenção/
@@ -3221,10 +3220,9 @@
       </div>
 
       <!-- Recomendações / prioridades — o que precisa ser feito -->
-      <div class="card">
-        <div class="ct">🔧 Recomendações — o que precisa ser feito
-          <span style="font-size:11px;font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0">síntese das prioridades para o cliente</span>
-        </div>
+      <div class="rd-card">
+        <div class="rd-card-title" style="margin-bottom:4px">Recomendações — o que precisa ser feito</div>
+        <div class="rd-card-sub" style="margin-bottom:10px">síntese das prioridades para o cliente</div>
         <div class="row f1">
           <div class="fl"><textarea id="vis-recom" rows="4" placeholder="Ex: 1) Trocar motobomba 2 (não liga) — urgente. 2) Corrigir vazamento na tubulação da piscina interna. 3) Programar troca de areia do filtro 1…"></textarea></div>
         </div>
@@ -3232,8 +3230,9 @@
       </div>
 
       <!-- Observações gerais -->
-      <div class="card">
-        <div class="ct">📝 Observações Gerais <span style="font-size:11px;font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0">condições gerais do local</span></div>
+      <div class="rd-card">
+        <div class="rd-card-title" style="margin-bottom:4px">Observações Gerais</div>
+        <div class="rd-card-sub" style="margin-bottom:10px">condições gerais do local</div>
         <div class="row f1">
           <div class="fl"><textarea id="vis-obs" rows="3" placeholder="Condições gerais do local, contexto da visita, pendências observadas…"></textarea></div>
         </div>
@@ -3286,12 +3285,12 @@
       <div id="vis-alerta-criticos-panel" style="display:none"></div>
 
       <!-- Ranking de técnicos -->
-      <div class="card" id="vis-ranking-card" style="margin-bottom:14px;display:none">
-        <div class="ct">🏆 Ranking de Técnicos (mês)</div>
+      <div class="rd-card" id="vis-ranking-card" style="margin-bottom:14px;display:none">
+        <div class="rd-card-title" style="margin-bottom:10px">Ranking de Técnicos (mês)</div>
         <div id="vis-ranking-body"></div>
       </div>
 
-      <div class="card" style="padding:0;overflow:hidden">
+      <div class="rd-card" style="padding:0;overflow:hidden">
         <div id="vis-hist-body" style="min-height:80px"></div>
       </div>
     </div><!-- /vis-view-hist -->
@@ -3358,39 +3357,42 @@
   <div class="wrap">
 
     <!-- Formulário novo contrato (oculto por padrão) -->
-    <div class="card" id="ag-form-card" style="display:none">
-      <div class="ct">Novo Agendamento Recorrente <button onclick="fecharFormAg()" aria-label="Fechar" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;line-height:1">×</button></div>
+    <div class="rd-card" id="ag-form-card" style="display:none">
+      <div class="rd-card-title" style="margin-bottom:12px">Novo Agendamento Recorrente</div>
       <div class="row">
-        <div class="fl"><label>Cliente</label><input type="text" id="ag-cli" placeholder="Nome do cliente" list="ag-cli-list" oninput="filtrarCliAg(this.value)"><datalist id="ag-cli-list"></datalist></div>
-        <div class="fl"><label>Local / Endereço</label><input type="text" id="ag-loc" placeholder="Endereço"></div>
+        <div class="rd-field"><span class="rd-field-lbl">Cliente</span><input type="text" class="rd-field-box" id="ag-cli" placeholder="Nome do cliente" list="ag-cli-list" oninput="filtrarCliAg(this.value)"><datalist id="ag-cli-list"></datalist></div>
+        <div class="rd-field"><span class="rd-field-lbl">Local / Endereço</span><input type="text" class="rd-field-box" id="ag-loc" placeholder="Endereço"></div>
       </div>
       <div class="row">
-        <div class="fl"><label>Técnico Responsável</label><select id="ag-tec"><option value="">Selecione…</option></select></div>
-        <div class="fl"><label>Tipo de Serviço</label><input type="text" id="ag-tipo" placeholder="Ex: Manutenção mensal de piscina"></div>
+        <div class="rd-field"><span class="rd-field-lbl">Técnico Responsável</span><select class="rd-field-box" id="ag-tec"><option value="">Selecione…</option></select></div>
+        <div class="rd-field"><span class="rd-field-lbl">Tipo de Serviço</span><input type="text" class="rd-field-box" id="ag-tipo" placeholder="Ex: Manutenção mensal de piscina"></div>
       </div>
       <div class="row f4">
-        <div class="fl"><label>Periodicidade</label>
-          <select id="ag-periodo" onchange="updAgForm()">
+        <div class="rd-field"><span class="rd-field-lbl">Periodicidade</span>
+          <select class="rd-field-box" id="ag-periodo" onchange="updAgForm()">
             <option value="semanal">Semanal</option>
             <option value="quinzenal">Quinzenal</option>
             <option value="mensal" selected>Mensal</option>
           </select>
         </div>
-        <div class="fl"><label>Dia da semana / mês</label><select id="ag-dia"></select></div>
-        <div class="fl"><label>Horário</label><input type="time" id="ag-hora" value="08:00"></div>
-        <div class="fl"><label>Data Início</label><input type="date" id="ag-inicio"></div>
+        <div class="rd-field"><span class="rd-field-lbl">Dia da semana / mês</span><select class="rd-field-box" id="ag-dia"></select></div>
+        <div class="rd-field"><span class="rd-field-lbl">Horário</span><input type="time" class="rd-field-box" id="ag-hora" value="08:00"></div>
+        <div class="rd-field"><span class="rd-field-lbl">Data Início</span><input type="date" class="rd-field-box" id="ag-inicio"></div>
       </div>
       <div class="row">
-        <div class="fl"><label>Data Fim <span style="font-weight:400;color:var(--gray);text-transform:none">(deixe vazio = indeterminado)</span></label><input type="date" id="ag-fim"></div>
-        <div class="fl"><label>Observações fixas</label><input type="text" id="ag-obs" placeholder="Ex: Chave no portão, ligar antes"></div>
+        <div class="rd-field"><span class="rd-field-lbl">Data Fim <span style="font-weight:400;color:var(--gray);text-transform:none">(deixe vazio = indeterminado)</span></span><input type="date" class="rd-field-box" id="ag-fim"></div>
+        <div class="rd-field"><span class="rd-field-lbl">Observações fixas</span><input type="text" class="rd-field-box" id="ag-obs" placeholder="Ex: Chave no portão, ligar antes"></div>
       </div>
-      <button class="btn-primary" onclick="salvarAgendamento()">💾 Salvar Agendamento</button>
+      <div style="display:flex;gap:10px">
+        <button type="button" class="rd-btn rd-btn-secondary" onclick="fecharFormAg()">Cancelar</button>
+        <button type="button" class="rd-btn rd-btn-primary" onclick="salvarAgendamento()">Salvar Agendamento</button>
+      </div>
     </div>
 
     <!-- Header — redesign (14/08): novo-orc-topbar/rd-chip, mesmo padrão das
          outras telas (sem mockup literal, README não cobre esta tela). -->
     <div class="novo-orc-topbar">
-      <div class="novo-orc-titulo">📅 Agendamentos</div>
+      <div class="novo-orc-titulo">Agendamentos</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <button type="button" class="rd-chip on" id="ag-tab-cal" onclick="agTab('cal')">Calendário</button>
         <button type="button" class="rd-chip" id="ag-tab-lista" onclick="agTab('lista')">Contratos</button>
