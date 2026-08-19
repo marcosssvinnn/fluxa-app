@@ -7457,7 +7457,7 @@ function renderOSFotosSlots(){
     const slot=document.createElement('div');
     slot.className='fotos-orc-slot'+(osFotos[i]?' filled':'');
     slot.innerHTML=`
-      <input type="file" id="os-finp-${i}" accept="image/*" capture="environment" style="display:none" onchange="carregarFotoOS(this,${i})">
+      <input type="file" id="os-finp-${i}" accept="image/*" style="display:none" onchange="carregarFotoOS(this,${i})">
       ${osFotos[i]?`<img src="${osFotos[i]}" alt="foto ${i+1}">`:''}
       <div class="fotos-orc-slot-icon">📷</div>
       <div class="fotos-orc-slot-lbl">Foto ${i+1}</div>

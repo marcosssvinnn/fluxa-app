@@ -2,6 +2,32 @@
 
 ---
 
+## 🔧 OS — foto/vídeo só abria a câmera, sem opção de galeria (19/08)
+
+Marcos relatou testando uma OS real (Edifício Infinity Coast Residence): ao
+clicar pra adicionar foto/vídeo, só deixava capturar na hora (câmera), não
+deixava escolher da galeria. Causa: `<input type="file">` do grid de fotos da
+OS (`os-finp-*`, `renderOSFotosSlots`) tinha `capture="environment"` — esse
+atributo força o navegador a abrir a câmera nativa direto, pulando o seletor
+"Câmera ou Galeria" do celular. É exatamente o comportamento que o projeto já
+tinha identificado e evitado em Vistoria desde o Sprint 3 mobile ("omitir
+esse atributo é o padrão... deixa o próprio celular oferecer Câmera OU
+Galeria") — só que na OS o atributo tinha ficado, provavelmente de antes
+dessa convenção existir.
+
+**Corrigido**: removido `capture="environment"` do input de foto da OS —
+mesmo padrão já usado em Vistoria. Não mexi nos outros 3 pontos que ainda têm
+o mesmo atributo (Equipamentos `eq-foto-input`, Despesas `desp-foto-input`,
+Orçamento `forc-inp-*`) — são o mesmo bug em potencial, mas o Marcos só
+reportou o caso da OS; registrado aqui pra decidir se vale corrigir os outros
+também. sw.js: fluxa-v200 → fluxa-v201.
+
+**Nota do Marcos**: o fluxo de geração de OS em geral está dando outros
+problemas de uso — fica pra revisão numa próxima rodada, ainda não
+detalhado.
+
+---
+
 ## 🔴 Orçamentos saindo duplicados — causa raiz achada e corrigida (19/08)
 
 Marcos relatou "alguns orçamentos saindo duplicados quando eu gero". Investigado
