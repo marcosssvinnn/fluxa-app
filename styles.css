@@ -110,6 +110,17 @@
        handoff (era 220px). */
     .sidebar{position:fixed;top:56px;left:0;bottom:0;width:var(--sidebar-w);background:var(--nav-bg);z-index:150;transition:width .2s ease;overflow:hidden;border-right:none;display:flex;flex-direction:column;padding:18px 0 14px}
     .sidebar.collapsed{width:var(--sidebar-c)}
+    /* Responsividade em notebooks (18/08, feedback do Marcos: "muito
+       apertado" no Mac com tela menor). A sidebar expandida fica em 240px
+       fixo do jeito que virou drawer no mobile (680px) até o topo — num
+       notebook de 1280-1440px isso come 17-19% da largura útil sozinho,
+       sem ganho nenhum (rótulo de nav não precisa de mais espaço que
+       isso). Não é a virar drawer (perderia os rótulos sempre visíveis,
+       mudança maior de comportamento) — só mais estreita, devolvendo
+       ~20px pro conteúdo. 208px chegou a cortar "Ordens de Serviço" em
+       9px (medido via scrollWidth/clientWidth) — 220px foi o ponto sem
+       nenhum rótulo cortado, conferido nos itens mais longos do menu. */
+    @media(min-width:681px) and (max-width:1439px){ :root{ --sidebar-w: 220px; } }
     .sidebar.s-hidden{display:none}
 
     .snav-brand{padding:0 18px 18px;display:flex;align-items:center;gap:10px;flex-shrink:0}
@@ -192,6 +203,19 @@
     /* ── PAGES ── */
     .page{display:none}.page.on{display:block}
     .wrap{max-width:1200px;margin:0 auto;padding:22px 14px 80px}
+    /* Responsividade em monitores grandes (18/08, feedback do Marcos: "fica
+       muito espaço em branco sem utilização" no monitor externo). Medido
+       antes de mexer: com --sidebar-w fixo em 240px, um monitor 1920px
+       sobrava 240px de margem morta de CADA lado do .wrap (1200px preso
+       dentro de 1680px de área útil); em 2560px sobrava 560px de cada
+       lado — praticamente metade da tela em branco. Escalona em degraus
+       (não 100vw solto) — mesma razão de .wrap ter um teto em primeiro
+       lugar: linha de texto/tabela infinitamente larga também piora
+       leitura, não é só "mais espaço = melhor". Cada degrau ainda deixa
+       uma margem visível, só não a metade da tela. */
+    @media(min-width:1680px){ .wrap{max-width:1400px} }
+    @media(min-width:1920px){ .wrap{max-width:1600px} }
+    @media(min-width:2400px){ .wrap{max-width:1900px} }
 
     /* ── CARD ── */
     .card{background:var(--white);border-radius:var(--r);padding:16px;margin-bottom:12px;box-shadow:var(--sh)}

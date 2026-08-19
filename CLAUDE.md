@@ -2,17 +2,72 @@
 
 ---
 
-## 📝 Pendência registrada — responsividade entre tamanhos de tela (18/08)
+## ✅ Responsividade — sidebar mais estreita no notebook, container mais largo no monitor grande (18/08)
 
-Feedback do Marcos, de passagem, pra tratar depois (não pediu pra fazer
-agora): no notebook (tela menor) o layout fica apertado; no monitor externo
-(maior) sobra espaço em branco sem uso — provavelmente o mesmo tipo de
-problema aparece no celular. Nenhuma tela específica foi citada — parece
-ser um padrão geral do app (containers com `max-width` fixo que não
-escalam com a viewport, não um bug pontual de uma tela só). Vale investigar
-com telas reais em >1600px e <1280px antes de decidir a abordagem (fluid
-max-width vs. breakpoint adicional vs. densidade variável) — ainda não
-investigado.
+Retomando a pendência registrada mais cedo hoje (feedback do Marcos: "no
+Mac com tela menor fica apertado; no monitor externo sobra espaço em
+branco"). Pedido pra resolver ("sim resolva tudo"). Medido antes de mexer
+(via `getBoundingClientRect()` real no browser, não estimativa):
+
+- **Monitor grande — confirmado, era real.** `.wrap{max-width:1200px}` é
+  o container principal de quase toda tela do app. Com a sidebar fixa em
+  240px, um monitor 1920px sobrava **240px de margem morta de cada lado**
+  (1200px preso dentro de 1680px de área útil); em 2560px, **560px de
+  cada lado** — quase metade da tela em branco.
+- **Notebook pequeno — mais sutil do que parecia.** Em 1280-1440px (faixa
+  típica de MacBook), `.wrap` nem chegava a bater no teto de 1200px — a
+  área útil (viewport − 240px de sidebar) já era menor que isso, então o
+  conteúdo não estava "espremido pelo container", só tinha menos espaço
+  disponível no total. A sidebar fixa em 240px (mesma largura desde
+  680px até o infinito — só vira drawer abaixo de 680px) é o que mais
+  pesa proporcionalmente numa tela menor: 240px é 17-19% da largura útil
+  num notebook de 1280-1440px, contra ~12% num desktop de 1920px, pro
+  MESMO conteúdo de rótulo de menu.
+
+**Duas mudanças, as duas em `styles.css`, nenhuma toca HTML/JS de
+nenhuma tela específica** (por isso "resolve tudo" de uma vez — é o
+container compartilhado, não uma tela por vez):
+
+1. **`.wrap` escalona em degraus em telas grandes** — `min-width:1680px`
+   → 1400px, `min-width:1920px` → 1600px, `min-width:2400px` → 1900px.
+   Degraus, não `100vw` solto: uma tabela ou linha de texto infinitamente
+   larga piora a leitura tanto quanto sobra de espaço vazio — mesma razão
+   de `.wrap` ter um teto em primeiro lugar. Cada degrau ainda deixa uma
+   margem visível de propósito, só não mais a metade da tela.
+2. **`--sidebar-w` cai de 240px pra 220px entre 681px e 1439px** (só
+   nessa faixa — desktop grande e mobile ficam exatamente como estavam).
+   220px foi o número que sobrou depois de testar: **208px chegou a
+   cortar o rótulo "Ordens de Serviço"** (medido via
+   `scrollWidth`/`clientWidth` — 9px de diferença, apareceria com
+   reticência) — subi pra 220px e o texto mais longo do menu
+   ("Cadastros e análise", "Ordens de Serviço") passou a caber inteiro,
+   confirmado sem nenhum rótulo cortado.
+
+**Não fiz** (fora do escopo desta rodada, registrado pra quem for atrás):
+não toquei em nenhum grid/breakpoint POR TELA (`.novo-orc-body`,
+`.ins-body`, `.dash`, tabelas) — só os dois containers compartilhados
+(`.wrap` e a sidebar). Isso resolve a causa estrutural comum às duas
+queixas do Marcos, mas telas com layout mais específico (ex.: o painel
+de prévia de 420px fixo do Novo Orçamento) podem ainda ganhar um ajuste
+próprio depois, se alguém sentir falta — não veio pedido pra isso agora,
+e mexer em grid por tela é um projeto bem maior que "o container tá
+capado errado".
+
+Testado no Browser pane com medição real via JS (o screenshot do painel
+ficou não-confiável nesta sessão especificamente para viewports grandes —
+o DOM media real sempre bateu certo, então validei por
+`getBoundingClientRect()`/`scrollWidth` em vez de só olhar a imagem):
+1280px (sidebar 220px, zero rótulo cortado, zero overflow em Oficina/
+Novo Orçamento/Estoque/Insights), 1440px (sidebar volta a 240px, fora da
+faixa — conferido o limite exato), 1920px (`.wrap` 1600px, margem caiu de
+240px→40px de cada lado), 2560px (`.wrap` 1900px, margem 560px→210px),
+375px mobile (sidebar drawer, `padding-left:0`, nenhuma das duas
+mudanças alcança essa faixa — conferido explicitamente). Zero overflow
+horizontal de página em nenhuma largura testada. Zero erro novo no
+console (só o ruído de Service Worker já documentado, reproduzido mesmo
+sem nenhuma mudança minha, ambiente de sandbox).
+
+sw.js: fluxa-v190 → fluxa-v191.
 
 ---
 
