@@ -7687,7 +7687,7 @@ function _renderOSEstado(o){
   const numOS='#'+String(o.numero||'').padStart(3,'0');
   const modoImprimir=o.orcamento_id?'both':'os';
   const itensMais=[
-    o.status!=='concluido'&&o.status!=='cancelado'?{label:'Marcar como concluída', onclick:`concluirOSHistorico('${o.id}')`}:null,
+    o.status!=='concluido'&&o.status!=='cancelado'?{label:'Marcar como concluída', onclick:`abrirModalFinalizarOS('${o.id}')`}:null,
     o.status==='concluido'?{label:'Notificar conclusão', onclick:`enviarNotifWA(notifConcluida(getNC('${o.id}')), '${o.tel_cliente||''}')`}:null,
     (o.status==='agendado'||atrasado)?{label:'Lembrete de visita', onclick:`enviarNotifWA(notifVisita(getNC('${o.id}')), '${o.tel_cliente||''}')`}:null,
     o.status!=='cancelado'?{label:'Levar pra Oficina', onclick:`_ofEnviarDeOS('${o.id}')`}:null,
@@ -7827,6 +7827,155 @@ function _osAtualizarValorTravado(){
     inp.style.background=''; inp.style.color='';
     inp.title='';
   }
+}
+
+// ══════════════════════════════════════════════════
+//  MODAL "FINALIZAR SERVIÇO" (Tarefa 3i.7, 19/08)
+// ══════════════════════════════════════════════════
+// Substitui os dois botões terminais que sobravam depois da 3i.6 (que já
+// tinha separado "Salvar" de "terminar" — virou "Criar OS" + autosave):
+// "Marcar como concluída" (Mais ▾, na barra unificada) e "✔ Check-out"
+// (card de check-in). DIAGNOSTICO-OS.md apontava os "três botões que
+// terminam a OS" como origem direta do bug de duplicação já corrigido —
+// esta é a peça que fecha a causa estrutural, não só o sintoma.
+// migracao-os-execucao-3i7.sql: ordens_servico.servicos_execucao (jsonb,
+// aditiva) — só guarda a confirmação por serviço (Fiz/Não fiz + motivo).
+// NÃO é a tabela os_materiais nem o relatório da 3i.8 (ainda não existem,
+// dependem das 2 perguntas ao Marcos no fim do plano) — só o registro de
+// que serviço foi ou não executado, pronto pra quando 3i.8 existir.
+let _osFinalizarId=null;
+let _osFinalizarSvcs=[];
+let _osFinWA=true, _osFinRecomChk=false, _osFinRecomTexto='';
+function abrirModalFinalizarOS(osId){
+  const o=_acharOS(osId); if(!o||!o.id){ toast('OS não encontrada'); return; }
+  if(o.status==='concluido'){ toast('Esta OS já foi finalizada.'); return; }
+  _osFinalizarId=osId;
+  _osFinWA=true; _osFinRecomChk=false; _osFinRecomTexto='';
+  const aberta = typeof osEditId!=='undefined' && osEditId===osId;
+  const svcsDesc = (aberta ? (osSvcs||[]).map(s=>s.d) : (o.servicos||[]).map(s=>typeof s==='string'?s:s.desc||''))
+    .map(s=>String(s||'').trim()).filter(Boolean);
+  const salvos = Array.isArray(o.servicos_execucao) ? o.servicos_execucao : [];
+  _osFinalizarSvcs = svcsDesc.map((desc,i)=>{
+    const prev = salvos.find(s=>s.desc===desc) || salvos[i];
+    return {desc, executado: prev ? prev.executado!==false : true, motivo: prev?.motivo||''};
+  });
+  abrirModal({corpo:_osFinRenderCorpo(), largura:'wide', id:'os-finalizar-modal'});
+}
+function _osFinRender(){ atualizarModal(_osFinRenderCorpo(), 'os-finalizar-modal'); }
+function _osFinMarcar(i,val){ _osFinalizarSvcs[i].executado=val; if(val) _osFinalizarSvcs[i].motivo=''; _osFinRender(); }
+function _osFinMotivo(i,val){ _osFinalizarSvcs[i].motivo=val; }
+function _osFinRenderCorpo(){
+  const o=_acharOS(_osFinalizarId); if(!o) return '';
+  const aberta = typeof osEditId!=='undefined' && osEditId===o.id;
+  const numOS='#'+String(o.numero||'').padStart(3,'0');
+  const emCampo = aberta && checkinAt && osCheckinId===o.id;
+  const duracaoMin = emCampo ? Math.max(0,Math.floor((Date.now()-checkinAt.getTime())/60000)) : (o.duracao_min||0);
+  const durTx = duracaoMin ? Math.floor(duracaoMin/60)+'h '+String(duracaoMin%60).padStart(2,'0') : (emCampo?'menos de 1min':'—');
+  const matCount = aberta ? (osMateriais||[]).length : 0;
+  const fotoCount = (aberta ? (osFotos||[]) : (o.fotos||[])).filter(Boolean).length;
+  return `
+    <div class="rd-modal-head">
+      <div class="rd-modal-headtx">
+        <h3>Finalizar serviço</h3>
+        <p>${numOS} · ${esc(o.cliente||'—')}</p>
+      </div>
+    </div>
+    <div style="padding:0 20px 4px;display:flex;gap:10px">
+      <div class="rd-card rd-card-dense" style="flex:1;text-align:center;padding:10px 6px">
+        <div class="rd-kpi-lbl">Duração</div>
+        <div class="rd-kpi-num" style="font-size:18px">${durTx}</div>
+      </div>
+      <div class="rd-card rd-card-dense" style="flex:1;text-align:center;padding:10px 6px">
+        <div class="rd-kpi-lbl">Materiais</div>
+        <div class="rd-kpi-num" style="font-size:18px">${matCount}</div>
+      </div>
+      <div class="rd-card rd-card-dense" style="flex:1;text-align:center;padding:10px 6px">
+        <div class="rd-kpi-lbl">Fotos</div>
+        <div class="rd-kpi-num" style="font-size:18px">${fotoCount}</div>
+      </div>
+    </div>
+    <div style="padding:0 20px">
+      <div class="ct" style="margin:0 0 6px">Serviços vendidos</div>
+      ${_osFinalizarSvcs.length ? _osFinalizarSvcs.map((s,i)=>`
+        <div style="padding:9px 0;border-bottom:1px solid var(--gray-light)">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+            <span style="font-size:13px;flex:1;color:var(--c2)">${esc(s.desc)}</span>
+            <div style="display:flex;gap:6px;flex-shrink:0">
+              <button type="button" class="rd-btn rd-btn-sm ${s.executado?'rd-btn-primary':'rd-btn-secondary'}" onclick="_osFinMarcar(${i},true)">Fiz</button>
+              <button type="button" class="rd-btn rd-btn-sm ${!s.executado?'rd-btn-primary':'rd-btn-secondary'}" onclick="_osFinMarcar(${i},false)">Não fiz</button>
+            </div>
+          </div>
+          ${!s.executado?`<textarea class="rd-field-box" style="margin-top:8px" placeholder="Motivo de não ter executado…" oninput="_osFinMotivo(${i},this.value)">${esc(s.motivo||'')}</textarea>`:''}
+        </div>`).join('') : '<p style="font-size:13px;color:var(--tx3);margin:0">Nenhum serviço lançado nesta OS.</p>'}
+    </div>
+    <div style="padding:0 20px">
+      <div class="ct" style="margin:0 0 6px">Depois de finalizar</div>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--c2);padding:6px 0">
+        <input type="checkbox" ${_osFinWA?'checked':''} onchange="_osFinWA=this.checked">
+        Notificar o cliente no WhatsApp
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--c2);padding:6px 0">
+        <input type="checkbox" ${_osFinRecomChk?'checked':''} onchange="_osFinRecomChk=this.checked;_osFinRender()">
+        Abrir orçamento a partir de uma recomendação
+      </label>
+      ${_osFinRecomChk?`<textarea class="rd-field-box" style="margin-top:4px" placeholder="O que recomendar ao cliente…" oninput="_osFinRecomTexto=this.value">${esc(_osFinRecomTexto)}</textarea>`:''}
+    </div>
+    <p style="font-size:12px;color:var(--tx3);padding:0 20px;margin:0">O faturamento não muda aqui — ele já aconteceu na aprovação do orçamento.</p>
+    <div class="rd-modal-acts">
+      <button type="button" class="rd-modal-btn rd-modal-btn-nao" onclick="fecharModal('os-finalizar-modal')">Cancelar</button>
+      <button type="button" class="rd-modal-btn rd-modal-btn-sim" onclick="confirmarFinalizarOS()">Finalizar serviço</button>
+    </div>
+  `;
+}
+function confirmarFinalizarOS(){
+  const semMotivo=_osFinalizarSvcs.some(s=>!s.executado && !s.motivo.trim());
+  if(semMotivo){ toast('⚠️ Diga o motivo de cada serviço não executado'); return; }
+  if(_osFinRecomChk && !_osFinRecomTexto.trim()){ toast('⚠️ Escreva a recomendação antes de abrir o orçamento'); return; }
+  const osId=_osFinalizarId;
+  const osAtual=_acharOS(osId); if(!osAtual){ toast('OS não encontrada'); return; }
+  const svcs=_osFinalizarSvcs.slice();
+  const notificarWA=_osFinWA, recomChk=_osFinRecomChk, recomTexto=_osFinRecomTexto.trim();
+  fecharModal('os-finalizar-modal');
+  // Reaproveita o caminho já existente pra concluir — a única mudança é o
+  // GATILHO (1 modal em vez de 2 botões concorrentes). Em campo (checado
+  // pelo checkin_time ao vivo) usa o check-out de sempre; senão, o núcleo
+  // de "concluir" (extraído de concluirOSHistorico nesta mesma tarefa,
+  // sem confirm() próprio — este modal já É a confirmação).
+  if(typeof osEditId!=='undefined' && osEditId===osId && checkinAt && osCheckinId===osId){
+    _fazerCheckoutConfirmado();
+  } else {
+    _concluirOSNucleo(osId, _osExtraDoFormAberto(osId, osAtual));
+  }
+  if(svcs.length) _osSalvarExecucaoServicos(osId, svcs);
+  if(notificarWA) enviarNotifWA(notifConcluida(getNC(osId)), osAtual.tel_cliente||'');
+  if(recomChk && recomTexto) _osAbrirOrcamentoRecomendacao(osId, recomTexto);
+}
+// Grava a confirmação por serviço — aditivo, não interfere com o payload
+// de concluirOSHistorico/_fazerCheckoutConfirmado (grava depois, em cima).
+function _osSalvarExecucaoServicos(osId, svcs){
+  const payload={servicos_execucao:svcs};
+  const idx=(todosOS||[]).findIndex(x=>x.id===osId);
+  if(idx>=0) todosOS[idx]={...todosOS[idx], ...payload};
+  try{
+    const lista=JSON.parse(ls('fluxa_os_hist')||'[]');
+    const i=lista.findIndex(x=>x.id===osId);
+    if(i>=0){ lista[i]={...lista[i], ...payload}; lsSet('fluxa_os_hist', JSON.stringify(lista.slice(0,200))); }
+  }catch(e){ console.warn('[_osSalvarExecucaoServicos cache]', e?.message||e); }
+  if(dbOk&&db&&osId&&!String(osId).startsWith('local_')){
+    dbUpdate('ordens_servico', payload, 'id', osId).catch(e=>console.warn('[_osSalvarExecucaoServicos]', e?.message||e));
+  }
+}
+// "Abrir orçamento a partir de uma recomendação" — mesmo padrão de
+// criarOrcamentoDaOficina: pré-preenche cliente + nota-interna, sem gerar
+// nada sozinho (o técnico revisa serviços/preço antes de emitir).
+function _osAbrirOrcamentoRecomendacao(osId, texto){
+  const o=_acharOS(osId); if(!o) return;
+  novoOrc();
+  setV('cli', o.cliente||''); setV('loc', o.local_servico||'');
+  if(o.cliente_id) _orcClienteSelecionado={id:o.cliente_id, nome:o.cliente};
+  if(!gV('origem-cli')) setOrigemCli('Já é cliente');
+  setV('nota-interna', 'Recomendação da OS #'+String(o.numero||'').padStart(3,'0')+':\n'+texto);
+  toast('📋 Orçamento pré-preenchido com a recomendação — revise os serviços antes de gerar.');
 }
 // ── Painel de itens (produtos do orçamento) para validar/baixar na OS ──
 function atualizarPainelItensOS(){
@@ -10963,10 +11112,9 @@ function fazerCheckin(){
   }
 }
 
-function fazerCheckout(){
-  if(!checkinAt){ toast('⚠️ Faça o check-in primeiro'); return; }
-  confirmar('Confirmar check-out e marcar OS como concluída?', _fazerCheckoutConfirmado, 'Check-out');
-}
+// fazerCheckout() (chamava confirmar() antes de check-out) removida na
+// 3i.7 — o botão de check-out agora abre abrirModalFinalizarOS(), que já é
+// a própria confirmação (mais completa: duração/materiais/fotos/serviços).
 let _checkoutEmAndamento=false;
 function _fazerCheckoutConfirmado(){
   if(_checkoutEmAndamento) return;
@@ -10998,13 +11146,20 @@ function _fazerCheckoutConfirmado(){
     }, 'id', osCheckinId).then(r=>{ if(r.error) console.warn('[checkout OS] sync falhou:', r.error.message); }).catch(e=>console.warn('[checkout OS]', e?.message||e));
   }
   // Atualiza o cache local (calendário/Minhas OS refletem na hora)
+  // Achado 19/08 (testando o modal "Finalizar serviço", 3i.7): este bloco
+  // gravava tudo de dadosPreenchidos, mas NUNCA checkin_time/checkout_time
+  // no cache local — só o caminho online (dbUpdate acima) tinha os dois.
+  // Offline (ou banco fora do ar), o registro em memória/localStorage
+  // ficava sem checkout_time pra sempre — a trilha/cartão da 3i.6 (que
+  // dependem dele pra mostrar "Concluída") caíam no fallback de data.
   if(osCheckinId){
+    const camposCheckin={checkin_time:checkinAt.toISOString(), checkout_time:checkout.toISOString()};
     try{
       const lista=JSON.parse(ls('fluxa_os_hist')||'[]');
       const i=lista.findIndex(x=>x.id===osCheckinId);
-      if(i>=0){ lista[i]={...lista[i],...dadosPreenchidos,status:'concluido',duracao_min:duracaoMin}; lsSet('fluxa_os_hist',JSON.stringify(lista.slice(0,200))); }
+      if(i>=0){ lista[i]={...lista[i],...dadosPreenchidos,...camposCheckin,status:'concluido',duracao_min:duracaoMin}; lsSet('fluxa_os_hist',JSON.stringify(lista.slice(0,200))); }
       const j=(todosOS||[]).findIndex(x=>x.id===osCheckinId);
-      if(j>=0) todosOS[j]={...todosOS[j],...dadosPreenchidos,status:'concluido',duracao_min:duracaoMin};
+      if(j>=0) todosOS[j]={...todosOS[j],...dadosPreenchidos,...camposCheckin,status:'concluido',duracao_min:duracaoMin};
     }catch(e){ console.warn('[checkout OS local]', e?.message||e); }
   }
   _entregarPelaOS(osCheckinId); // baixa do estoque do orçamento vinculado, se houver
@@ -15612,18 +15767,13 @@ function _entregarPelaOS(osId){
 // foi feito. Não removi o atalho (ele é legítimo pra OS que realmente não tem
 // nada a registrar) — só aviso antes, quando está vazio, com resolução em 1
 // clique (mesmo padrão do aviso de item sem vínculo de estoque em mudarSt).
-function concluirOSHistorico(osId){
-  const osAtual=_acharOS(osId);
-  // Achado 19/08: o botão "Concluir" da barra de ações (topo do formulário
-  // de edição) chama esta MESMA função do atalho de 1 toque (Minhas OS) —
-  // mas lia só o registro já salvo, nunca os campos do formulário aberto na
-  // tela. Um técnico que preenchia obs/material/foto e clicava "Concluir"
-  // sem antes clicar "Salvar OS" tinha tudo descartado em silêncio, sem
-  // aviso — reproduzido e confirmado. Se a OS sendo concluída é a mesma
-  // aberta no formulário agora (osEditId===osId), captura os campos AO VIVO
-  // (mesmo padrão de gerarOSPDF/_fazerCheckoutConfirmado) e salva junto.
-  const formAberto = typeof osEditId!=='undefined' && osEditId===osId;
-  const extra = formAberto ? {
+// Campos ao vivo do formulário de OS, se a OS sendo concluída é a mesma
+// aberta na tela agora (osEditId===osId) — extraído 19/08 (Tarefa 3i.7) pra
+// ser reaproveitado tanto por concluirOSHistorico quanto pelo modal
+// "Finalizar serviço" (confirmarFinalizarOS), sem duplicar a captura.
+function _osExtraDoFormAberto(osId, osAtual){
+  if(!(typeof osEditId!=='undefined' && osEditId===osId)) return null;
+  return {
     cliente: gV('os-cli')||osAtual?.cliente,
     local_servico: gV('os-loc')||osAtual?.local_servico,
     tecnico: gV('os-tec')||osAtual?.tecnico,
@@ -15634,7 +15784,18 @@ function concluirOSHistorico(osId){
     fotos: (osFotos||[]).filter(Boolean),
     video_link: gV('os-video-link')||null,
     checklist: (osChecklist||[]).filter(x=>x.checked).length ? JSON.stringify((osChecklist||[]).filter(x=>x.checked)) : null
-  } : null;
+  };
+}
+function concluirOSHistorico(osId){
+  const osAtual=_acharOS(osId);
+  // Achado 19/08: o botão "Concluir" da barra de ações (topo do formulário
+  // de edição) chama esta MESMA função do atalho de 1 toque (Minhas OS) —
+  // mas lia só o registro já salvo, nunca os campos do formulário aberto na
+  // tela. Um técnico que preenchia obs/material/foto e clicava "Concluir"
+  // sem antes clicar "Salvar OS" tinha tudo descartado em silêncio, sem
+  // aviso — reproduzido e confirmado. Se a OS sendo concluída é a mesma
+  // aberta no formulário agora, captura os campos AO VIVO e salva junto.
+  const extra = _osExtraDoFormAberto(osId, osAtual);
   let fotosAtual = extra ? extra.fotos : osAtual?.fotos;
   if(typeof fotosAtual==='string'){ try{ fotosAtual=JSON.parse(fotosAtual||'[]'); }catch(e){ fotosAtual=[]; } }
   const obsCheck = extra ? extra.obs_tecnica : osAtual?.obs_tecnica;
@@ -15643,33 +15804,36 @@ function concluirOSHistorico(osId){
   const msg = semDetalhes
     ? 'Esta OS não tem nenhuma observação, material ou foto registrada — vai ficar marcada como concluída em branco.\n\nPara preencher, abra a OS em vez de usar este atalho. Concluir mesmo assim?'
     : 'Marcar OS como concluída?\n\nIsso registrará a baixa de estoque automaticamente se houver orçamento vinculado.';
-  confirmar(msg, ()=>{
-    // Atualiza status local (+ campos capturados do formulário, se aberto)
-    const idx=todosOS.findIndex(x=>x.id===osId);
-    if(idx>=0) todosOS[idx]={...todosOS[idx], ...(extra||{}), status:'concluido'};
-    try{
-      const lista=JSON.parse(ls('fluxa_os_hist')||'[]');
-      const i=lista.findIndex(x=>x.id===osId);
-      if(i>=0){ lista[i]={...lista[i], ...(extra||{}), status:'concluido'}; lsSet('fluxa_os_hist',JSON.stringify(lista.slice(0,200))); }
-    }catch(e){ console.warn('[concluirOSHistorico local]',e?.message||e); }
-    // Sync banco
-    if(dbOk&&db&&!String(osId).startsWith('local_'))
-      dbUpdate('ordens_servico',{...(extra||{}),status:'concluido'},'id',osId).catch(e=>console.warn('[concluirOS sync]',e?.message||e));
-    // Baixa de estoque automática
-    _entregarPelaOS(osId);
-    const os=_acharOS(osId);
-    logAcao('os_concluida',`OS #${String(os?.numero||'').padStart(3,'0')} ${os?.cliente||''}`);
-    // Se era OS de agendamento recorrente, gera a próxima ocorrência
-    if(os?.agendamento_id) _gerarProximaOSdoAg(os.agendamento_id, os.data_servico).catch(e=>console.warn('[nextOS]',e?.message||e));
-    renderOSTabela();
-    // Atualiza também a lista do técnico (Minhas OS) quando concluído pelo campo
-    if(document.getElementById('page-minhas-os')?.classList.contains('on')) loadMinhasOS();
-    // Formulário continua aberto na mesma OS agora concluída — atualiza a
-    // barra de ações/badge na hora (senão mostrava "Agendada" e o botão
-    // "Concluir" continuava lá, como se nada tivesse acontecido).
-    if(formAberto) _renderOSEstado(os);
-    _toastOSConcluida(os);
-  }, 'Concluir OS');
+  confirmar(msg, ()=>_concluirOSNucleo(osId, extra), 'Concluir OS');
+}
+// Núcleo de "marcar OS como concluída" — extraído 19/08 (Tarefa 3i.7) do
+// callback de confirmação de concluirOSHistorico, pra também ser chamado
+// direto pelo modal "Finalizar serviço" (confirmarFinalizarOS), que já É a
+// confirmação — passar por concluirOSHistorico de novo dobraria o diálogo
+// (o próprio atalho de 1 toque de Minhas OS continua chamando
+// concluirOSHistorico, com o aviso de "OS vazia" intacto, sem mudança).
+function _concluirOSNucleo(osId, extra){
+  const idx=todosOS.findIndex(x=>x.id===osId);
+  if(idx>=0) todosOS[idx]={...todosOS[idx], ...(extra||{}), status:'concluido'};
+  try{
+    const lista=JSON.parse(ls('fluxa_os_hist')||'[]');
+    const i=lista.findIndex(x=>x.id===osId);
+    if(i>=0){ lista[i]={...lista[i], ...(extra||{}), status:'concluido'}; lsSet('fluxa_os_hist',JSON.stringify(lista.slice(0,200))); }
+  }catch(e){ console.warn('[_concluirOSNucleo local]',e?.message||e); }
+  if(dbOk&&db&&!String(osId).startsWith('local_'))
+    dbUpdate('ordens_servico',{...(extra||{}),status:'concluido'},'id',osId).catch(e=>console.warn('[concluirOS sync]',e?.message||e));
+  _entregarPelaOS(osId);
+  const os=_acharOS(osId);
+  logAcao('os_concluida',`OS #${String(os?.numero||'').padStart(3,'0')} ${os?.cliente||''}`);
+  if(os?.agendamento_id) _gerarProximaOSdoAg(os.agendamento_id, os.data_servico).catch(e=>console.warn('[nextOS]',e?.message||e));
+  renderOSTabela();
+  if(document.getElementById('page-minhas-os')?.classList.contains('on')) loadMinhasOS();
+  // Formulário continua aberto na mesma OS agora concluída — atualiza a
+  // barra unificada/trilha/cartão na hora (senão mostrava "Agendada" como
+  // se nada tivesse acontecido).
+  if(typeof osEditId!=='undefined' && osEditId===osId) _renderOSEstado(os);
+  _toastOSConcluida(os);
+  return os;
 }
 // Toast comum ao concluir OS (atalho e check-out) — quando a OS veio de um
 // orçamento, oferece ir direto pro Histórico de Orçamentos: Marcos relatou

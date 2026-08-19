@@ -363,6 +363,90 @@ documentado, reproduz mesmo sem nenhuma mudança minha).
 
 sw.js: fluxa-v210 → fluxa-v211.
 
+### ✅ 3i.7 — Modal "Finalizar serviço" (fecha os commits antes das 2 perguntas ao Marcos)
+
+Última peça dos "três botões que terminam a OS" (DIAGNOSTICO-OS.md) —
+3i.6 já tinha eliminado o terceiro (Salvar OS virou Criar OS + autosave,
+deixou de ser ação terminal). Restavam dois: "Marcar como concluída"
+(Mais ▾, na barra unificada) e "✔ Check-out" (card de check-in) — os dois
+agora abrem o MESMO modal, `abrirModalFinalizarOS(osId)`, montado
+dinamicamente via `abrirModal()`/`atualizarModal()` (helper da Tarefa 13,
+`.rd-modal-wide`, 560px, mesmo padrão do "Agendar em lote" da 3i.2 — sem
+HTML estático novo no `index.html`).
+
+**`migracao-os-execucao-3i7.sql`** (aplicada e verificada em produção via
+Management API): `ordens_servico.servicos_execucao jsonb`, aditiva. Única
+mudança de schema desta tarefa — **não é a tabela `os_materiais` nem o
+relatório da 3i.8** (esses dependem das 2 perguntas ao Marcos, no fim do
+plano, e ainda não existem). Só guarda a confirmação por serviço
+(`{desc, executado, motivo}`), pronta pra 3i.8 consumir quando existir.
+
+**Conteúdo do modal**: 3 números (duração — ao vivo se em campo, calculada
+de `checkinAt`; materiais — `osMateriais.length`; fotos —
+`osFotos.filter(Boolean).length`) · lista de "Serviços vendidos" com
+Fiz/Não fiz por item (reconcilia com `servicos_execucao` já salvo, se a OS
+for reaberta) — "Não fiz" revela um campo de motivo, **obrigatório**
+(bloqueia confirmar com toast, sem motivo em branco) · "Depois de
+finalizar": notificar no WhatsApp (reaproveita `enviarNotifWA`/
+`notifConcluida`/`getNC`, já existentes — mesma função que "Notificar
+conclusão" do Mais ▾ já chamava) e abrir orçamento a partir de uma
+recomendação (`_osAbrirOrcamentoRecomendacao`, mesmo padrão de
+`criarOrcamentoDaOficina`: pré-preenche cliente + `nota-interna`, não gera
+nada sozinho — o técnico revisa antes de emitir) · rodapé fixo: "O
+faturamento não muda aqui — ele já aconteceu na aprovação do orçamento."
+
+**Escopo reduzido de propósito, registrado com transparência**: o mockup
+também pedia um checkbox "gerar relatório (sempre, não desmarcável)" —
+**não incluí**. O gerador de relatório é a 3i.8 inteira, que ainda não
+existe; um checkbox sempre marcado prometendo um relatório que não é
+gerado seria enganar o usuário, não “escopo reduzido” de verdade. Fica
+pra quando a 3i.8 for construída, depois das 2 perguntas.
+
+**Reaproveitamento, não duplicação — extraído `_concluirOSNucleo(osId,
+extra)`** do callback de `confirmar()` dentro de `concluirOSHistorico()`:
+o atalho de 1 toque de "Minhas OS" continua chamando
+`concluirOSHistorico()` (que ainda confirma com o aviso de "OS vazia",
+inalterado — item do "Não mexer" do plano), mas o modal novo chama o
+núcleo DIRETO, sem confirmação própria — o modal já É a confirmação;
+passar pelo `concluirOSHistorico()` de novo dobraria o diálogo.
+`_osExtraDoFormAberto(osId, osAtual)` (também extraído) captura os campos
+ao vivo do formulário quando a OS finalizada é a mesma aberta na tela —
+reaproveitado pelos dois caminhos, uma função só. Em campo (check-in
+ativo), o modal chama `_fazerCheckoutConfirmado()` de sempre — nenhuma
+lógica de check-out foi duplicada, só o gatilho mudou de 2 botões pra 1.
+
+**2 achados reais no processo, corrigidos**:
+1. Duração mostrando "—" mesmo em campo, quando o check-in tinha menos de
+   1 minuto (0 é falsy em JS — `duracaoMin?...:'—'` caía no `'—'` mesmo
+   com check-in ativo, indistinguível de "nunca fez check-in"). Corrigido
+   para mostrar "menos de 1min" nesse caso específico.
+2. **`_fazerCheckoutConfirmado()` nunca gravava `checkin_time`/
+   `checkout_time` no cache LOCAL** (`todosOS`/`fluxa_os_hist`) — só o
+   caminho online (`dbUpdate`) tinha os dois campos. Offline (ou banco
+   fora do ar), o registro em memória ficava pra sempre sem
+   `checkout_time` — a trilha/cartão da 3i.6 (que dependem dele pra
+   mostrar "Concluída" com a data certa) caíam no fallback silencioso.
+   Corrigido: os dois campos agora entram no update local também.
+
+Testado no Browser pane (offline, `dbOk=false;db=null;`, porta nova,
+chamada real do fluxo completo): "Marcar como concluída" com serviço
+marcado "Não fiz" sem motivo → bloqueado (toast, modal continua aberto,
+status não muda); motivo preenchido → confirma, `servicos_execucao`
+gravado certo no registro (`[{desc,executado:true,motivo:''},
+{desc,executado:false,motivo:'...'}]`); check-out em campo (cronômetro
+simulado em 33/47min) → modal mostra a duração ao vivo certa, confirma →
+`checkin_time`/`checkout_time`/`duracao_min` todos persistidos no cache
+local (confirma o fix #2), cartão na tela já mostra "Concluída" sem
+recarregar; WhatsApp interceptado (`window.open`) com a URL certa
+(telefone/nome/serviço/técnico); "Abrir orçamento a partir de uma
+recomendação" navegou pra `page-form` com `nota-interna` pré-preenchida
+citando a OS de origem; 375px — modal em folha (grip, ancorado no
+rodapé), botões Fiz/Não fiz e Cancelar/Finalizar com alvo de toque
+generoso, sem overflow (`docWidth===winWidth===375`); 1440px — modal
+centrado, sem regressão. Zero erro novo no console.
+
+sw.js: fluxa-v211 → fluxa-v212.
+
 ---
 
 ## 🔴 OS saindo duplicada — causa raiz achada e corrigida em 2 pontos (19/08)
