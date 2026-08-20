@@ -2,6 +2,46 @@
 
 ---
 
+## 🔧 Estoque: nome do produto em até 2 linhas (20/08)
+
+Marcos mandou print de produção mostrando o problema de verdade: nome de
+produto cortado mesmo com a coluna já mais larga do commit anterior
+(ex.: "ADAPATDOR PARA LED DE PISCINA ROS..."). Pediu pra reduzir o espaço
+de SKU/Disp./Reserv./Mín. e dar mais espaço pro nome — **ou quebrar em
+duas linhas**.
+
+**Fiz as duas coisas.** Arrastar largura sozinho nunca resolve de vez —
+sempre existe um nome maior que qualquer largura razoável (achado testando
+com nome real de 110+ caracteres). A correção estrutural é o nome quebrar
+em até 2 linhas (`-webkit-line-clamp:2`, suportado em todo navegador
+moderno apesar do prefixo) — nomes curtos continuam em 1 linha, nomes
+longos usam a 2ª antes de cortar, e só corta de verdade num caso raro
+(nome que nem em 2 linhas cabe). `title=` continua no elemento, então
+mesmo esse caso raro mostra o nome completo no hover.
+
+**Larguras padrão também ajustadas**: Produto 280→**340px**; Disp./
+Reserv./Mín./Giro 90d — que só mostram 1-2 dígitos ou "—" — apertadas de
+78/78/70/90 pra **58/58/54/66**. SKU ficou como estava (90px — códigos
+como "7890037000752" precisam da largura real). O ponto de status
+(bolinha colorida) virou `align-self:flex-start` — antes centralizava
+errado quando o nome vira 2 linhas, agora fica alinhado com a primeira
+linha do texto, como um marcador de lista.
+
+Testado no Browser pane (offline, `dbOk=false;db=null;`, porta nova, com
+os MESMOS nomes do print do Marcos + um nome extremo de 110+ caracteres
+pra testar o limite): "ALBACETE -CABEÇOTE E VALVULA 6 VIAS COMPLETA"
+agora quebra em 2 linhas mostrando o nome inteiro (antes cortava);
+"ADAPATDOR PARA LED DE PISCINA ROSCA..." e "ADAPTADOR C/ GARRA PEQUENA-
+BRUSTOLIN" cabem inteiros numa linha só com a largura nova; nome de
+110+ caracteres corretamente usa as 2 linhas e só aí trunca com "...";
+arrastar a coluna ainda funciona por cima da largura nova (340→390px,
+testado); "↺ Redefinir colunas" volta pro novo padrão; 375px sem
+overflow horizontal de página. Zero erro novo no console.
+
+sw.js: fluxa-v215 → fluxa-v216.
+
+---
+
 ## 🔧 Histórico de Orçamentos: indicadores voltam pro topo + bug real achado (20/08)
 
 Marcos, depois da entrada de colunas redimensionáveis (logo abaixo):

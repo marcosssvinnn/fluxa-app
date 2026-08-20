@@ -16623,10 +16623,15 @@ function renderEstoque(){
     // aberto na Fase 5). Tabela densa, sem botão nenhum na linha.
     const total=lista.length;
     const pagina=_estoqueVerTodos?lista:lista.slice(0,ESTOQUE_TETO);
-    // Larguras redimensionáveis (19/08, pedido do Marcos — nome de produto
-    // cortado): "Valor" (última) sempre estica em 1fr, as outras 6 têm
-    // alça de arrastar e a largura persiste por navegador.
-    const estColWidths=_rdColWidths('estoque', [280,90,78,78,70,90]);
+    // Larguras redimensionáveis (19/08) + nome do produto em até 2 linhas
+    // (20/08, achado real com dado de produção: nome comprido — "ADAPTADOR
+    // PARA LED DE PISCINA ROSCA..." — cortava mesmo com a coluna já larga;
+    // resize sozinho não resolve, sempre existe um nome maior que qualquer
+    // largura razoável). Colunas numéricas (Disp./Reserv./Mín./Giro 90d)
+    // apertadas — são só 1-2 dígitos ou "—", não precisavam do espaço que
+    // tinham — sobra pro Produto entrar mais largo de cara, antes de
+    // precisar arrastar nada. "Valor" (última) sempre estica em 1fr.
+    const estColWidths=_rdColWidths('estoque', [340,90,58,58,54,66]);
     let h=`<div class="rd-table-wrap" id="estoque-table-wrap" style="border:none;border-radius:0;--rd-grid:${_rdGridCSS(estColWidths)}">
       <div style="overflow-x:auto"><div style="min-width:760px">
       <div class="rd-thead" style="grid-template-columns:var(--rd-grid)">
@@ -16656,8 +16661,8 @@ function renderEstoque(){
       const rowWarn=!ehInativo && (encomenda||baixo);
       h+=`<div class="rd-row${rowWarn?' rd-row-warn':''}" style="grid-template-columns:var(--rd-grid);cursor:pointer${ehInativo?';opacity:.55':''}" tabindex="0" role="button" aria-label="Abrir produto ${esc(p.nome)}" onclick="abrirProdutoModal('${p.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();abrirProdutoModal('${p.id}')}">
         <div style="display:flex;align-items:center;gap:8px;min-width:0">
-          <span style="width:7px;height:7px;flex-shrink:0;${dotEstilo}${dotBg}" title="${ehInativo?'inativo':encomenda||baixo?'abaixo do mínimo':parado?'sem giro':'normal'}"></span>
-          <span class="rd-cell-strong" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(p.nome)}">${esc(p.nome)}</span>
+          <span style="width:7px;height:7px;flex-shrink:0;margin-top:2px;align-self:flex-start;${dotEstilo}${dotBg}" title="${ehInativo?'inativo':encomenda||baixo?'abaixo do mínimo':parado?'sem giro':'normal'}"></span>
+          <span class="rd-cell-strong" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.3" title="${esc(p.nome)}">${esc(p.nome)}</span>
         </div>
         <div class="rd-cell-sub" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.codigo||'—')}</div>
         <div class="rd-cell-num"${encomenda||baixo?' style="color:var(--warn);font-weight:600"':''}>${fmtQtd(disp)}</div>
