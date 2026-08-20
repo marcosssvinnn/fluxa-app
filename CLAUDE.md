@@ -2,6 +2,57 @@
 
 ---
 
+## 🔧 Finalizar OS agora sai da tela (20/08)
+
+Retomando o pedido do Marcos ("quando eu concluo... ele continua na mesma
+tela... o ideal seria que saísse pro painel anterior"): confirmado antes
+(19/08 mais abaixo) que "Salvar rascunho" e "Gerar PDF e enviar" do
+orçamento **já** navegam certo (`go('history')`) — não precisavam de
+mudança. A peça que faltava era só a OS.
+
+`confirmarFinalizarOS()` (o modal "Finalizar serviço", único gatilho de
+"marcar como concluída"/check-out desde a 3i.7) nunca navegava pra lugar
+nenhum depois de confirmar — ficava preso na OS já concluída, exatamente
+como o Marcos descreveu. Confirmado que os 2 pontos que abrem esse modal
+(botão "✔ Check-out" e "Mais ▾ → Marcar como concluída") **só existem
+dentro do formulário de OS aberto** (`page-os`) — nunca numa lista — então
+sempre faz sentido sair depois.
+
+**Corrigido**: no fim de `confirmarFinalizarOS()`, chama `voltar()` — a
+mesma função que o botão "← Voltar" da barra unificada já usa, que respeita
+o histórico real de navegação (de onde a pessoa entrou: Ordens de Serviço,
+Minhas OS, o cartão do Insights, o que for), com fallback por perfil
+quando não há histórico. **Exceção, respeitada**: quando o técnico marcou
+"abrir orçamento a partir de uma recomendação" no mesmo modal, ESSE
+redirecionamento (`_osAbrirOrcamentoRecomendacao`→`novoOrc()`→
+`go('form')`) já é o destino certo — `voltar()` não roda nesse caso, senão
+desfaria a navegação pro orçamento pré-preenchido assim que ela
+acontecesse.
+
+**Achado no processo, fora de escopo, registrado como tarefa separada**
+(não corrigido aqui): `loadMinhasOS()` tem uma guarda de perfil que chama
+`go('home')` — página que não existe (`#page-home` não existe no HTML,
+provavelmente resquício de uma rota antiga). Hoje isso nunca é alcançado
+pelo fluxo real (nenhum botão leva um gestor/vendas pra "Minhas OS"), mas
+é um caminho morto que quebra a navegação em silêncio se algum dia for
+exercitado. Achado testando o navHist com uma sessão sintética errada —
+não é o bug que o Marcos reportou, ficou como chip separado.
+
+Testado no Browser pane (offline, `dbOk=false;db=null;`, porta nova, sessão
+sintética real por perfil — não só chamada de função): (1) gestor,
+concluir OS sem check-in ativo, sem recomendação → sai de `page-os` direto
+pra `page-os-history` (de onde tinha entrado); (2) técnico, check-out com
+check-in ativo (`checkinAt`/`osCheckinId` simulados) → sai de `page-os`
+pra `page-minhas-os`; (3) com "abrir orçamento a partir de recomendação"
+marcado → vai pra `page-form`, com `nota-interna` pré-preenchida citando a
+OS de origem, **não** volta pra lista por cima (confirmado explicitamente,
+era o ponto de maior risco desta mudança). Zero erro novo no console nos
+3 cenários.
+
+sw.js: fluxa-v221 → fluxa-v222.
+
+---
+
 ## 🔴 Concluir OS "não estava fazendo a alteração" — falha de sync mascarada como sucesso (20/08)
 
 Marcos: preencheu uma OS do Edifício Infinity Post Residence, marcou como

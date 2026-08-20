@@ -8133,7 +8133,19 @@ function confirmarFinalizarOS(){
   } else {
     _concluirOSNucleo(osId, _osExtraDoFormAberto(osId, osAtual));
   }
-  if(recomChk && recomTexto) _osAbrirOrcamentoRecomendacao(osId, recomTexto);
+  // Marcos (20/08): finalizar a OS tinha que "sair da tela" — ficava
+  // preso no formulário mesmo já concluído, tinha que rolar pro topo e
+  // clicar em "← Voltar" na mão. abrirModalFinalizarOS só é chamado de
+  // dentro do formulário de OS aberto (Mais ▾ ou o botão de check-out —
+  // confirmado, os 2 call sites vivem em page-os), então sempre faz
+  // sentido sair depois de confirmar. Exceção: quando marcou "abrir
+  // orçamento a partir de uma recomendação", ESSE já é o redirecionamento
+  // certo (novoOrc()→go('form')) — voltar() por cima desfaria ele.
+  if(recomChk && recomTexto){
+    _osAbrirOrcamentoRecomendacao(osId, recomTexto);
+  } else {
+    voltar();
+  }
   if(notificarWA) enviarNotifWA(notifConcluida(getNC(osId)), osAtual.tel_cliente||'');
 }
 // Grava a confirmação por serviço — aditivo, não interfere com o payload
