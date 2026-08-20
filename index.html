@@ -2192,7 +2192,12 @@
 
     <div id="os-kpis-novo" style="margin-bottom:16px"></div>
 
-    <div class="novo-orc-body novo-orc-body-340">
+    <!-- id próprio (20/08, achado real via print do Marcos: "0 agendadas
+         hoje" deixava #os-carga-tec vazio/escondido, mas a coluna direita
+         de 340px do grid continuava reservada — vão morto do lado direito
+         da tela). _renderCargaTecnico alterna .no-right-panel aqui pra
+         colapsar a coluna quando não há nada pra mostrar. -->
+    <div class="novo-orc-body novo-orc-body-340" id="os-body-grid">
     <div class="novo-orc-left">
     <div class="rd-card" style="padding:0;overflow:hidden;display:flex;flex-direction:column">
       <div style="padding:12px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;flex-wrap:wrap">

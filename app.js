@@ -7680,12 +7680,25 @@ function _renderCargaTecnico(base){
   const el=document.getElementById('os-carga-tec'); if(!el) return;
   const _hoje=_hojeLocal();
   const hoje=base.filter(o=>o.data_servico===_hoje && o.status!=='cancelado');
-  if(!hoje.length){ el.style.display='none'; el.innerHTML=''; return; }
+  // Achado real 20/08 (print do Marcos, "0 agendadas hoje"): esconder o
+  // card inteiro (`display:none`) num dia sem nada agendado deixava um
+  // vão morto de 340px do lado direito da tela — e, pro Marcos, PARECIA
+  // que a função tinha sumido de vez, não que só não tinha dado pra
+  // calcular. Mesmo princípio já usado no resto do app ("quando o
+  // denominador está vazio, mostra o estado, nunca o resultado" — ver
+  // "Despesas não lançadas" no Insights) — o card agora SEMPRE aparece.
+  el.style.display='';
+  if(!hoje.length){
+    el.innerHTML=`<div class="rd-card">
+      <div class="rd-card-title" style="font-size:14px;margin-bottom:4px">Carga por técnico — hoje</div>
+      <div class="rd-cell-sub">Nenhuma OS agendada para hoje.</div>
+    </div>`;
+    return;
+  }
   const porTec={};
   hoje.forEach(o=>{ const t=(o.tecnico||'').trim()||'Sem técnico'; porTec[t]=(porTec[t]||0)+1; });
   const linhas=Object.entries(porTec).sort((a,b)=>b[1]-a[1]);
   const max=Math.max(...linhas.map(l=>l[1]),1);
-  el.style.display='';
   el.innerHTML=`<div class="rd-card">
     <div class="rd-card-title" style="font-size:14px;margin-bottom:11px">Carga por técnico — hoje</div>
     <div style="display:flex;flex-direction:column;gap:9px">

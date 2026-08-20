@@ -2,6 +2,43 @@
 
 ---
 
+## 🔴 "Carga por técnico" sumia inteiro num dia sem nada agendado (20/08)
+
+Depois dos dois ajustes de largura de coluna, Marcos insistiu que o
+problema não era isso — mandou o mesmo print de novo, **de uma aba
+anônima** (então garantidamente a versão nova, sem chance de cache) — e
+descreveu melhor: *"não estou falando que não está aparecendo os
+agendamentos... tem funções que parecem que não estão aparecendo...
+insights que não está aparecendo"*.
+
+Achado: o card **"Carga por técnico — hoje"** (`_renderCargaTecnico`,
+coluna direita da tela) tinha `el.style.display='none'` sempre que não
+havia NENHUMA OS agendada pra hoje — que é exatamente o caso real dele
+(subtítulo da própria tela já dizia "0 agendadas hoje", 6 OS todas
+atrasadas de meses atrás). O card não ficava só vazio — **sumia por
+completo**, e a coluna de 340px que ele ocupa continuava reservada no
+grid, virando um vão morto do lado direito. Bate exato com "função que
+sumiu" — não é a agenda que estava errada, é uma peça da tela que existe
+e ninguém via.
+
+**Corrigido**: mesmo princípio já usado em vários outros lugares do app
+("quando o denominador de um cálculo está vazio, mostra o estado, nunca
+o resultado" — ver "Despesas não lançadas" no Insights) — o card agora
+**sempre aparece**, com "Nenhuma OS agendada para hoje." quando não há
+nada. Resolve os dois sintomas de uma vez: o vão morto (o card volta a
+ocupar a coluna com conteúdo de verdade) e a sensação de função sumida
+(a peça volta a estar visível, só que dizendo "vazio" em vez de nada).
+
+Testado no Browser pane (offline, `dbOk=false;db=null;`, porta nova, 6 OS
+sintéticas reproduzindo o cenário exato do print — 0 agendadas hoje, só
+atrasadas): 1440px — "Carga por técnico — hoje" visível com "Nenhuma OS
+agendada para hoje.", tabela e painel lado a lado sem vão vazio; 375px
+sem overflow. Zero erro novo no console.
+
+sw.js: fluxa-v218 → fluxa-v219.
+
+---
+
 ## 🔴 Colunas redimensionáveis: coluna final esticando sem limite em monitor largo (20/08)
 
 Marcos mandou print de novo, agora de um monitor bem largo — "tabela mal
