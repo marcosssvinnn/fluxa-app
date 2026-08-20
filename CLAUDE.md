@@ -2,6 +2,52 @@
 
 ---
 
+## 🔴 Colunas redimensionáveis: coluna final esticando sem limite em monitor largo (20/08)
+
+Marcos mandou print de novo, agora de um monitor bem largo — "tabela mal
+distribuída na tela, e acho que desapareceu funções que tinha antes".
+As funções (checkbox de seleção em lote, "Selecionar todos") **não
+tinham desaparecido** — testei e confirmei que continuam funcionando.
+Mas a distribuição estava genuinamente errada, achado real, dois bugs
+diferentes:
+
+**Bug 1 — coluna final sem limite de largura.** Com a coluna final
+sempre em `1fr` puro (arquitetura da entrada de colunas redimensionáveis
+de ontem), ela era a ÚNICA que crescia quando sobrava espaço. Num
+monitor comum isso não aparecia; no monitor bem largo do Marcos, "Próxima
+ação" (OS) ou "Valor" (Estoque) virava enorme e vazia, enquanto "Cliente
+e serviço"/"Produto" (que precisavam do espaço de verdade) continuavam
+presos na largura fixa — tabela visualmente desequilibrada.
+**Corrigido**: `_rdGridCSS(widths, trailingMax)` — a coluna final agora
+usa `minmax(0,Npx)`, um teto (260px em OS, 150px em Estoque) em vez de
+`1fr` sem limite.
+
+**Bug 2, achado testando o fix do bug 1 (o teto sozinho não bastava)**: o
+`<div style="min-width:...">` que envolve a tabela sempre esticava pra
+preencher 100% do espaço do container pai (`width:auto` de um bloco
+normal), mesmo depois de eu limitar as colunas — sobrava um vazio morto
+DEPOIS da última coluna, dentro da própria linha, em vez do espaço extra
+simplesmente ficar de fora da tabela. **Corrigido**: `width:fit-content`
+nesse wrapper — agora ele só ocupa a largura que o conteúdo (as colunas,
+já limitadas) realmente precisa; o `min-width` calculado
+(`_rdMinWidth`) continua garantindo que não encolha demais em tela
+apertada.
+
+Testado no Browser pane (offline, `dbOk=false;db=null;`, porta nova, 6 OS
+sintéticas): **2200px** (simulando o monitor do print) — tabela com
+largura natural (952px em OS, 924px em Estoque), sem coluna final
+gigante, espaço sobrando fica de fora da tabela, não dentro dela;
+**1440px** — mesmo comportamento de antes preservado (pequeno scroll de
+17px, dentro do esperado); **checkbox de seleção + "Selecionar todos" +
+barra de ação em lote** — testados com clique real, confirmados
+funcionando (6 selecionadas, "Atribuir técnico"/"Remarcar"/"Cancelar"
+aparecendo) — as funções nunca tinham sumido; 375px sem overflow. Zero
+erro novo no console.
+
+sw.js: fluxa-v217 → fluxa-v218.
+
+---
+
 ## 🔴 Ordens de Serviço — colunas fixas espremiam "Próxima ação" contra o painel lateral (20/08)
 
 Marcos: "a tela de ordens de serviço também está mal distribuída... acho

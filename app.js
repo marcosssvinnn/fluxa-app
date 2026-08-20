@@ -7281,7 +7281,15 @@ function _rdColWidths(tableId, defaults){
   }catch(e){ /* rascunho corrompido, cai no default */ }
   return defaults.slice();
 }
-function _rdGridCSS(widths){ return widths.map(w=>w+'px').join(' ')+' 1fr'; }
+// Achado real 20/08 (print do Marcos num monitor bem largo): com a coluna
+// final sempre em `1fr` puro, ela vira a ÚNICA que absorve espaço sobrando
+// — num monitor grande, "Próxima ação"/"Valor" ficava enorme e vazia
+// enquanto "Cliente e serviço"/"Produto" (que precisavam do espaço de
+// verdade) ficavam presas na largura fixa. `trailingMax` limita até onde
+// a coluna final cresce — o resto do espaço sobra em branco no fim da
+// linha (comportamento normal de tabela densa, mesmo princípio já usado
+// no `.wrap` do app inteiro: não esticar só porque a tela é grande).
+function _rdGridCSS(widths, trailingMax){ return widths.map(w=>w+'px').join(' ')+' '+(trailingMax?`minmax(0,${trailingMax}px)`:'1fr'); }
 // Largura mínima do wrapper (`overflow-x:auto`), calculada de verdade a
 // partir das larguras das colunas — achado real (20/08, OS ao lado de
 // "Carga por técnico"): um `min-width` fixo escolhido a dedo, sem
@@ -7294,7 +7302,7 @@ function _rdMinWidth(widths, trailingMin){
 }
 // Chamar sempre depois de `body.innerHTML=h` — liga as alças de arrastar
 // no cabeçalho; `widths` é mutado por referência a cada arraste.
-function _rdInitResize(wrapEl, tableId, widths){
+function _rdInitResize(wrapEl, tableId, widths, trailingMax){
   if(!wrapEl) return;
   const heads=[...wrapEl.querySelectorAll('.rd-thead .rd-th')];
   heads.slice(0, widths.length).forEach((th,i)=>{
@@ -7307,7 +7315,10 @@ function _rdInitResize(wrapEl, tableId, widths){
     let startX=0, startW=0;
     const onMove=clientX=>{
       widths[i]=Math.max(50, startW+(clientX-startX));
-      wrapEl.style.setProperty('--rd-grid', _rdGridCSS(widths));
+      // Achado 20/08: esqueci o trailingMax aqui na 1ª versão — durante o
+      // arraste ao vivo, a coluna final voltava a esticar sem limite
+      // (só o render inicial respeitava o teto). Mesmo argumento sempre.
+      wrapEl.style.setProperty('--rd-grid', _rdGridCSS(widths, trailingMax));
     };
     const mouseMove=e=>onMove(e.clientX);
     const touchMove=e=>{ if(e.touches[0]) onMove(e.touches[0].clientX); };
@@ -7396,8 +7407,8 @@ function renderOSTabela(){
   // mais enxutas + min-width calculado de verdade (_rdMinWidth), não mais
   // um número fixo escolhido a dedo que não batia com a soma real.
   const osColWidths=_rdColWidths('os-hist', [28,82,230,85,95,64]);
-  let h=`<div class="rd-table-wrap" id="osh-table-wrap" style="border:none;border-radius:0;--rd-grid:${_rdGridCSS(osColWidths)}">
-    <div style="overflow-x:auto"><div style="min-width:${_rdMinWidth(osColWidths,120)}px">
+  let h=`<div class="rd-table-wrap" id="osh-table-wrap" style="border:none;border-radius:0;--rd-grid:${_rdGridCSS(osColWidths,260)}">
+    <div style="overflow-x:auto"><div style="min-width:${_rdMinWidth(osColWidths,120)}px;width:fit-content">
     <div class="rd-thead" style="grid-template-columns:var(--rd-grid)">
       <div class="rd-th"><input type="checkbox" class="os-check" id="os-check-todos" title="Selecionar todos" onclick="_osToggleTodos()"></div>
       <div class="rd-th">Agendada</div><div class="rd-th">Cliente e serviço</div>
@@ -7435,7 +7446,7 @@ function renderOSTabela(){
   });
   h+='</div></div></div>';
   document.getElementById('osh-body').innerHTML=h;
-  _rdInitResize(document.getElementById('osh-table-wrap'), 'os-hist', osColWidths);
+  _rdInitResize(document.getElementById('osh-table-wrap'), 'os-hist', osColWidths, 260);
 
   if(rodapeEl){
     rodapeEl.innerHTML=`<div class="rd-tfoot"><span>Mostrando ${lista.length} de ${baseSemStatus.length}</span><button type="button" class="rd-btn rd-btn-link" style="font-size:12px" onclick="_rdResetWidths('os-hist',renderOSTabela)">↺ Redefinir colunas</button></div>`;
@@ -16648,8 +16659,8 @@ function renderEstoque(){
     // tinham — sobra pro Produto entrar mais largo de cara, antes de
     // precisar arrastar nada. "Valor" (última) sempre estica em 1fr.
     const estColWidths=_rdColWidths('estoque', [340,90,58,58,54,66]);
-    let h=`<div class="rd-table-wrap" id="estoque-table-wrap" style="border:none;border-radius:0;--rd-grid:${_rdGridCSS(estColWidths)}">
-      <div style="overflow-x:auto"><div style="min-width:${_rdMinWidth(estColWidths,90)}px">
+    let h=`<div class="rd-table-wrap" id="estoque-table-wrap" style="border:none;border-radius:0;--rd-grid:${_rdGridCSS(estColWidths,150)}">
+      <div style="overflow-x:auto"><div style="min-width:${_rdMinWidth(estColWidths,90)}px;width:fit-content">
       <div class="rd-thead" style="grid-template-columns:var(--rd-grid)">
         <div class="rd-th">Produto</div><div class="rd-th">SKU</div>
         <div class="rd-th rd-num">Disp.</div><div class="rd-th rd-num">Reserv.</div>
@@ -16697,7 +16708,7 @@ function renderEstoque(){
       h+=`<div class="rd-tfoot"><span>${total} ${total!==1?'itens':'item'}</span><button type="button" class="rd-btn rd-btn-link" style="font-size:12px" onclick="_rdResetWidths('estoque',renderEstoque)">↺ Redefinir colunas</button></div>`;
     }
     body.innerHTML=h;
-    _rdInitResize(document.getElementById('estoque-table-wrap'), 'estoque', estColWidths);
+    _rdInitResize(document.getElementById('estoque-table-wrap'), 'estoque', estColWidths, 150);
   }
 
   // ── Alerta resumido (inconsistências + encomendas + repor) ──
