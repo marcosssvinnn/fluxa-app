@@ -447,6 +447,178 @@ centrado, sem regressão. Zero erro novo no console.
 
 sw.js: fluxa-v211 → fluxa-v212.
 
+### ✅ 3i.8 — O relatório de serviço executado (fecha a Tarefa 3i inteira)
+
+**"A peça que não existe"** (DIAGNOSTICO-OS.md: `gerarOSPDF` imprime a
+ORDEM, antes de ir; nada, até esta tarefa, imprimia o que foi FEITO,
+depois de voltar). Construída em cima das 2 decisões do Marcos (19/08,
+depois do relatório de 3i.1-3i.7): **relatório automático em contrato
+mensal (com tudo executado), revisão manual no resto**; **serviço não
+executado sugere reagendar por padrão**.
+
+**`migracao-os-relatorio-3i8.sql`** (aplicada e verificada em produção via
+Management API — a primeira tentativa usou `tr '\n' ' '` pra achatar o
+arquivo antes de mandar pro Management API e um comentário `--` acabou
+comentando o `ALTER TABLE` inteiro numa linha só; `[]` de sucesso do jeito
+errado, coluna não existia — achado na própria verificação, corrigido
+mandando cada `ALTER`/`CREATE` como statement isolado):
+- `os_materiais` (id, os_id, produto_id, qtd, custo_unit) — única tabela
+  nova, exatamente como o plano pedia. Antes `ordens_servico.materiais`
+  era só texto; reabrir uma OS salva mostrava a string, nunca os chips
+  (limitação registrada em 13/08). **Não migra o texto histórico** — OS
+  antiga continua mostrando a string como sempre mostrou.
+- `ordens_servico.relatorio_enviado_em` — já **antecipada pela trilha da
+  3i.6** (`_osTrilhaNos` lê este campo desde 19/08; o nó "Relatório
+  enviado" ficava sempre tracejado até ele existir).
+- `ordens_servico.recomendacoes` — **desvio pequeno do "única mudança de
+  schema"** que o plano original previa (escrito antes da 3i.7 existir com
+  seu campo de recomendação no modal "Finalizar serviço"). Registrado com
+  transparência, mesmo espírito da 3i.5: mesmo padrão de
+  `vistorias.recomendacoes` (06/08), não é schema novo de verdade.
+
+**Materiais estruturados agora persistem** — `_osSyncMateriais`/
+`_osLoadMateriais` (delete-then-insert por `os_id`, listas pequenas, mais
+simples e seguro que reconciliar delta) ligados em `_persistirOS` (salva)
+e `_abrirOSForm` (carrega). A baixa de estoque em si **não mudou** —
+continua acontecendo na hora, em `osMatAddItem`/`osMatRemoverItem`; esta
+tabela só guarda A LISTA, pra reabrir a OS (ou montar o relatório) mostrar
+os chips de novo, não o texto corrido. **Só sincroniza com id real** (não
+`local_os_*`) — a mesma OS local, ao sincronizar depois, ganha um id NOVO
+(`dbInsertNumerado`), e sincronizar materiais antes disso os deixaria
+órfãos, presos ao id velho que deixa de existir.
+
+**O documento** — `preencherRelatorioOS`/`_gerarPDFRelatorioOS`
+(`#pdoc-os-relatorio`, novo template em `index.html`) espelham
+`preencherRelatorioVistoria`/`_gerarPDFVistoria` **literalmente**: mesmo
+motor (blob HTML + nova aba + `window.print()`, sem html2pdf — mesmo
+motivo já documentado pra vistoria, aguenta muitas fotos sem travar),
+**reaproveitando as MESMAS classes `.pd-*`** — zero CSS novo. Seções:
+cabeçalho com branding da empresa, cliente, 3 estatísticas (executados/
+não executados/materiais), grade de 4 dados de visita (técnico/data/
+entrada→saída/duração — idêntica à de vistoria), recomendações em
+destaque (quando preenchidas no modal "Finalizar serviço"), "O que foi
+executado" (tabela, check verde/âmbar+motivo por serviço), "Material
+aplicado" (só aparece com material de verdade), "Condições encontradas"
+(`obs_tecnica`), registro fotográfico com legenda, próxima visita (só
+quando já existe de verdade uma OS futura do MESMO agendamento — nunca
+calcula periodicidade sozinho, isso inventaria data), assinaturas.
+
+**Duas versões, dois botões** (não um alternador ao vivo dentro da aba —
+simplificação registrada: o documento é um blob HTML estático aberto numa
+aba nova, reconstruir isso com toggle ao vivo era complexidade maior sem
+ganho real): "Ver relatório (cliente)" e "Ver relatório (interna)" no
+cartão de estado da OS concluída. A interna acrescenta a coluna de custo
+por material + total — **sem coluna nova no banco**, é só a chamada
+passar `{interna:true}` pro preenchimento, mesmo princípio da chave de
+ocultar valores que o orçamento já tem, só que decidida na hora de abrir,
+não guardada.
+
+**Serviço não executado — modal de pendências** (`abrirModalPendenciasOS`,
+botão "Resolver pendências (N)" no cartão, só aparece com algo pendente):
+por item, campo de data + "Reagendar" (padrão, cria uma OS NOVA só com
+aquele serviço, mesmo núcleo de `_criarOSRapida` da 3i.2 — payload sem id
+no caminho online, servidor gera; local só se não sincronizar) ou "Abater
+da cobrança" (marca `resolvido:true`/`resolucao:'abatido'`, **não mexe em
+nenhum valor financeiro** — mesmo princípio já fixado no rodapé do modal
+de 3i.7, "o faturamento não muda aqui").
+
+**Envio automático x manual, as duas decisões aplicadas**: `contratoMensal
+= !!os.agendamento_id` (mesmo sinal que o resto do app já usa pra
+"veio de plano de vistoria recorrente") `&& tudoExecutado` →
+`_osMarcarRelatorioEnviado` roda sozinha ao finalizar. Qualquer outro caso
+(OS avulsa, ou algum "não fiz") fica pendente — o cartão mostra "Relatório
+ainda não enviado ao cliente — revise antes de mandar", e alguém manda
+pelo botão "Enviar relatório ao cliente" (`enviarRelatorioOSWhatsApp`,
+mesmo padrão de `enviarWAResumoVistoria`). **Importante, registrado com
+transparência**: "automático" aqui é "publica sem exigir revisão" (o
+relatório já aparece no portal e na trilha na hora) — **não é "sai
+sozinho por WhatsApp sem ninguém tocar no aparelho"**. O app é 100%
+client-side, sem backend — não existe como disparar uma mensagem de
+verdade sem um navegador aberto e um gesto do usuário; a distinção que a
+decisão do Marcos pede (revisar ou não) é sobre a PUBLICAÇÃO, que essa
+implementação faz de verdade, não sobre o WhatsApp em si.
+
+**Publicado em 2 dos 4 lugares que o plano pedia, os outros 2 cortados
+com transparência**:
+- **Linha do tempo do cliente** (`_renderFichaCliente`) — o evento de OS
+  já existia (3i.5 tinha adicionado); ganhou "· relatório enviado" no
+  título e virou clicável (abre a versão do cliente na hora) quando
+  `relatorio_enviado_em` está setado.
+- **Portal** ("Últimos relatórios") — antes vistoria SEMPRE vencia OS (OS
+  só aparecia, sem PDF nenhum, se o cliente não tivesse nenhuma vistoria).
+  Agora os dois tipos entram na MESMA lista, ordenados por data, cada um
+  com seu botão "Abrir PDF" certo (`_portalAbrirPDFVistoria`/
+  `_portalAbrirPDFOS`). **Só entra OS com relatório JÁ ENVIADO** — um
+  relatório pendente de revisão não pode aparecer pro cliente antes de
+  alguém decidir mandar.
+- **Equipamento** (quando o serviço mexeu num filtro/bomba cadastrado) —
+  **cortado**. `ordens_servico` não tem nenhum vínculo com
+  `equipamento_id` no schema hoje; fabricar essa ligação sem ela existir
+  de verdade seria inventar dado, não publicar num lugar que já existe.
+- **Dossiê de assembleia** — **cortado**. `gerarDossieAssembleia`
+  (existente, 06/08) é sobre o histórico de ORÇAMENTOS/vistoria do
+  cliente inteiro, não por OS individual; estender ele é trabalho
+  separado, melhor feito depois do relatório de OS já estar provado em
+  produção do que apressado no mesmo commit que o cria.
+
+**1 bug real achado e corrigido no próprio teste**: `confirmarFinalizarOS`
+gravava `servicos_execucao`/`recomendacoes`/`relatorio_enviado_em`
+**depois** de chamar `_concluirOSNucleo`/`_fazerCheckoutConfirmado` — que
+já fazem o próprio `_renderOSEstado()` no final. Resultado: o cartão
+desenhava com o estado ANTIGO desses 3 campos (ex.: "Resolver pendências"
+nunca aparecia na hora, só depois de outra coisa forçar um re-render).
+Corrigido invertendo a ordem — grava tudo primeiro, conclui depois.
+
+Testado no Browser pane (offline, `dbOk=false;db=null;`, porta nova,
+chamada real do fluxo completo, exceto materiais estruturados — testados
+à parte com um mock mínimo de `db.from()` pra não depender de rede real):
+finalizar com tudo executado (OS avulsa) → relatório gerado com stats
+2/0/0, seções corretas, material oculto (zero); finalizar com 1 "não fiz"
+em OS de contrato mensal → `relatorio_enviado_em` continua null (decisão
+2 respeitada: só automático com tudo executado), cartão mostra "Resolver
+pendências (1)"; resolver via "Reagendar" → nova OS criada com o serviço,
+data e motivo certos, item marca `resolvido`, modal atualiza pra "Nada
+pendente"; finalizar OS de contrato mensal com tudo executado →
+`relatorio_enviado_em` gravado sozinho, cartão sem botão de enviar;
+"Enviar relatório ao cliente" manual → WhatsApp com a URL certa
+(executado/não-executado/telefone), marca enviado; portal — OS com
+relatório enviado aparece em "Últimos relatórios" junto de vistoria,
+"Abrir PDF" sempre versão cliente (nunca interna); linha do tempo do
+cliente — evento de OS com "relatório enviado" e clicável; materiais
+estruturados — salvos e recarregados corretos via mock de `os_materiais`,
+guarda contra `osEditId` trocado enquanto a promise resolve. 375px sem
+overflow, sheet com grip. Zero erro novo no console.
+
+sw.js: fluxa-v212 → fluxa-v213.
+
+---
+
+## 🔧 Resumo da Tarefa 3i — o ciclo Orçamento → OS → Relatório, COMPLETA (19/08)
+
+Os 8 commits do plano (`PLANO-3I-CICLO-OS.md`) estão todos no ar: **3i.1**
+componentes compartilhados (trilha+cartão) → **3i.2** coluna Execução no
+Histórico de Orçamentos (achado real: 98 orçamentos aprovados sem OS,
+R$ 167.895,76 parados) → **3i.3** 4 KPIs novos → **3i.4** barra unificada
+do orçamento → **3i.5** OS como estado no orçamento → **3i.6** OS: uma
+ação primária por estado (versão completa do mockup, risco aceito pelo
+Marcos) → **3i.7** modal "Finalizar serviço" → **3i.8** o relatório de
+serviço executado, com as 2 decisões do Marcos aplicadas (automático em
+contrato mensal com tudo executado; reagendar por padrão pro não
+executado).
+
+**3 migrações aplicadas em produção nesta tarefa**:
+`migracao-os-execucao-3i7.sql` (`servicos_execucao`),
+`migracao-os-relatorio-3i8.sql` (`os_materiais`, `relatorio_enviado_em`,
+`recomendacoes`) — a única tabela nova do plano inteiro é `os_materiais`.
+
+**Cortado com transparência, registrado nos commits de origem, não
+esquecido**: publicação no equipamento (sem `equipamento_id` na OS) e no
+dossiê de assembleia (mecanismo existente é por cliente, não por OS —
+extensão separada); alternador ao vivo cliente/interna dentro da mesma
+aba (virou 2 botões); "gerar relatório sempre, não desmarcável" do
+mockup do 3i.7 (o gerador não existia ainda naquele commit — não fabricar
+um checkbox prometendo algo que não acontecia).
+
 ---
 
 ## 🔴 OS saindo duplicada — causa raiz achada e corrigida em 2 pontos (19/08)

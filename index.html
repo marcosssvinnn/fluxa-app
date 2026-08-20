@@ -2076,6 +2076,96 @@
   <div class="pd-foot" id="pd-foot-vis"></div>
 </div>
 
+<!-- Relatório de serviço executado (Tarefa 3i.8, 19/08) — a peça que não
+     existia (DIAGNOSTICO-OS.md: "gerarOSPDF imprime a ORDEM, antes de ir;
+     nada imprime o que foi FEITO, depois de voltar"). Mesmo motor de PDF
+     da vistoria (preencherRelatorioOS/_gerarPDFRelatorioOS espelham
+     preencherRelatorioVistoria/_gerarPDFVistoria), reaproveitando as
+     MESMAS classes .pd-* — zero CSS novo. -->
+<div class="pdoc" id="pdoc-os-relatorio">
+  <div class="pd-header" id="pd-header-osr">
+    <div class="pd-hdr-brand">
+      <img id="pd-hdr-logo-osr" class="pd-hdr-logo-img" alt="logo">
+      <div class="pd-hdr-logo-initials" id="pd-hdr-init-osr"></div>
+      <div class="pd-hdr-txt">
+        <div class="pd-hdr-nome" id="pd-nm-osr"></div>
+        <div class="pd-hdr-sub" id="pd-sb-osr"></div>
+        <div class="pd-hdr-tagline" id="pd-tag-osr"></div>
+      </div>
+    </div>
+    <div class="pd-hdr-doc">
+      <div class="pd-doctype-badge">Relatório de Serviço</div>
+      <div class="pd-docnum" id="pd-num-osr"></div>
+    </div>
+  </div>
+  <div class="pd-meta-strip">
+    <div class="pd-meta-left" id="pd-cont-osr"></div>
+    <div class="pd-meta-right" id="pd-meta-osr"></div>
+  </div>
+  <div class="pd-content">
+    <div class="pd-sl">Cliente</div>
+    <div class="pd-cli-card" style="margin-bottom:16px">
+      <div class="pd-cli-bar" id="pd-cli-bar-osr"></div>
+      <div class="pd-cli-info">
+        <div class="pd-cli-nm" id="pd-cli-nm-osr"></div>
+        <div class="pd-cli-loc" id="pd-cli-loc-osr"></div>
+      </div>
+    </div>
+    <div class="pd-vis-stats-row" id="pd-osr-stats-row" style="grid-template-columns:repeat(3,1fr)"></div>
+    <div class="pd-vis-info-grid" id="pd-osr-info-grid"></div>
+    <!-- Recomendações — mesmo bloco em destaque da vistoria, texto do
+         técnico capturado no modal "Finalizar serviço" (3i.7). -->
+    <div id="pd-osr-recom-wrap" style="display:none;margin-bottom:18px;border:1.5px solid #fecaca;border-radius:10px;overflow:hidden">
+      <div style="background:#fef2f2;padding:8px 14px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#b91c1c;border-bottom:1.5px solid #fecaca">Recomendações</div>
+      <div id="pd-osr-recom-txt" style="padding:12px 14px;font-size:13px;line-height:1.6;color:#374151;white-space:pre-wrap"></div>
+    </div>
+    <!-- O que foi executado -->
+    <div class="pd-sl">O que foi executado</div>
+    <div style="border:1.5px solid #e9ecef;border-radius:10px;overflow:hidden;margin-bottom:16px">
+      <table class="pd-vis-sumtable" id="pd-osr-svc-table"></table>
+    </div>
+    <!-- Material aplicado (interna: com custo/valor/margem; oculto na versão cliente) -->
+    <div id="pd-osr-mat-wrap" style="display:none">
+      <div class="pd-sl">Material aplicado</div>
+      <div style="border:1.5px solid #e9ecef;border-radius:10px;overflow:hidden;margin-bottom:16px">
+        <table class="pd-vis-sumtable" id="pd-osr-mat-table"></table>
+      </div>
+    </div>
+    <!-- Condições encontradas -->
+    <div id="pd-osr-obs-wrap" style="display:none">
+      <div class="pd-sl">Condições encontradas</div>
+      <div class="pd-obs-card">
+        <div class="pd-obs-bar" id="pd-osr-obs-bar"></div>
+        <div class="pd-obs-inner">
+          <div class="pd-obs-lbl">Observações do Técnico</div>
+          <div class="pd-obs-txt" id="pd-osr-obs-txt"></div>
+        </div>
+      </div>
+    </div>
+    <!-- Registro fotográfico -->
+    <div id="pd-osr-fotos-wrap" style="display:none">
+      <div class="pd-sl">Registro Fotográfico</div>
+      <div class="pd-vis-equip-fotos" id="pd-osr-fotos-grid" style="margin-bottom:16px"></div>
+    </div>
+    <!-- Próxima visita -->
+    <div id="pd-osr-proxima-wrap" style="display:none;margin-bottom:16px">
+      <div class="pd-sl">Próxima Visita</div>
+      <div class="pd-g2card" id="pd-osr-proxima-txt"></div>
+    </div>
+    <div class="pd-sig-area">
+      <div class="pd-sig-blk">
+        <div class="pd-sig-line"></div>
+        <div class="pd-sig-name">Assinatura do Responsável / Síndico</div>
+      </div>
+      <div class="pd-sig-blk">
+        <div class="pd-sig-line"></div>
+        <div class="pd-sig-name" id="pd-osr-sign-tec">Técnico Responsável</div>
+      </div>
+    </div>
+  </div>
+  <div class="pd-foot" id="pd-foot-osr"></div>
+</div>
+
 <!-- ══ PAGE: OS HISTORY ══ -->
 <div class="page" id="page-os-history">
   <div class="wrap">

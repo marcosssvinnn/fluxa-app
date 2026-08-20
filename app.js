@@ -4457,6 +4457,7 @@ async function _persistirOS(silencioso){
         }
       }
     }catch(e){ console.warn('[_persistirOS] falha ao salvar OS no banco:', e?.message||e); }
+    if(salvouOnline) _osSyncMateriais(osEditId);
   }
   if(!salvouOnline){
     // Offline, ou o salvamento online falhou: NUNCA deixa a OS existir só no
@@ -7643,10 +7644,23 @@ function _osTrilhaNos(o){
 function _osCartaoEstado(o){
   const emCampo=!!(o.checkin_time && !o.checkout_time);
   if(o.status==='concluido'){
+    // Tarefa 3i.8 (19/08): o relatório existe agora — a nota antiga era um
+    // placeholder de quando ele ainda não tinha sido construído (3i.6).
     const dur=o.duracao_min?Math.floor(o.duracao_min/60)+'h '+String(o.duracao_min%60).padStart(2,'0'):'';
+    const svcExec=Array.isArray(o.servicos_execucao)?o.servicos_execucao:[];
+    const pendentes=svcExec.filter(s=>s.executado===false && !s.resolvido);
+    const secundarias=[
+      {label:'Ver relatório (cliente)', onclick:`_gerarPDFRelatorioOS(_acharOS('${o.id}'),{interna:false})`},
+      {label:'Ver relatório (interna)', onclick:`_gerarPDFRelatorioOS(_acharOS('${o.id}'),{interna:true})`}
+    ];
+    if(!o.relatorio_enviado_em) secundarias.push({label:'Enviar relatório ao cliente', onclick:`enviarRelatorioOSWhatsApp('${o.id}')`});
+    if(pendentes.length) secundarias.push({label:'Resolver pendências ('+pendentes.length+')', onclick:`abrirModalPendenciasOS('${o.id}')`});
     return _renderCartaoEstado({
       label:'Esta OS', valor:'Concluída', sub:dur?('duração '+dur):'',
-      nota:'Relatório de serviço executado ainda não existe no sistema — fica pra uma etapa futura.'
+      secundarias,
+      nota: o.relatorio_enviado_em
+        ? 'Relatório enviado ao cliente em '+new Date(o.relatorio_enviado_em).toLocaleDateString('pt-BR')+'.'
+        : 'Relatório ainda não enviado ao cliente — revise antes de mandar.'
     });
   }
   if(emCampo){
@@ -7739,12 +7753,13 @@ function _abrirOSForm(o){
   // Técnico: auto-preencher com o usuário logado se o campo estiver vazio
   const nomeSessao=getSessao()?.nome||'';
   setV('os-tec',o.tecnico||nomeSessao); setV('os-total',String(o.total||0));
-  // Materiais estruturados (baixa por produto) não persistem entre sessões
-  // de edição — cada abertura de OS começa com a lista zerada; o texto
-  // salvo anteriormente (que já inclui o resumo dos materiais baixados +
-  // observações livres) continua visível no campo abaixo, só não volta a
-  // virar chips editáveis.
+  // Materiais estruturados agora persistem de verdade (Tarefa 3i.8,
+  // tabela os_materiais) — antes a lista sempre começava zerada ao reabrir
+  // a OS (limitação registrada em 13/08); carrega em background (a função
+  // não é async, chamada sem await, mesmo padrão de outros carregamentos
+  // deste projeto) e re-renderiza os chips quando chegar.
   osMateriais=[]; _osMatRenderLista();
+  _osLoadMateriais(o.id);
   setV('os-mat',o.materiais||''); setV('os-obs',o.obs_tecnica||'');
   setV('os-video-link',o.video_link||'');
   setV('os-loja',o.loja_id||lojaAtiva||LOJA_PADRAO_ID);
@@ -7941,14 +7956,28 @@ function confirmarFinalizarOS(){
   // pelo checkin_time ao vivo) usa o check-out de sempre; senão, o núcleo
   // de "concluir" (extraído de concluirOSHistorico nesta mesma tarefa,
   // sem confirm() próprio — este modal já É a confirmação).
+  // Grava servicos_execucao/recomendação/relatório ANTES de concluir — o
+  // núcleo de concluir/check-out já re-renderiza o cartão no fim
+  // (_renderOSEstado), e o cartão lê exatamente esses 3 campos (pendências
+  // de "não fiz", texto da recomendação, se o relatório já foi enviado).
+  // Gravar depois deixava o cartão desenhado 1 passo atrasado até algo
+  // mais disparar um re-render (achado testando esta mesma tarefa).
+  if(svcs.length) _osSalvarExecucaoServicos(osId, svcs);
+  if(recomChk && recomTexto) _osSalvarRecomendacao(osId, recomTexto);
+  // Relatório (3i.8) — as 2 decisões do Marcos (19/08): automático quando é
+  // contrato mensal (veio de agendamento recorrente) E tudo foi executado;
+  // senão fica pendente de revisão (trilha mostra "Relatório enviado"
+  // tracejado até alguém mandar pelo Mais ▾ → "Enviar relatório ao cliente").
+  const contratoMensal=!!osAtual.agendamento_id;
+  const tudoExecutado=svcs.every(s=>s.executado!==false);
+  if(contratoMensal && tudoExecutado) _osMarcarRelatorioEnviado(osId);
   if(typeof osEditId!=='undefined' && osEditId===osId && checkinAt && osCheckinId===osId){
     _fazerCheckoutConfirmado();
   } else {
     _concluirOSNucleo(osId, _osExtraDoFormAberto(osId, osAtual));
   }
-  if(svcs.length) _osSalvarExecucaoServicos(osId, svcs);
-  if(notificarWA) enviarNotifWA(notifConcluida(getNC(osId)), osAtual.tel_cliente||'');
   if(recomChk && recomTexto) _osAbrirOrcamentoRecomendacao(osId, recomTexto);
+  if(notificarWA) enviarNotifWA(notifConcluida(getNC(osId)), osAtual.tel_cliente||'');
 }
 // Grava a confirmação por serviço — aditivo, não interfere com o payload
 // de concluirOSHistorico/_fazerCheckoutConfirmado (grava depois, em cima).
@@ -7976,6 +8005,321 @@ function _osAbrirOrcamentoRecomendacao(osId, texto){
   if(!gV('origem-cli')) setOrigemCli('Já é cliente');
   setV('nota-interna', 'Recomendação da OS #'+String(o.numero||'').padStart(3,'0')+':\n'+texto);
   toast('📋 Orçamento pré-preenchido com a recomendação — revise os serviços antes de gerar.');
+}
+
+// ══════════════════════════════════════════════════
+//  MÓDULO — RELATÓRIO DE SERVIÇO EXECUTADO (Tarefa 3i.8, 19/08)
+// ══════════════════════════════════════════════════
+// "A peça que não existe" (DIAGNOSTICO-OS.md) — gerarOSPDF imprime a
+// ORDEM antes de ir; nada, até aqui, imprimia o que foi FEITO, depois de
+// voltar. Mesmo motor de PDF da vistoria (_gerarPDFVistoria): template
+// oculto (#pdoc-os-relatorio) preenchido por JS, blob HTML aberto em nova
+// aba com botão "Baixar/Imprimir" (window.print — sem html2pdf, mesmo
+// motivo já documentado pra vistoria: aguenta muitas fotos sem travar).
+// Reaproveita as MESMAS classes .pd-* — zero CSS novo.
+//
+// Escopo cortado de propósito, registrado (não esquecido): publicar no
+// EQUIPAMENTO (quando o serviço mexeu num filtro/bomba cadastrado) fica de
+// fora — OS não tem nenhum vínculo com equipamento_id no schema hoje;
+// fabricar essa ligação sem ela existir de verdade seria inventar dado.
+// Publicar no DOSSIÊ DE ASSEMBLEIA também fica de fora — aquele mecanismo
+// (gerarDossieAssembleia) é sobre o histórico de ORÇAMENTOS/vistoria do
+// cliente inteiro, não por OS individual; estender ele é trabalho
+// separado, melhor feito depois do relatório de OS já estar provado em
+// produção, não no mesmo commit que o cria.
+
+// Materiais já aplicados nesta OS, lidos de os_materiais + join com
+// produtos — usado só na hora de montar o relatório (a lista editável em
+// tela, osMateriais, já é carregada por _osLoadMateriais).
+async function _osMateriaisParaRelatorio(osId){
+  if(!(dbOk&&db&&osId&&!String(osId).startsWith('local_'))) return [];
+  try{
+    const {data}=await db.from('os_materiais').select('*').eq('os_id',osId);
+    return (data||[]).map(r=>{
+      const p=produtoById(r.produto_id);
+      return {nome:p?.nome||'Produto', unidade:p?.unidade||'un', qtd:r.qtd, custo_unit:r.custo_unit};
+    });
+  }catch(e){ console.warn('[_osMateriaisParaRelatorio]', e?.message||e); return []; }
+}
+// Próxima visita: só quando já existe de verdade uma OS futura do MESMO
+// agendamento recorrente — nunca calcula periodicidade sozinho (inventaria
+// data que ninguém confirmou).
+function _osProximaVisita(os){
+  if(!os.agendamento_id) return null;
+  const hoje=_hojeLocal();
+  return (todosOS||[]).filter(o=>o.agendamento_id===os.agendamento_id && o.id!==os.id && o.status==='agendado' && o.data_servico>=hoje)
+    .sort((a,b)=>String(a.data_servico).localeCompare(String(b.data_servico)))[0] || null;
+}
+function preencherRelatorioOS(os, opts={}){
+  document.querySelectorAll('.pdoc').forEach(d=>d.classList.remove('print-active'));
+  const pdoc=document.getElementById('pdoc-os-relatorio'); if(!pdoc) return;
+  pdoc.classList.add('print-active');
+  const interna=!!opts.interna;
+
+  const LC=getLojaConfig(os.loja_id);
+  const cor=LC.cor||getComputedStyle(document.documentElement).getPropertyValue('--c1').trim()||'#0B62CE';
+  const cor2=LC.cor2||getComputedStyle(document.documentElement).getPropertyValue('--c2').trim()||'#101720';
+
+  const hdr=document.getElementById('pd-header-osr'); if(hdr) hdr.style.background=`linear-gradient(135deg,${cor2},${cor2}ee)`;
+  const footEl=document.getElementById('pd-foot-osr');
+  const logoEl=document.getElementById('pd-hdr-logo-osr'), initEl=document.getElementById('pd-hdr-init-osr');
+  const nomePDF=LC.nome||'Empresa';
+  if(logoEl&&initEl){
+    if(LC.logoB64){ logoEl.src=LC.logoB64; logoEl.className='pd-hdr-logo-img has-logo'; initEl.className='pd-hdr-logo-initials'; }
+    else{ logoEl.className='pd-hdr-logo-img'; initEl.textContent=nomePDF.charAt(0).toUpperCase(); initEl.className='pd-hdr-logo-initials show-init'; }
+  }
+  setV_el('pd-nm-osr', nomePDF, 'textContent');
+  setV_el('pd-sb-osr', LC.sub||'Serviços', 'textContent');
+  const tag=document.getElementById('pd-tag-osr'); if(tag){ tag.textContent=LC.tagline||''; tag.style.display=LC.tagline?'block':'none'; }
+
+  const numEl=document.getElementById('pd-num-osr');
+  if(numEl) numEl.textContent='#'+String(os.numero||'').padStart(3,'0');
+  const cont=document.getElementById('pd-cont-osr');
+  if(cont) cont.textContent=interna?'Versão interna':'Versão do cliente';
+  const meta=document.getElementById('pd-meta-osr');
+  if(meta) meta.innerHTML=`${LC.nome||''}${LC.tel?'<br>'+LC.tel:''}`;
+
+  const cliBar=document.getElementById('pd-cli-bar-osr'); if(cliBar) cliBar.style.background=cor;
+  setV_el('pd-cli-nm-osr', os.cliente||'—', 'textContent');
+  setV_el('pd-cli-loc-osr', os.local_servico||'', 'textContent');
+
+  const svcExec=Array.isArray(os.servicos_execucao)?os.servicos_execucao:[];
+  const nExec=svcExec.filter(s=>s.executado!==false).length;
+  const nNao=svcExec.filter(s=>s.executado===false).length;
+  const materiais=os._materiaisRelatorio||[];
+  const statsRow=document.getElementById('pd-osr-stats-row');
+  if(statsRow){
+    statsRow.innerHTML=`
+      <div class="pd-vis-stat s-bom"><div class="pd-vis-stat-n">${nExec}</div><div class="pd-vis-stat-l">✅ Executados</div></div>
+      <div class="pd-vis-stat s-atencao"><div class="pd-vis-stat-n">${nNao}</div><div class="pd-vis-stat-l">⚠️ Não executados</div></div>
+      <div class="pd-vis-stat s-total"><div class="pd-vis-stat-n">${materiais.length}</div><div class="pd-vis-stat-l">📦 Materiais</div></div>`;
+  }
+
+  const infoGrid=document.getElementById('pd-osr-info-grid');
+  if(infoGrid){
+    const cin=os.checkin_time?new Date(os.checkin_time).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):(os.hora||'');
+    const cout=os.checkout_time?new Date(os.checkout_time).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):'';
+    const dur=os.duracao_min?Math.floor(os.duracao_min/60)+'h '+String(os.duracao_min%60).padStart(2,'0'):'—';
+    const dataFmt=os.data_servico?new Date(os.data_servico+'T12:00:00').toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}):'—';
+    infoGrid.innerHTML=`
+      <div class="pd-g2card"><div class="pd-g2lbl">Técnico Responsável</div><div class="pd-g2val">👤 ${esc(os.tecnico||'—')}</div></div>
+      <div class="pd-g2card"><div class="pd-g2lbl">Data do Serviço</div><div class="pd-g2val">📅 ${dataFmt}</div></div>
+      <div class="pd-g2card"><div class="pd-g2lbl">Entrada → Saída</div><div class="pd-g2val">⏰ ${esc(cin?(cin+(cout?' → '+cout:'')):'—')}</div></div>
+      <div class="pd-g2card"><div class="pd-g2lbl">Duração</div><div class="pd-g2val">⏱ ${esc(dur)}</div></div>`;
+  }
+
+  const recomWrap=document.getElementById('pd-osr-recom-wrap');
+  const recomTxt=document.getElementById('pd-osr-recom-txt');
+  if(recomWrap) recomWrap.style.display=(os.recomendacoes&&os.recomendacoes.trim())?'block':'none';
+  if(recomTxt) recomTxt.textContent=os.recomendacoes||'';
+
+  const svcTable=document.getElementById('pd-osr-svc-table');
+  if(svcTable){
+    const linhas = svcExec.length ? svcExec : (os.servicos||[]).map(s=>({desc:typeof s==='string'?s:s.desc||'', executado:true, motivo:''}));
+    svcTable.innerHTML=`<thead><tr><th>Serviço</th><th>Status</th><th>Motivo</th></tr></thead>
+      <tbody>${linhas.map(s=>`<tr>
+        <td><strong>${esc(s.desc)}</strong></td>
+        <td>${s.executado!==false?'<span class="st-dot bom"></span>Executado':'<span class="st-dot atencao"></span>Não executado'}</td>
+        <td style="color:#6b7280;font-size:11px">${esc(s.motivo||'—')}</td>
+      </tr>`).join('')}</tbody>`;
+  }
+
+  const matWrap=document.getElementById('pd-osr-mat-wrap');
+  const matTable=document.getElementById('pd-osr-mat-table');
+  if(matWrap) matWrap.style.display=materiais.length?'block':'none';
+  if(matTable && materiais.length){
+    const totalCusto=materiais.reduce((a,m)=>a+(parseFloat(m.qtd)||0)*(parseFloat(m.custo_unit)||0),0);
+    matTable.innerHTML=`<thead><tr><th>Item</th><th>Qtd.</th>${interna?'<th>Custo</th>':''}</tr></thead>
+      <tbody>${materiais.map(m=>`<tr>
+        <td><strong>${esc(m.nome)}</strong></td>
+        <td>${fmtQtd(m.qtd)} ${esc(m.unidade||'un')}</td>
+        ${interna?`<td>${brl((parseFloat(m.qtd)||0)*(parseFloat(m.custo_unit)||0))}</td>`:''}
+      </tr>`).join('')}
+      ${interna?`<tr><td colspan="2" style="font-weight:700">Custo total de material</td><td style="font-weight:700">${brl(totalCusto)}</td></tr>`:''}</tbody>`;
+  }
+
+  const obsWrap=document.getElementById('pd-osr-obs-wrap');
+  const obsBar=document.getElementById('pd-osr-obs-bar');
+  const obsTxt=document.getElementById('pd-osr-obs-txt');
+  if(obsWrap) obsWrap.style.display=os.obs_tecnica?'block':'none';
+  if(obsBar) obsBar.style.background=cor;
+  if(obsTxt) obsTxt.textContent=os.obs_tecnica||'';
+
+  const fotosWrap=document.getElementById('pd-osr-fotos-wrap');
+  const fotosGrid=document.getElementById('pd-osr-fotos-grid');
+  const fotosArr=(os.fotos||[]).filter(Boolean);
+  if(fotosWrap) fotosWrap.style.display=fotosArr.length?'block':'none';
+  if(fotosGrid) fotosGrid.innerHTML=fotosArr.map((f,i)=>`
+    <div class="pd-vis-foto-item"><img src="${f}" alt="Foto ${i+1}" loading="lazy" decoding="async">
+    <div class="pd-vis-foto-lbl">Foto ${i+1}</div></div>`).join('');
+
+  const proxWrap=document.getElementById('pd-osr-proxima-wrap');
+  const proxTxt=document.getElementById('pd-osr-proxima-txt');
+  const proxima=os._proximaVisita||null;
+  if(proxWrap) proxWrap.style.display=proxima?'block':'none';
+  if(proxTxt) proxTxt.innerHTML=proxima?`<div class="pd-g2lbl">Nova visita agendada</div><div class="pd-g2val">📅 ${new Date(proxima.data_servico+'T12:00:00').toLocaleDateString('pt-BR')}${proxima.hora?' às '+proxima.hora:''}</div>`:'';
+
+  const signTec=document.getElementById('pd-osr-sign-tec');
+  if(signTec) signTec.innerHTML=`${esc(os.tecnico||'Técnico Responsável')}<br><span style="font-size:10px;font-weight:400;color:#6b7280">${esc(LC.nome||'')}</span>`;
+
+  const tel=LC.tel||'', email=LC.email||'';
+  if(footEl){ footEl.style.background=cor2; footEl.textContent=`${LC.nome||''}${tel?' · '+tel:''}${email?' · '+email:''}`; }
+}
+async function _gerarPDFRelatorioOS(os, opts={}){
+  if(!os.loja_id || os.loja_id==='default') os.loja_id = lojaAtiva || LOJA_PADRAO_ID;
+  const osComDados={...os};
+  osComDados._materiaisRelatorio = await _osMateriaisParaRelatorio(os.id);
+  // Offline (ou banco fora do ar): a tabela não responde, mas se é a MESMA
+  // OS aberta na tela agora, a lista em memória (osMateriais) já tem o que
+  // foi escolhido nesta sessão — melhor que um relatório vazio de material.
+  if(!osComDados._materiaisRelatorio.length && typeof osEditId!=='undefined' && osEditId===os.id && (osMateriais||[]).length){
+    osComDados._materiaisRelatorio = osMateriais.map(m=>({nome:m.nome, unidade:m.unidade, qtd:m.qtd, custo_unit:m.custo_unit}));
+  }
+  osComDados._proximaVisita = _osProximaVisita(os);
+  preencherRelatorioOS(osComDados, opts);
+  const el=document.getElementById('pdoc-os-relatorio');
+  const stylesTxt=_cssCompletoDaPagina();
+  const nomeArq=`Relatorio-${(os.cliente||'servico').replace(/\s+/g,'-')}-${os.data_servico||''}.pdf`;
+  const html=`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1"><title>${nomeArq}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>${stylesTxt}</style>
+    <style>body{margin:0;padding:80px 24px 24px;background:#f3f4f6}
+      .pdoc{display:block!important;max-width:794px;margin:0 auto;box-shadow:0 4px 24px rgba(0,0,0,.15);border-radius:8px;overflow:hidden}
+      #btn-baixar-pdf{position:fixed;top:16px;left:50%;transform:translateX(-50%);background:#0B62CE;color:#fff;border:none;border-radius:10px;padding:12px 28px;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.2);z-index:9999;font-family:Inter,sans-serif}
+      #btn-baixar-pdf:hover{background:#084C9F}
+      @media print{#btn-baixar-pdf{display:none!important}body{padding:0;background:white}}</style>
+    </head><body><button id="btn-baixar-pdf" onclick="window.print()">📥 Baixar / Imprimir PDF</button>${el?el.outerHTML:''}</body></html>`;
+  const blobUrl=URL.createObjectURL(new Blob([html], {type:'text/html;charset=utf-8'}));
+  if(opts.output==='bloburl') return blobUrl;
+  const w=window.open(blobUrl, '_blank');
+  if(w){ toast('✅ Relatório aberto — toque em "Baixar / Imprimir PDF"'); setTimeout(()=>URL.revokeObjectURL(blobUrl), 120000); }
+  else{ URL.revokeObjectURL(blobUrl); toast('⚠️ Permita pop-ups para abrir o relatório'); }
+}
+function _osSalvarRecomendacao(osId, texto){
+  const idx=(todosOS||[]).findIndex(x=>x.id===osId);
+  if(idx>=0) todosOS[idx]={...todosOS[idx], recomendacoes:texto};
+  try{
+    const lista=JSON.parse(ls('fluxa_os_hist')||'[]');
+    const i=lista.findIndex(x=>x.id===osId);
+    if(i>=0){ lista[i]={...lista[i], recomendacoes:texto}; lsSet('fluxa_os_hist', JSON.stringify(lista.slice(0,200))); }
+  }catch(e){ console.warn('[_osSalvarRecomendacao cache]', e?.message||e); }
+  if(dbOk&&db&&osId&&!String(osId).startsWith('local_')){
+    dbUpdate('ordens_servico',{recomendacoes:texto},'id',osId).catch(e=>console.warn('[_osSalvarRecomendacao]', e?.message||e));
+  }
+}
+// Marca o relatório como enviado — publica na hora (portal/trilha refletem
+// sem esperar nada). Não é "sai sozinho por WhatsApp": o app é 100%
+// client-side, sem backend — automático aqui é "some da fila de revisão e
+// já aparece pro cliente", igual o rodapé de vistoria já fazia.
+function _osMarcarRelatorioEnviado(osId){
+  const now=new Date().toISOString();
+  const idx=(todosOS||[]).findIndex(x=>x.id===osId);
+  if(idx>=0) todosOS[idx]={...todosOS[idx], relatorio_enviado_em:now};
+  try{
+    const lista=JSON.parse(ls('fluxa_os_hist')||'[]');
+    const i=lista.findIndex(x=>x.id===osId);
+    if(i>=0){ lista[i]={...lista[i], relatorio_enviado_em:now}; lsSet('fluxa_os_hist', JSON.stringify(lista.slice(0,200))); }
+  }catch(e){ console.warn('[_osMarcarRelatorioEnviado cache]', e?.message||e); }
+  if(dbOk&&db&&osId&&!String(osId).startsWith('local_')){
+    dbUpdate('ordens_servico',{relatorio_enviado_em:now},'id',osId).catch(e=>console.warn('[_osMarcarRelatorioEnviado]', e?.message||e));
+  }
+  if(typeof osEditId!=='undefined' && osEditId===osId) _renderOSEstado(_acharOS(osId));
+}
+// Envio manual (revisão humana) — mesmo padrão de enviarWAResumoVistoria.
+function enviarRelatorioOSWhatsApp(osId){
+  const o=_acharOS(osId); if(!o){ toast('OS não encontrada'); return; }
+  const svcExec=Array.isArray(o.servicos_execucao)?o.servicos_execucao:[];
+  const executados=svcExec.filter(s=>s.executado!==false).map(s=>s.desc);
+  const naoExec=svcExec.filter(s=>s.executado===false);
+  const LC=getLojaConfig(o.loja_id||lojaAtiva);
+  let msg=`*Relatório de Serviço – ${LC.nome||''}*\n📅 ${o.data_servico?new Date(o.data_servico+'T12:00:00').toLocaleDateString('pt-BR'):''}\n👤 Técnico: ${o.tecnico||''}\n📍 ${o.cliente||''}${o.local_servico?' – '+o.local_servico:''}\n\n*✅ Executado:*\n${executados.map(d=>'  • '+d).join('\n')||'—'}`;
+  if(naoExec.length) msg+=`\n\n*⚠️ Não executado:*\n${naoExec.map(s=>'  • '+s.desc+(s.motivo?' — '+s.motivo:'')).join('\n')}`;
+  if(o.recomendacoes) msg+=`\n\n*🔧 Recomendações:*\n${o.recomendacoes}`;
+  msg+=`\n\n_${LC.nome||''} · ${LC.tel||''}_`;
+  const tel=(o.tel_cliente||'').replace(/\D/g,'');
+  window.open(`https://wa.me/${tel?'55'+tel:''}?text=${encodeURIComponent(msg)}`,'_blank');
+  _osMarcarRelatorioEnviado(osId);
+}
+
+// ── Serviço não executado: reagendar (padrão, decisão do Marcos 19/08) ou
+// abater da cobrança. Modal próprio (abrirModal), item some da lista assim
+// que resolvido (resolvido:true), sem apagar o registro original.
+let _osPendId=null;
+function abrirModalPendenciasOS(osId){
+  _osPendId=osId;
+  abrirModal({corpo:_osPendRenderCorpo(), id:'os-pendencias-modal'});
+}
+function _osPendRender(){ atualizarModal(_osPendRenderCorpo(), 'os-pendencias-modal'); }
+function _osPendRenderCorpo(){
+  const o=_acharOS(_osPendId); if(!o) return '';
+  const svcExec=Array.isArray(o.servicos_execucao)?o.servicos_execucao:[];
+  const pendentes=svcExec.map((s,i)=>({...s,i})).filter(s=>s.executado===false && !s.resolvido);
+  const head=`<div class="rd-modal-head"><div class="rd-modal-headtx">
+      <h3>Serviço não executado</h3>
+      <p>OS #${String(o.numero||'').padStart(3,'0')} · ${esc(o.cliente||'—')}</p>
+    </div></div>`;
+  if(!pendentes.length){
+    return head+`<div style="padding:0 20px 16px"><p style="font-size:13px;color:var(--tx3)">Nada pendente nesta OS.</p></div>
+      <div class="rd-modal-acts"><button type="button" class="rd-modal-btn rd-modal-btn-sim" onclick="fecharModal('os-pendencias-modal')">Fechar</button></div>`;
+  }
+  return head+`
+    <div style="padding:0 20px 16px">
+      ${pendentes.map(s=>`
+        <div style="padding:10px 0;border-bottom:1px solid var(--gray-light)">
+          <div style="font-size:13px;color:var(--c2);margin-bottom:2px"><strong>${esc(s.desc)}</strong></div>
+          <div style="font-size:12px;color:var(--tx3);margin-bottom:8px">${esc(s.motivo||'')}</div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <input type="date" id="os-pend-data-${s.i}" min="${_hojeLocal()}" style="height:34px;border:1px solid var(--field-line);border-radius:8px;padding:0 8px;font-size:13px">
+            <button type="button" class="rd-btn rd-btn-sm rd-btn-primary" onclick="_osReagendarServico(${s.i})">Reagendar</button>
+            <button type="button" class="rd-btn rd-btn-sm rd-btn-secondary" onclick="_osAbaterServico(${s.i})">Abater da cobrança</button>
+          </div>
+        </div>`).join('')}
+    </div>
+    <div class="rd-modal-acts">
+      <button type="button" class="rd-modal-btn rd-modal-btn-nao" onclick="fecharModal('os-pendencias-modal')">Fechar</button>
+    </div>`;
+}
+async function _osReagendarServico(idx){
+  const o=_acharOS(_osPendId); if(!o) return;
+  const svcExec=Array.isArray(o.servicos_execucao)?[...o.servicos_execucao]:[];
+  const item=svcExec[idx]; if(!item) return;
+  const data=gV('os-pend-data-'+idx);
+  if(!data){ toast('⚠️ Escolha a data da nova visita'); return; }
+  // Mesmo padrão de _criarOSRapida (3i.2): payload sem id no caminho
+  // online (a coluna é uuid, servidor gera), local só quando não sincroniza.
+  const payload={
+    orcamento_id:o.orcamento_id||null, loja_id:o.loja_id||LOJA_PADRAO_ID,
+    cliente:o.cliente, cliente_id:o.cliente_id||null, local_servico:o.local_servico, cnpj:o.cnpj||null,
+    data_servico:data, hora:'08:00', tecnico:o.tecnico||'',
+    servicos:[item.desc], materiais:'',
+    obs_tecnica:'Reagendado da OS #'+String(o.numero||'').padStart(3,'0')+(item.motivo?' — motivo original: '+item.motivo:'')
+  };
+  let numStr='???';
+  if(dbOk&&db){
+    try{
+      const {data:insOS}=await dbInsertNumerado('ordens_servico',{...payload,status:'agendado'});
+      numStr=String(insOS?.numero||'').padStart(3,'0');
+      if(insOS?.id) todosOS=[insOS, ...todosOS];
+    }catch(e){ console.warn('[_osReagendarServico]', e?.message||e); }
+  }
+  if(numStr==='???'){
+    const n=(parseInt(ls('fluxa_os_num')||'0'))+1; lsSet('fluxa_os_num',String(n)); numStr=String(n).padStart(3,'0');
+    _salvarOSLocal({...payload, id:'local_os_'+Date.now(), numero:n, status:'agendado', data_criacao:new Date().toISOString(), _pendingSync:true});
+  }
+  svcExec[idx]={...item, resolvido:true, resolucao:'reagendado'};
+  _osSalvarExecucaoServicos(o.id, svcExec);
+  toast('📅 Nova OS #'+numStr+' criada para '+new Date(data+'T12:00:00').toLocaleDateString('pt-BR'));
+  _osPendRender();
+}
+function _osAbaterServico(idx){
+  const o=_acharOS(_osPendId); if(!o) return;
+  const svcExec=Array.isArray(o.servicos_execucao)?[...o.servicos_execucao]:[];
+  const item=svcExec[idx]; if(!item) return;
+  svcExec[idx]={...item, resolvido:true, resolucao:'abatido'};
+  _osSalvarExecucaoServicos(o.id, svcExec);
+  toast('Marcado como abatido — o faturamento em si não muda aqui (já aconteceu na aprovação do orçamento), só o registro de que este item não vai ser cobrado à parte.');
+  _osPendRender();
 }
 // ── Painel de itens (produtos do orçamento) para validar/baixar na OS ──
 function atualizarPainelItensOS(){
@@ -8095,6 +8439,41 @@ function _osMatTextoFinal(){
   const livre=(gV('os-mat')||'').trim();
   if(livre) partes.push(livre);
   return partes.join(' · ');
+}
+// Persistência estruturada dos materiais (Tarefa 3i.8, tabela os_materiais)
+// — a baixa de estoque em si já acontece na hora (registrarMovimento, em
+// osMatAddItem/osMatRemoverItem); isto só guarda A LISTA, pra reabrir a OS
+// (ou gerar o relatório) mostrar os chips de novo, não o texto corrido.
+// Delete-then-insert por os_id: listas pequenas (poucos materiais por OS),
+// reescreve tudo a cada save — mais simples e seguro que reconciliar delta.
+// Só roda com id real (não local_os_*): a mesma OS local, quando sincroniza
+// depois, ganha um id NOVO (dbInsertNumerado) — sincronizar materiais antes
+// disso os deixaria órfãos, presos ao id velho que deixa de existir.
+async function _osSyncMateriais(osId){
+  if(!(dbOk&&db&&osId&&!String(osId).startsWith('local_'))) return;
+  try{
+    await db.from('os_materiais').delete().eq('os_id',osId);
+    if(osMateriais.length){
+      const rows=osMateriais.map((m,i)=>({
+        id:'osm_'+osId+'_'+i+'_'+Date.now(), os_id:osId, produto_id:m.produto_id,
+        qtd:parseFloat(m.qtd)||0, custo_unit:parseFloat(m.custo_unit)||0
+      }));
+      await db.from('os_materiais').insert(rows);
+    }
+  }catch(e){ console.warn('[_osSyncMateriais]', e?.message||e); }
+}
+async function _osLoadMateriais(osId){
+  if(!(dbOk&&db&&osId&&!String(osId).startsWith('local_'))) return;
+  try{
+    const {data}=await db.from('os_materiais').select('*').eq('os_id',osId);
+    if(data&&data.length && osEditId===osId){ // ainda é a mesma OS aberta
+      osMateriais=data.map(r=>{
+        const p=produtoById(r.produto_id);
+        return {produto_id:r.produto_id, nome:p?.nome||'Produto', unidade:p?.unidade||'un', qtd:parseFloat(r.qtd)||0, custo_unit:parseFloat(r.custo_unit)||0};
+      });
+      _osMatRenderLista();
+    }
+  }catch(e){ console.warn('[_osLoadMateriais]', e?.message||e); }
 }
 
 function excluirOS(id){
@@ -8409,7 +8788,9 @@ function _renderFichaCliente(cliId){
   // Timeline unificada — últimos 6 eventos reais (orçamento/OS/vistoria/venda), sem inventar categoria.
   const eventos=[
     ...orcCli.map(o=>({data:o.data_aprovacao||o.data_criacao, cor:o.status==='aprovado'?'var(--ok)':'var(--tx4)', titulo:`Orçamento #${String(o.numero||'').padStart(3,'0')} ${o.status||''}`, sub:`${_dataBR(String(o.data_criacao||'').slice(0,10))} · ${brl(o.total||0)}`})),
-    ...osCli.map(o=>({data:o.data_servico?o.data_servico+'T12:00:00':o.data_criacao, cor:o.status==='concluido'?'var(--ok)':'var(--tx4)', titulo:`OS #${String(o.numero||'').padStart(3,'0')} ${o.status==='concluido'?'concluída':o.status||''}`, sub:`${_dataBR(o.data_servico)}${o.tecnico?' · '+esc(o.tecnico):''}`})),
+    // Tarefa 3i.8 (19/08): OS concluída com relatório já enviado vira
+    // clicável (abre a versão do cliente na hora, mesmo PDF que ele recebe).
+    ...osCli.map(o=>({data:o.data_servico?o.data_servico+'T12:00:00':o.data_criacao, cor:o.status==='concluido'?'var(--ok)':'var(--tx4)', titulo:`OS #${String(o.numero||'').padStart(3,'0')} ${o.status==='concluido'?'concluída':o.status||''}${o.status==='concluido'&&o.relatorio_enviado_em?' · relatório enviado':''}`, sub:`${_dataBR(o.data_servico)}${o.tecnico?' · '+esc(o.tecnico):''}`, onclick:(o.status==='concluido'&&o.relatorio_enviado_em)?`_gerarPDFRelatorioOS(_acharOS('${o.id}'),{interna:false})`:null})),
     ...visCli.map(v=>({data:v.data?v.data+'T12:00:00':null, cor:'var(--tx4)', titulo:'Vistoria '+(v.status==='concluido'?'concluída':'')+(v.recomendacoes||(v.equipamentos||[]).some(e=>e.status==='critico')?' · item em atenção':''), sub:`${_dataBR(v.data)}${v.tecnico?' · '+esc(v.tecnico):''}`})),
     ...vendasCli.map(v=>({data:v.data_criacao, cor:'var(--tx4)', titulo:'Recompra de balcão', sub:`${_dataBR(String(v.data_criacao||'').slice(0,10))} · ${brl(v.valor_total||0)}`})),
   ].filter(e=>e.data).sort((a,b)=>String(b.data).localeCompare(String(a.data))).slice(0,6);
@@ -8445,8 +8826,8 @@ function _renderFichaCliente(cliId){
       <div class="rd-card">
         <div class="rd-card-title" style="margin-bottom:12px">Histórico</div>
         ${eventos.length?`<div style="display:flex;flex-direction:column;gap:10px">${eventos.map(e=>`
-          <div style="display:flex;gap:10px"><span style="width:7px;height:7px;border-radius:999px;background:${e.cor};margin-top:5px;flex-shrink:0"></span>
-            <div style="display:flex;flex-direction:column;gap:1px"><span style="font-size:12px;font-weight:600;color:var(--c2)">${esc(e.titulo)}</span><span class="rd-cell-sub">${e.sub}</span></div>
+          <div style="display:flex;gap:10px${e.onclick?';cursor:pointer':''}"${e.onclick?` onclick="${e.onclick}"`:''}><span style="width:7px;height:7px;border-radius:999px;background:${e.cor};margin-top:5px;flex-shrink:0"></span>
+            <div style="display:flex;flex-direction:column;gap:1px"><span style="font-size:12px;font-weight:600;color:${e.onclick?'var(--c1)':'var(--c2)'}">${esc(e.titulo)}</span><span class="rd-cell-sub">${e.sub}</span></div>
           </div>`).join('')}</div>`:'<div class="rd-cell-sub">Nenhum histórico ainda.</div>'}
       </div>
       <div style="display:flex;flex-direction:column;gap:14px">
@@ -9412,6 +9793,7 @@ function mostrarErroPortal(){
 }
 
 let _portalVistorias=[];
+let _portalOSRelatorios=[]; // Tarefa 3i.8 (19/08) — relatórios de serviço executado
 async function renderPortal(cli){
   document.getElementById('portal-loading').style.display='none';
   document.getElementById('portal-content').style.display='block';
@@ -9484,8 +9866,12 @@ async function renderPortal(cli){
       </div>`;
   }
 
-  // Últimos relatórios — prioriza vistorias (têm PDF de laudo real); cai
-  // pra histórico de OS concluída se o cliente não tiver vistoria nenhuma.
+  // Últimos relatórios (Tarefa 3i.8, 19/08) — vistoria E relatório de
+  // serviço executado, juntos, por data. Antes vistoria sempre vencia e OS
+  // concluída só aparecia se o cliente não tivesse NENHUMA vistoria — agora
+  // que o relatório de OS existe de verdade, os dois convivem na mesma
+  // lista. Só entra OS com relatório JÁ ENVIADO (relatorio_enviado_em) —
+  // um relatório ainda pendente de revisão não deve aparecer pro cliente.
   let visCliente=[];
   if(dbOk&&db){
     try{
@@ -9495,17 +9881,33 @@ async function renderPortal(cli){
   }
   if(!visCliente.length) visCliente=lsVisLer().filter(v=>(v.cliente||'').toLowerCase()===cli.nome.toLowerCase()).sort((a,b)=>(b.data||'').localeCompare(a.data||'')).slice(0,5);
   _portalVistorias=visCliente;
+  const osComRelatorio=osCliente.filter(o=>o.status==='concluido'&&o.relatorio_enviado_em)
+    .sort((a,b)=>new Date(b.data_servico||b.data_criacao)-new Date(a.data_servico||a.data_criacao)).slice(0,5);
+  _portalOSRelatorios=osComRelatorio;
+  const itensRelatorio=[
+    ...visCliente.map((v,i)=>({tipo:'vistoria', idx:i, ordenar:v.data||''})),
+    ...osComRelatorio.map((o,i)=>({tipo:'os', idx:i, ordenar:o.data_servico||o.data_criacao||''}))
+  ].sort((a,b)=>String(b.ordenar).localeCompare(String(a.ordenar))).slice(0,5);
   const secOS=document.getElementById('portal-sec-os');
   const tituloOS=document.getElementById('portal-os-titulo');
-  if(visCliente.length){
+  if(itensRelatorio.length){
     secOS.style.display='block';
     if(tituloOS) tituloOS.textContent='🔧 Últimos relatórios';
-    document.getElementById('portal-os-lista').innerHTML=visCliente.map((v,i)=>{
-      const critico=(typeof v.equipamentos==='string'?JSON.parse(v.equipamentos||'[]'):v.equipamentos||[]).some(e=>e.status==='critico'||e.status==='atencao');
+    document.getElementById('portal-os-lista').innerHTML=itensRelatorio.map(item=>{
+      if(item.tipo==='vistoria'){
+        const v=visCliente[item.idx];
+        const critico=(typeof v.equipamentos==='string'?JSON.parse(v.equipamentos||'[]'):v.equipamentos||[]).some(e=>e.status==='critico'||e.status==='atencao');
+        return `<div class="portal-os-item">
+          <div class="portal-os-data">${v.data?new Date(v.data+'T12:00:00').toLocaleDateString('pt-BR'):'—'}</div>
+          <div class="portal-os-desc">Vistoria${critico?' · item em atenção':' · tudo normal'}</div>
+          <button type="button" class="rd-btn rd-btn-link" style="font-size:12px" onclick="_portalAbrirPDFVistoria(${item.idx})">Abrir PDF</button>
+        </div>`;
+      }
+      const o=osComRelatorio[item.idx];
       return `<div class="portal-os-item">
-        <div class="portal-os-data">${v.data?new Date(v.data+'T12:00:00').toLocaleDateString('pt-BR'):'—'}</div>
-        <div class="portal-os-desc">Vistoria${critico?' · item em atenção':' · tudo normal'}</div>
-        <button type="button" class="rd-btn rd-btn-link" style="font-size:12px" onclick="_portalAbrirPDFVistoria(${i})">Abrir PDF</button>
+        <div class="portal-os-data">${o.data_servico?new Date(o.data_servico+'T12:00:00').toLocaleDateString('pt-BR'):'—'}</div>
+        <div class="portal-os-desc">${esc((o.servicos||[]).map(s=>typeof s==='string'?s:s.desc).join(', ')||'Serviço')} · relatório de serviço</div>
+        <button type="button" class="rd-btn rd-btn-link" style="font-size:12px" onclick="_portalAbrirPDFOS(${item.idx})">Abrir PDF</button>
       </div>`;
     }).join('');
   } else {
@@ -9634,6 +10036,12 @@ async function renderPortal(cli){
 async function _portalAbrirPDFVistoria(idx){
   const vis=_portalVistorias[idx]; if(!vis){ toast('Relatório não encontrado'); return; }
   await _gerarPDFVistoria(vis);
+}
+// Mesmo princípio — abre o relatório de serviço (versão cliente, nunca a
+// interna) a partir do objeto já buscado pelo portal (Tarefa 3i.8, 19/08).
+async function _portalAbrirPDFOS(idx){
+  const os=_portalOSRelatorios[idx]; if(!os){ toast('Relatório não encontrado'); return; }
+  await _gerarPDFRelatorioOS(os, {interna:false});
 }
 
 // ──────────────────────────────────────────────────
