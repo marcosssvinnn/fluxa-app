@@ -8665,7 +8665,7 @@ async function _excluirOSConfirmado(id){
 let tecOSFiltro = 'pendente';
 async function loadMinhasOS(){
   const sess = getSessao();
-  if(!sess || sess.perfil !== 'tecnico'){ go('home'); return; }
+  if(!sess || sess.perfil !== 'tecnico'){ go(telaInicial(sess)); return; }
   let lista = [];
   if(dbOk && db){
     try{

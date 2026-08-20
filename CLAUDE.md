@@ -2,6 +2,40 @@
 
 ---
 
+## 🔧 `loadMinhasOS()` não quebra mais fora do contexto de técnico (20/08)
+
+Achado registrado como chip separado no commit de "Finalizar OS agora sai da
+tela" (mesmo dia, ver abaixo): a guarda de perfil de `loadMinhasOS()` chamava
+`go('home')` — página que não existe (`#page-home` não existe no HTML,
+resquício de uma rota antiga). `go('home')` faz `document.getElementById(
+'page-home').classList.add('on')`, que lança `TypeError` e interrompe a
+função no meio — todas as páginas ficam sem a classe `on`, tela em branco,
+sem nenhum aviso.
+
+Não era alcançado pelo fluxo real da UI (nenhum botão leva gestor/vendas pra
+"Minhas OS"), mas era caminho morto perigoso: qualquer chamada futura a
+`go('minhas-os')`/`loadMinhasOS()` fora do contexto de técnico (link direto,
+teste, mudança futura de sidebar) quebrava em silêncio.
+
+**Corrigido**: `go('home')` → `go(telaInicial(sess))` — reusa o ponto ÚNICO
+de decisão de tela inicial por perfil (`telaInicial()`, já documentado acima
+no início deste arquivo: "Havia 6 lugares decidindo isso com regra própria...
+quem for mudar o destino, mude AQUI"), que já resolve gestor/master→`insights`,
+vendas→`form`, técnico→`minhas-os`, sem sessão→`form`.
+
+Testado no Browser pane (offline, `dbOk=false;db=null;`, porta nova 9231):
+sessão master chamando `loadMinhasOS()` direto → cai em `page-insights`, sem
+exceção; sessão vendas chamando `go('minhas-os')` → bloqueada pelo guardrail
+de perfil antes de chegar na função (comportamento correto, inalterado);
+sessão vendas chamando `loadMinhasOS()` direto (o caminho que estava
+quebrado) → cai em `page-form`, sem exceção; sessão técnico → segue
+funcionando normal, `renderMinhasOS()` popula `#tec-os-lista` certo, sem
+regressão. Zero erro novo no console (só o ruído de boot já documentado).
+
+sw.js: fluxa-v222 → fluxa-v223.
+
+---
+
 ## 🔧 Finalizar OS agora sai da tela (20/08)
 
 Retomando o pedido do Marcos ("quando eu concluo... ele continua na mesma
