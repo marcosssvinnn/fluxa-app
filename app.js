@@ -7282,6 +7282,16 @@ function _rdColWidths(tableId, defaults){
   return defaults.slice();
 }
 function _rdGridCSS(widths){ return widths.map(w=>w+'px').join(' ')+' 1fr'; }
+// Largura mínima do wrapper (`overflow-x:auto`), calculada de verdade a
+// partir das larguras das colunas — achado real (20/08, OS ao lado de
+// "Carga por técnico"): um `min-width` fixo escolhido a dedo, sem
+// relação com a soma real das colunas, ou sobra vazio ou aperta a última
+// coluna (1fr) até quase sumir. `trailingMin` é o mínimo pra a coluna
+// final (que estica em 1fr) não ficar espremida.
+function _rdMinWidth(widths, trailingMin){
+  const gaps=widths.length*12; // N colunas fixas + a final = N gaps de 12px
+  return widths.reduce((a,w)=>a+w,0) + gaps + 36 + (trailingMin||110);
+}
 // Chamar sempre depois de `body.innerHTML=h` — liga as alças de arrastar
 // no cabeçalho; `widths` é mutado por referência a cada arraste.
 function _rdInitResize(wrapEl, tableId, widths){
@@ -7379,9 +7389,15 @@ function renderOSTabela(){
   // Larguras redimensionáveis (19/08, pedido do Marcos — conteúdo cortado):
   // "Próxima ação" (última) sempre estica em 1fr, as outras 6 têm alça de
   // arrastar e a largura persiste por navegador (_rdColWidths/_rdInitResize).
-  const osColWidths=_rdColWidths('os-hist', [28,90,280,100,110,76]);
+  // Achado real 20/08: esta tela tem o painel "Carga por técnico" (340px)
+  // do lado — larguras generosas demais (era 280 pro Cliente e serviço)
+  // deixavam a tabela mais larga que o espaço realmente disponível, e
+  // "Próxima ação" (a coluna final, 1fr) ficava espremida/cortada. Larguras
+  // mais enxutas + min-width calculado de verdade (_rdMinWidth), não mais
+  // um número fixo escolhido a dedo que não batia com a soma real.
+  const osColWidths=_rdColWidths('os-hist', [28,82,230,85,95,64]);
   let h=`<div class="rd-table-wrap" id="osh-table-wrap" style="border:none;border-radius:0;--rd-grid:${_rdGridCSS(osColWidths)}">
-    <div style="overflow-x:auto"><div style="min-width:860px">
+    <div style="overflow-x:auto"><div style="min-width:${_rdMinWidth(osColWidths,120)}px">
     <div class="rd-thead" style="grid-template-columns:var(--rd-grid)">
       <div class="rd-th"><input type="checkbox" class="os-check" id="os-check-todos" title="Selecionar todos" onclick="_osToggleTodos()"></div>
       <div class="rd-th">Agendada</div><div class="rd-th">Cliente e serviço</div>
@@ -16633,7 +16649,7 @@ function renderEstoque(){
     // precisar arrastar nada. "Valor" (última) sempre estica em 1fr.
     const estColWidths=_rdColWidths('estoque', [340,90,58,58,54,66]);
     let h=`<div class="rd-table-wrap" id="estoque-table-wrap" style="border:none;border-radius:0;--rd-grid:${_rdGridCSS(estColWidths)}">
-      <div style="overflow-x:auto"><div style="min-width:760px">
+      <div style="overflow-x:auto"><div style="min-width:${_rdMinWidth(estColWidths,90)}px">
       <div class="rd-thead" style="grid-template-columns:var(--rd-grid)">
         <div class="rd-th">Produto</div><div class="rd-th">SKU</div>
         <div class="rd-th rd-num">Disp.</div><div class="rd-th rd-num">Reserv.</div>

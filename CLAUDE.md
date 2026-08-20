@@ -2,6 +2,61 @@
 
 ---
 
+## 🔴 Ordens de Serviço — colunas fixas espremiam "Próxima ação" contra o painel lateral (20/08)
+
+Marcos: "a tela de ordens de serviço também está mal distribuída... acho
+que desapareceu algumas coisas". Reproduzi com dado sintético em 1440px
+(a largura em que a coluna direita "Carga por técnico" aparece ao lado
+da tabela, não empilhada) — achado real, causado pelo commit de colunas
+redimensionáveis de ontem.
+
+**Causa**: converter as colunas de `fr` (fluido, encolhe se precisar)
+para px fixo tirou a capacidade da tabela de se ajustar ao espaço
+disponível. Antes, "Cliente e serviço" era `1.5fr` — com o painel lateral
+de 340px ao lado, ela simplesmente encolhia o quanto precisasse pra
+tabela inteira caber. Com largura fixa de 280px, ela não encolhe mais —
+e a soma das colunas passou a exigir mais espaço do que sobra ao lado do
+painel, espremendo a última coluna (`1fr`, "Próxima ação") a uns 68px,
+cortando texto como "Atribuir técnico"/"Fazer check-out".
+
+**Achado 2, relacionado**: o `min-width` do wrapper rolável (`860px`
+pra OS, `760px` pro Estoque) sempre foi um número fixo escolhido a dedo
+— nunca teve relação matemática com a soma real das colunas. Com colunas
+arrastáveis agora existindo de verdade, esse descasamento virou um bug
+visível (não só estético): o `min-width` decidia quanto espaço sobrava
+pra coluna final ANTES de saber se a soma das outras colunas cabia nele.
+
+**Corrigido, dois pontos**:
+1. `_rdMinWidth(widths, trailingMin)` (novo, ao lado de `_rdGridCSS`) —
+   calcula o `min-width` de verdade: soma das colunas + gaps (12px × N)
+   + padding (36px) + um mínimo garantido pra coluna final (parâmetro
+   `trailingMin`, não mais um resto aleatório do que sobrar).
+2. Larguras padrão de OS mais enxutas — `[28,82,230,85,95,64]` (era
+   `[28,90,280,100,110,76]`) — a página de OS tem o painel lateral que
+   Estoque não tem, então o orçamento de espaço é mais apertado; "Próxima
+   ação" ganhou 120px garantidos via `_rdMinWidth`.
+
+Testado no Browser pane (offline, `dbOk=false;db=null;`, porta nova, 6 OS
+sintéticas cobrindo os 5 estados + sem técnico): **1440px** — tabela e
+painel "Carga por técnico" lado a lado, TODAS as 6 colunas visíveis por
+completo ("Atribuir técnico"/"Fazer check-out" sem cortar), overflow
+real caiu de 65px pra 2px (praticamente zero); **1280px** — painel
+empilha abaixo da tabela (breakpoint já existente), tabela ocupa a
+largura toda, sem overflow; **375px** — sem overflow de página. Zero
+erro novo no console.
+
+**Nota, não é bug**: o Estoque (sem painel lateral tão largo — tem um
+card "Movimentações recentes"/"Ordens de compra" — ainda precisa de um
+scroll pequeno dentro da própria tabela em 1440px (~99px de sobra),
+mesmo padrão já aceito em outras tabelas deste app (rola por dentro do
+próprio wrapper, não corta conteúdo). Não é o que o Marcos reportou (ele
+reclamou de nome cortado, já resolvido no commit anterior) — registrado
+aqui, não mexido agora pra não alargar o escopo sem necessidade.
+
+sw.js: fluxa-v216 → fluxa-v217.
+
+---
+
 ## 🔧 Estoque: nome do produto em até 2 linhas (20/08)
 
 Marcos mandou print de produção mostrando o problema de verdade: nome de
