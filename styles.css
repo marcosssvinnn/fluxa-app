@@ -323,8 +323,14 @@
     /* Tabela densa */
     .rd-table-wrap{background:#fff;border:1px solid var(--line);border-radius:var(--r);overflow:hidden;display:flex;flex-direction:column}
     .rd-thead{display:grid;gap:12px;padding:9px 18px;background:var(--bg-app);border-bottom:1px solid var(--line)}
-    .rd-th{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--tx3)}
+    .rd-th{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--tx3);position:relative}
     .rd-th.rd-num{text-align:right}
+    /* Colunas redimensionáveis (19/08, pedido do Marcos — Estoque/OS
+       cortando conteúdo) — alça invisível na borda direita do cabeçalho,
+       só um traço aparece ao passar o mouse ou arrastar. */
+    .rd-col-resize{position:absolute;top:0;right:-6px;width:12px;height:100%;cursor:col-resize;z-index:3;touch-action:none}
+    .rd-col-resize::after{content:'';position:absolute;top:18%;bottom:18%;left:5px;width:2px;border-radius:2px;background:transparent}
+    .rd-col-resize:hover::after,.rd-col-resize.rd-col-resize-active::after{background:var(--c1)}
     .rd-row{display:grid;gap:12px;padding:13px 18px;border-bottom:1px solid var(--line2);align-items:center;transition:background .1s;font-size:13px;color:var(--c2)}
     .rd-row:last-child{border-bottom:none}
     .rd-row:hover{background:var(--bg-app)}

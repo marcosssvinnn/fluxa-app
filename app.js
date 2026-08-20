@@ -7262,6 +7262,68 @@ function _osProximaAcao(o, atrasado){
   if(o.checkin_time && !o.checkout_time) return {txt:'Fazer check-out', urgente:true};
   return {txt:'—', urgente:false};
 }
+// ══════════════════════════════════════════════════
+//  COLUNAS REDIMENSIONÁVEIS (tabelas .rd-thead/.rd-row)
+// ══════════════════════════════════════════════════
+// Pedido do Marcos (19/08): nome de produto cortado no Estoque, conteúdo
+// cortado em Ordens de Serviço — "queria ter a opção de configurar a
+// espessura das colunas". Mecanismo genérico: cada coluna (menos a
+// última, que sempre estica em 1fr) ganha uma alça de arrastar na borda
+// direita; a largura de cada tabela persiste em localStorage (por
+// tableId), sobrevive a reload. Header e linhas compartilham a largura
+// via UMA custom property CSS (--rd-grid, herdada pelos descendentes do
+// wrapper que a declara) — arrastar só precisa mudar essa variável, sem
+// tocar em cada linha (que já foi para o DOM como string HTML fixa).
+function _rdColWidths(tableId, defaults){
+  try{
+    const raw=ls('fluxa_col_w_'+tableId);
+    if(raw){ const arr=JSON.parse(raw); if(Array.isArray(arr) && arr.length===defaults.length && arr.every(n=>typeof n==='number'&&n>0)) return arr; }
+  }catch(e){ /* rascunho corrompido, cai no default */ }
+  return defaults.slice();
+}
+function _rdGridCSS(widths){ return widths.map(w=>w+'px').join(' ')+' 1fr'; }
+// Chamar sempre depois de `body.innerHTML=h` — liga as alças de arrastar
+// no cabeçalho; `widths` é mutado por referência a cada arraste.
+function _rdInitResize(wrapEl, tableId, widths){
+  if(!wrapEl) return;
+  const heads=[...wrapEl.querySelectorAll('.rd-thead .rd-th')];
+  heads.slice(0, widths.length).forEach((th,i)=>{
+    if(th.querySelector('.rd-col-resize')) return;
+    const handle=document.createElement('span');
+    handle.className='rd-col-resize';
+    handle.setAttribute('aria-hidden','true');
+    handle.title='Arraste para redimensionar';
+    th.appendChild(handle);
+    let startX=0, startW=0;
+    const onMove=clientX=>{
+      widths[i]=Math.max(50, startW+(clientX-startX));
+      wrapEl.style.setProperty('--rd-grid', _rdGridCSS(widths));
+    };
+    const mouseMove=e=>onMove(e.clientX);
+    const touchMove=e=>{ if(e.touches[0]) onMove(e.touches[0].clientX); };
+    const onUp=()=>{
+      document.removeEventListener('mousemove',mouseMove);
+      document.removeEventListener('mouseup',onUp);
+      document.removeEventListener('touchmove',touchMove);
+      document.removeEventListener('touchend',onUp);
+      handle.classList.remove('rd-col-resize-active');
+      document.body.style.cursor=''; document.body.style.userSelect='';
+      lsSet('fluxa_col_w_'+tableId, JSON.stringify(widths));
+    };
+    const start=clientX=>{
+      startX=clientX; startW=widths[i];
+      handle.classList.add('rd-col-resize-active');
+      document.body.style.cursor='col-resize'; document.body.style.userSelect='none';
+    };
+    handle.addEventListener('mousedown', e=>{ e.preventDefault(); e.stopPropagation(); start(e.clientX); document.addEventListener('mousemove',mouseMove); document.addEventListener('mouseup',onUp); });
+    handle.addEventListener('touchstart', e=>{ e.stopPropagation(); if(e.touches[0]){ start(e.touches[0].clientX); document.addEventListener('touchmove',touchMove,{passive:true}); document.addEventListener('touchend',onUp); } }, {passive:true});
+  });
+}
+function _rdResetWidths(tableId, rerenderFn){
+  try{ localStorage.removeItem('fluxa_col_w_'+tableId); }catch(e){ console.warn('[_rdResetWidths]', e?.message||e); }
+  rerenderFn();
+}
+
 function renderOSTabela(){
   populaFiltTecOS();
   // Base sem o filtro de status, pra contar cada chip corretamente (mesmo
@@ -7314,10 +7376,13 @@ function renderOSTabela(){
   // coluna vira "quantos dias de atraso" pra agendada/atrasada, só volta a
   // mostrar duração real quando concluída (é a mesma célula, papéis diferentes
   // por status, não duas colunas — não cabia mais uma no grid do handoff).
-  const grid='28px 90px 1.5fr 100px 110px 76px 1fr';
-  let h=`<div class="rd-table-wrap" style="border:none;border-radius:0">
+  // Larguras redimensionáveis (19/08, pedido do Marcos — conteúdo cortado):
+  // "Próxima ação" (última) sempre estica em 1fr, as outras 6 têm alça de
+  // arrastar e a largura persiste por navegador (_rdColWidths/_rdInitResize).
+  const osColWidths=_rdColWidths('os-hist', [28,90,280,100,110,76]);
+  let h=`<div class="rd-table-wrap" id="osh-table-wrap" style="border:none;border-radius:0;--rd-grid:${_rdGridCSS(osColWidths)}">
     <div style="overflow-x:auto"><div style="min-width:860px">
-    <div class="rd-thead" style="grid-template-columns:${grid}">
+    <div class="rd-thead" style="grid-template-columns:var(--rd-grid)">
       <div class="rd-th"><input type="checkbox" class="os-check" id="os-check-todos" title="Selecionar todos" onclick="_osToggleTodos()"></div>
       <div class="rd-th">Agendada</div><div class="rd-th">Cliente e serviço</div>
       <div class="rd-th">Técnico</div><div class="rd-th">Situação</div>
@@ -7342,7 +7407,7 @@ function renderOSTabela(){
     else if(atrasado) atrasoCel=`<span style="color:var(--bad);font-weight:600">${Math.round((new Date(_hoje+'T12:00:00')-new Date(o.data_servico+'T12:00:00'))/86400000)} d</span>`;
     else atrasoCel=`<span style="color:var(--tx2)">—</span>`;
     const rowCls=[atrasado?'rd-row-warn':(acao.urgente?'rd-row-action':''), concluidaOuCancelada?'rd-row-dim':''].filter(Boolean).join(' ');
-    h+=`<div class="rd-row${rowCls?' '+rowCls:''}" style="grid-template-columns:${grid};cursor:pointer" tabindex="0" role="button" aria-label="Abrir OS de ${esc(o.cliente||'cliente')}" onclick="editarOS('${o.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();editarOS('${o.id}')}">
+    h+=`<div class="rd-row${rowCls?' '+rowCls:''}" style="grid-template-columns:var(--rd-grid);cursor:pointer" tabindex="0" role="button" aria-label="Abrir OS de ${esc(o.cliente||'cliente')}" onclick="editarOS('${o.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();editarOS('${o.id}')}">
       <input type="checkbox" class="os-check" data-os-check="${o.id}" onclick="event.stopPropagation()" onchange="_osToggleSelecao('${o.id}')" ${osSelecionadas.has(o.id)?'checked':''}>
       <div class="rd-cell-sub">${dt}${o.hora?' · '+esc(o.hora):''}</div>
       <div><div class="rd-cell-strong">${esc(o.cliente||'—')}${getLojaBadge(o.loja_id)}</div><div class="rd-cell-sub" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(svc)}">${esc(svcInfo.texto)}${svcInfo.resto>0?` <span style="color:var(--c1);font-weight:600">+${svcInfo.resto} itens</span>`:''}</div></div>
@@ -7354,9 +7419,10 @@ function renderOSTabela(){
   });
   h+='</div></div></div>';
   document.getElementById('osh-body').innerHTML=h;
+  _rdInitResize(document.getElementById('osh-table-wrap'), 'os-hist', osColWidths);
 
   if(rodapeEl){
-    rodapeEl.innerHTML=`<div class="rd-tfoot"><span>Mostrando ${lista.length} de ${baseSemStatus.length}</span></div>`;
+    rodapeEl.innerHTML=`<div class="rd-tfoot"><span>Mostrando ${lista.length} de ${baseSemStatus.length}</span><button type="button" class="rd-btn rd-btn-link" style="font-size:12px" onclick="_rdResetWidths('os-hist',renderOSTabela)">↺ Redefinir colunas</button></div>`;
   }
   _osRenderBarraLote();
 }
@@ -16426,7 +16492,7 @@ function _renderEstoqueKPIsNovo({valorEstoque, totalProdutos, repor, valorReserv
     <div class="rd-card rd-card-dense${repor.length?' rd-card-warn':''}">
       <div class="rd-kpi-lbl">Abaixo do mínimo</div>
       <div class="rd-kpi-num rd-kpi-num-sm"${repor.length?' style="color:var(--warn)"':''}>${repor.length}</div>
-      <div class="rd-kpi-apoio">item${repor.length!==1?'s':''}</div>
+      <div class="rd-kpi-apoio">${repor.length!==1?'itens':'item'}</div>
     </div>
     <div class="rd-card rd-card-dense">
       <div class="rd-kpi-lbl">Reservado em OS</div>
@@ -16436,7 +16502,7 @@ function _renderEstoqueKPIsNovo({valorEstoque, totalProdutos, repor, valorReserv
     <div class="rd-card rd-card-dense">
       <div class="rd-kpi-lbl">Sem giro 90d</div>
       <div class="rd-kpi-num rd-kpi-num-sm">${parados.length}</div>
-      <div class="rd-kpi-apoio">item${parados.length!==1?'s':''} parado${parados.length!==1?'s':''}</div>
+      <div class="rd-kpi-apoio">${parados.length!==1?'itens parados':'item parado'}</div>
     </div>`;
 }
 // "Comprar agora" reaproveita pontoDePedido()/disponivelProduto() — o MESMO
@@ -16557,10 +16623,13 @@ function renderEstoque(){
     // aberto na Fase 5). Tabela densa, sem botão nenhum na linha.
     const total=lista.length;
     const pagina=_estoqueVerTodos?lista:lista.slice(0,ESTOQUE_TETO);
-    const grid='1.6fr 90px 78px 78px 70px 90px 100px';
-    let h=`<div class="rd-table-wrap" style="border:none;border-radius:0">
+    // Larguras redimensionáveis (19/08, pedido do Marcos — nome de produto
+    // cortado): "Valor" (última) sempre estica em 1fr, as outras 6 têm
+    // alça de arrastar e a largura persiste por navegador.
+    const estColWidths=_rdColWidths('estoque', [280,90,78,78,70,90]);
+    let h=`<div class="rd-table-wrap" id="estoque-table-wrap" style="border:none;border-radius:0;--rd-grid:${_rdGridCSS(estColWidths)}">
       <div style="overflow-x:auto"><div style="min-width:760px">
-      <div class="rd-thead" style="grid-template-columns:${grid}">
+      <div class="rd-thead" style="grid-template-columns:var(--rd-grid)">
         <div class="rd-th">Produto</div><div class="rd-th">SKU</div>
         <div class="rd-th rd-num">Disp.</div><div class="rd-th rd-num">Reserv.</div>
         <div class="rd-th rd-num">Mín.</div><div class="rd-th rd-num">Giro 90d</div>
@@ -16585,10 +16654,10 @@ function renderEstoque(){
       }
       const dotBg=dotEstilo.includes('border:')?'':';background:'+dotCor;
       const rowWarn=!ehInativo && (encomenda||baixo);
-      h+=`<div class="rd-row${rowWarn?' rd-row-warn':''}" style="grid-template-columns:${grid};cursor:pointer${ehInativo?';opacity:.55':''}" tabindex="0" role="button" aria-label="Abrir produto ${esc(p.nome)}" onclick="abrirProdutoModal('${p.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();abrirProdutoModal('${p.id}')}">
+      h+=`<div class="rd-row${rowWarn?' rd-row-warn':''}" style="grid-template-columns:var(--rd-grid);cursor:pointer${ehInativo?';opacity:.55':''}" tabindex="0" role="button" aria-label="Abrir produto ${esc(p.nome)}" onclick="abrirProdutoModal('${p.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();abrirProdutoModal('${p.id}')}">
         <div style="display:flex;align-items:center;gap:8px;min-width:0">
           <span style="width:7px;height:7px;flex-shrink:0;${dotEstilo}${dotBg}" title="${ehInativo?'inativo':encomenda||baixo?'abaixo do mínimo':parado?'sem giro':'normal'}"></span>
-          <span class="rd-cell-strong" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.nome)}</span>
+          <span class="rd-cell-strong" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(p.nome)}">${esc(p.nome)}</span>
         </div>
         <div class="rd-cell-sub" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.codigo||'—')}</div>
         <div class="rd-cell-num"${encomenda||baixo?' style="color:var(--warn);font-weight:600"':''}>${fmtQtd(disp)}</div>
@@ -16600,11 +16669,14 @@ function renderEstoque(){
     });
     h+=`</div></div></div>`;
     if(!_estoqueVerTodos && total>pagina.length){
-      h+=`<div class="rd-tfoot"><span>${pagina.length} de ${total} itens</span><button type="button" class="rd-btn rd-btn-link" style="font-size:12px" onclick="_estoqueVerTodos=true;renderEstoque()">Ver todos</button></div>`;
+      h+=`<div class="rd-tfoot"><span>${pagina.length} de ${total} itens</span><span style="display:flex;gap:12px"><button type="button" class="rd-btn rd-btn-link" style="font-size:12px" onclick="_rdResetWidths('estoque',renderEstoque)">↺ Redefinir colunas</button><button type="button" class="rd-btn rd-btn-link" style="font-size:12px" onclick="_estoqueVerTodos=true;renderEstoque()">Ver todos</button></span></div>`;
     } else if(_estoqueVerTodos && total>ESTOQUE_TETO){
-      h+=`<div class="rd-tfoot"><span>${total} de ${total} itens</span><button type="button" class="rd-btn rd-btn-link" style="font-size:12px" onclick="_estoqueVerTodos=false;renderEstoque()">Mostrar menos</button></div>`;
+      h+=`<div class="rd-tfoot"><span>${total} de ${total} itens</span><span style="display:flex;gap:12px"><button type="button" class="rd-btn rd-btn-link" style="font-size:12px" onclick="_rdResetWidths('estoque',renderEstoque)">↺ Redefinir colunas</button><button type="button" class="rd-btn rd-btn-link" style="font-size:12px" onclick="_estoqueVerTodos=false;renderEstoque()">Mostrar menos</button></span></div>`;
+    } else {
+      h+=`<div class="rd-tfoot"><span>${total} ${total!==1?'itens':'item'}</span><button type="button" class="rd-btn rd-btn-link" style="font-size:12px" onclick="_rdResetWidths('estoque',renderEstoque)">↺ Redefinir colunas</button></div>`;
     }
     body.innerHTML=h;
+    _rdInitResize(document.getElementById('estoque-table-wrap'), 'estoque', estColWidths);
   }
 
   // ── Alerta resumido (inconsistências + encomendas + repor) ──

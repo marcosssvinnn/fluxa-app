@@ -2,6 +2,75 @@
 
 ---
 
+## 🔧 Colunas redimensionáveis em Estoque e Ordens de Serviço (20/08)
+
+Marcos relatou (falando, meio impreciso — "os conteúdos das vistorias...
+os dados... ta cortado") que a tela de Ordens de Serviço estava cortando
+conteúdo, e no Estoque o nome do produto cortava — pediu explicitamente
+**a opção de configurar a espessura das colunas**, "principalmente no
+estoque".
+
+**Causa confirmada nas duas telas**: as tabelas densas (`.rd-thead`/
+`.rd-row`, grid CSS) usam `grid-template-columns` com larguras fixas
+(mistura de px e `fr`) — a coluna "Cliente e serviço" (OS) e "Produto"
+(Estoque) são as que carregam texto de tamanho mais variável, e num nome
+de produto longo (ex.: "Trocador de Calor Pooltec Titânio 25kW Linha
+Premium") ou numa lista de serviços de uma vistoria recorrente, o
+`overflow:hidden;text-overflow:ellipsis` corta mais do que devia.
+
+**Implementado: mecanismo genérico de colunas redimensionáveis**
+(`_rdColWidths`/`_rdInitResize`/`_rdGridCSS`/`_rdResetWidths`, perto de
+`renderOSTabela`) — reaproveitável em qualquer tabela `.rd-thead`/
+`.rd-row` que já usa grid inline, não só nestas duas:
+- Cada coluna (menos a última, que sempre estica em `1fr`) ganha uma
+  **alça de arrastar** na borda direita do cabeçalho (`.rd-col-resize`,
+  CSS novo — traço invisível até passar o mouse ou arrastar, 12px de
+  área de toque, `cursor:col-resize`).
+- Header e todas as linhas da tabela **compartilham a largura via UMA
+  custom property CSS** (`--rd-grid`, declarada no wrapper e herdada
+  pelos descendentes) — arrastar só precisa atualizar essa variável,
+  nunca precisa tocar em cada linha (que já foi pro DOM como uma string
+  HTML fixa, não elementos individuais).
+- **Persiste por navegador** (`localStorage`, `fluxa_col_w_<tableId>`) —
+  sobrevive a reload. Link "↺ Redefinir colunas" sempre visível no
+  rodapé de cada tabela, volta pro padrão e limpa o localStorage.
+- Suporta mouse **e** toque (`touchstart`/`touchmove`/`touchend`), mas o
+  caso de uso real é desktop — no celular as duas tabelas já rolam
+  horizontalmente e a alça de 12px de área de toque, testada, não atrapalha
+  o toque normal na linha (abre o produto/a OS normalmente).
+
+**Aplicado nas 2 telas**: "Cliente e serviço" (OS, era `1.5fr`) e
+"Produto" (Estoque, era `1.6fr`) viraram largura padrão de **280px**,
+arrastável; as demais colunas de cada tabela também ganharam alça (todas
+exceto a última, que continua esticando). De brinde: "Produto" no Estoque
+não tinha `title=` nenhum no nome truncado (só a OS já tinha, no
+resumo de serviços) — adicionado, então mesmo sem arrastar, passar o
+mouse já mostra o nome completo.
+
+**2 bugs reais achados no próprio teste, corrigidos** (não relacionados
+ao redimensionamento, achados testando do lado — mesma disciplina de
+sempre): os cartões "Abaixo do mínimo"/"Sem giro 90d" do Estoque
+mostravam **"items"/"items parados" em inglês** (`_renderEstoqueKPIsNovo`,
+resquício da Fase 7 do redesign, 13/08 — `item+'s'` em vez do plural
+correto em português). Corrigido pros dois pra "item"/"itens" e "item
+parado"/"itens parados".
+
+Testado no Browser pane (offline, `dbOk=false;db=null;`, porta nova,
+clique **real** de mouse via `computer`, não só evento simulado): alça
+arrastada de verdade (280px→352px) alargou a coluna Produto ao vivo,
+persistiu depois de re-renderizar a tabela do zero; "↺ Redefinir
+colunas" clicado de verdade voltou ao padrão e limpou o localStorage;
+clique numa linha (fora da alça) continua abrindo o produto normalmente
+(sem interferência); mesmo teste na tabela de OS (280px→430px na coluna
+"Cliente e serviço"); "1 item"/"0 itens parados" confirmados em
+português depois do fix; 375px sem overflow horizontal de página (a
+tabela em si continua rolando por dentro, como sempre). Zero erro novo
+no console.
+
+sw.js: fluxa-v213 → fluxa-v214.
+
+---
+
 ## 🔧 Tarefa 3i — O ciclo Orçamento → OS → Relatório, EM ANDAMENTO (19/08)
 
 Novo pacote no handoff (`PLANO-3I-CICLO-OS.md` + `DIAGNOSTICO-OS.md` +
