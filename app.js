@@ -20065,6 +20065,12 @@ async function _ofConfirmarEntrega(reparoId){
   await _ofAplicarStatus(reparoId,'entregue');
   imprimirTermoOficina(reparoId,'retirada'); // "um PDF só" — comprovante + termo
   toast('✅ Entrega confirmada');
+  // Mesmo pedido já aplicado em OS/orçamento (20/08): "entregue" é status
+  // final do reparo — não tem mais nada a fazer nesta ficha. Diferente das
+  // transições intermediárias (que ficam abertas de propósito, é um
+  // fluxo de várias etapas na mesma tela), aqui a ficha sai pro quadro/
+  // histórico da Oficina, como qualquer outra ação decisiva do app.
+  voltar();
 }
 
 // ── Orçamento de conserto (Fase 3) ──

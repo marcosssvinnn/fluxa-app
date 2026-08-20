@@ -2,6 +2,41 @@
 
 ---
 
+## 🔧 Oficina: "Confirmar entrega" também sai da ficha (20/08)
+
+Continuação do pedido de ontem ("ações decisivas devem sair da tela") —
+perguntei explicitamente ao Marcos se o mesmo valia pra ficha de reparo da
+Oficina, porque lá a ficha fica aberta em TODAS as transições de status, de
+propósito, desde as fases 2-3 (é um fluxo de várias etapas na mesma tela).
+Ele confirmou que quer o mesmo tratamento — mas só na transição final.
+
+`_ofConfirmarEntrega()` (o botão "Confirmar entrega" do modal de entrega,
+único jeito de marcar `status:'entregue'`) ganhou um `voltar()` no fim,
+depois de aplicar o status e imprimir o comprovante. **Só nesta transição**
+— as intermediárias (Recebido→Diagnóstico→...→Pronto) continuam abrindo a
+mesma ficha de propósito, "Entregue" é diferente: é o fim da linha, não
+sobra nenhuma ação a fazer ali.
+
+Testado no Browser pane (offline, `dbOk=false;db=null;`, porta nova, ciclo
+completo — não só a função isolada): reparo sintético "pronto" com os 4
+requisitos de entrega já preenchidos → `_ofConfirmarEntrega()` real
+(passando pela renderização de verdade da ficha, não um stub) → status vira
+`entregue`, comprovante impresso (interceptado), ficha sai de `page-reparo`
+pra `page-oficina`. **Achado no processo, não é bug**: a primeira rodada de
+teste travou o navegador algumas vezes — era o próprio script de teste
+deixando `todosProdutos`/`todosFornecedores`/`todosOrc`/`todosReceb`
+vazios sem querer, disparando `loadEstoque`/`loadFornecedores`/`loadHist`
+de verdade mesmo com `dbOk=false` (o guard de `renderPageReparo` é
+"carrega se a lista ainda está vazia" — deixar vazio de propósito faz o
+oposto do que eu queria). Populando essas listas com 1 item fictício antes
+do teste, o fluxo correu limpo, sem trava nenhuma — não é um bug real do
+app, só um erro no meu próprio setup de teste. Zero erro novo no console
+depois de corrigido.
+
+sw.js: fluxa-v223 → fluxa-v224.
+
+---
+
 ## 🔧 `loadMinhasOS()` não quebra mais fora do contexto de técnico (20/08)
 
 Achado registrado como chip separado no commit de "Finalizar OS agora sai da
@@ -31,8 +66,6 @@ sessão vendas chamando `loadMinhasOS()` direto (o caminho que estava
 quebrado) → cai em `page-form`, sem exceção; sessão técnico → segue
 funcionando normal, `renderMinhasOS()` popula `#tec-os-lista` certo, sem
 regressão. Zero erro novo no console (só o ruído de boot já documentado).
-
-sw.js: fluxa-v222 → fluxa-v223.
 
 ---
 
