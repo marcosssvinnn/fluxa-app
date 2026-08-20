@@ -7663,14 +7663,22 @@ function _osLoteConcluir(){
     labelSim:'Concluir as '+n, labelNao:'Cancelar',
     onSim: async ()=>{
       const ids=[...osSelecionadas];
-      let ok=0;
+      let ok=0, falhou=0;
       for(const id of ids){
         const o=todosOS.find(x=>x.id===id);
         if(!o || o.status==='concluido' || o.status==='cancelado') continue;
-        o.status='concluido';
+        // Achado 20/08: dbUpdate nunca rejeita numa falha de query (só num
+        // erro de rede) — resolve com {error:...}. `ok++` incondicional no
+        // try aqui contava como sucesso mesmo quando o servidor recusava a
+        // gravação; a OS reaparecia "atrasada" no próximo sync, sem aviso.
         if(dbOk&&db&&!String(id).startsWith('local_os_')){
-          try{ await dbUpdate('ordens_servico', {status:'concluido'}, 'id', id); ok++; }catch(e){ console.warn('[osLoteConcluir]', e?.message||e); }
+          try{
+            const r=await dbUpdate('ordens_servico', {status:'concluido'}, 'id', id);
+            if(r.error){ console.warn('[osLoteConcluir]', r.error.message); falhou++; continue; }
+            ok++;
+          }catch(e){ console.warn('[osLoteConcluir]', e?.message||e); falhou++; continue; }
         } else ok++;
+        o.status='concluido';
         _entregarPelaOS(id);
         if(o.agendamento_id) _gerarProximaOSdoAg(o.agendamento_id, o.data_servico).catch(e=>console.warn('[osLoteConcluir nextOS]', e?.message||e));
       }
@@ -7678,7 +7686,8 @@ function _osLoteConcluir(){
       logAcao('os_lote_concluir', `${ok} OS concluídas em lote`);
       osSelecionadas.clear();
       renderOSTabela();
-      toast(`${ok} OS concluída${ok!==1?'s':''}`, {tipo:'ok'});
+      if(falhou) toast(`${ok} concluída${ok!==1?'s':''} · ${falhou} não sincronizou${falhou!==1?'ram':''} — verifique a conexão`, {tipo:'warn'});
+      else toast(`${ok} OS concluída${ok!==1?'s':''}`, {tipo:'ok'});
     }
   });
 }
@@ -7691,20 +7700,25 @@ function _osLoteCancelar(){
     labelSim:'Cancelar as '+n, labelNao:'Manter',
     onSim: async ()=>{
       const ids=[...osSelecionadas];
-      let ok=0;
+      let ok=0, falhou=0;
       for(const id of ids){
         const o=todosOS.find(x=>x.id===id);
         if(!o || o.status==='concluido' || o.status==='cancelado') continue;
-        o.status='cancelado';
         if(dbOk&&db&&!String(id).startsWith('local_os_')){
-          try{ await dbUpdate('ordens_servico', {status:'cancelado'}, 'id', id); ok++; }catch(e){ console.warn('[osLoteCancelar]', e?.message||e); }
+          try{
+            const r=await dbUpdate('ordens_servico', {status:'cancelado'}, 'id', id);
+            if(r.error){ console.warn('[osLoteCancelar]', r.error.message); falhou++; continue; }
+            ok++;
+          }catch(e){ console.warn('[osLoteCancelar]', e?.message||e); falhou++; continue; }
         } else ok++;
+        o.status='cancelado';
       }
       lsSet('fluxa_os_hist', JSON.stringify(todosOS.slice(0,200)));
       logAcao('os_lote_cancelar', `${ok} OS canceladas em lote`);
       osSelecionadas.clear();
       renderOSTabela();
-      toast(`${ok} OS cancelada${ok!==1?'s':''}`, {tipo:'ok'});
+      if(falhou) toast(`${ok} cancelada${ok!==1?'s':''} · ${falhou} não sincronizou${falhou!==1?'ram':''} — verifique a conexão`, {tipo:'warn'});
+      else toast(`${ok} OS cancelada${ok!==1?'s':''}`, {tipo:'ok'});
     }
   });
 }
@@ -11694,7 +11708,7 @@ function _fazerCheckoutConfirmado(){
       duracao_min:duracaoMin,
       status:'concluido',
       ...dadosPreenchidos
-    }, 'id', osCheckinId).then(r=>{ if(r.error) console.warn('[checkout OS] sync falhou:', r.error.message); }).catch(e=>console.warn('[checkout OS]', e?.message||e));
+    }, 'id', osCheckinId).then(r=>{ if(r.error){ console.warn('[checkout OS] sync falhou:', r.error.message); toast('⚠️ Não sincronizou com o servidor — verifique a conexão e tente de novo'); } }).catch(e=>{ console.warn('[checkout OS]', e?.message||e); toast('⚠️ Não sincronizou com o servidor — verifique a conexão e tente de novo'); });
   }
   // Atualiza o cache local (calendário/Minhas OS refletem na hora)
   // Achado 19/08 (testando o modal "Finalizar serviço", 3i.7): este bloco
@@ -16371,8 +16385,17 @@ function _concluirOSNucleo(osId, extra){
     const i=lista.findIndex(x=>x.id===osId);
     if(i>=0){ lista[i]={...lista[i], ...(extra||{}), status:'concluido'}; lsSet('fluxa_os_hist',JSON.stringify(lista.slice(0,200))); }
   }catch(e){ console.warn('[_concluirOSNucleo local]',e?.message||e); }
+  // Achado 20/08 (Marcos: OS marcada como concluída "não tá fazendo a
+  // alteração" — continuava atrasada depois de recarregar): dbUpdate NUNCA
+  // rejeita numa falha de query (só num erro de rede) — resolve com
+  // {error:...}, que este `.catch()` sozinho nunca via. A OS parecia
+  // concluída na hora (estado local já mudou acima), mas se a gravação no
+  // banco falhasse (RLS, coluna, id inválido), o próximo sync trazia o
+  // status antigo de volta — sem nenhum aviso de que não tinha salvado.
   if(dbOk&&db&&!String(osId).startsWith('local_'))
-    dbUpdate('ordens_servico',{...(extra||{}),status:'concluido'},'id',osId).catch(e=>console.warn('[concluirOS sync]',e?.message||e));
+    dbUpdate('ordens_servico',{...(extra||{}),status:'concluido'},'id',osId)
+      .then(r=>{ if(r.error){ console.warn('[concluirOS sync]',r.error.message); toast('⚠️ Não sincronizou com o servidor — verifique a conexão e tente de novo'); } })
+      .catch(e=>{ console.warn('[concluirOS sync]',e?.message||e); toast('⚠️ Não sincronizou com o servidor — verifique a conexão e tente de novo'); });
   _entregarPelaOS(osId);
   const os=_acharOS(osId);
   logAcao('os_concluida',`OS #${String(os?.numero||'').padStart(3,'0')} ${os?.cliente||''}`);

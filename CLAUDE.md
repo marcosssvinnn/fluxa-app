@@ -2,6 +2,65 @@
 
 ---
 
+## 🔴 Concluir OS "não estava fazendo a alteração" — falha de sync mascarada como sucesso (20/08)
+
+Marcos: preencheu uma OS do Edifício Infinity Post Residence, marcou como
+concluída, e ela continuou aparecendo como pendente/atrasada na lista — "não
+tá fazendo essa alteração". Investigado no código: achado real, três pontos
+com o mesmo defeito de fundo.
+
+**Causa:** `dbUpdate()` (o wrapper resiliente usado em toda gravação) **nunca
+rejeita numa falha de query** — se o Supabase recusar a atualização (RLS,
+coluna, id inválido, o que for), a função resolve normalmente com
+`{error:{...}}`, não lança exceção. Só rejeita em falha de REDE de verdade.
+
+- **`_concluirOSNucleo`** (núcleo de "marcar como concluída", chamado pelo
+  modal "Finalizar serviço" da 3i.7 e pelo atalho de 1 toque) disparava o
+  `dbUpdate` com só um `.catch(...)` pendurado — que **nunca via** um erro de
+  query, porque a promise não rejeitava, só resolvia com o erro dentro. O
+  estado local já tinha virado "concluído" (otimista, de propósito), a tela
+  mostrava sucesso, o toast dizia "OS concluída" — mas o banco nunca recebeu
+  a mudança. No próximo `loadOSHist()` (outro aparelho, reload, ou só o app
+  ressincronizando), o servidor "corrigia" o status de volta pro que estava
+  antes — e a OS reaparecia atrasada, sem nenhum aviso de que a gravação
+  tinha falhado.
+- **`_osLoteConcluir`/`_osLoteCancelar`** (bulk, do commit de ontem) tinham a
+  mesma raiz por outro caminho: `try{ await dbUpdate(...); ok++; }catch{}` —
+  como `dbUpdate` não lança em erro de query, o `ok++` rodava **mesmo quando
+  a atualização falhava**, contando como sucesso um lançamento que nunca
+  chegou ao banco.
+
+**Corrigido nos três pontos**: agora o retorno de `dbUpdate` é checado de
+verdade (`r.error`). Em falha real, mostra
+`toast('⚠️ Não sincronizou com o servidor — verifique a conexão e tente de
+novo')` em vez de deixar o usuário achar que salvou. No lote, a OS que falhar
+**não** vira "concluído" no estado local (fica como estava, pra não mentir
+pro usuário que já foi) e o toast final separa "N concluída(s) · M não
+sincronizou(ram)". `_fazerCheckoutConfirmado` (check-out do form) já tinha o
+`if(r.error)` certo — só ganhou o toast, que antes só ia pro console.
+
+**Não foi possível confirmar a causa exata da falha original** (RLS, rede
+instável em campo, ou outra coisa específica daquela OS) — o fix não impede
+a falha em si, impede que ela passe **despercebida**. Da próxima vez que
+algo assim acontecer, o usuário vê o aviso na hora e sabe que precisa tentar
+de novo, em vez de descobrir dias depois que a OS "não saiu da lista de
+atrasada".
+
+Testado no Browser pane (offline, `dbOk=false;db=null;`, porta nova,
+`db.from` mockado devolvendo `{error:...}` sem rejeitar — reproduzindo
+exatamente o caminho que o Supabase real usa numa falha de query, não um
+`throw`): `_concluirOSNucleo` com mock de falha → toast de aviso aparece,
+status local permanece "concluido" (otimista, como já era) mas o aviso
+avisa que não sincronizou; com mock de sucesso → só o toast normal, sem
+aviso espúrio; lógica de `_osLoteConcluir` reproduzida isoladamente com 2 OS
+(1 sucesso, 1 falha simulada) → a que falhou continua com `status:'agendado'`
+no array local (não é marcada como concluída sem confirmação do servidor),
+a que teve sucesso vira `concluido`. Zero erro novo no console.
+
+sw.js: fluxa-v220 → fluxa-v221.
+
+---
+
 ## 🔧 Concluir OS em lote (20/08)
 
 Marcos: achou o toggle de "Marcar como concluída" dentro de uma OS
