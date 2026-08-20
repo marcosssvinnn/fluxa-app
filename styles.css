@@ -555,10 +555,19 @@
 
     /* Insights mobile (Fase 9a, 13/08) — hero do handoff mobile ("Turno 1 ·
        Proposta A"), some no desktop e substitui a faixa de 4 KPIs abaixo
-       de 680px (mesmos dados, só reapresentados). */
+       de 680px (mesmos dados, só reapresentados). Achado 20/08: a regra
+       escondia `.ins-kpis` em QUALQUER tela, não só Insights — a 3i.3
+       (19/08) reaproveitou a mesma classe pros 4 KPIs de Histórico de
+       Orçamentos (#orc-kpis-novo), que não tem hero mobile equivalente;
+       resultado real, achado testando o pedido do Marcos de subir os
+       indicadores pro topo: no celular eles simplesmente sumiam por
+       inteiro, "Pipeline aberto" e os outros 3 nunca apareciam em lugar
+       nenhum. Escopado só pro Insights — Histórico de Orçamentos volta a
+       mostrar os 4 KPIs (2 colunas, `.ins-kpis` já tem essa regra) em
+       qualquer largura. */
     .ins-mobile-hero{display:none}
     @media(max-width:680px){
-      .ins-kpis{display:none}
+      #page-insights .ins-kpis{display:none}
       .ins-mobile-hero{display:flex;flex-direction:column;gap:12px;margin-bottom:16px}
     }
     .ins-mh-pipe-num{font-size:30px;font-weight:600;letter-spacing:-.02em;color:var(--nav-tx-strong);font-variant-numeric:tabular-nums}

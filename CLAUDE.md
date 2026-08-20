@@ -2,6 +2,58 @@
 
 ---
 
+## 🔧 Histórico de Orçamentos: indicadores voltam pro topo + bug real achado (20/08)
+
+Marcos, depois da entrada de colunas redimensionáveis (logo abaixo):
+achou que a tela de Histórico de Orçamentos "ficou bagunçada" — os 4
+indicadores ("Pipeline aberto" etc.) e "Resumo do período" apareciam lá
+embaixo da tela, "em cima não tem nada". Pedido direto: **"coloque eles
+pra cima"**.
+
+**Reorganizei como pedido** — `#orc-kpis-novo` (4 KPIs) e o card "Resumo
+do período" subiram pra ANTES da lista de orçamentos (`index.html`,
+`#page-history`). Essa ordem (lista em cima, indicadores embaixo) tinha
+sido decisão deliberada de duas rodadas anteriores (Fase 5/14-08 e
+3i.3/19-08) — mas a posição de card nesta tela específica já tinha sido
+tratada antes como "o que o Marcos falar por último" (mesmo princípio
+registrado na entrada do Insights, 13/08): não fiz questão de defender a
+posição antiga, só movi.
+
+**No processo, achado um bug real (não causado pela reorganização em si,
+mas só ficou óbvio testando ela): no celular, os 4 indicadores
+simplesmente NUNCA apareciam, em lugar nenhum da tela.** Causa: a classe
+`.ins-kpis` (usada tanto pelos 4 KPIs do Insights quanto pelos 4 KPIs de
+Histórico de Orçamentos, reaproveitada pela 3i.3) tinha uma regra
+`@media(max-width:680px){ .ins-kpis{display:none} }` — escrita na Fase
+9a (13/08) **só pro Insights**, que tem um hero mobile próprio pra
+substituir a faixa de KPIs nessa largura. Histórico de Orçamentos não
+tem esse hero equivalente — reaproveitar a mesma classe sem escopar a
+regra fez os KPIs de orçamento sumirem no celular desde a 3i.3, sem
+substituto nenhum. Provavelmente a causa real por trás da queixa
+original do Marcos (ele mexe pelo celular) — a reorganização só tornou
+o sumiço óbvio, movendo o vazio pro topo da tela em vez de escondido no
+meio do scroll.
+
+**Corrigido**: a regra virou `#page-insights .ins-kpis{display:none}` —
+escopada só pra onde o hero mobile existe de verdade. Histórico de
+Orçamentos volta a mostrar os 4 KPIs no celular (2 colunas, a mesma
+regra de `grid-template-columns:repeat(2,1fr)` que `.ins-kpis` já tinha
+pra ≤900px).
+
+Testado no Browser pane (offline, `dbOk=false;db=null;`, porta nova, 8
+orçamentos sintéticos cobrindo os 3 status): desktop 1440px — Pipeline
+aberto/indicadores/Resumo do período no topo, lista logo abaixo, tudo
+visível sem rolar muito; 375px — confirmado via `getBoundingClientRect`
+que os 4 KPIs renderizam em 2 colunas no topo da tela (`display:grid`,
+não mais `none`); Insights (Hoje) conferido À PARTE no mesmo teste — a
+faixa de KPIs continua escondida no celular e o hero mobile próprio
+continua aparecendo, exatamente como antes (o fix não vazou pro Insights,
+escopado certo). Zero erro novo no console.
+
+sw.js: fluxa-v214 → fluxa-v215.
+
+---
+
 ## 🔧 Colunas redimensionáveis em Estoque e Ordens de Serviço (20/08)
 
 Marcos relatou (falando, meio impreciso — "os conteúdos das vistorias...

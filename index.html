@@ -1413,14 +1413,45 @@
 <!-- ══ PAGE: HISTÓRICO ══ -->
 <div class="page" id="page-history">
   <div class="wrap">
+    <!-- Indicadores + Resumo do período subiram pro topo (20/08, pedido
+         direto do Marcos — "são indicadores que precisam estar aparentes,
+         coloque eles pra cima"). Tinham sido postos ABAIXO da lista na
+         Fase 5/3i.3 (lista = fila de trabalho, indicador = leitura), mas
+         a posição de card nesta tela já foi decidida "o que o Marcos
+         falar por último" antes (ver Insights, 13/08) — sem resistência,
+         moveu de novo. -->
+    <!-- Tarefa 3i.3 (19/08): Total Emitido/Aprovados/Ticket Médio (bloco
+         pré-redesign) viraram 4 cards .rd-card — Pipeline aberto/
+         Aprovados no mês/Aprovado sem OS/Taxa de fechamento, preenchidos
+         por _renderOrcKPIsNovo() em app.js. #d-rec (A Receber) saiu daqui
+         faz tempo (Tarefa 4, 18/08) — quem quer o número tem o KPI do
+         Insights e a tela dedicada "A Receber". -->
+    <div class="ins-kpis" id="orc-kpis-novo"></div>
+
+    <!-- Navegação de mês + mini-KPIs (segue orcMesRef, que o dashboard
+         .dash lá em baixo também usa — só o card por fora virou .rd-card,
+         o grid .dash/.dc é componente compartilhado com outras telas,
+         fora do escopo desta migração). -->
+    <div class="rd-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:10px">
+        <div class="rd-card-title">Resumo do período</div>
+        <div class="orc-mes-nav">
+          <button class="orc-mes-btn" onclick="orcNavMes(-1)" title="Mês anterior">◀</button>
+          <span class="orc-mes-lbl" id="orc-mes-label">—</span>
+          <button class="orc-mes-btn" onclick="orcNavMes(1)" title="Próximo mês">▶</button>
+          <button class="orc-todos-btn" id="btn-orc-todos" onclick="orcVerTodos()">Ver todos</button>
+        </div>
+      </div>
+      <div class="rd-card-sub" style="margin-bottom:10px">Recorte de período só deste resumo — a lista de orçamentos abaixo mostra todos os orçamentos abertos, não é filtrada por mês.</div>
+      <div class="orc-mini-kpis" id="orc-mini-kpis"></div>
+    </div>
+
     <!-- ══ Lista de Orçamentos (Fase 5 do redesign, 13/08 — handoff literal:
          linha inteira clicável abre o orçamento; os botões de ação (status,
          OS, entrega, NF, pagamento, WA, excluir) se mudaram pra dentro do
          orçamento aberto — ver #form-acoes-edit em index.html/app.js).
          Não é recortada por mês de propósito: é fila de trabalho, não
-         relatório contábil (isso ficou com o "Resumo do período" abaixo).
-         Sobe para o topo da tela (Tarefa 2 do plano de acabamento, 14/08) —
-         era o ponto da tela e ficava abaixo de 5 blocos de análise. ══ -->
+         relatório contábil (isso ficou com o "Resumo do período" acima). ══ -->
     <div class="rd-card" style="padding:0;overflow:hidden;display:flex;flex-direction:column">
       <div style="padding:16px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
         <div>
@@ -1442,36 +1473,6 @@
       </div>
       <div id="hist-body"><div class="load"><div class="spin"></div> Carregando…</div></div>
       <div id="orc-lista-rodape"></div>
-    </div>
-
-    <!-- #d-rec (A Receber) saiu daqui (Tarefa 4, 18/08) — era o menos
-         confiável dos 3 lugares que mostravam o número (lia só
-         valor_recebido, que fica parado assim que um orçamento ganha
-         parcela em `recebimentos`). Quem quer o número tem o KPI do
-         Insights e a tela dedicada "A Receber", os dois já lendo
-         _orcSaldoAReceber() de verdade.
-         Tarefa 3i.3 (19/08): Total Emitido/Aprovados/Ticket Médio (último
-         bloco em estilo pré-redesign da tela) viraram 4 cards .rd-card —
-         Pipeline aberto/Aprovados no mês/Aprovado sem OS/Taxa de
-         fechamento, preenchidos por _renderOrcKPIsNovo() em app.js. -->
-    <div class="ins-kpis" id="orc-kpis-novo"></div>
-
-    <!-- Navegação de mês + mini-KPIs (segue orcMesRef, que o dashboard
-         .dash lá em cima também usa — só o card por fora virou .rd-card,
-         o grid .dash/.dc é componente compartilhado com outras telas,
-         fora do escopo desta migração). -->
-    <div class="rd-card">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:10px">
-        <div class="rd-card-title">Resumo do período</div>
-        <div class="orc-mes-nav">
-          <button class="orc-mes-btn" onclick="orcNavMes(-1)" title="Mês anterior">◀</button>
-          <span class="orc-mes-lbl" id="orc-mes-label">—</span>
-          <button class="orc-mes-btn" onclick="orcNavMes(1)" title="Próximo mês">▶</button>
-          <button class="orc-todos-btn" id="btn-orc-todos" onclick="orcVerTodos()">Ver todos</button>
-        </div>
-      </div>
-      <div class="rd-card-sub" style="margin-bottom:10px">Recorte de período só deste resumo — a lista de orçamentos acima mostra todos os orçamentos abertos, não é filtrada por mês.</div>
-      <div class="orc-mini-kpis" id="orc-mini-kpis"></div>
     </div>
   </div>
 </div>
