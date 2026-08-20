@@ -7563,6 +7563,7 @@ function _osRenderBarraLote(){
     <span class="os-lote-cnt">${osSelecionadas.size} selecionada${osSelecionadas.size!==1?'s':''}</span>
     <button type="button" class="rd-btn rd-btn-primary rd-btn-sm" onclick="_osLoteAtribuirTecnico()">Atribuir técnico</button>
     <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="_osLoteRemarcar()">Remarcar</button>
+    <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="_osLoteConcluir()">Concluir</button>
     <button type="button" class="rd-btn rd-btn-secondary rd-btn-sm" onclick="_osLoteCancelar()">Cancelar</button>
     <span class="rd-btn rd-btn-link" style="font-size:12px;margin-left:auto" onclick="_osLimparSelecao()">Limpar seleção</span>`;
 }
@@ -7644,6 +7645,42 @@ async function _osLoteRemarcarConfirmar(){
   osSelecionadas.clear();
   renderOSTabela();
   toast(`${ok} OS remarcada${ok!==1?'s':''}`, {tipo:'ok'});
+}
+// Concluir em lote (20/08, pedido do Marcos: "queria que tivesse a opção
+// fora de marcar, de poder marcar várias pra colocar como concluída" —
+// achou o toggle individual dentro da OS, queria o mesmo pra várias OS
+// atrasadas de uma vez, sem abrir uma por uma). Mesmo padrão enxuto dos
+// outros 3 lotes (loop com dbUpdate direto, sem passar pelo núcleo de
+// _concluirOSNucleo — evita disparar N toasts/re-renders de uma vez).
+// Mesma baixa de estoque automática de qualquer conclusão (_entregarPelaOS,
+// idempotente por ref — chamar de novo numa OS já entregue não duplica).
+function _osLoteConcluir(){
+  if(!osSelecionadas.size) return;
+  const n=osSelecionadas.size;
+  confirmar({
+    titulo:'Concluir OS em lote',
+    msg:`${n} ordem${n!==1?'s':''} de serviço será${n!==1?'ão':''} marcada${n!==1?'s':''} como concluída${n!==1?'s':''} — sem check-in/check-out, sem observação, material ou foto registrados. Pra anotar o que foi feito em alguma delas, abra a OS individualmente em vez de usar isto. Dá baixa automática no estoque quando há orçamento vinculado.`,
+    labelSim:'Concluir as '+n, labelNao:'Cancelar',
+    onSim: async ()=>{
+      const ids=[...osSelecionadas];
+      let ok=0;
+      for(const id of ids){
+        const o=todosOS.find(x=>x.id===id);
+        if(!o || o.status==='concluido' || o.status==='cancelado') continue;
+        o.status='concluido';
+        if(dbOk&&db&&!String(id).startsWith('local_os_')){
+          try{ await dbUpdate('ordens_servico', {status:'concluido'}, 'id', id); ok++; }catch(e){ console.warn('[osLoteConcluir]', e?.message||e); }
+        } else ok++;
+        _entregarPelaOS(id);
+        if(o.agendamento_id) _gerarProximaOSdoAg(o.agendamento_id, o.data_servico).catch(e=>console.warn('[osLoteConcluir nextOS]', e?.message||e));
+      }
+      lsSet('fluxa_os_hist', JSON.stringify(todosOS.slice(0,200)));
+      logAcao('os_lote_concluir', `${ok} OS concluídas em lote`);
+      osSelecionadas.clear();
+      renderOSTabela();
+      toast(`${ok} OS concluída${ok!==1?'s':''}`, {tipo:'ok'});
+    }
+  });
 }
 function _osLoteCancelar(){
   if(!osSelecionadas.size) return;

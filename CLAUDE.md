@@ -2,6 +2,37 @@
 
 ---
 
+## 🔧 Concluir OS em lote (20/08)
+
+Marcos: achou o toggle de "Marcar como concluída" dentro de uma OS
+individual (Mais ▾, ou o modal "Finalizar serviço" da 3i.7), mas com
+várias OS atrasadas na lista, queria marcar várias de uma vez sem abrir
+uma por uma.
+
+**Botão "Concluir" novo na barra de seleção em lote** (`_osLoteConcluir`,
+ao lado de "Atribuir técnico"/"Remarcar"/"Cancelar", que já existiam
+desde a Tarefa 3e.2). Mesmo padrão enxuto dos outros 3 — loop com
+`dbUpdate` direto por OS, sem passar pelo núcleo `_concluirOSNucleo`
+(que dispararia N toasts/re-renders de uma vez, um por item). Diálogo de
+confirmação único pro lote inteiro, deixando claro o trade-off: **sem
+check-in/check-out, observação, material ou foto** — pra registrar
+alguma coisa específica, abrir a OS continua sendo o caminho. Mesma
+baixa automática de estoque de qualquer conclusão (`_entregarPelaOS`,
+idempotente — chamar de novo numa OS já entregue não duplica) e mesma
+geração da próxima ocorrência quando a OS vem de agendamento recorrente.
+
+Testado no Browser pane (offline, `dbOk=false;db=null;`, porta nova, 3 OS
+atrasadas sintéticas): selecionar as 3 → barra mostra os 4 botões, "Concluir"
+entre "Remarcar" e "Cancelar"; clique real → modal com o texto de aviso
+certo → confirmar → as 3 viram "Concluída" (badge verde), chips
+recalculam (Atrasado sai da lista, Concluído 3 aparece), seleção limpa
+sozinha; 375px sem overflow com os 4 botões na barra. Zero erro novo no
+console.
+
+sw.js: fluxa-v219 → fluxa-v220.
+
+---
+
 ## 🔴 "Carga por técnico" sumia inteiro num dia sem nada agendado (20/08)
 
 Depois dos dois ajustes de largura de coluna, Marcos insistiu que o
