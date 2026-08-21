@@ -1087,7 +1087,12 @@ let osEditId = null; // id da OS sendo editada (null = nova) — evita duplicar 
 let _orcClienteSelecionado = null;
 let _osClienteSelecionado = null;
 let orcMesRef = ''; // YYYY-MM ou '' = todos os períodos
-let osFotos = []; // até 6 (renderOSFotosSlots) — antes era array fixo de 3
+// Fotos da OS: dois grids separados desde 20/08 (antes só existia "osFotos",
+// um grid único) — o relatório pro cliente (preencherRelatorioOS) precisa
+// distinguir antes/depois pra montar a comparação, e isso só funciona se a
+// captura já separar na hora. Até 6 fotos cada (renderOSFotosSlots).
+let osFotosAntes = [];
+let osFotosDepois = [];
 let printMode = ''; // 'orc' | 'os' | 'both'
 
 // ── Checklist OS ──
@@ -4414,7 +4419,7 @@ async function _persistirOS(silencioso){
     tec:gV('os-tec'), tot:parseFloat(gV('os-total'))||0,
     mat:_osMatTextoFinal(), obs:gV('os-obs'),
     svcs:osSvcs.filter(s=>s.d.trim()).map(s=>s.d.trim()),
-    fotos:osFotos.filter(Boolean), videoLink:gV('os-video-link'),
+    fotos:{antes:osFotosAntes.filter(Boolean), depois:osFotosDepois.filter(Boolean)}, videoLink:gV('os-video-link'),
     checklist: osChecklist.filter(x=>x.checked),
     loja_id: gV('os-loja')||LOJA_PADRAO_ID
   };
@@ -4629,9 +4634,12 @@ function preencherDocOS(d, num){
         '</div>';
     } else { chkEl.style.display='none'; chkEl.innerHTML=''; }
   }
-  // fotos OS no PDF
+  // fotos OS no PDF — este documento é a ordem ANTES do serviço, não o
+  // relatório de resultado (preencherRelatorioOS); não precisa separar
+  // antes/depois aqui, só mostrar o que foi anexado.
   const fotosEl=document.getElementById('pd-fotos-os');
-  const fotosArr=(d.fotos||[]).filter(Boolean);
+  const _fotosNorm=_osFotosNormalizar(d.fotos);
+  const fotosArr=[..._fotosNorm.antes, ..._fotosNorm.depois];
   if(fotosEl){
     if(fotosArr.length){
       fotosEl.style.display='block';
@@ -7070,7 +7078,7 @@ function _gerarOSdeOrcProsseguir(id){
   osChecklist = OS_CHECKLIST_DEFAULT.map(x=>({...x}));
   renderOsChecklist();
   osMateriais=[]; _osMatRenderLista();
-  osFotos=[];
+  osFotosAntes=[]; osFotosDepois=[];
   renderOSFotosSlots();
   setV('os-video-link',''); setV('os-obs',''); setV('os-mat',''); setV('os-tec','');
   setV('os-cli',o.cliente||''); setV('os-loc',o.local_servico||''); setV('os-cnpj',o.cnpj||'');
@@ -7108,7 +7116,7 @@ function novaOS(){
   const checkinInfoEl=document.getElementById('checkin-info'); if(checkinInfoEl) checkinInfoEl.textContent='';
   populaTecCheckIn();
   osOrcId = null;
-  osFotos=[];
+  osFotosAntes=[]; osFotosDepois=[];
   renderOSFotosSlots();
   setV('os-video-link','');
   setV('os-loja', lojaAtiva||LOJA_PADRAO_ID);
@@ -7934,7 +7942,7 @@ function _abrirOSForm(o){
   // Antes: .concat(['','','']).slice(0,3) — truncava pra 3 mesmo se a OS
   // salva tivesse mais (bug real: reabrir uma OS com 4+ fotos cortava as
   // demais). Grid dinâmico não trunca mais.
-  osFotos=(o.fotos||[]).filter(Boolean);
+  { const _fn=_osFotosNormalizar(o.fotos); osFotosAntes=_fn.antes; osFotosDepois=_fn.depois; }
   renderOSFotosSlots();
   // Checklist: carrega da OS salva ou usa o padrão
   try{
@@ -8044,7 +8052,9 @@ function _osFinRenderCorpo(){
   const duracaoMin = emCampo ? Math.max(0,Math.floor((Date.now()-checkinAt.getTime())/60000)) : (o.duracao_min||0);
   const durTx = duracaoMin ? Math.floor(duracaoMin/60)+'h '+String(duracaoMin%60).padStart(2,'0') : (emCampo?'menos de 1min':'—');
   const matCount = aberta ? (osMateriais||[]).length : 0;
-  const fotoCount = (aberta ? (osFotos||[]) : (o.fotos||[])).filter(Boolean).length;
+  const fotoCount = aberta
+    ? (osFotosAntes||[]).filter(Boolean).length + (osFotosDepois||[]).filter(Boolean).length
+    : (()=>{ const _fn=_osFotosNormalizar(o.fotos); return _fn.antes.length+_fn.depois.length; })();
   return `
     <div class="rd-modal-head">
       <div class="rd-modal-headtx">
@@ -8197,6 +8207,17 @@ function _osAbrirOrcamentoRecomendacao(osId, texto){
 // separado, melhor feito depois do relatório de OS já estar provado em
 // produção, não no mesmo commit que o cria.
 
+// Normaliza ordens_servico.fotos pros dois formatos possíveis: array simples
+// (formato antigo, todo registro criado antes de 20/08 — trata tudo como
+// "depois", é o que essas fotos sempre representaram: resultado do serviço)
+// ou {antes:[],depois:[]} (formato novo). Ponto único de leitura — todo
+// lugar que precisa mostrar/contar fotos da OS passa por aqui, nunca lê
+// o.fotos direto, senão um registro antigo quebra ao virar array de novo.
+function _osFotosNormalizar(fotosRaw){
+  if(Array.isArray(fotosRaw)) return {antes:[], depois:fotosRaw.filter(Boolean)};
+  if(fotosRaw && typeof fotosRaw==='object') return {antes:(fotosRaw.antes||[]).filter(Boolean), depois:(fotosRaw.depois||[]).filter(Boolean)};
+  return {antes:[], depois:[]};
+}
 // Materiais já aplicados nesta OS, lidos de os_materiais + join com
 // produtos — usado só na hora de montar o relatório (a lista editável em
 // tela, osMateriais, já é carregada por _osLoadMateriais).
@@ -8314,13 +8335,38 @@ function preencherRelatorioOS(os, opts={}){
   if(obsBar) obsBar.style.background=cor;
   if(obsTxt) obsTxt.textContent=os.obs_tecnica||'';
 
+  // Antes/Depois (20/08) — pedido do Marcos: a foto é "a coisa mais legal"
+  // do relatório, e antes ficava escondida numa grade genérica "Foto 1/2/3".
+  // Quando os dois lados existem, a comparação lado a lado vira o centro
+  // da seção — o resto (sobra de um lado só) cai numa grade simples embaixo.
   const fotosWrap=document.getElementById('pd-osr-fotos-wrap');
+  const fotosTitulo=document.getElementById('pd-osr-fotos-titulo');
   const fotosGrid=document.getElementById('pd-osr-fotos-grid');
-  const fotosArr=(os.fotos||[]).filter(Boolean);
-  if(fotosWrap) fotosWrap.style.display=fotosArr.length?'block':'none';
-  if(fotosGrid) fotosGrid.innerHTML=fotosArr.map((f,i)=>`
-    <div class="pd-vis-foto-item"><img src="${f}" alt="Foto ${i+1}" loading="lazy" decoding="async">
-    <div class="pd-vis-foto-lbl">Foto ${i+1}</div></div>`).join('');
+  const {antes:fAntes, depois:fDepois}=_osFotosNormalizar(os.fotos);
+  const temAntes=fAntes.length, temDepois=fDepois.length;
+  if(fotosWrap) fotosWrap.style.display=(temAntes||temDepois)?'block':'none';
+  if(fotosTitulo) fotosTitulo.textContent = (temAntes&&temDepois) ? 'Antes e Depois' : temDepois ? 'Fotos do Serviço' : 'Fotos da Chegada';
+  if(fotosGrid){
+    const nPares=Math.min(temAntes,temDepois);
+    const pares=[];
+    for(let i=0;i<nPares;i++){
+      pares.push(`<div class="pd-osr-ad-pair">
+        <div class="pd-osr-ad-col"><img src="${fAntes[i]}" alt="Antes ${i+1}" loading="lazy" decoding="async"><div class="pd-osr-ad-lbl antes">Antes</div></div>
+        <div class="pd-osr-ad-col"><img src="${fDepois[i]}" alt="Depois ${i+1}" loading="lazy" decoding="async"><div class="pd-osr-ad-lbl depois">Depois</div></div>
+      </div>`);
+    }
+    const sobraAntes=fAntes.slice(nPares), sobraDepois=fDepois.slice(nPares);
+    const grade=(arr,lbl,classe)=>arr.map((f,i)=>`
+      <div class="pd-vis-foto-item"><img src="${f}" alt="${lbl} ${i+1}" loading="lazy" decoding="async">
+      <div class="pd-vis-foto-lbl ${classe}">${lbl}</div></div>`).join('');
+    // "Sobra" cobre tanto o resto de quem tem mais fotos que o outro lado
+    // quanto o caso comum de só um lado ter fotos (nPares fica 0, sobra é
+    // o array inteiro) — não precisa de um 3º caminho pra isso.
+    const sobraHtml = (sobraAntes.length||sobraDepois.length)
+      ? `<div class="pd-vis-equip-fotos" style="margin-top:${nPares?'14px':'0'}">${grade(sobraAntes,'Antes','antes')}${grade(sobraDepois,'Depois','depois')}</div>`
+      : '';
+    fotosGrid.innerHTML = (pares.length ? `<div class="pd-osr-ad-grid">${pares.join('')}</div>` : '') + sobraHtml;
+  }
 
   const proxWrap=document.getElementById('pd-osr-proxima-wrap');
   const proxTxt=document.getElementById('pd-osr-proxima-txt');
@@ -8792,33 +8838,38 @@ function _enviarRelatorioOSWhats(id, tel){
 //  3 slots fixos hardcoded no HTML — bug real reportado (Dom Carlos): "só
 //  dá pra colocar 3 fotos, tem que dar pra colocar mais".
 // ──────────────────────────────────────────────────
-function renderOSFotosSlots(){
-  const grid=document.getElementById('os-fotos-grid'); if(!grid) return;
+// tipo: 'antes' | 'depois' — dois grids independentes desde 20/08.
+function _osFotosArr(tipo){ return tipo==='antes' ? osFotosAntes : osFotosDepois; }
+function renderOSFotosSlots(tipo){
+  if(!tipo){ renderOSFotosSlots('antes'); renderOSFotosSlots('depois'); return; }
+  const grid=document.getElementById('os-fotos-'+tipo+'-grid'); if(!grid) return;
+  const arr=_osFotosArr(tipo);
   grid.innerHTML='';
   for(let i=0;i<6;i++){
     const slot=document.createElement('div');
-    slot.className='fotos-orc-slot'+(osFotos[i]?' filled':'');
+    slot.className='fotos-orc-slot'+(arr[i]?' filled':'');
     slot.innerHTML=`
-      <input type="file" id="os-finp-${i}" accept="image/*" style="display:none" onchange="carregarFotoOS(this,${i})">
-      ${osFotos[i]?`<img src="${osFotos[i]}" alt="foto ${i+1}">`:''}
+      <input type="file" id="os-finp-${tipo}-${i}" accept="image/*" style="display:none" onchange="carregarFotoOS(this,${i},'${tipo}')">
+      ${arr[i]?`<img src="${arr[i]}" alt="foto ${i+1}">`:''}
       <div class="fotos-orc-slot-icon">📷</div>
       <div class="fotos-orc-slot-lbl">Foto ${i+1}</div>
-      <button class="fotos-orc-rm" onclick="event.stopPropagation();removerFotoOS(${i})" title="Remover">✕</button>`;
-    slot.addEventListener('click',()=>document.getElementById(`os-finp-${i}`).click());
+      <button class="fotos-orc-rm" onclick="event.stopPropagation();removerFotoOS(${i},'${tipo}')" title="Remover">✕</button>`;
+    slot.addEventListener('click',()=>document.getElementById(`os-finp-${tipo}-${i}`).click());
     grid.appendChild(slot);
   }
 }
-function carregarFotoOS(inp, idx){
+function carregarFotoOS(inp, idx, tipo){
   const f=inp.files[0]; if(!f) return;
   if(f.size > FOTO_MAX_BYTES){ toast('⚠️ Foto muito grande (máx 20 MB).'); inp.value=''; return; }
   const r=new FileReader();
-  r.onload=async e=>{ osFotos[idx]=await compressImage(e.target.result); renderOSFotosSlots(); };
+  r.onload=async e=>{ _osFotosArr(tipo)[idx]=await compressImage(e.target.result); renderOSFotosSlots(tipo); };
   r.readAsDataURL(f);
 }
-function removerFotoOS(idx){
-  osFotos[idx]=null;
-  while(osFotos.length && !osFotos[osFotos.length-1]) osFotos.pop();
-  renderOSFotosSlots();
+function removerFotoOS(idx, tipo){
+  const arr=_osFotosArr(tipo);
+  arr[idx]=null;
+  while(arr.length && !arr[arr.length-1]) arr.pop();
+  renderOSFotosSlots(tipo);
 }
 
 // ──────────────────────────────────────────────────
@@ -11707,7 +11758,7 @@ function _fazerCheckoutConfirmado(){
   const dadosPreenchidos = {
     obs_tecnica: gV('os-obs')||'',
     materiais: _osMatTextoFinal(),
-    fotos: (osFotos||[]).filter(Boolean),
+    fotos: {antes:(osFotosAntes||[]).filter(Boolean), depois:(osFotosDepois||[]).filter(Boolean)},
     video_link: gV('os-video-link')||null,
     checklist: chkOk.length?JSON.stringify(chkOk):null,
     tecnico: gV('os-tec-checkin')||gV('os-tec')||''
@@ -16358,7 +16409,7 @@ function _osExtraDoFormAberto(osId, osAtual){
     servicos: (osSvcs||[]).filter(s=>s.d.trim()).map(s=>s.d.trim()),
     obs_tecnica: gV('os-obs')||'',
     materiais: _osMatTextoFinal(),
-    fotos: (osFotos||[]).filter(Boolean),
+    fotos: {antes:(osFotosAntes||[]).filter(Boolean), depois:(osFotosDepois||[]).filter(Boolean)},
     video_link: gV('os-video-link')||null,
     checklist: (osChecklist||[]).filter(x=>x.checked).length ? JSON.stringify((osChecklist||[]).filter(x=>x.checked)) : null
   };
@@ -16375,9 +16426,10 @@ function concluirOSHistorico(osId){
   const extra = _osExtraDoFormAberto(osId, osAtual);
   let fotosAtual = extra ? extra.fotos : osAtual?.fotos;
   if(typeof fotosAtual==='string'){ try{ fotosAtual=JSON.parse(fotosAtual||'[]'); }catch(e){ fotosAtual=[]; } }
+  const fotosAtualN = _osFotosNormalizar(fotosAtual);
   const obsCheck = extra ? extra.obs_tecnica : osAtual?.obs_tecnica;
   const matCheck = extra ? extra.materiais : osAtual?.materiais;
-  const semDetalhes = osAtual && !(obsCheck||'').trim() && !(matCheck||'').trim() && !(Array.isArray(fotosAtual)&&fotosAtual.filter(Boolean).length);
+  const semDetalhes = osAtual && !(obsCheck||'').trim() && !(matCheck||'').trim() && !(fotosAtualN.antes.length+fotosAtualN.depois.length);
   const msg = semDetalhes
     ? 'Esta OS não tem nenhuma observação, material ou foto registrada — vai ficar marcada como concluída em branco.\n\nPara preencher, abra a OS em vez de usar este atalho. Concluir mesmo assim?'
     : 'Marcar OS como concluída?\n\nIsso registrará a baixa de estoque automaticamente se houver orçamento vinculado.';

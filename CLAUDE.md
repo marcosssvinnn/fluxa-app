@@ -2,6 +2,79 @@
 
 ---
 
+## 🔧 Relatório de OS: fotos de Antes/Depois viram o centro do documento (20/08)
+
+Marcos mandou o relatório de uma OS real (Edifício Infinity Coast
+Residence) e pediu pra deixar mais prático pro técnico preencher e mais
+legal/relevante pro contratante — "a coisa mais legal é a foto que
+tiramos do antes e depois". **Sem referência pronta, decisão dele: criar
+do zero.**
+
+**Investigação antes de desenhar qualquer coisa**: o PDF mostrado tinha
+"0 executados / 0 não executados / 0 materiais", vazio, parecendo quebrado.
+Antes de assumir que o checklist "Fiz/Não fiz" (3i.7) não era intuitivo,
+conferi direto em produção (Management API, leitura): a OS #199 do PDF é
+uma das 4 cópias de teste do bug de duplicação já corrigido em 19/08
+(`servicos:[]`, `servicos_execucao:null` — nunca teve serviço nenhum
+cadastrado, criada em 23s junto com #195/197/198). A OS #200 (criada na
+mesma sessão de teste, horas depois) tem `servicos`/`servicos_execucao`
+preenchidos certinho — o checklist funciona. **Não mexi nele** — o problema
+real era só a exibição das fotos, exatamente o que o Marcos pediu.
+
+**Decisão (perguntada via `AskUserQuestion`)**: como o técnico marca se uma
+foto é do ANTES ou do DEPOIS? Três opções — dois grids separados na
+captura, uma etiqueta por foto num grid só, ou não separar. Marcos: **dois
+grids separados** — mais óbvio de preencher, zero clique extra por foto.
+
+**Captura (`index.html`, card "Fotos" do formulário de OS)**: virou dois
+grids — "Antes — condição na chegada" e "Depois — resultado do serviço".
+`osFotos` (um array só) virou `osFotosAntes`/`osFotosDepois`; `render
+OSFotosSlots`/`carregarFotoOS`/`removerFotoOS` ganharam parâmetro `tipo`
+('antes'|'depois') em vez de duplicar as 3 funções.
+
+**Persistência**: `ordens_servico.fotos` (jsonb, já existia) passa a
+guardar `{antes:[...], depois:[...]}` em vez de um array simples — sem
+migração de schema, é só a FORMA do jsonb que muda. **Retrocompatibilidade
+central**: `_osFotosNormalizar(fotosRaw)` (novo, perto de
+`_osMateriaisParaRelatorio`) é o ponto ÚNICO de leitura — registro antigo
+(array simples, qualquer OS de antes de hoje) é tratado como 100% "depois"
+(é o que essas fotos sempre representaram: resultado do serviço), registro
+novo lê o objeto direto. Todo lugar que lê `o.fotos` passa por essa função
+agora — `_abrirOSForm` (reabrir OS), o "semDetalhes" de `concluirOSHistorico`
+(aviso de OS vazia), o contador de fotos do modal "Finalizar serviço", e
+`preencherDocOS` (a ordem ANTES do serviço, que só precisa da lista
+combinada, sem separar narrativa).
+
+**O relatório (`preencherRelatorioOS`, `#pdoc-os-relatorio`)** — a peça
+central do pedido: quando os dois lados têm foto, monta pares lado a lado
+("Antes"/"Depois" coloridos embaixo de cada imagem, `.pd-osr-ad-pair`),
+emparelhando até o menor dos dois; a sobra (quem tiver mais fotos que o
+outro) cai numa grade simples embaixo, cada foto ainda rotulada. Título da
+seção muda sozinho conforme o que existe: "Antes e Depois" (os dois lados),
+"Fotos do Serviço" (só depois — o caso mais comum hoje), "Fotos da
+Chegada" (só antes, raro). Sem foto nenhuma, a seção some — igual já era.
+
+**Não mexido, de propósito**: o checklist de serviços (Fiz/Não fiz) e seus
+números na tela — a investigação mostrou que já funciona; mexer nele sem
+um problema real seria o mesmo risco que este projeto já evita em outras
+capturas de dado de campo.
+
+Testado no Browser pane (offline, `dbOk=false;db=null;`, porta nova):
+**captura** — os dois grids renderizam 6 slots cada, anexar foto em cada
+lado funciona independente, `_persistirOS` grava `{antes,depois}` local,
+reabrir a OS (`editarOS`) restaura os dois arrays certos a partir do
+registro salvo; **`preencherDocOS`** (ordem antes do serviço) combina os
+dois sem quebrar, confirma imagens juntas; **`preencherRelatorioOS`**,
+4 cenários — 2 antes+3 depois → título "Antes e Depois", 2 pares
+emparelhados + 1 sobra na grade; array legado (formato antigo, 2 fotos) →
+tratado como "depois", retrocompatível, sem erro; só depois → título
+"Fotos do Serviço"; sem foto nenhuma → seção com `display:none`, como
+antes. Zero erro novo no console nos 4 cenários.
+
+sw.js: fluxa-v225 → fluxa-v226.
+
+---
+
 ## 🔴 Ordem de Entrega saía sem o endereço (20/08)
 
 Marcos: "na ordem de entrega... precisava que saísse o endereço no

@@ -1203,11 +1203,15 @@
     </div>
 
     <div class="card">
-      <div class="ct">Fotos e Vídeo</div>
-      <!-- Grid dinâmico (14/08) — antes eram 3 slots fixos no HTML; virou o
-           mesmo padrão já usado nas fotos do orçamento (renderFotosOrcSlots),
-           até 6 fotos, mesma classe CSS (fotos-orc-grid), sem CSS novo. -->
-      <div class="fotos-orc-grid" id="os-fotos-grid" style="margin-bottom:12px"></div>
+      <div class="ct">Fotos</div>
+      <!-- Dois grids (20/08) — pedido do Marcos: o relatório pro cliente
+           precisa destacar antes/depois, e isso só funciona se a captura já
+           separar na hora, sem exigir que o técnico marque etiqueta depois.
+           Mesma classe CSS de sempre (fotos-orc-grid), sem CSS novo. -->
+      <div class="fl" style="margin-bottom:6px"><label>Antes <span style="font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0">— condição na chegada</span></label></div>
+      <div class="fotos-orc-grid" id="os-fotos-antes-grid" style="margin-bottom:16px"></div>
+      <div class="fl" style="margin-bottom:6px"><label>Depois <span style="font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0">— resultado do serviço</span></label></div>
+      <div class="fotos-orc-grid" id="os-fotos-depois-grid" style="margin-bottom:12px"></div>
       <div class="row f1">
         <div class="fl"><label>Link de Vídeo <span style="font-weight:400;color:var(--gray);text-transform:none;letter-spacing:0">(Google Drive, YouTube…)</span></label><input type="url" id="os-video-link" placeholder="https://drive.google.com/…"></div>
       </div>
@@ -2143,10 +2147,13 @@
         </div>
       </div>
     </div>
-    <!-- Registro fotográfico -->
+    <!-- Antes/Depois — o título e o layout mudam conforme o que existe
+         (os dois lados, ou só um): ver preencherRelatorioOS. A classe de
+         grid fica só no HTML gerado (.pd-osr-ad-grid ou .pd-vis-equip-fotos),
+         não aqui — este div é só o container, sem layout próprio. -->
     <div id="pd-osr-fotos-wrap" style="display:none">
-      <div class="pd-sl">Registro Fotográfico</div>
-      <div class="pd-vis-equip-fotos" id="pd-osr-fotos-grid" style="margin-bottom:16px"></div>
+      <div class="pd-sl" id="pd-osr-fotos-titulo">Registro Fotográfico</div>
+      <div id="pd-osr-fotos-grid" style="margin-bottom:16px"></div>
     </div>
     <!-- Próxima visita -->
     <div id="pd-osr-proxima-wrap" style="display:none;margin-bottom:16px">
