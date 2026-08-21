@@ -4416,7 +4416,12 @@ function rmOSSvc(id){ if(osSvcs.length===1){toast('⚠️ Mín. 1');return;} osS
 async function _persistirOS(silencioso){
   const dados={
     cli:gV('os-cli')||'—', loc:gV('os-loc'), cnpj:gV('os-cnpj')||null, data:gV('os-data'), hora:gV('os-hora'),
-    tec:gV('os-tec'), tot:parseFloat(gV('os-total'))||0,
+    // Achado 21/08: quando há check-in ativo, o select #os-tec-checkin é
+    // quem sabe de verdade quem está em campo — o mesmo critério que
+    // _fazerCheckoutConfirmado já usava. #os-tec (texto livre) só decide
+    // quando não há check-in selecionado (OS sem check-in ainda, ou
+    // preenchida por quem não passa pelo card de check-in).
+    tec:gV('os-tec-checkin')||gV('os-tec'), tot:parseFloat(gV('os-total'))||0,
     mat:_osMatTextoFinal(), obs:gV('os-obs'),
     svcs:osSvcs.filter(s=>s.d.trim()).map(s=>s.d.trim()),
     fotos:{antes:osFotosAntes.filter(Boolean), depois:osFotosDepois.filter(Boolean)}, videoLink:gV('os-video-link'),
@@ -8316,16 +8321,27 @@ function preencherRelatorioOS(os, opts={}){
 
   const matWrap=document.getElementById('pd-osr-mat-wrap');
   const matTable=document.getElementById('pd-osr-mat-table');
-  if(matWrap) matWrap.style.display=materiais.length?'block':'none';
-  if(matTable && materiais.length){
-    const totalCusto=materiais.reduce((a,m)=>a+(parseFloat(m.qtd)||0)*(parseFloat(m.custo_unit)||0),0);
-    matTable.innerHTML=`<thead><tr><th>Item</th><th>Qtd.</th>${interna?'<th>Custo</th>':''}</tr></thead>
-      <tbody>${materiais.map(m=>`<tr>
-        <td><strong>${esc(m.nome)}</strong></td>
-        <td>${fmtQtd(m.qtd)} ${esc(m.unidade||'un')}</td>
-        ${interna?`<td>${brl((parseFloat(m.qtd)||0)*(parseFloat(m.custo_unit)||0))}</td>`:''}
-      </tr>`).join('')}
-      ${interna?`<tr><td colspan="2" style="font-weight:700">Custo total de material</td><td style="font-weight:700">${brl(totalCusto)}</td></tr>`:''}</tbody>`;
+  const matObsLivre=_osMatObsLivre(os);
+  if(matWrap) matWrap.style.display=(materiais.length||matObsLivre)?'block':'none';
+  if(matTable){
+    if(materiais.length){
+      const totalCusto=materiais.reduce((a,m)=>a+(parseFloat(m.qtd)||0)*(parseFloat(m.custo_unit)||0),0);
+      matTable.innerHTML=`<thead><tr><th>Item</th><th>Qtd.</th>${interna?'<th>Custo</th>':''}</tr></thead>
+        <tbody>${materiais.map(m=>`<tr>
+          <td><strong>${esc(m.nome)}</strong></td>
+          <td>${fmtQtd(m.qtd)} ${esc(m.unidade||'un')}</td>
+          ${interna?`<td>${brl((parseFloat(m.qtd)||0)*(parseFloat(m.custo_unit)||0))}</td>`:''}
+        </tr>`).join('')}
+        ${interna?`<tr><td colspan="2" style="font-weight:700">Custo total de material</td><td style="font-weight:700">${brl(totalCusto)}</td></tr>`:''}</tbody>`;
+      matTable.style.display='';
+    } else {
+      matTable.innerHTML=''; matTable.style.display='none';
+    }
+  }
+  const matObsEl=document.getElementById('pd-osr-mat-obs');
+  if(matObsEl){
+    if(matObsLivre){ matObsEl.textContent=matObsLivre; matObsEl.style.display='block'; }
+    else { matObsEl.textContent=''; matObsEl.style.display='none'; }
   }
 
   const obsWrap=document.getElementById('pd-osr-obs-wrap');
@@ -8591,6 +8607,20 @@ function confirmarItensOS(){
 // depender de alguém depois interpretar texto livre e lançar manualmente.
 // Reversível: remover o item devolve o estoque (entrada de estorno).
 let osMateriais=[];
+// Achado 21/08: produto que já é item do orçamento vinculado a esta OS já
+// teve baixa de estoque no momento da aprovação ("aprovar = sai do
+// estoque", 07/08) ou é tratado pelo card "Itens a levar / validar"
+// (confirmarItensOS → entregarOrcamento, ref 'baixa:orc:<orcId>:<pid>').
+// Buscar e adicionar o MESMO produto aqui usa um ref totalmente diferente
+// ('os_mat:...'), sem nenhuma checagem cruzada entre os dois caminhos —
+// o mesmo produto podia sair duas vezes do estoque. Não bloqueia (pode
+// ser consumo real além do previsto no orçamento), só avisa antes.
+function _osMatProdutoNoOrcamento(pid){
+  if(!osOrcId) return false;
+  const orc=(todosOrc||[]).find(o=>o.id===osOrcId);
+  if(!orc) return false;
+  return (orc.servicos||[]).some(s=>s.produto_id===pid);
+}
 function osMatBuscarProduto(termo){
   const el=document.getElementById('os-mat-sugestoes'); if(!el) return;
   const t=(termo||'').trim().toLowerCase();
@@ -8601,13 +8631,25 @@ function osMatBuscarProduto(termo){
   if(!achados.length){ el.innerHTML='<div style="font-size:12px;color:var(--gray);padding:8px">Nenhum produto encontrado.</div>'; return; }
   el.innerHTML=achados.map(p=>{
     const disp=disponivelProduto(p.id);
+    const jaNoOrc=_osMatProdutoNoOrcamento(p.id);
     return `<button class="tb" style="display:block;width:100%;text-align:left;margin-bottom:5px;padding:9px 11px" onclick="osMatAddItem('${p.id}')">
       <div style="font-weight:700;color:var(--c2);font-size:12.5px">${esc(p.nome)}</div>
-      <div style="font-size:11px;color:var(--gray)">${p.codigo?esc(p.codigo)+' · ':''}tem ${fmtQtd(disp)} ${esc(p.unidade||'un')}</div>
+      <div style="font-size:11px;color:var(--gray)">${p.codigo?esc(p.codigo)+' · ':''}tem ${fmtQtd(disp)} ${esc(p.unidade||'un')}${jaNoOrc?' · <span style="color:var(--warn)">já é item do orçamento</span>':''}</div>
     </button>`;
   }).join('');
 }
 function osMatAddItem(pid){
+  if(_osMatProdutoNoOrcamento(pid)){
+    confirmar(
+      'Este produto já é item do orçamento vinculado a esta OS — o estoque dele já foi (ou vai ser) baixado por esse caminho.\n\nAdicionar aqui soma OUTRA baixa, além dessa. Só confirme se for consumo real a mais do que o orçamento previa.',
+      ()=>_osMatAddItemConfirmado(pid),
+      'Produto já contabilizado no orçamento'
+    );
+    return;
+  }
+  _osMatAddItemConfirmado(pid);
+}
+function _osMatAddItemConfirmado(pid){
   const p=produtoById(pid); if(!p) return;
   const loja=gV('os-loja')||_lojaParaMovimento()||LOJA_PADRAO_ID;
   const ja=osMateriais.find(i=>i.produto_id===pid);
@@ -8654,6 +8696,28 @@ function _osMatTextoFinal(){
   const livre=(gV('os-mat')||'').trim();
   if(livre) partes.push(livre);
   return partes.join(' · ');
+}
+// Isola a parte de TEXTO LIVRE dentro de ordens_servico.materiais (a string
+// concatenada que _osMatTextoFinal grava) — achado 21/08: o relatório
+// (preencherRelatorioOS) só mostrava os materiais ESTRUTURADOS
+// (_materiaisRelatorio, tabela os_materiais); o que o técnico digitasse só
+// em "Outras observações de material" nunca aparecia no PDF, mesmo já
+// salvo no banco. Sem coluna nova (nenhuma migração): reconstrói o prefixo
+// estruturado do MESMO jeito que _osMatTextoFinal monta (mesma função
+// fmtQtd, mesmo join), e o que sobrar depois desse prefixo é o texto
+// livre. Registro anterior à 3i.8 (sem os_materiais nenhum) → a string
+// inteira É texto livre. Não dá pra separar com segurança só quando há
+// estruturados MAS o prefixo não bate (edição manual antiga, etc.) — nesse
+// caso não mostra nada, pra não arriscar duplicar o que já está na tabela.
+function _osMatObsLivre(os){
+  const raw=(os.materiais||'').trim();
+  if(!raw) return '';
+  const estruturados=(os._materiaisRelatorio||[]).map(m=>`${fmtQtd(m.qtd)}x ${m.nome}`).join(', ');
+  if(!estruturados) return raw;
+  if(raw.startsWith(estruturados)){
+    return raw.slice(estruturados.length).replace(/^\s*·\s*/,'').trim();
+  }
+  return '';
 }
 // Persistência estruturada dos materiais (Tarefa 3i.8, tabela os_materiais)
 // — a baixa de estoque em si já acontece na hora (registrarMovimento, em
@@ -11709,6 +11773,12 @@ let osCheckinId=null;
 function fazerCheckin(){
   const tec=gV('os-tec-checkin'); if(!tec){ toast('⚠️ Selecione o técnico'); return; }
   checkinAt=new Date(); lsSet('fluxa_ultimo_tec',tec);
+  // Achado 21/08: "Responsável Técnico" (#os-tec, texto livre) e o select
+  // de check-in (#os-tec-checkin) não eram amarrados — dava pra fazer
+  // check-in de um técnico e a OS continuar mostrando o nome de outro no
+  // cabeçalho até alguém salvar/checkout. Sincroniza o texto livre com
+  // quem realmente fez check-in — de agora em diante os dois concordam.
+  setV('os-tec', tec);
   osCheckinId=osEditId; // id da OS aberta (antes usava editId do orçamento — registro errado)
   document.getElementById('checkin-form').style.display='none';
   document.getElementById('checkin-bar').style.display='flex';
@@ -16404,7 +16474,9 @@ function _osExtraDoFormAberto(osId, osAtual){
   return {
     cliente: gV('os-cli')||osAtual?.cliente,
     local_servico: gV('os-loc')||osAtual?.local_servico,
-    tecnico: gV('os-tec')||osAtual?.tecnico,
+    // Mesma prioridade de _persistirOS/_fazerCheckoutConfirmado — com
+    // check-in ativo, o select é a fonte de verdade de quem está em campo.
+    tecnico: gV('os-tec-checkin')||gV('os-tec')||osAtual?.tecnico,
     total: parseFloat(gV('os-total'))||osAtual?.total||0,
     servicos: (osSvcs||[]).filter(s=>s.d.trim()).map(s=>s.d.trim()),
     obs_tecnica: gV('os-obs')||'',

@@ -2,6 +2,137 @@
 
 ---
 
+## 🔴 Segunda verificação (módulo de OS): 2 bugs reais corrigidos, 1 achado sem bug de verdade (21/08)
+
+Continuação da rodada de verificação com a outra IA (auxiliando a apresentação
+de treinamento) — desta vez sobre o módulo de OS/Minhas OS. 5 achados
+relatados; investiguei todos contra o código antes de mexer.
+
+**1. 🔴 Confirmado — dois caminhos de finalizar a OS resolviam "técnico"
+diferente.** `#os-tec` (texto livre, "Responsável Técnico") e
+`#os-tec-checkin` (select do card de Check-in) nunca foram amarrados.
+`_fazerCheckoutConfirmado()` (encerra via check-out) já priorizava o select
+(`gV('os-tec-checkin')||gV('os-tec')`) — mas `_persistirOS()` (salvar/
+autosave) e `_osExtraDoFormAberto()` (usado por "Marcar como concluída"
+quando NÃO há check-in ativo no momento) liam só `gV('os-tec')`, nunca o
+select. Resultado real: técnico faz check-in selecionando a si mesmo, mas
+se a OS for salva ou finalizada por um caminho que não passa pelo
+check-out, o registro grava o nome que estava no campo de texto — que pode
+ser de outra pessoa (herdado de quando a OS foi criada, ou nunca
+atualizado).
+
+**Corrigido, 3 pontos**: `fazerCheckin()` agora sincroniza `#os-tec` com o
+valor do select assim que o check-in acontece (`setV('os-tec', tec)`) — o
+cabeçalho passa a mostrar quem realmente está em campo, não só no
+registro salvo depois. `_persistirOS()` e `_osExtraDoFormAberto()` mudaram
+a prioridade pra `gV('os-tec-checkin')||gV('os-tec')` — mesma ordem que
+`_fazerCheckoutConfirmado()` já usava. Os 4 pontos que resolvem "técnico"
+agora concordam entre si.
+
+**2. 🔴 Confirmado — baixa dupla de estoque era possível.** "Itens a levar
+/ validar" (`confirmarItensOS`→`entregarOrcamento`, ref
+`baixa:orc:<id>:<pid>`, protegido por `_entregueProdutoOrc`) e "Materiais
+utilizados" (`osMatAddItem`→`registrarMovimento`, ref
+`os_mat:<osId>:<pid>:<timestamp>`) são dois mecanismos totalmente
+separados, sem checagem cruzada. Um produto já vinculado ao orçamento
+(que já baixa sozinho na aprovação, modelo "aprovar = sai do estoque",
+07/08) que o técnico também buscasse e adicionasse em "Materiais
+utilizados" descontava do estoque duas vezes.
+
+**Corrigido, sem bloquear** (pode ser consumo real além do previsto):
+`_osMatProdutoNoOrcamento(pid)` (nova) checa se o produto já é item do
+orçamento vinculado à OS. `osMatBuscarProduto()` mostra um aviso
+("· já é item do orçamento") ao lado do resultado da busca; `osMatAddItem()`
+agora abre `confirmar()` (nunca `window.confirm`, proibido no projeto)
+antes de adicionar um produto flagado, explicando o risco — só prossegue
+se o usuário confirmar. Produto que não está no orçamento continua
+adicionando direto, sem fricção.
+
+**3. Esclarecido — a premissa está certa, a conclusão não.** `osSvcs`
+(serviços vendidos) e `osChecklist` são mesmo listas independentes
+(confirmado pelo comentário no próprio código, "só a moldura visual que
+as agrupa"), e o checklist aceita item personalizado — isso é real. Mas
+**"O que foi executado" no relatório NÃO lê o checklist** — lê
+`servicos_execucao`, que vem de `osSvcs` via a tela Fiz/Não fiz própria
+do modal "Finalizar serviço" (`abrirModalFinalizarOS`/`_osFinalizarSvcs`).
+O checklist nunca alimenta essa seção — confirmado por grep, zero
+referência a `osChecklist` em `preencherRelatorioOS`. **Nenhum código
+mudado aqui** — não existe o defeito específico que foi reportado (o
+relatório não fica cego a serviço vendido não executado por causa do
+checklist). O risco real e mais sutil (`_osFinalizarSvcs` assume
+`executado:true` por padrão se ninguém mexer no modal) é outra categoria
+de problema — otimismo por padrão, não mistura de lista — e não foi
+tratado nesta rodada por não ser o que foi relatado.
+
+**4. Confirmado como está — decisão registrada, não esquecimento.**
+`#os-total` só vira `readonly` quando há orçamento vinculado
+(`_osAtualizarValorTravado`) — OS avulsa continua 100% editável, de
+propósito (Tarefa 3i.6, 19/08: "travar OS avulsa, que nunca teve preço
+fechado em lugar nenhum, quebraria o único jeito de lançar valor nela").
+Testado no browser: OS nova sem orçamento → campo sem `readonly`,
+confirma o comportamento documentado. Nenhuma mudança.
+
+**5. 🔴 Confirmado, e pior do que "sai pela metade" — o texto livre nunca
+aparecia no relatório.** `preencherRelatorioOS` montava "Material
+aplicado" só com `_materiaisRelatorio` (as linhas estruturadas da tabela
+`os_materiais`, Tarefa 3i.8). O texto do textarea "Outras observações de
+material" entra em `ordens_servico.materiais` (a string concatenada que
+`_osMatTextoFinal()` grava), mas essa coluna nunca era lida em
+`preencherRelatorioOS` — confirmado por grep, zero ocorrência. Material
+digitado só ali nunca aparecia no PDF, em nenhum volume.
+
+**Corrigido sem migração de schema** (PAT do Supabase bloqueado pelo
+classificador de auto mode nesta sessão — resolvido só com código,
+reconstruindo o texto ao invés de separar em coluna nova): `_osMatObsLivre(os)`
+(nova, perto de `_osMatTextoFinal`) reconstrói o prefixo estruturado do
+MESMO jeito que `_osMatTextoFinal()` monta (`fmtQtd`+nome, join ', ') e
+isola o que sobra depois dele como texto livre. Registro anterior à 3i.8
+(sem `os_materiais` nenhum) → a string inteira é tratada como texto livre.
+Quando há estruturado mas o prefixo não bate (edição manual antiga) →
+não mostra nada, pra não arriscar duplicar o que já está na tabela.
+`preencherRelatorioOS` ganhou um elemento novo (`#pd-osr-mat-obs`,
+`index.html`) que mostra esse texto isolado logo abaixo da tabela de
+material — a seção "Material aplicado" agora aparece com QUALQUER um dos
+dois (estruturado OU texto livre), e some só quando os dois estão vazios.
+
+**Emoji do módulo OS/Minhas OS — os 6 confirmados removidos**: "📋 Minhas
+OS" (título), "⏳ Agendadas" (chip de filtro), "✅ Check-in realizado",
+"✔ Check-out", "✅ Confirmar itens e dar baixa", "✅ Itens já confirmados e
+baixados" — nenhum tinha `textContent=` dinâmico reescrevendo por cima
+(confirmado por grep antes de mexer), remoção segura e direta.
+
+**Achado no processo, fora do escopo desta rodada, não mexido**: a mesma
+dupla "✅ Check-in realizado"/"✔ Check-out" existe também na página de
+Vistoria (`#page-visitas`, linhas ~3230/3323/3325 — botão "← 📋 Minhas OS"
+e o próprio card de check-in da vistoria, ligado a `visCheckout()`), fora
+do escopo do relatório desta vez (que era especificamente sobre o módulo
+de OS). Registrado pra quando alguém for atrás disso.
+
+Testado no Browser pane (offline, `dbOk=false;db=null;`, porta nova 9427,
+dado sintético — produto/orçamento/OS fictícios, cuidado redobrado com a
+armadilha já documentada `window.X` vs `let X` bare ao popular arrays
+globais pro teste): **#1** — check-in real (`fazerCheckin()`) sincroniza
+`#os-tec` com o técnico selecionado; mesmo com o campo de texto editado
+por cima depois, `_osExtraDoFormAberto()` resolve o técnico certo (o do
+check-in, não o texto divergente); **#2** — busca de material com produto
+já vinculado ao orçamento mostra o aviso, clicar em adicionar abre
+`confirmar()` em vez de adicionar direto (0 itens antes de confirmar),
+confirma → adiciona (1 item); produto fora do orçamento adiciona direto,
+sem diálogo; **#4** — OS nova sem orçamento → campo Valor Total sem
+`readonly`, confirma que nada mudou; **#5** — 4 cenários no
+`_osMatObsLivre` isolado (misto estruturado+livre, só livre/registro
+antigo, só estruturado, vazio) batendo exato com o esperado; `preencherRelatorioOS`
+renderizado de ponta a ponta nos 3 casos reais (misto → tabela + nota;
+só texto livre → só nota; nada → seção some) confirmando visibilidade
+certa em cada um; os 6 emoji confirmados ausentes no DOM renderizado.
+Sintaxe validada via `osascript -l JavaScript`+`new Function`
+(`SYNTAX_OK`). Zero erro novo no console (só o ruído de Service Worker já
+documentado).
+
+sw.js: fluxa-v227 → fluxa-v228.
+
+---
+
 ## 🔧 Verificação de outra IA + limpeza de emoji nos 11 modais antigos (21/08)
 
 Marcos está montando uma apresentação de treinamento sobre o sistema, com

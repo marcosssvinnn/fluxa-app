@@ -1076,13 +1076,13 @@
 <div class="page" id="page-minhas-os">
   <div class="wrap">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding-top:8px;flex-wrap:wrap;gap:10px">
-      <div style="font-size:18px;font-weight:800;color:var(--c2)">📋 Minhas OS</div>
+      <div style="font-size:18px;font-weight:800;color:var(--c2)">Minhas OS</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <!-- O técnico é quem consome material em campo, mas não tem acesso à tela
              de Estoque. Sem este atalho não existia caminho nenhum para ele dar
              baixa — era a origem das 303 entradas contra 40 saídas. -->
         <button class="ba" style="background:var(--c1);color:white;padding:8px 12px;font-size:12.5px;font-weight:700" onclick="abrirBaixaRapida()">Dar baixa</button>
-        <button class="fb on" data-tec-st="pendente" onclick="filtStatusMinhasOS(this)">⏳ Agendadas</button>
+        <button class="fb on" data-tec-st="pendente" onclick="filtStatusMinhasOS(this)">Agendadas</button>
         <button class="fb" data-tec-st="concluido" onclick="filtStatusMinhasOS(this)">Concluídas</button>
         <button class="fb" data-tec-st="todos" onclick="filtStatusMinhasOS(this)">Todas</button>
       </div>
@@ -1155,9 +1155,9 @@
     <div class="card" id="os-checkin-card">
       <div class="ct">Check-in / Check-out</div>
       <div id="checkin-bar" style="display:none" class="checkin-bar">
-        <span>✅ Check-in realizado</span>
+        <span>Check-in realizado</span>
         <span class="checkin-timer" id="checkin-timer">00:00</span>
-        <button class="ba" style="background:var(--red);color:white;padding:8px 14px;font-size:13px" onclick="abrirModalFinalizarOS(osEditId)">✔ Check-out</button>
+        <button class="ba" style="background:var(--red);color:white;padding:8px 14px;font-size:13px" onclick="abrirModalFinalizarOS(osEditId)">Check-out</button>
       </div>
       <div id="checkin-form" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
         <select id="os-tec-checkin" style="padding:9px 12px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:14px;font-family:'Instrument Sans',sans-serif;outline:none;flex:1">
@@ -1172,8 +1172,8 @@
       <div class="ct">Itens a levar / validar</div>
       <p style="font-size:12px;color:var(--gray);margin:-4px 0 10px">Confirme o que foi realmente levado. Ao confirmar, dá baixa no estoque. Desmarque o que não levou.</p>
       <div id="os-itens-lista"></div>
-      <button class="btn-primary" id="os-itens-btn" onclick="confirmarItensOS()" style="width:100%;margin-top:8px">✅ Confirmar itens e dar baixa</button>
-      <div id="os-itens-ok" style="display:none;text-align:center;color:var(--green);font-size:13px;font-weight:600;padding:8px">✅ Itens já confirmados e baixados</div>
+      <button class="btn-primary" id="os-itens-btn" onclick="confirmarItensOS()" style="width:100%;margin-top:8px">Confirmar itens e dar baixa</button>
+      <div id="os-itens-ok" style="display:none;text-align:center;color:var(--green);font-size:13px;font-weight:600;padding:8px">Itens já confirmados e baixados</div>
     </div>
 
     <!-- Materiais utilizados — seletor de produto, não texto livre (13/08,
@@ -2132,9 +2132,10 @@
     <!-- Material aplicado (interna: com custo/valor/margem; oculto na versão cliente) -->
     <div id="pd-osr-mat-wrap" style="display:none">
       <div class="pd-sl">Material aplicado</div>
-      <div style="border:1.5px solid #e9ecef;border-radius:10px;overflow:hidden;margin-bottom:16px">
+      <div style="border:1.5px solid #e9ecef;border-radius:10px;overflow:hidden;margin-bottom:8px">
         <table class="pd-vis-sumtable" id="pd-osr-mat-table"></table>
       </div>
+      <div id="pd-osr-mat-obs" style="display:none;font-size:12px;color:#4b5563;margin-bottom:16px"></div>
     </div>
     <!-- Condições encontradas -->
     <div id="pd-osr-obs-wrap" style="display:none">
