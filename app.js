@@ -4214,7 +4214,7 @@ function preencherDocEntrega(orc){
   document.getElementById('pd-meta-ent').innerHTML=
     'Ref. Orçamento <strong>#'+esc(numStr)+'</strong><br>Data da entrega: ____ / ____ / ______';
   setV_el('pd-cli-nm-ent',orc.cliente||'—','textContent');
-  setV_el('pd-cli-loc-ent',orc.local||'','textContent');
+  setV_el('pd-cli-loc-ent',orc.local_servico||'','textContent');
   setV_el('pd-sign-resp-ent','Entregue por — '+(LC.nome||''),'textContent');
   setV_el('pd-foot-ent',(LC.nome||'')+(LC.tel?'   ·   '+LC.tel:'')+(LC.cidades?'   ·   '+LC.cidades:''),'textContent');
 

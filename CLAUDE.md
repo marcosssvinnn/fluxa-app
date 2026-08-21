@@ -2,6 +2,36 @@
 
 ---
 
+## 🔴 Ordem de Entrega saía sem o endereço (20/08)
+
+Marcos: "na ordem de entrega... precisava que saísse o endereço no
+documento, pois não está saindo". Achado direto no código, sem precisar
+reproduzir — `preencherDocEntrega(orc)` lia `orc.local`, mas o campo que o
+orçamento REALMENTE grava (`camposBase`, nos dois pontos que salvam —
+`salvarApenas`/`gerarPDF`) é `local_servico`. `orc.local` sempre foi
+`undefined` nesse documento específico — o `||''` do fallback escondia o
+bug em silêncio, o campo só ficava em branco, sem erro nenhum.
+
+**Por que só este documento e não os outros**: `preencherDocOrc` (o PDF do
+orçamento em si) lê de `d.loc` — um objeto `dadosOrc` diferente, montado na
+hora a partir do FORMULÁRIO aberto (`coletarForm()`), não do registro já
+salvo no banco. `preencherDocEntrega` é o único documento que lê direto do
+`orc` (registro persistido, vindo de `todosOrc`) — e é aí que o nome do
+campo diverge (`local_servico` no banco/registro, `loc`/`local` seriam os
+nomes "óbvios" que alguém erraria ao escrever esta função nova, 19/08).
+
+**Corrigido**: `orc.local` → `orc.local_servico`.
+
+Testado no Browser pane (offline, `dbOk=false;db=null;`, porta nova,
+chamando `preencherDocEntrega` direto com um orçamento sintético e
+`window.open` interceptado): endereço ("Rua das Piscinas, 123 - Bairro
+Teste - Camboriú/SC") aparece corretamente no elemento `#pd-cli-loc-ent`
+depois do fix — antes ficava vazio. Zero erro novo no console.
+
+sw.js: fluxa-v224 → fluxa-v225.
+
+---
+
 ## 🔧 Oficina: "Confirmar entrega" também sai da ficha (20/08)
 
 Continuação do pedido de ontem ("ações decisivas devem sair da tela") —
