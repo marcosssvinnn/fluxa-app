@@ -17586,7 +17586,7 @@ function confirmarBaixaRapida(){
     ref:'baixa:'+cfg.id,   // permite filtrar por tipo de saída depois
     lojaId:loja
   });
-  if(btn){ btn.disabled=false; btn.textContent='✅ Confirmar baixa'; }
+  if(btn){ btn.disabled=false; btn.textContent='Confirmar baixa'; }
   fecharBaixaRapida();
   if(typeof renderEstoque==='function' && document.getElementById('page-estoque')?.classList.contains('on')) renderEstoque();
   toast(`✅ Baixa de ${fmtQtd(qtd)} ${p.unidade||'un'} — ${cfg.nome.replace(/^\S+\s/,'')}`);
@@ -17964,7 +17964,7 @@ function abrirResvModal(produtoId){
   else
     det+=`<div style="font-size:12px;color:var(--ok,#2F7D3A);margin-top:2px">✅ Bate com os orçamentos — nada a corrigir.</div>`;
   document.getElementById('resv-detalhe').innerHTML=det;
-  document.getElementById('resv-btn-recalc').textContent=`↻ Usar o valor dos orçamentos (${fmtQtd(b.esperado)} ${un})`;
+  document.getElementById('resv-btn-recalc').textContent=`Usar o valor dos orçamentos (${fmtQtd(b.esperado)} ${un})`;
   setV('resv-qtd', String(b.esperado)); setV('resv-motivo','');
   document.getElementById('resv-modal').classList.add('on');
   setTimeout(()=>document.getElementById('resv-motivo')?.focus(),80);

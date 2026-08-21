@@ -3,56 +3,52 @@
 > Gerado de dentro do próprio arquivo. **Regenere** com `python3 docs/gerar-mapa.py`
 > sempre que mexer bastante — os números de linha mudam a cada commit.
 
-O `app.js` tem **13732 linhas** e **754 funções**. Ele NÃO foi dividido em vários
+O `app.js` tem **20818 linhas** e **1088 funções**. Ele NÃO foi dividido em vários
 arquivos, e isso é uma decisão, não pendência — a justificativa está no fim.
 
 ## Seções
 
-- **l.1044 — Sql Setup** · 18 funções
-- **l.1615 — Supabase** · 3 funções
-- **l.1648 — Navegação** · 55 funções
-- **l.2501 — Form — Init** · 1 funções
-- **l.2511 — Presets** · 31 funções
-- **l.2792 — Cálculos** · 4 funções
-- **l.2800 — Atualizar Ui** · 3 funções
-- **l.2849 — Whatsapp** · 15 funções
-- **l.3115 — Gerar Pdf Orçamento** · 8 funções
-- **l.3369 — Ordem De Serviço** · 2 funções
-- **l.3383 — Checklist De Execução (Os)** · 11 funções
-- **l.3561 — Histórico** · 3 funções
-- **l.3636 — Trilho Comercial E Ciclo De Decisão** · 7 funções
-- **l.3705 — Fila De Follow-Up** · 36 funções
-- **l.4393 — Gráfico De Faturamento** · 23 funções
-- **l.4934 — Modal Pagamento** · 3 funções
-- **l.4949 — Os History** · 20 funções
-- **l.5304 — Os Fotos** · 2 funções
-- **l.5334 — Clientes** · 5 funções
-- **l.5429 — Histórico Completo Do Cliente** · 13 funções
-- **l.5666 — Modal Busca Cliente** · 6 funções
-- **l.5771 — Chips Clientes** · 22 funções
-- **l.6059 — Módulo 6 — Notificações Whatsapp** · 9 funções
-- **l.6145 — Módulo 5 — Portal Do Cliente** · 3 funções
-- **l.6308 — Assinatura Do Cliente (Portal)** · 11 funções
-- **l.6434 — Módulo 4 — Produtividade Por Técnico** · 10 funções
-- **l.6522 — Contas A Receber** · 1 funções
-- **l.6557 — Relatório Financeiro** · 0 funções
-- **l.6560 — Dre Gerencial Por Unidade** · 8 funções
-- **l.6888 — Módulo 3 — Despesas De Campo** · 18 funções
-- **l.7152 — Módulo 1 — Agendamento Recorrente + Check-In/Out** · 19 funções
-- **l.7421 — Calendário** · 5 funções
-- **l.7556 — Check-In / Check-Out** · 4 funções
-- **l.7638 — Módulo 2 — Equipamentos + Qr Code** · 23 funções
-- **l.7969 — Gestão De Usuários** · 18 funções
-- **l.8383 — Vistorias De Manutenção** · 54 funções
-- **l.9719 — Rascunho Automático Da Vistoria** · 40 funções
-- **l.10565 — Dossiê De Assembleia** · 115 funções
-- **l.12887 — Baixa Rápida De Material** · 9 funções
-- **l.13030 — Correção Manual Da Reserva** · 12 funções
-- **l.13240 — Fornecedores** · 11 funções
-- **l.13326 — Ponto De Pedido** · 1 funções
-- **l.13337 — Ordens De Compra (Oc)** · 19 funções
-- **l.13510 — Balanço De Inventário** · 7 funções
-- **l.13628 — Análise De Margens** · 5 funções
+- **l.1272 — Sql Setup** · 18 funções
+- **l.1692 — Supabase** · 3 funções
+- **l.1725 — Navegação** · 71 funções
+- **l.3244 — Form — Init** · 1 funções
+- **l.3254 — Presets** · 33 funções
+- **l.3557 — Cálculos** · 4 funções
+- **l.3565 — Atualizar Ui** · 7 funções
+- **l.3666 — Whatsapp** · 21 funções
+- **l.4066 — Gerar Pdf Orçamento** · 8 funções
+- **l.4345 — Ordem De Serviço** · 2 funções
+- **l.4359 — Checklist De Execução (Os)** · 14 funções
+- **l.4657 — Histórico** · 3 funções
+- **l.4763 — Trilho Comercial E Ciclo De Decisão** · 7 funções
+- **l.4832 — Fila De Follow-Up** · 61 funções
+- **l.6086 — Gráfico De Faturamento** · 42 funções
+- **l.7144 — Os History** · 75 funções
+- **l.8835 — Os Fotos** · 4 funções
+- **l.8876 — Clientes** · 26 funções
+- **l.9304 — Modal Busca Cliente** · 8 funções
+- **l.9464 — Chips Clientes** · 26 funções
+- **l.9871 — Módulo 6 — Notificações Whatsapp** · 8 funções
+- **l.9953 — Módulo 5 — Portal Do Cliente** · 5 funções
+- **l.10268 — Assinatura Do Cliente (Portal)** · 9 funções
+- **l.10387 — Módulo 4 — Produtividade Por Técnico** · 10 funções
+- **l.10474 — Dre Gerencial Por Unidade** · 8 funções
+- **l.10865 — Módulo 3 — Despesas De Campo** · 25 funções
+- **l.11283 — Módulo 1 — Agendamento Recorrente + Check-In/Out** · 19 funções
+- **l.11552 — Calendário** · 5 funções
+- **l.11699 — Check-In / Check-Out** · 3 funções
+- **l.11804 — Módulo 2 — Equipamentos + Qr Code** · 42 funções
+- **l.12522 — Gestão De Usuários** · 18 funções
+- **l.12939 — Vistorias De Manutenção** · 47 funções
+- **l.14087 — Rascunho Automático Da Vistoria** · 42 funções
+- **l.14980 — Dossiê De Assembleia** · 116 funções
+- **l.17453 — Baixa Rápida De Material** · 35 funções
+- **l.17899 — Correção Manual Da Reserva** · 151 funções
+- **l.20293 — Fornecedores** · 11 funções
+- **l.20388 — Ponto De Pedido** · 1 funções
+- **l.20399 — Ordens De Compra (Oc)** · 19 funções
+- **l.20578 — Balanço De Inventário** · 7 funções
+- **l.20702 — Análise De Margens** · 5 funções
 
 ## Onde mexer em cada coisa
 

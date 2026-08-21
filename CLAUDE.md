@@ -2,6 +2,103 @@
 
 ---
 
+## 🔧 Verificação de outra IA + limpeza de emoji nos 11 modais antigos (21/08)
+
+Marcos está montando uma apresentação de treinamento sobre o sistema, com
+ajuda de outra sessão de IA que lê o código e aponta pontos a corrigir. Ela
+mandou um relatório de 5 itens (emoji em 5 modais nomeados, emoji na tela de
+entrada da Oficina, glyph estranho no `#resv-btn-recalc`, docs desatualizados
+sobre o grupo da Oficina na sidebar, e `docs/mapa-app-js.md` defasado) —
+Marcos pediu pra eu averiguar antes de aplicar qualquer coisa.
+
+**Item 1 (emoji em modais) estava incompleto, não errado.** Os 5 modais
+citados (`compras-modal`, `prod-modal`, `baixa-modal`, `transf-modal`,
+`import-prod-modal`) realmente tinham emoji — mas uma varredura própria
+(`grep -n 'class="qr-modal-bg" id='`) achou **11**, não 5: os 6 extras
+(`prodpicker-modal`, `hist-prod-modal`, `fornec-modal`, `oc-list-modal`,
+`oc-form-modal`, `balanco-modal`) são os mesmos 13 modais antigos já
+documentados na Tarefa 13 (15/08, "compartilham a classe `.qr-modal-bg`,
+nenhum no escopo daquela tarefa") — 11 deles ainda tinham emoji, só 2
+(`mov-modal`/`resv-modal`) já tinham sido migrados na 3f.4 (18/08).
+
+**Item 4 (docs desatualizados) tinha framing errado, não estava errado no
+fato.** `PLANO-3G-NAVEGACAO.md` e `FLUXO-OFICINA.md` (em
+`~/Downloads/design_handoff_fluxa_redesign/`) são briefs de tarefa **fora
+do repo**, não documentação viva — `PLANO-3G-NAVEGACAO.md` já documenta a
+mudança de grupo da Oficina como a proposta que ele fazia (já executada, ver
+3g/18-08 mais abaixo); `FLUXO-OFICINA.md` se autodeclara logo no início como
+proposta, nunca atualizado depois da implementação. Expliquei o motivo pra
+Marcos em vez de "consertar" um brief de tarefa antigo — o real é apontar a
+outra IA pro `CLAUDE.md`/app ao vivo, que são as fontes vivas.
+
+**Item 5 (mapa desatualizado) confirmado e corrigido de imediato** (não
+precisou de aprovação — reversível, seguro, e o próprio doc já instrui
+"sempre que mexer bastante"): `docs/mapa-app-js.md` estava travado em
+"13.732 linhas / 754 funções" desde 07/08, enquanto `app.js` já tinha
+20.817 linhas / ~1.088 funções em 20/08 — 51% maior, gap pior do que a
+outra IA reportou. O número "13.732" batia exato com o texto do mapa
+desatualizado — confirma que ela leu o doc estático em vez de medir o
+arquivo vivo. Regenerado via `python3 docs/gerar-mapa.py`.
+
+**Item 2 e 3 confirmados corretos** (glyph do `#resv-btn-recalc` e o item
+Oficina na sidebar) — já cobertos pela aprovação abaixo.
+
+**Marcos aprovou ("sim") corrigir os 11 modais (não só os 5) + commitar o
+mapa regenerado.** Emoji removido seguindo o padrão já estabelecido em
+varreduras anteriores (14/08, Tarefa 13): sem texto ao lado → só remove;
+ícone sozinho → SVG (só houve 1 caso, o ícone de upload do drop-zone em
+`import-prod-modal`); glyph tipográfico simples (`✓ Fechar`) → preservado,
+fora do escopo.
+
+- `compras-modal`: "🛒 Lista de compras"/"📋 Copiar lista" → sem emoji.
+- `prod-modal`: 11 `<option>` de categoria sem emoji (confirmado por grep
+  que o JS lê `.value`, não o texto — seguro); título de NF, "💾 Salvar
+  produto", "🚫 Desativar produto" → sem emoji.
+- `baixa-modal`: título + "✅ Confirmar baixa" (também no `textContent=`
+  do reset em `app.js:17589` — sem isso o JS reintroduziria o emoji depois
+  do primeiro clique, mesma lição já registrada em outras varreduras).
+- `transf-modal`: "🔄 Confirmar transferência" → sem emoji.
+- `import-prod-modal`: `📊` (ícone solto, sem texto) → SVG de seta de
+  upload; "📥 Importar produtos" → sem emoji; **`✓ Fechar` preservado**
+  (typographic checkmark, fora do escopo).
+- `prodpicker-modal`: placeholder "🔍 Buscar produto…" → sem emoji.
+- `fornec-modal`: título + "💾 Salvar fornecedor" → sem emoji.
+- `oc-list-modal`: título "📄 Ordens de Compra" → sem emoji.
+- `oc-form-modal`: "💾 Salvar rascunho" → sem emoji.
+- `balanco-modal`: título + placeholder "🔍 Filtrar produto…" +
+  "✅ Confirmar ajustes" → sem emoji.
+- Fora dos 11 modais, os 2 itens originalmente reportados também
+  corrigidos: linha da tela de entrada da Oficina ("...fica disponível na
+  ficha, em 🏷️." → "...fica disponível na ficha.") e `#resv-btn-recalc`
+  (também no `textContent=` do reset em `app.js:17967` — mesma lição do
+  `baixa-btn`).
+- `hist-prod-modal` está entre os 11 (mesma classe antiga), mas não tinha
+  emoji estático — conteúdo é 100% dinâmico (JS), não auditado nesta
+  passada.
+
+**Deliberadamente não mexido**: os dois avisos inline dentro do corpo do
+`resv-modal` (`⚠️ Reserva negativa...`/`✅ Bate com os orçamentos...`) —
+não eram rótulo de botão, e não faziam parte do que foi verificado/
+aprovado; a migração do SHELL desses 11 modais pro `.rd-modal`/
+`.rd-modal-bg` novo (só emoji foi removido, a moldura antiga
+`.qr-modal-bg`/`.card`/`.ct` continua, fora de escopo — é trabalho de
+redesign visual, não limpeza de emoji).
+
+Testado no Browser pane (offline, `dbOk=false;db=null;`, porta nova 9341):
+sintaxe do `app.js` validada via `osascript -l JavaScript`+`new Function`
+(`SYNTAX_OK`); varredura Python confirmando zero emoji restante nos 11
+blocos de modal (só `✓ Fechar`, esperado); os 11 modais abertos via
+`classList.add('on')` e o texto renderizado (`innerText`) conferido —
+títulos/botões/placeholders sem emoji nos 10 com conteúdo estático, SVG do
+drop-zone presente com `viewBox="0 0 24 24"`; `baixa-btn`/
+`resv-btn-recalc` conferidos com o texto pós-reset (`.textContent`)
+também sem emoji, confirmando que os 2 pontos de JS foram corrigidos.
+Zero erro novo no console (só o ruído de Service Worker já documentado).
+
+sw.js: fluxa-v226 → fluxa-v227.
+
+---
+
 ## 🔧 Relatório de OS: fotos de Antes/Depois viram o centro do documento (20/08)
 
 Marcos mandou o relatório de uma OS real (Edifício Infinity Coast

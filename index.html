@@ -2634,9 +2634,9 @@
 <!-- Modal: lista de compras consolidada -->
 <div class="qr-modal-bg" id="compras-modal" style="display:none" onclick="if(event.target===this)fecharListaCompras()">
   <div class="card" style="max-width:520px;width:92%;max-height:85vh;overflow:auto">
-    <div class="ct">🛒 Lista de compras <button onclick="fecharListaCompras()" aria-label="Fechar" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;float:right;line-height:1">×</button></div>
+    <div class="ct">Lista de compras <button onclick="fecharListaCompras()" aria-label="Fechar" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;float:right;line-height:1">×</button></div>
     <div id="compras-body"></div>
-    <button class="btn-primary" onclick="copiarListaCompras()" style="width:100%;margin-top:10px">📋 Copiar lista</button>
+    <button class="btn-primary" onclick="copiarListaCompras()" style="width:100%;margin-top:10px">Copiar lista</button>
   </div>
 </div>
 
@@ -2656,17 +2656,17 @@
       <div class="fl"><label>Categoria</label>
         <select id="prod-categoria" onchange="toggleCategOutro()" style="padding:9px 12px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:14px;font-family:'Instrument Sans',sans-serif;outline:none;width:100%">
           <option value="">— sem categoria —</option>
-          <option value="Tratamento de Água">💧 Tratamento de Água</option>
-          <option value="Produto Químico">🧪 Produto Químico</option>
-          <option value="Filtragem">🔵 Filtragem</option>
-          <option value="Filtro">🔵 Filtro</option>
-          <option value="Bomba">⚙️ Bomba</option>
-          <option value="Trocador de Calor">🌡️ Trocador de Calor</option>
-          <option value="Peça de Piscina">🏊 Peça de Piscina</option>
-          <option value="Peça de Spa">🛁 Peça de Spa</option>
-          <option value="Acessório">🔧 Acessório</option>
-          <option value="Equipamento">🏭 Equipamento</option>
-          <option value="Outro">✏️ Outro…</option>
+          <option value="Tratamento de Água">Tratamento de Água</option>
+          <option value="Produto Químico">Produto Químico</option>
+          <option value="Filtragem">Filtragem</option>
+          <option value="Filtro">Filtro</option>
+          <option value="Bomba">Bomba</option>
+          <option value="Trocador de Calor">Trocador de Calor</option>
+          <option value="Peça de Piscina">Peça de Piscina</option>
+          <option value="Peça de Spa">Peça de Spa</option>
+          <option value="Acessório">Acessório</option>
+          <option value="Equipamento">Equipamento</option>
+          <option value="Outro">Outro…</option>
         </select>
       </div>
       <div class="fl" id="prod-catoutra-wrap" style="display:none"><label>Nome da categoria</label><input type="text" id="prod-catoutra" placeholder="Ex: Automatização…"></div>
@@ -2695,7 +2695,7 @@
       <div class="fl"><label title="Data de validade do lote atual — avisa quando estiver perto de vencer">Validade (opcional)</label><input type="date" id="prod-validade"></div>
     </div>
     <details style="margin:6px 0 12px">
-      <summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--c1)">🧾 Dados para Nota Fiscal (preencher só quando precisar emitir NF)</summary>
+      <summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--c1)">Dados para Nota Fiscal (preencher só quando precisar emitir NF)</summary>
       <div class="row f4" style="margin-top:8px">
         <div class="fl"><label title="Código que classifica o produto para a Receita Federal">NCM — código fiscal</label><input type="text" id="prod-ncm" placeholder="0000.00.00"></div>
         <div class="fl"><label title="Usado apenas para produtos com substituição tributária">CEST — sub. tributária</label><input type="text" id="prod-cest" placeholder="opcional"></div>
@@ -2706,9 +2706,9 @@
     </details>
     <div style="display:flex;gap:8px;margin-top:4px">
       <button onclick="fecharProdutoModal()" style="flex:1;padding:11px;border:1.5px solid var(--gray-mid);border-radius:10px;background:none;color:var(--gray);font-size:13px;font-weight:600;cursor:pointer;font-family:'Instrument Sans',sans-serif">Cancelar</button>
-      <button class="btn-primary" onclick="salvarProduto()" style="flex:2">💾 Salvar produto</button>
+      <button class="btn-primary" onclick="salvarProduto()" style="flex:2">Salvar produto</button>
     </div>
-    <button id="prod-desativar-btn" onclick="desativarProduto(_prodEditId)" style="display:none;width:100%;margin-top:8px;background:none;border:none;color:var(--red);font-size:12px;font-weight:600;cursor:pointer;font-family:'Instrument Sans',sans-serif;padding:6px">🚫 Desativar produto</button>
+    <button id="prod-desativar-btn" onclick="desativarProduto(_prodEditId)" style="display:none;width:100%;margin-top:8px;background:none;border:none;color:var(--red);font-size:12px;font-weight:600;cursor:pointer;font-family:'Instrument Sans',sans-serif;padding:6px">Desativar produto</button>
   </div>
 </div>
 
@@ -2721,7 +2721,7 @@
      e perda contam histórias diferentes para o negócio. -->
 <div class="qr-modal-bg" id="baixa-modal" style="display:none" onclick="if(event.target===this)fecharBaixaRapida()">
   <div class="card" style="max-width:460px;width:94%;max-height:92vh;overflow:auto">
-    <div class="ct">⚡ Dar baixa de material
+    <div class="ct">Dar baixa de material
       <button onclick="fecharBaixaRapida()" aria-label="Fechar" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;float:right;line-height:1">×</button>
     </div>
 
@@ -2754,7 +2754,7 @@
       </div></div>
 
       <div id="baixa-resumo" style="font-size:12px;color:var(--gray);margin-bottom:10px;line-height:1.5"></div>
-      <button class="btn-primary" id="baixa-btn" onclick="confirmarBaixaRapida()" style="width:100%;padding:14px;font-size:15px">✅ Confirmar baixa</button>
+      <button class="btn-primary" id="baixa-btn" onclick="confirmarBaixaRapida()" style="width:100%;padding:14px;font-size:15px">Confirmar baixa</button>
     </div>
   </div>
 </div>
@@ -2986,7 +2986,7 @@
 
     <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
       <button type="button" class="rd-btn rd-btn-primary" id="of-btn-salvar" onclick="salvarOficinaRecepcao()">Registrar entrada</button>
-      <span style="font-size:12px;color:var(--gray)">Gera o número do reparo — a etiqueta (QR) fica disponível na ficha, em 🏷️.</span>
+      <span style="font-size:12px;color:var(--gray)">Gera o número do reparo — a etiqueta (QR) fica disponível na ficha.</span>
     </div>
   </div>
 </div>
@@ -3052,7 +3052,7 @@
     <h3 id="resv-modal-titulo">Corrigir reserva</h3>
     <p class="rd-modal-sub" id="resv-info"></p>
     <div class="rd-modal-detail" id="resv-detalhe"></div>
-    <button type="button" class="rd-btn rd-btn-secondary" id="resv-btn-recalc" onclick="resvUsarEsperado()" style="width:100%">↻ Usar o valor dos orçamentos</button>
+    <button type="button" class="rd-btn rd-btn-secondary" id="resv-btn-recalc" onclick="resvUsarEsperado()" style="width:100%">Usar o valor dos orçamentos</button>
     <div class="rd-field"><span class="rd-field-lbl">Quantidade reservada correta</span><input type="text" inputmode="decimal" id="resv-qtd" class="rd-field-box" placeholder="0"></div>
     <div class="rd-field"><span class="rd-field-lbl">Motivo</span><input type="text" id="resv-motivo" class="rd-field-box" placeholder="ex: acerto após conferir os orçamentos"></div>
     <div class="rd-modal-acts">
@@ -3072,7 +3072,7 @@
       <div class="fl"><label>Para a unidade</label><select id="transf-destino"></select></div>
     </div>
     <div class="row f1"><div class="fl"><label>Motivo / observação</label><input type="text" id="transf-motivo" placeholder="opcional"></div></div>
-    <button class="btn-primary" onclick="confirmarTransferencia()" style="width:100%">🔄 Confirmar transferência</button>
+    <button class="btn-primary" onclick="confirmarTransferencia()" style="width:100%">Confirmar transferência</button>
   </div>
 </div>
 
@@ -3088,7 +3088,7 @@
     <div id="imp-step-upload">
       <p style="font-size:13px;color:var(--gray);margin-bottom:14px">Selecione o arquivo <strong>Excel (.xlsx)</strong> ou <strong>CSV (.csv)</strong> com os produtos. O sistema detecta as colunas automaticamente.</p>
       <label id="imp-drop-zone" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;border:2.5px dashed var(--gray-mid);border-radius:12px;padding:32px 20px;cursor:pointer;background:var(--gray-light);transition:border-color .2s" ondragover="event.preventDefault();this.style.borderColor='var(--c1)'" ondragleave="this.style.borderColor='var(--gray-mid)'" ondrop="_impDrop(event)">
-        <span style="font-size:36px">📊</span>
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--gray)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 17v2a2 2 0 002 2h10a2 2 0 002-2v-2"></path></svg>
         <span style="font-size:14px;font-weight:600;color:var(--c2)">Clique ou arraste o arquivo aqui</span>
         <span style="font-size:12px;color:var(--gray)">.xlsx ou .csv — Excel, Google Sheets exportado</span>
         <input type="file" id="imp-file-input" accept=".xlsx,.csv,.xls" style="display:none" onchange="_impArquivoSelecionado(this)">
@@ -3104,7 +3104,7 @@
         <table id="imp-preview-table" style="width:100%;border-collapse:collapse;font-size:12px"></table>
       </div>
       <div style="margin-top:16px;display:flex;gap:10px;align-items:center">
-        <button class="btn-primary" id="imp-btn-confirmar" onclick="_impConfirmar()" style="flex:1;padding:11px">📥 Importar produtos</button>
+        <button class="btn-primary" id="imp-btn-confirmar" onclick="_impConfirmar()" style="flex:1;padding:11px">Importar produtos</button>
         <button onclick="fecharImportProdutos()" style="padding:11px 16px;border:1.5px solid var(--gray-mid);border-radius:10px;background:none;cursor:pointer;font-family:inherit;font-size:13px">Cancelar</button>
       </div>
     </div>
@@ -3123,7 +3123,7 @@
 <div class="qr-modal-bg" id="prodpicker-modal" style="display:none" onclick="if(event.target===this)fecharPickerProduto()">
   <div class="card" style="max-width:460px;width:92%;max-height:80vh;overflow:auto">
     <div class="ct">Vincular produto <button onclick="fecharPickerProduto()" aria-label="Fechar" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;float:right;line-height:1">×</button></div>
-    <input class="hsrch" type="text" id="prodpicker-busca" placeholder="🔍 Buscar produto…" oninput="renderPickerProduto(this.value)" style="width:100%;margin-bottom:8px">
+    <input class="hsrch" type="text" id="prodpicker-busca" placeholder="Buscar produto…" oninput="renderPickerProduto(this.value)" style="width:100%;margin-bottom:8px">
     <div id="prodpicker-body"></div>
   </div>
 </div>
@@ -3139,7 +3139,7 @@
 <!-- Modal: fornecedores -->
 <div class="qr-modal-bg" id="fornec-modal" style="display:none" onclick="if(event.target===this)fecharFornecModal()">
   <div class="card" style="max-width:540px;width:92%;max-height:88vh;overflow:auto">
-    <div class="ct">👥 Fornecedores <button onclick="fecharFornecModal()" aria-label="Fechar" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;line-height:1;margin-left:auto;padding:0 4px">×</button></div>
+    <div class="ct">Fornecedores <button onclick="fecharFornecModal()" aria-label="Fechar" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;line-height:1;margin-left:auto;padding:0 4px">×</button></div>
     <div id="fornec-lista"></div>
     <div style="border-top:1.5px solid var(--gray-light);margin-top:12px;padding-top:12px">
       <div style="font-size:12px;font-weight:700;color:var(--c1);margin-bottom:8px" id="fornec-form-titulo">＋ Novo fornecedor</div>
@@ -3152,7 +3152,7 @@
       <div class="row f1"><div class="fl"><label>Observações</label><input type="text" id="fobs" placeholder="Prazo de pagamento, condições..."></div></div>
       <input type="hidden" id="fornec-edit-id">
       <div style="display:flex;gap:8px;margin-top:4px">
-        <button class="btn-primary" onclick="salvarFornecedor()" style="flex:1">💾 Salvar fornecedor</button>
+        <button class="btn-primary" onclick="salvarFornecedor()" style="flex:1">Salvar fornecedor</button>
         <button id="fornec-cancelar-btn" onclick="cancelarFornecedorForm()" style="display:none;padding:10px 14px;border:1.5px solid var(--gray-mid);border-radius:8px;background:none;cursor:pointer;font-size:13px;color:var(--gray)">Cancelar</button>
       </div>
     </div>
@@ -3162,7 +3162,7 @@
 <!-- Modal: lista de ordens de compra -->
 <div class="qr-modal-bg" id="oc-list-modal" style="display:none" onclick="if(event.target===this)fecharOCListModal()">
   <div class="card" style="max-width:600px;width:92%;max-height:88vh;overflow:auto">
-    <div class="ct">📄 Ordens de Compra <button onclick="fecharOCListModal()" aria-label="Fechar" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;line-height:1;margin-left:auto;padding:0 4px">×</button></div>
+    <div class="ct">Ordens de Compra <button onclick="fecharOCListModal()" aria-label="Fechar" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;line-height:1;margin-left:auto;padding:0 4px">×</button></div>
     <div style="display:flex;gap:8px;margin-bottom:10px">
       <button class="btn-primary" onclick="criarOCManual()" style="font-size:12px;padding:7px 12px">＋ Nova OC</button>
       <button class="ba" onclick="criarOCDaListaCompras()" style="font-size:12px;padding:7px 12px;background:var(--gray-light);color:var(--c2)">Gerar da lista</button>
@@ -3191,7 +3191,7 @@
     </div>
     <div id="oc-total-row" style="text-align:right;font-size:14px;font-weight:700;color:var(--c2);padding-top:10px;border-top:1.5px solid var(--gray-light);margin-top:8px"></div>
     <div style="display:flex;gap:8px;margin-top:10px">
-      <button class="btn-primary" onclick="salvarOC('rascunho')" style="flex:1;font-size:13px">💾 Salvar rascunho</button>
+      <button class="btn-primary" onclick="salvarOC('rascunho')" style="flex:1;font-size:13px">Salvar rascunho</button>
       <button class="ba" onclick="enviarOCWhatsApp()" style="flex:1;font-size:13px;background:var(--green);color:white;border-color:var(--green)">Enviar WhatsApp</button>
     </div>
     <input type="hidden" id="oc-edit-id">
@@ -3201,13 +3201,13 @@
 <!-- Modal: balanço de inventário -->
 <div class="qr-modal-bg" id="balanco-modal" style="display:none" onclick="if(event.target===this)fecharBalancoModal()">
   <div class="card" style="max-width:580px;width:92%;max-height:90vh;overflow:auto">
-    <div class="ct">📋 Balanço de Inventário <button onclick="fecharBalancoModal()" aria-label="Fechar" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;line-height:1;margin-left:auto;padding:0 4px">×</button></div>
+    <div class="ct">Balanço de Inventário <button onclick="fecharBalancoModal()" aria-label="Fechar" style="background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;font-weight:700;line-height:1;margin-left:auto;padding:0 4px">×</button></div>
     <div style="font-size:12px;color:var(--gray);margin-bottom:12px">Informe a quantidade física contada para cada produto. O sistema vai gerar ajustes automáticos para as diferenças.</div>
-    <input class="hsrch" type="text" id="balanco-busca" placeholder="🔍 Filtrar produto…" oninput="renderBalancoLista()" style="margin-bottom:10px;width:100%">
+    <input class="hsrch" type="text" id="balanco-busca" placeholder="Filtrar produto…" oninput="renderBalancoLista()" style="margin-bottom:10px;width:100%">
     <div id="balanco-body"></div>
     <div id="balanco-resumo" style="padding:10px 0;border-top:1.5px solid var(--gray-light);margin-top:8px;font-size:13px;color:var(--c2)"></div>
     <div style="display:flex;gap:8px;margin-top:8px">
-      <button class="btn-primary" onclick="confirmarBalanco()" id="balanco-confirmar-btn" style="flex:1">✅ Confirmar ajustes</button>
+      <button class="btn-primary" onclick="confirmarBalanco()" id="balanco-confirmar-btn" style="flex:1">Confirmar ajustes</button>
       <button onclick="fecharBalancoModal()" style="padding:10px 14px;border:1.5px solid var(--gray-mid);border-radius:8px;background:none;cursor:pointer;font-size:13px;color:var(--gray)">Cancelar</button>
     </div>
   </div>
