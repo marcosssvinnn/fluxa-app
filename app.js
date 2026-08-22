@@ -1505,6 +1505,7 @@ function preencherFormEmpresa(){
   setV('cfg-cor2',LC.cor2||CFG.cor2); setV('cfg-cor2-txt',LC.cor2||CFG.cor2);
   setV('cfg-servicos', (CFG.svcs||[]).join('\n'));
   setV('cfg-tecnicos', (CFG.tecnicos||[]).join('\n'));
+  setV('cfg-limite-desconto', CFG.limite_desconto_pct?String(CFG.limite_desconto_pct):'');
   setV('cfg-pin', ''); // não exibir hash; usuário digita novo PIN para alterar
   setV('cfg-notif-visita', CFG.notif_visita || CFG_DEF.notif_visita);
   setV('cfg-notif-concluida', CFG.notif_concluida || CFG_DEF.notif_concluida);
@@ -1661,6 +1662,7 @@ async function salvarEmpresa(){
   CFG.cor2 = gV('cfg-cor2');
   CFG.svcs = gV('cfg-servicos').split('\n').map(s=>s.trim()).filter(Boolean);
   CFG.tecnicos = gV('cfg-tecnicos').split('\n').map(s=>s.trim()).filter(Boolean);
+  CFG.limite_desconto_pct = parseFloat(gV('cfg-limite-desconto'))||0; // 0 = sem limite
   const novoPin = gV('cfg-pin').trim();
   if(novoPin.length===4 && /^\d{4}$/.test(novoPin)){
     hashPIN(novoPin).then(h=>{ CFG.pin=h; lsSet('empresa_cfg',JSON.stringify(CFG)); });
@@ -3560,6 +3562,20 @@ function sub(){ return svcs.reduce((a,s)=>a+gP(s),0); }
 function disc(st){ const v=parseFloat(gV('disc-v'))||0,t=gV('disc-t'); if(v<=0) return 0; return t==='%'?st*v/100:Math.min(v,st); }
 function tot(){ const s=sub(); return Math.max(0,s-disc(s)); }
 function brl(v){ return 'R$ '+v.toFixed(2).replace('.',',').replace(/\B(?=(\d{3})+(?!\d))/g,'.'); }
+// Limite de desconto sem aprovação da gestão (achado 21/08: o manual do
+// treinamento falava desse limite, mas o campo #disc-v sempre foi 100%
+// livre, sem teto nem diferença por perfil — a regra só existia combinada
+// verbalmente). Configurável por empresa (CFG.limite_desconto_pct, tela
+// Empresa), NÃO bloqueia — Marcos decidiu "avisa e deixa passar": quem
+// aprova de verdade é o gestor na conversa, o sistema só torna visível
+// quando o combinado foi ultrapassado. Vale pra Vendas E Técnico
+// (!eGestor() já cobre os dois — master/gestor nunca são avisados).
+function _orcDescontoInfo(s, d){
+  const limite=parseFloat(CFG.limite_desconto_pct)||0;
+  const pct = s>0 ? (d/s*100) : 0;
+  const excedido = limite>0 && s>0 && !eGestor() && pct>limite+0.0001;
+  return {pct, limite, excedido};
+}
 
 // ──────────────────────────────────────────────────
 //  ATUALIZAR UI
@@ -3655,6 +3671,14 @@ function upd(){
   setV_el('orc-mobile-tot',brl(t),'textContent'); // espelha o total na barra fixa mobile (Fase 9b)
   if(d>0){ show('row-sub'); show('row-disc'); setV_el('d-sub',brl(s),'textContent'); setV_el('d-disc','− '+brl(d),'textContent'); }
   else { hide('row-sub'); hide('row-disc'); }
+  const descInfo=_orcDescontoInfo(s,d);
+  const avisoDescEl=document.getElementById('disc-limite-aviso');
+  if(avisoDescEl){
+    if(descInfo.excedido){
+      avisoDescEl.textContent=`⚠️ Desconto de ${descInfo.pct.toFixed(1)}% passa do limite de ${descInfo.limite}% combinado com a gestão — confirme com o gestor antes de enviar.`;
+      avisoDescEl.style.display='block';
+    } else { avisoDescEl.style.display='none'; }
+  }
   // validade
   const dias=parseInt(gV('val'))||5, base=gV('data-orc');
   if(base){ const dv=new Date(base+'T12:00:00'); dv.setDate(dv.getDate()+dias); document.getElementById('vdate').textContent='Válido até '+dv.toLocaleDateString('pt-BR'); }
@@ -3972,6 +3996,7 @@ async function salvarApenas(){
   if(!dados.cli||dados.cli==='—'){ toast('⚠️ Informe o nome do cliente'); return; }
   if(!dados.origem){ toast('⚠️ Informe de onde veio o cliente'); document.getElementById('origem-cli')?.focus(); document.getElementById('origem-cli')?.scrollIntoView({behavior:'smooth',block:'center'}); return; }
   if(!dados.loc){ avisarCampoObrigatorio('loc','Informe o local do serviço — sem ele a rota do técnico e a OS gerada ficam incompletas.'); return; }
+  { const di=_orcDescontoInfo(dados.sub,dados.desc); if(di.excedido) toast(`⚠️ Desconto de ${di.pct.toFixed(1)}% passa do limite de ${di.limite}% combinado com a gestão — salvando mesmo assim.`,{tipo:'warn'}); }
   btn.disabled=true; btn.textContent='Salvando…';
   let savedNum=null;
   try{
@@ -4070,6 +4095,7 @@ async function gerarPDF(){
   const dadosPre=coletarForm();
   if(!dadosPre.origem){ toast('⚠️ Informe de onde veio o cliente'); document.getElementById('origem-cli')?.focus(); document.getElementById('origem-cli')?.scrollIntoView({behavior:'smooth',block:'center'}); return; }
   if(!dadosPre.loc){ avisarCampoObrigatorio('loc','Informe o local do serviço — sem ele a rota do técnico e a OS gerada ficam incompletas.'); return; }
+  { const di=_orcDescontoInfo(dadosPre.sub,dadosPre.desc); if(di.excedido) toast(`⚠️ Desconto de ${di.pct.toFixed(1)}% passa do limite de ${di.limite}% combinado com a gestão — gerando mesmo assim.`,{tipo:'warn'}); }
   btn.disabled=true; btn.textContent='Gerando…';
   const dados=dadosPre;
   const now=new Date().toISOString();

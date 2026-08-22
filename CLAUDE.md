@@ -2,6 +2,59 @@
 
 ---
 
+## 🔧 Limite de desconto sem aprovação — configurável, avisa e não bloqueia (21/08)
+
+Terceiro achado da rodada de verificação com a outra IA (apresentação de
+treinamento): o manual descreve um "limite de desconto que Vendas pode dar
+sem Gestão", mas o campo (`#disc-v`) sempre foi `input type="number"` 100%
+livre — sem teto, sem `max`, sem diferença nenhuma por perfil (confirmado
+por grep: zero referência a `eVendas()`/`eGestor()` perto do campo de
+desconto, zero campo de configuração de limite em qualquer lugar do
+código). A regra só existia combinada verbalmente, nunca no sistema.
+
+**Perguntei antes de inventar número/comportamento** (decisão de negócio,
+não bug óbvio): Marcos decidiu que o limite é **configurável pelo próprio
+gestor** (não um número fixo no código), que passar do limite **avisa e
+deixa passar** (não bloqueia — quem aprova de verdade é o gestor na
+conversa), e que vale pra **Vendas E Técnico** (os dois perfis que criam
+orçamento sem ser gestor/master).
+
+- **`CFG.limite_desconto_pct`** (novo, dentro do blob jsonb
+  `empresa_config.dados` — **sem migração de schema**, é só uma chave a
+  mais no JSON que já existe) — card novo "Limite de Desconto" na tela
+  Empresa (`#cfg-limite-desconto`, entre "Técnicos e Usuários" e
+  "Segurança"), percentual, vazio/0 = sem limite nenhum.
+- **`_orcDescontoInfo(s, d)`** (nova, perto de `disc()`) — calcula o
+  desconto efetivo em % do subtotal (funciona tanto pra desconto em R$
+  quanto em %, já que o que importa é a proporção final) e se excede o
+  limite configurado. **`!eGestor()`** já cobre exatamente "Vendas e
+  Técnico, nunca gestor/master" — não precisou checar os dois perfis
+  separado.
+- **Aviso ao vivo no formulário** (`upd()`) — `#disc-limite-aviso`, caixa
+  âmbar (`--warn`/`--warn-bg`) logo abaixo do campo de desconto, aparece/
+  some a cada tecla conforme o desconto passa ou não do limite.
+- **Reforço no momento de salvar** (`salvarApenas()`/`gerarPDF()`) —
+  `toast(...,{tipo:'warn'})` não-bloqueante, garante que o aviso aparece
+  mesmo se a pessoa não tiver reparado no aviso inline; salva/gera
+  normalmente de qualquer jeito.
+
+Testado no Browser pane (offline, `dbOk=false;db=null;`, porta nova 9513,
+troca de sessão via `setSessao()` — real, não a chave errada
+`sessionStorage.fluxa_sessao` que não existe no código, achado no próprio
+teste): campo salva/recarrega certo em `preencherFormEmpresa()`; vendas
+com desconto 20% e limite 10% → aviso inline aparece com o texto certo;
+desconto 5% (dentro do limite) → aviso some; gestor com o MESMO desconto
+de 20% → aviso nunca aparece; técnico → aparece igual a vendas; toast de
+reforço confirmado via spy na função `toast()` — dispara o aviso ANTES do
+toast de sucesso, e o orçamento salva normalmente (não bloqueia). 375px
+sem overflow horizontal (`scrollWidth===clientWidth===375`). Sintaxe
+validada via `osascript -l JavaScript`+`new Function` (`SYNTAX_OK`). Zero
+erro novo no console (só o ruído de Service Worker já documentado).
+
+sw.js: fluxa-v228 → fluxa-v229.
+
+---
+
 ## 🔴 Segunda verificação (módulo de OS): 2 bugs reais corrigidos, 1 achado sem bug de verdade (21/08)
 
 Continuação da rodada de verificação com a outra IA (auxiliando a apresentação
