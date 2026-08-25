@@ -10525,3 +10525,5 @@ de cliente tem de ser **assistido, não automático** — 73 nomes sem ficha e 1
 <!-- teste real com DIAG2 ativo -->
 
 <!-- teste DIAG3 -->
+
+<!-- teste DIAG3b -->
