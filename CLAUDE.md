@@ -2,6 +2,38 @@
 
 ---
 
+## ⚠️ Edge Function `enviar-push` — estado real confirmado (24/08, pós-deploy)
+
+**Se você é a outra IA/sessão mexendo nesta função pelo painel do
+Supabase: leia isto antes de "corrigir" qualquer coisa.** Houve confusão
+nesta sessão porque duas IAs investigaram o mesmo sintoma (erro citando
+`empresa_id`) em paralelo, sem coordenar — uma concluiu (corretamente) que
+o código publicado em algum momento era a versão ERRADA (a do FluxaSaas-/
+v2, que usa `empresa_id`/`user_id`/tabela `membros` — nenhum desses existe
+no schema do v1); a outra, testando depois, viu tudo funcionando e propôs
+reintroduzir um fallback pra `empresa_id` que **não é necessário e não deve
+ser adicionado** — o schema real deste projeto (v1) nunca teve `empresa_id`
+em `push_subscriptions`, é `loja_id`.
+
+**Verificado ao vivo, autoritativo, nesta data** — schema real de
+`push_subscriptions`: `id, usuario_nome, perfil, loja_id, endpoint,
+p256dh, auth_key, user_agent, ativo, criado_em`. Função testada direto
+(não por leitura de log/texto colado):
+```
+POST sem x-push-secret        → 401 {"error":"não autorizado"}
+POST com x-push-secret certo  → 200 {"total":0,"enviados":0,"falhas":0}
+```
+`total:0` é esperado — zero dispositivos inscritos ainda (ninguém ativou
+notificação de um aparelho real). Não é erro.
+
+**Fonte de verdade é o arquivo do repo**
+(`supabase/functions/enviar-push/index.ts`), não o que estiver colado no
+editor do painel no momento — se os dois divergirem, o arquivo do repo é
+quem deveria estar certo; atualize o painel a partir dele, nunca o
+contrário. Verify JWT (legacy secret) está **desligado** pra esta função,
+de propósito (a autorização real é o `x-push-secret`, checado no próprio
+código — ver comentário no topo do arquivo).
+
 ## 📱 App de celular — Fase D: central de notificações, integrada ao sino já existente (24/08)
 
 Última fase do plano (`~/.claude/plans/lucky-toasting-cocke.md`). O v2 fez
