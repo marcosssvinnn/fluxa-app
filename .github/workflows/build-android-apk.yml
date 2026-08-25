@@ -1,0 +1,147 @@
+name: Build Android APK (Forthemp)
+
+# Compila um .apk instalável (fora da Play Store) empacotando o MESMO
+# index.html/app.js/styles.css do sistema real da Forthemp via Capacitor —
+# sem fork de código. Workflow portado (com os fixes já resolvidos) do
+# pipeline equivalente no repo FluxaSaas- (v2) — ver ali o histórico de
+# depuração do ícone adaptativo e do keystore de assinatura instável.
+
+on:
+  push:
+    branches: [ android-apk ]
+  workflow_dispatch: {}
+
+permissions:
+  contents: write # necessário pra publicar o .apk como Release
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Instalar dependências do Capacitor
+        run: npm install
+
+      - name: Montar www/ (cópia dos arquivos que já rodam no sistema real, gerada a cada build — nada disso é commitado)
+        run: |
+          mkdir -p www
+          cp index.html app.js styles.css manifest.json native.js sw.js config.js www/
+          cp -r icons www/icons
+          cp -r libs www/libs
+
+      - name: Gerar o projeto nativo Android (não fica commitado no repo)
+        run: npx cap add android
+
+      - name: Aplicar o ícone real da Forthemp (icons/icon-master-1024.png)
+        run: |
+          set -e
+          if ! command -v convert >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq imagemagick
+          fi
+          SRC=icons/icon-master-1024.png
+          declare -A SIZES=( [mdpi]=48 [hdpi]=72 [xhdpi]=96 [xxhdpi]=144 [xxxhdpi]=192 )
+          for density in "${!SIZES[@]}"; do
+            size=${SIZES[$density]}
+            dir="android/app/src/main/res/mipmap-${density}"
+            mkdir -p "$dir"
+            convert "$SRC" -resize "${size}x${size}" "$dir/ic_launcher.png"
+            convert "$SRC" -resize "${size}x${size}" "$dir/ic_launcher_round.png"
+            convert "$SRC" -resize "${size}x${size}" "$dir/ic_launcher_foreground.png"
+          done
+          # Achado (repo v2, mesma investigação): o template padrão do
+          # Capacitor define o ícone via "adaptive icon"
+          # (mipmap-anydpi-v26/ic_launcher.xml, Android 8+), que tem
+          # prioridade sobre os .png acima em qualquer aparelho moderno e
+          # normalmente aponta pra um drawable genérico — não pros .png por
+          # densidade que acabamos de sobrescrever. Remove o XML adaptativo
+          # (e os drawables de fundo/frente que ele referencia) pra forçar
+          # o Android a cair nos .png por densidade, que são os nossos.
+          rm -rf android/app/src/main/res/mipmap-anydpi-v26
+          rm -f android/app/src/main/res/drawable*/ic_launcher_background.xml
+          rm -f android/app/src/main/res/drawable*/ic_launcher_foreground.xml
+          rm -f android/app/src/main/res/values/ic_launcher_background.xml
+
+      - name: Sincronizar assets web pro projeto Android
+        run: npx cap sync android
+
+      - name: Restaurar keystore de debug estável entre builds (permite atualizar o app já instalado, sem precisar desinstalar)
+        id: cache-keystore
+        uses: actions/cache/restore@v4
+        with:
+          path: /home/runner/.android/debug.keystore
+          key: forthemp-android-debug-keystore-v1
+
+      - name: Gerar o keystore de debug só na 1ª vez (fica em cache pras próximas)
+        run: |
+          set -e
+          mkdir -p /home/runner/.android
+          if [ ! -f /home/runner/.android/debug.keystore ]; then
+            keytool -genkeypair -v -keystore /home/runner/.android/debug.keystore \
+              -storepass android -alias androiddebugkey -keypass android \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
+          fi
+
+      - name: Salvar o keystore de debug no cache (só quando foi gerado agora, não quando veio do cache)
+        if: steps.cache-keystore.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: /home/runner/.android/debug.keystore
+          key: forthemp-android-debug-keystore-v1
+
+      - name: Apontar o build debug pro NOSSO keystore explicitamente
+        working-directory: android
+        run: |
+          set -e
+          # Achado (repo v2): android/app/build.gradle gerado pelo `cap add
+          # android` não define signingConfigs nenhum — só
+          # buildTypes.release — então o build debug caía no comportamento
+          # IMPLÍCITO padrão do Android Gradle Plugin, que não resolve pro
+          # mesmo caminho que a gente restaura/cacheia (gerava keystore
+          # próprio a cada run, mesmo com o arquivo certo intocado no
+          # disco). Aponta explicitamente pro arquivo que a gente controla.
+          python3 ../scripts/patch-android-debug-signing.py
+          grep -n -A10 "signingConfigs\|buildTypes" app/build.gradle
+
+      - name: Compilar o APK (debug — sem keystore, pronto pra instalar direto)
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Renomear o APK gerado
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk Forthemp.apk
+
+      - name: Subir como artefato do build
+        uses: actions/upload-artifact@v4
+        with:
+          name: forthemp-android-apk
+          path: Forthemp.apk
+
+      - name: Publicar/atualizar Release com o .apk (link fixo pra baixar)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: forthemp-android-latest
+          name: Forthemp — App Android (build automático)
+          body: |
+            APK gerado automaticamente pelo GitHub Actions a partir do
+            commit ${{ github.sha }}, empacotando o sistema real da
+            Forthemp (mesmo código do site). Baixe `Forthemp.apk` abaixo e
+            instale direto no aparelho (é preciso permitir "instalar de
+            fontes desconhecidas" no Android, já que não vem da Play Store).
+          files: Forthemp.apk
+          make_latest: false
