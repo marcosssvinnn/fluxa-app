@@ -10523,3 +10523,5 @@ de cliente tem de ser **assistido, não automático** — 73 nomes sem ficha e 1
 <!-- teste final real do fix de cache do service worker -->
 
 <!-- teste real com DIAG2 ativo -->
+
+<!-- teste DIAG3 -->
