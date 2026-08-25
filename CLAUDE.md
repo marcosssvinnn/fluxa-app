@@ -10515,3 +10515,5 @@ de cliente tem de ser **assistido, não automático** — 73 nomes sem ficha e 1
 <!-- teste real do banner de atualização -->
 
 <!-- retrigger: a mensagem do commit anterior continha a marcação literal que cancela o próprio disparo do Actions -->
+
+<!-- teste final: banner de atualização via raw.githubusercontent.com -->
