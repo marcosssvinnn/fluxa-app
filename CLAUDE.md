@@ -2,6 +2,31 @@
 
 ---
 
+## 🔴 Achado logo após a Fase A: `injetarPWA()` sobrescrevia o manifest novo (24/08)
+
+Testando a Fase A já em produção (recarreguei a página real pra conferir),
+achei que `<link rel=manifest>` apontava pra um `blob:...`, não pro
+`manifest.json` recém-criado. Causa: `injetarPWA()` (`app.js`, chamada no
+boot) já existia desde antes e gerava um manifest **descartável em blob**
+a cada boot — nome/cor da empresa ativa, ícone SVG inline com emoji 🔧 — e
+reescrevia o `href` do `<link rel=manifest>` por cima do que o `index.html`
+já declarava. Isso anulava silenciosamente todo o trabalho de ícone da Fase
+A (o Android leria o manifest errado; o iOS não é afetado, porque Safari
+usa `apple-touch-icon`, não o manifest, pra "Adicionar à Tela de Início" —
+mas o Android sim).
+
+**Corrigido**: `injetarPWA()` agora só sincroniza `<meta name=theme-color>`
+com `CFG.cor` (comportamento legítimo — a cor da barra do navegador deve
+seguir a marca da empresa ativa) e não mexe mais no `<link rel=manifest>`.
+O manifest passa a ser sempre o estático (`manifest.json`, nome "Fluxa",
+ícones reais) — faz sentido ser fixo, já que este deploy serve
+Fortemp+Aquamotor juntos (não dá pra ter um manifest por empresa sem voltar
+a ser um blob dinâmico, que foi exatamente o problema).
+
+Testado: `<link rel=manifest>.href` volta a ser `manifest.json` (não
+`blob:`) depois do reload; `theme-color` continua acompanhando `CFG.cor`
+(`#3068e8`, cor real da Fortemp). Zero erro novo no console.
+
 ## 📱 App de celular — Fase A: instalável de verdade (manifest + ícone + banner) (24/08)
 
 Marcos pediu pra trazer pro fluxa-app (v1) o mesmo pacote de "app de celular"

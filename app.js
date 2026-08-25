@@ -1261,15 +1261,16 @@ document.addEventListener('keydown', function(e){
 // ──────────────────────────────────────────────────
 //  PWA
 // ──────────────────────────────────────────────────
+// Até a Fase A do plano de "app de celular" (24/08), esta função GERAVA um
+// manifest.json descartável em blob: (nome/cor da empresa, ícone SVG inline
+// com emoji 🔧) e reescrevia o <link rel=manifest> pra apontar pra ele — o
+// que agora SOBRESCREVERIA o manifest.json real (nome "Fluxa", ícones PNG
+// de verdade em icons/) que o index.html já carrega estaticamente. Mantido
+// só o pedaço que ainda faz sentido: sincronizar a cor da barra do
+// navegador (<meta theme-color>) com a cor da empresa ativa — isso não
+// depende do manifest (o manifest, por servir Fortemp+Aquamotor juntos
+// neste deploy, fica com uma cor/ícone fixos e genéricos de propósito).
 function injetarPWA() {
-  const m = { name: CFG.nome, short_name: CFG.nome, start_url:'.', display:'standalone',
-    background_color:'#f0f2f5', theme_color: CFG.cor,
-    icons:[{src:'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="20" fill="'+encodeURIComponent(CFG.cor)+'"/><text y=".9em" font-size="80" x="10">🔧</text></svg>',sizes:'192x192',type:'image/svg+xml'}]
-  };
-  const b = new Blob([JSON.stringify(m)],{type:'application/manifest+json'});
-  let l = document.querySelector('link[rel=manifest]');
-  if (!l){ l=document.createElement('link'); l.rel='manifest'; document.head.appendChild(l); }
-  l.href = URL.createObjectURL(b);
   document.querySelector('meta[name=theme-color]')?.setAttribute('content', CFG.cor);
 }
 
