@@ -2,6 +2,46 @@
 
 ---
 
+## 📱 App de celular — ícone/marca trocados pro logo real da Forthemp (24/08)
+
+Marcos pediu pra personalizar o app instalado com a marca real da
+Forthemp (até então, Fase A tinha usado um "F" genérico branco sobre azul
+— documentado na hora como solução provisória, "sem logo real disponível
+como arquivo"). Achei o logo de verdade: `empresa_config.dados->>'logoB64'`
+(banco, id=1, `nome:"Forthemp"`, `cor:"#3068e8"`, `cor2:"#1f2023"`) —
+37KB, JPEG, o logotipo completo (símbolo "TF" + wordmark "FORTHEMP").
+
+- **Ícones regenerados** (`icons/*`, mesmos 8 arquivos da Fase A) — recortei
+  só o símbolo "TF" (sem o wordmark, que fica ilegível em ícone pequeno),
+  por detecção de faixas de conteúdo (linhas 100% fundo separando símbolo
+  de texto, não um corte por coordenada fixa — mais robusto). Fundo mantido
+  cinza-claro original da própria arte (não inventei cor nova), com
+  padding maior nas versões "maskable" (safe zone 65%) pra sobreviver ao
+  corte circular/squircle do Android.
+- **`manifest.json`** — `name`/`short_name` "Forthemp" (era "Fluxa",
+  genérico), `theme_color`/`background_color` = cores reais da empresa no
+  banco (`#3068e8`/`#1f2023`, eram os defaults do v2).
+- **`index.html`** — `apple-mobile-web-app-title`/`theme-color` (meta
+  tags, primeira pintura antes do JS rodar) também ajustados pra
+  Forthemp/`#3068e8`.
+- **`sw.js`** — `fluxa-vNNN` bumpado (precisa, senão o ícone antigo fica
+  cacheado pelos mesmos nomes de arquivo).
+
+**Nota de coordenação**: encontrei `app.js` e um `migracao-vistoria-
+assinatura-tecnico.sql` novo modificados/criados no working tree por outra
+sessão (assinatura do técnico na vistoria, feature não relacionada) —
+**não toquei em nenhum dos dois**, só commitei os arquivos desta mudança
+específica. Se você for essa outra sessão lendo isto depois: seu trabalho
+não foi mexido, só não commitei em nome disso.
+
+Testado no Browser pane (limpando SW/cache antes, mesmo cuidado já
+documentado na Fase D pra evitar ler versão desatualizada): `manifest.json`
+via `fetch(...,{cache:'no-store'})` confirma `name:"Forthemp"`,
+`theme_color:"#3068e8"`, `background_color:"#1f2023"`; ícones (512 e
+apple-touch-icon) conferidos visualmente, símbolo "TF" nítido, sem
+vazamento do wordmark, fundo limpo. JSON do manifest e sintaxe do `sw.js`
+validados. Zero erro novo no console.
+
 ## ⚠️ Edge Function `enviar-push` — estado real confirmado (24/08, pós-deploy)
 
 **Se você é a outra IA/sessão mexendo nesta função pelo painel do

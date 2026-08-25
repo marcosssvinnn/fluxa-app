@@ -6,8 +6,8 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Fluxa">
-  <meta name="theme-color" content="#0B62CE">
+  <meta name="apple-mobile-web-app-title" content="Forthemp">
+  <meta name="theme-color" content="#3068e8">
   <title>Sistema de Orçamentos</title>
   <!-- App de celular (Fase A, porte do FluxaSaas-/v2) — instalável na Tela de Início -->
   <link rel="manifest" href="manifest.json">
@@ -3398,6 +3398,16 @@
         <div class="row f1">
           <div class="fl"><textarea id="vis-obs" rows="3" placeholder="Condições gerais do local, contexto da visita, pendências observadas…"></textarea></div>
         </div>
+      </div>
+
+      <!-- Assinatura do técnico (24/08) — confirma que o técnico realizou a
+           vistoria no local, obrigatória para finalizar (decisão do Marcos).
+           Mesmo mecanismo de canvas já usado em orçamento/oficina
+           (initSigCanvas/limparAssinatura), confirmação própria. -->
+      <div class="rd-card" id="vis-assinatura-card">
+        <div class="rd-card-title" style="margin-bottom:4px">Assinatura do Técnico</div>
+        <div class="rd-card-sub" style="margin-bottom:10px">confirma que você realizou esta vistoria no local — obrigatória para finalizar</div>
+        <div id="vis-assinatura-status"></div>
       </div>
 
       <!-- Ações — vira barra fixa no rodapé abaixo de 680px (Fase 9c),
