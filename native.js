@@ -442,15 +442,20 @@ function fluxaEhAppNativo(){
 const FORTHEMP_ANDROID_VERSION_URL = 'https://raw.githubusercontent.com/marcosssvinnn/fluxa-app/android-apk/android-version.json';
 const FORTHEMP_ANDROID_APK_URL = 'https://github.com/marcosssvinnn/fluxa-app/releases/download/forthemp-android-latest/Forthemp.apk';
 async function fluxaChecarAtualizacaoApp(){
-  if (!fluxaEhAppNativo()) return; // só faz sentido dentro do app instalado
+  const _nativo = fluxaEhAppNativo();
+  console.log('[fluxaChecarAtualizacaoApp] DIAG nativo='+_nativo+' build='+window.FORTHEMP_ANDROID_BUILD+' Capacitor='+(typeof window.Capacitor));
+  if (!_nativo) return; // só faz sentido dentro do app instalado
   const buildAtual = window.FORTHEMP_ANDROID_BUILD || null;
   if (!buildAtual) return; // build sem o carimbo (ex.: instalado antes desta feature) — não sabe comparar, não incomoda
   try{
     const r = await fetch(FORTHEMP_ANDROID_VERSION_URL, { cache: 'no-store' });
+    console.log('[fluxaChecarAtualizacaoApp] DIAG fetch ok='+r.ok+' status='+r.status);
     if (!r.ok) return;
     const info = await r.json();
+    console.log('[fluxaChecarAtualizacaoApp] DIAG info='+JSON.stringify(info)+' buildAtual='+buildAtual);
     if (!info || !info.build || info.build === buildAtual) return; // já está na versão mais nova
     _fluxaMostrarBannerAtualizacao(info.apk_url || FORTHEMP_ANDROID_APK_URL);
+    console.log('[fluxaChecarAtualizacaoApp] DIAG banner mostrado');
   }catch(e){ console.warn('[fluxaChecarAtualizacaoApp]', e?.message||e); }
 }
 function _fluxaMostrarBannerAtualizacao(apkUrl){
