@@ -1,6 +1,6 @@
 // Altere este número a cada novo deploy para forçar atualização em todos os dispositivos
 // (não é mais obrigatório: o index.html detecta novas versões sozinho via ETag/Last-Modified)
-const CACHE = 'fluxa-v236';
+const CACHE = 'fluxa-v237';
 
 const URLS = [
   'libs/supabase.min.js',
@@ -45,6 +45,12 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   // Supabase API: sempre usa a rede, nunca cacheia
   if (e.request.url.includes('supabase.co')) return;
+
+  // Checagem de versão do app Android (native.js, fluxaChecarAtualizacaoApp):
+  // sempre precisa da resposta mais recente pra saber se existe build novo —
+  // cache-first aqui faria o aviso de atualização nunca aparecer (achado
+  // testando de verdade: a 1ª resposta ficava presa pra sempre).
+  if (e.request.url.includes('githubusercontent.com')) return;
 
   const url = new URL(e.request.url);
 
