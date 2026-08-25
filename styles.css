@@ -1572,7 +1572,7 @@
     @media(max-width:680px){
       .vis-progresso-mobile{display:block;margin-bottom:12px}
       #page-visitas #vis-checkin-bar.checkin-bar{position:sticky;top:0;z-index:20;box-shadow:0 4px 10px -6px rgba(16,28,48,.25)}
-      #page-visitas .wrap{padding-bottom:100px}
+      #page-visitas .wrap{padding-bottom:150px}
       #vis-acts-bottom{position:fixed;left:0;right:0;bottom:64px;z-index:40;background:#fff;border-top:1px solid var(--line);padding:12px 14px;margin:0;box-shadow:0 -6px 16px -8px rgba(16,28,48,.18)}
     }
     /* Vistoria mobile (Fase 9c-rev, 14/08) — status por DOT no cabeçalho

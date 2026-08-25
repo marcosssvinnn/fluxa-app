@@ -13132,6 +13132,7 @@ let visCheckoutTime = null;
 let visCheckinInterval = null;
 let visEditId = null;          // id da vistoria sendo editada (null = nova)
 let _visDraftId = null;        // id da vistoria atual em edição no form (compartilhado entre Salvar e Gerar PDF, evita duplicata)
+let _visAssinaturaTecnico = null; // {base64,data,meta,nome} — assinatura do técnico, obrigatória pra finalizar (24/08)
 let visHistStatusFilt = '';    // filtro de status no histórico: ''|'critico'|'atencao'
 
 // Promise com timeout — evita que uma chamada de rede travada (Supabase/EmailJS)
@@ -14245,7 +14246,8 @@ function _salvarRascunhoVis(){
       sel:visEquipSelecionados, custom:_visEquipsCustom, dados:visEquipDados, ambObs:visAmbienteObs,
       checkin:visCheckinTime?visCheckinTime.getTime():null,
       checkout:visCheckoutTime?visCheckoutTime.getTime():null,
-      localId:window._visLocalId||null, editId:visEditId||null, draftId:_visDraftId||null };
+      localId:window._visLocalId||null, editId:visEditId||null, draftId:_visDraftId||null,
+      assinatura:_visAssinaturaTecnico||null };
     ['vis-cli','vis-loc','vis-data','vis-mes-ref','vis-hora','vis-obs','vis-recom','vis-email-resp','vis-tec']
       .forEach(fid=>{ const el=document.getElementById(fid); if(el) d.campos[fid]=el.value; });
     // setItem DIRETO (não lsSet): o lsSet engole o QuotaExceededError e o
@@ -14321,6 +14323,8 @@ function _restaurarRascunhoVis(){
   window._visLocalId=d.localId||null; visEditId=d.editId||null; _visDraftId=d.draftId||null;
   visCheckinTime=d.checkin?new Date(d.checkin):null;
   visCheckoutTime=d.checkout?new Date(d.checkout):null;
+  _visAssinaturaTecnico=d.assinatura||null;
+  renderVisAssinaturaStatus();
   Object.entries(d.campos||{}).forEach(([fid,v])=>{ const el=document.getElementById(fid); if(el&&v!==undefined&&v!==null) el.value=v; });
   renderVisChips(); renderVisEquipGrid();
   const card=document.getElementById('vis-equip-card');
@@ -14720,9 +14724,74 @@ function _montarRecVistoria(){
     obs_ambientes: _montarObsAmbientes(),
     email_responsavel: (document.getElementById('vis-email-resp')?.value||'').trim()||null,
     equipamentos: _montarEquipamentosVistoria(),
+    assinatura_tecnico_base64: _visAssinaturaTecnico?.base64||null,
+    assinatura_tecnico_data: _visAssinaturaTecnico?.data||null,
+    assinatura_tecnico_meta: _visAssinaturaTecnico?.meta||null,
     created_at: new Date().toISOString()
   };
 }
+
+// ── Assinatura do técnico (24/08) — reusa o canvas genérico
+// (initSigCanvas/limparAssinatura, app.js:~8775) já usado na aprovação de
+// orçamento pelo portal e na Oficina — mesmos ids de canvas/placeholder,
+// então as funções funcionam sem alteração. Só a confirmação é própria.
+function abrirModalAssinaturaVis(){
+  const existing=document.getElementById('modal-assinatura'); if(existing) existing.remove();
+  const s=getSessao();
+  const nomeTec=(document.getElementById('vis-tec')?.value||'')||(s?.nome||'técnico');
+  const m=document.createElement('div'); m.id='modal-assinatura'; m.className='cli-hist-overlay'; m.style.zIndex='1200';
+  m.innerHTML=`<div class="cli-hist-box" style="max-height:none">
+    <div class="cli-hist-hdr">
+      <div class="cli-hist-titulo">✍️ Assinatura do Técnico</div>
+      <button class="cli-hist-close" onclick="document.getElementById('modal-assinatura').remove()">×</button>
+    </div>
+    <div style="padding:16px 20px 24px">
+      <p style="font-size:13px;color:var(--gray);margin-bottom:12px">Assine para confirmar que ${esc(nomeTec)} realizou esta vistoria no local.</p>
+      <div class="sig-wrap">
+        <canvas id="sig-canvas" class="sig-canvas"></canvas>
+        <div class="sig-placeholder" id="sig-placeholder">✍️ Assine aqui com o dedo ou mouse</div>
+      </div>
+      <div class="sig-btns">
+        <button class="sig-btn" onclick="limparAssinatura()">↺ Limpar</button>
+        <button class="sig-btn ok" onclick="confirmarAssinaturaVis()">✅ Confirmar</button>
+      </div>
+    </div>
+  </div>`;
+  m.addEventListener('click',e=>{ if(e.target===m) m.remove(); });
+  document.body.appendChild(m);
+  setTimeout(initSigCanvas, 80);
+}
+function confirmarAssinaturaVis(){
+  if(!_sigHasMark){ toast('⚠️ Por favor, assine antes de confirmar'); return; }
+  const canvas=document.getElementById('sig-canvas'); if(!canvas) return;
+  const sigB64=canvas.toDataURL('image/png');
+  document.getElementById('modal-assinatura')?.remove();
+  const s=getSessao();
+  _visAssinaturaTecnico = {
+    base64: sigB64,
+    data: new Date().toISOString(),
+    meta: (navigator.userAgent||'').slice(0,180),
+    nome: (document.getElementById('vis-tec')?.value||'')||(s?.nome||'')
+  };
+  renderVisAssinaturaStatus();
+  _salvarRascunhoVisDeb();
+  toast('✅ Assinatura registrada');
+}
+function renderVisAssinaturaStatus(){
+  const el=document.getElementById('vis-assinatura-status'); if(!el) return;
+  if(_visAssinaturaTecnico){
+    let horaTxt='';
+    try{ horaTxt=new Date(_visAssinaturaTecnico.data).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); }catch(e){}
+    el.innerHTML=`<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <img src="${_visAssinaturaTecnico.base64}" alt="Assinatura" style="height:44px;border:1px solid var(--gray-mid);border-radius:8px;background:#fff;padding:2px">
+      <div style="flex:1;min-width:140px;font-size:12px;color:var(--green);font-weight:700">✍️ Assinado por ${esc(_visAssinaturaTecnico.nome||'')}${horaTxt?(' às '+horaTxt):''}</div>
+      <button type="button" class="tb" onclick="abrirModalAssinaturaVis()" style="font-size:12px">Refazer</button>
+    </div>`;
+  } else {
+    el.innerHTML=`<button type="button" class="ba" style="background:var(--c1);color:white;padding:10px 18px;font-size:13px" onclick="abrirModalAssinaturaVis()">✍️ Assinar</button>`;
+  }
+}
+
 // Só as observações de ambientes que existem nesta vistoria e têm texto.
 function _montarObsAmbientes(){
   const ambsPresentes=new Set((_visEquipsCustom||[]).map(e=>(e.ambiente||'').trim()).filter(Boolean));
@@ -14867,6 +14936,8 @@ function _limparFormVistoria(){
   _visDraftId = null;
   _visClienteSelecionado = null;
   _visPiscinaSelecionadaId = null;
+  _visAssinaturaTecnico = null;
+  renderVisAssinaturaStatus();
   if(visCheckinInterval){ clearInterval(visCheckinInterval); visCheckinInterval = null; }
   _resetCheckinVis();
   window._visLocalId = null;
@@ -14915,6 +14986,11 @@ function descartarVistoriaEmAndamento(){
 let _finalizandoVis=false;
 async function finalizarVistoria(){
   if(_finalizandoVis) return; // trava contra múltiplos cliques enquanto processa
+  if(!_visAssinaturaTecnico){
+    toast('⚠️ Assine antes de finalizar — role até "Assinatura do Técnico"');
+    document.getElementById('vis-assinatura-card')?.scrollIntoView({behavior:'smooth',block:'center'});
+    return;
+  }
   _finalizandoVis=true;
   try{
     const ok = await salvarVistoria();
@@ -15712,6 +15788,12 @@ function editarVistoria(id){
   window._visLocalId=vis.local_id||null;   // mantém vínculo com o plano (e a empresa)
   _visClienteSelecionado = vis.cliente_id ? {id:vis.cliente_id, nome:vis.cliente} : null;
   _visPiscinaSelecionadaId = vis.piscina_id||null;
+  // Registro antigo (antes de 24/08) não tem assinatura — precisa assinar de
+  // novo pra conseguir finalizar de novo, mesma regra de qualquer vistoria.
+  _visAssinaturaTecnico = vis.assinatura_tecnico_base64
+    ? {base64:vis.assinatura_tecnico_base64, data:vis.assinatura_tecnico_data, meta:vis.assinatura_tecnico_meta, nome:vis.tecnico||''}
+    : null;
+  renderVisAssinaturaStatus();
   _visRenderPiscinas();
   go('visitas'); visTab('nova');
   // Esconde banners de plano/pré-carga (estamos editando algo existente)

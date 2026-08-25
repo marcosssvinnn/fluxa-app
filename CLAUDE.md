@@ -2,6 +2,59 @@
 
 ---
 
+## ✍️ Vistoria — assinatura digital do técnico (24/08)
+
+Pedido do Marcos: confirmar que o técnico realmente esteve no local. Decisão
+dele via `AskUserQuestion`: **obrigatória pra finalizar**, não só disponível
+(bloqueia "Finalizar Vistoria", igual à assinatura de entrega da Oficina).
+
+`migracao-vistoria-assinatura-tecnico.sql` (aplicada e verificada em
+produção via Management API): `vistorias.assinatura_tecnico_base64/data/
+meta`, aditiva — registro antigo fica `null` nos 3 campos.
+
+**Reusa o canvas genérico** (`initSigCanvas`/`limparAssinatura`, já usado em
+orçamento/portal e Oficina) — só a confirmação é própria
+(`abrirModalAssinaturaVis`/`confirmarAssinaturaVis`/`renderVisAssinaturaStatus`).
+Card novo "Assinatura do Técnico" no fim do formulário, antes das ações.
+Estado (`_visAssinaturaTecnico`) integrado nos 5 pontos que já existiam:
+`_montarRecVistoria` (grava), `finalizarVistoria` (bloqueia sem assinar,
+role até o card), `_limparFormVistoria` (zera em vistoria nova),
+`editarVistoria` (restaura de registro salvo — **registro sem assinatura
+exige assinar de novo pra conseguir finalizar de novo**, mesma regra de
+qualquer vistoria, sem exceção pra legado) e `_salvarRascunhoVis`/
+`_restaurarRascunhoVis` (sobrevive a fechar o app no meio da vistoria).
+
+**Bug real achado e corrigido no próprio teste**: o card novo empurrou o
+conteúdo pra baixo o suficiente pra o botão "Assinar" ficar ~19px atrás da
+barra fixa de ações no mobile (`#vis-acts-bottom`, `position:fixed`, ~72px
+de altura) mesmo no scroll máximo — o `padding-bottom:100px` do `.wrap`
+(Fase 9c, 13/08) não tinha mais folga suficiente. Corrigido pra `150px`,
+só dentro do `@media(max-width:680px)` — conferido que não vaza pro
+desktop (`80px` fora do media query, inalterado).
+
+Testado no Browser pane (offline, `dbOk=false;db=null;`, sessão técnico
+sintética, vistoria real de produção com 51 equipamentos — Infinity Coast
+Tower — carregada via `editarVistoria`, nenhuma escrita real ao Supabase
+confirmada por `read_network_requests`): bloqueio sem assinar (toast +
+scroll até o card); traço real desenhado via `MouseEvent` simulado
+(`mousedown`/`mousemove`/`mouseup` — `left_click_drag` do `computer` não
+registrou neste ambiente, mesmo artefato já documentado várias vezes
+neste arquivo); confirmar sem traço bloqueia; com traço grava
+`{base64,data,meta,nome}` e libera "Finalizar Vistoria"; registro final
+confirmado com os 3 campos preenchidos; card some do fundo da tela depois
+do fix de padding (`hidden:0px` medido via `getBoundingClientRect`, antes
+`19px`); desktop 1440px sem regressão (card renderiza normal, padding do
+`.wrap` continua `80px`). Zero erro novo no console (só o ruído de boot
+já documentado). Revisão de usabilidade mobile mais ampla da tela de
+Vistoria: a lista de equipamentos **já estava bem otimizada** de sessões
+anteriores (Fase 9c/9c-rev) — cards colapsados por padrão exceto o
+primeiro, status por forma+cor, agrupamento por ambiente, barra de
+progresso, check-in fixo no topo — não achei mais nenhum ponto de
+fricção real que justificasse mexer sem um problema específico reportado.
+
+sw.js: fluxa-v232 → fluxa-v234 (commit concorrente da outra sessão já
+bumpou nesse meio-tempo — conferido que o valor final está correto).
+
 ## 📱 App de celular — ícone/marca trocados pro logo real da Forthemp (24/08)
 
 Marcos pediu pra personalizar o app instalado com a marca real da
