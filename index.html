@@ -3961,6 +3961,17 @@
   <button class="pwa-install-close" onclick="fluxaDispensarInstalar()" aria-label="Fechar">✕</button>
 </div>
 
+<!-- ══ Banner: nova versão do app Android disponível (25/08) — só aparece
+     dentro do .apk instalado (Capacitor), nunca no site normal. Mesmo
+     shell visual do banner de instalar, ver fluxaChecarAtualizacaoApp em
+     native.js. ══ -->
+<div class="pwa-install-banner" id="android-update-banner" role="complementary" aria-label="Atualização disponível">
+  <span class="pwa-install-icon" aria-hidden="true">⬆️</span>
+  <div class="pwa-install-txt">Nova versão do app disponível.</div>
+  <button class="pwa-install-btn" id="android-update-btn">Atualizar</button>
+  <button class="pwa-install-close" onclick="fluxaDispensarAtualizacao()" aria-label="Fechar">✕</button>
+</div>
+
 <!-- ══ Bloqueio biométrico (Fase B) — só aparece se o aparelho já tem credencial registrada ══ -->
 <div class="biometric-lock-overlay" id="biometric-lock-overlay" role="dialog" aria-modal="true" aria-label="Desbloquear o Fluxa">
   <div class="biometric-lock-card">
@@ -3997,6 +4008,9 @@ window.onerror = function(msg, src, line, col, err){
 </div>
 
 <!-- App de celular (Fase A, porte do FluxaSaas-/v2) — antes de app.js, que chama _fluxaAvaliarBannerInstalar() -->
+<!-- Só existe dentro do .apk Android — gerado no build (ver workflow),
+     nunca commitado. No site normal dá 404 e é ignorado, sem erro. -->
+<script src="android-build.js"></script>
 <script src="native.js"></script>
 <script src="app.js"></script>
 </body>

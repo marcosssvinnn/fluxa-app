@@ -413,3 +413,50 @@ function fluxaUsarOutroLogin(){
   if (typeof fazerLogout === 'function') fazerLogout();
   else location.reload();
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// Atualização do app Android nativo (Capacitor) — 25/08
+//
+// O .apk leva o código "congelado" dentro dele desde a hora que foi
+// compilado — diferente do site normal, que sempre busca a versão mais
+// nova sozinho ao abrir (rede-primeiro, ver sw.js). Sem isso, toda
+// correção no sistema exigiria a pessoa caçar o link no GitHub de novo e
+// reinstalar. Aqui: só DENTRO do app instalado (nunca no site), confere
+// um arquivo pequeno publicado junto do .apk (mesmo Release de sempre,
+// endereço fixo) com o identificador do build mais recente; se for
+// diferente do que está rodando agora, mostra um banner (mesmo shell
+// visual do banner de instalar) com um botão que abre o download do .apk
+// novo — a pessoa só confirma "Instalar" quando o Android perguntar, sem
+// precisar ir atrás de link nenhum.
+function fluxaEhAppNativo(){
+  try{ return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()); }
+  catch(e){ return false; }
+}
+const FORTHEMP_ANDROID_RELEASE_BASE = 'https://github.com/marcosssvinnn/fluxa-app/releases/download/forthemp-android-latest/';
+async function fluxaChecarAtualizacaoApp(){
+  if (!fluxaEhAppNativo()) return; // só faz sentido dentro do app instalado
+  const buildAtual = window.FORTHEMP_ANDROID_BUILD || null;
+  if (!buildAtual) return; // build sem o carimbo (ex.: instalado antes desta feature) — não sabe comparar, não incomoda
+  try{
+    const r = await fetch(FORTHEMP_ANDROID_RELEASE_BASE + 'android-version.json', { cache: 'no-store' });
+    if (!r.ok) return;
+    const info = await r.json();
+    if (!info || !info.build || info.build === buildAtual) return; // já está na versão mais nova
+    _fluxaMostrarBannerAtualizacao(info.apk_url || (FORTHEMP_ANDROID_RELEASE_BASE + 'Forthemp.apk'));
+  }catch(e){ console.warn('[fluxaChecarAtualizacaoApp]', e?.message||e); }
+}
+function _fluxaMostrarBannerAtualizacao(apkUrl){
+  const el = document.getElementById('android-update-banner');
+  if (!el) return;
+  const btn = document.getElementById('android-update-btn');
+  if (btn) btn.onclick = () => window.open(apkUrl, '_system');
+  el.classList.add('on');
+}
+function fluxaDispensarAtualizacao(){
+  const el = document.getElementById('android-update-banner');
+  if (el) el.classList.remove('on');
+}
+// Checa ao abrir e depois a cada 6h — o técnico pode deixar o app aberto
+// o dia inteiro em campo; não precisa checar com mais frequência que isso.
+fluxaChecarAtualizacaoApp();
+setInterval(fluxaChecarAtualizacaoApp, 6*60*60*1000);

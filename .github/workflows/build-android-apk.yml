@@ -41,6 +41,12 @@ jobs:
           cp index.html app.js styles.css manifest.json native.js sw.js config.js www/
           cp -r icons www/icons
           cp -r libs www/libs
+          # Carimba o build DENTRO do app (sobrescreve o placeholder
+          # `window.FORTHEMP_ANDROID_BUILD = null` do repo) — é isso que o
+          # app compara contra android-version.json pra saber se existe
+          # uma versão mais nova. Usa o sha curto do commit: só precisa ser
+          # diferente a cada build, não precisa ser um número sequencial.
+          echo "window.FORTHEMP_ANDROID_BUILD = '${GITHUB_SHA::7}';" > www/android-build.js
 
       - name: Gerar o projeto nativo Android (não fica commitado no repo)
         run: npx cap add android
@@ -126,6 +132,15 @@ jobs:
       - name: Renomear o APK gerado
         run: cp android/app/build/outputs/apk/debug/app-debug.apk Forthemp.apk
 
+      - name: Gerar android-version.json (o app instalado confere este arquivo pra saber se tem versão nova)
+        run: |
+          BUILD_ID="${GITHUB_SHA::7}"
+          printf '{\n  "build": "%s",\n  "apk_url": "%s"\n}\n' \
+            "$BUILD_ID" \
+            "https://github.com/marcosssvinnn/fluxa-app/releases/download/forthemp-android-latest/Forthemp.apk" \
+            > android-version.json
+          cat android-version.json
+
       - name: Subir como artefato do build
         uses: actions/upload-artifact@v4
         with:
@@ -143,5 +158,11 @@ jobs:
             Forthemp (mesmo código do site). Baixe `Forthemp.apk` abaixo e
             instale direto no aparelho (é preciso permitir "instalar de
             fontes desconhecidas" no Android, já que não vem da Play Store).
-          files: Forthemp.apk
+
+            A partir desta versão, o próprio app avisa sozinho quando
+            existir uma versão mais nova (banner "Nova versão disponível"),
+            sem precisar voltar aqui.
+          files: |
+            Forthemp.apk
+            android-version.json
           make_latest: false
