@@ -10527,3 +10527,5 @@ de cliente tem de ser **assistido, não automático** — 73 nomes sem ficha e 1
 <!-- teste DIAG3 -->
 
 <!-- teste DIAG3b -->
+
+<!-- teste final visual do banner -->
