@@ -10513,3 +10513,5 @@ de cliente tem de ser **assistido, não automático** — 73 nomes sem ficha e 1
 - [ ] **PIN legado:** com contas individuais criadas, o fallback de PIN legado em `pinValido()` pode ser removido. Confirmar com Marcos se há algum usuário legado antes de remover.
 
 <!-- teste real do banner de atualização -->
+
+<!-- retrigger: a mensagem do commit anterior continha a marcação literal que cancela o próprio disparo do Actions -->
