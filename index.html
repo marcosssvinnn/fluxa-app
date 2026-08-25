@@ -6,8 +6,14 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Fluxa">
   <meta name="theme-color" content="#0B62CE">
   <title>Sistema de Orçamentos</title>
+  <!-- App de celular (Fase A, porte do FluxaSaas-/v2) — instalável na Tela de Início -->
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16.png">
   <!-- Configuração da empresa (tenant). Opcional: se ausente, usa os defaults embutidos (Fortemp/Aquamotor). -->
   <script src="config.js"></script>
   <!-- Bibliotecas hospedadas localmente (libs/ vendorizadas) — sem dependência de CDN -->
@@ -3937,6 +3943,14 @@
 
 </main><!-- /#main-content -->
 
+<!-- ══ Banner: instalar o Fluxa como app (Fase A, porte do FluxaSaas-/v2) ══ -->
+<div class="pwa-install-banner" id="pwa-install-banner" role="complementary" aria-label="Instalar o Fluxa">
+  <span class="pwa-install-icon" aria-hidden="true">📲</span>
+  <div class="pwa-install-txt" id="pwa-install-body"></div>
+  <button class="pwa-install-btn" id="pwa-install-btn" style="display:none">Instalar</button>
+  <button class="pwa-install-close" onclick="fluxaDispensarInstalar()" aria-label="Fechar">✕</button>
+</div>
+
 <div class="toast" id="toast" role="alert" aria-live="assertive" aria-atomic="true"></div>
 
 <!-- Error boundary global: captura erros JS e exibe tela amigável -->
@@ -3961,6 +3975,8 @@ window.onerror = function(msg, src, line, col, err){
   <div style="margin-top:12px;font-size:12px;color:#9ca3af">Seus dados estão salvos — nada foi perdido.</div>
 </div>
 
+<!-- App de celular (Fase A, porte do FluxaSaas-/v2) — antes de app.js, que chama _fluxaAvaliarBannerInstalar() -->
+<script src="native.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

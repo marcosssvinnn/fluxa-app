@@ -2,6 +2,82 @@
 
 ---
 
+## 📱 App de celular — Fase A: instalável de verdade (manifest + ícone + banner) (24/08)
+
+Marcos pediu pra trazer pro fluxa-app (v1) o mesmo pacote de "app de celular"
+que ele já tem no outro SaaS dele (FluxaSaas-/v2, repo `~/Documents/fluxa`,
+seção "📱 FLUXA MOBILE" do CLAUDE.md de lá, Sprints 0-4 já em produção).
+Investigado antes de portar: o v1 já tinha meta tags soltas
+(`apple-mobile-web-app-capable`, `theme-color`) e um Service Worker básico,
+mas **nenhum** `manifest.json`, ícone próprio, banner de instalar, push ou
+biometria — instalar hoje dava um ícone genérico do Safari sem nome. Plano
+aprovado em 4 fases (`~/.claude/plans/lucky-toasting-cocke.md`), cada uma
+testada e commitada separadamente. Esta é a Fase A — só front-end, zero
+schema, zero servidor.
+
+**Diferença estrutural importante vs. o v2 (documentada porque muda o
+desenho das próximas fases)**: o v1 **não tem Supabase Auth** — sessão é só
+nome+PIN em `sessionStorage`/"manter conectado" em `localStorage`
+(`getSessao`/`getSessaoLembrada`, `app.js`), RLS é `anon full access` em
+toda tabela. O v2 amarra push/biometria em `auth.uid()`; aqui vai amarrar no
+`usuarios.id`/nome da sessão interna.
+
+**O que foi portado** (adaptado do `native.js`/`manifest.json`/`styles.css`
+do v2, linha a linha, não reescrito do zero):
+- `manifest.json` novo — nome "Fluxa" (de `FLUXA_CONFIG.appName`), cor
+  `#0B62CE` (o azul que já estava hardcoded no `<meta theme-color>` e é o
+  `--c1` do `styles.css` — não inventei cor nova), `start_url`/`scope:"./"`
+  (GitHub Pages serve num subpath).
+- `icons/` — gerados localmente (`pip3 install --user Pillow`, script
+  descartável, "F" branco sobre o azul), 8 arquivos (192/512 normal +
+  maskable, apple-touch-icon, favicons, master 1024). Sem logo real da
+  empresa disponível como arquivo (fica só como base64 no banco, por
+  empresa/loja) — ícone genérico é a mesma solução que o v2 usou.
+- `native.js` novo (só o subset da Fase A: `fluxaModoStandalone`/
+  `fluxaPlataforma`/dismiss com snooze de 7 dias/`beforeinstallprompt`/
+  `_fluxaAvaliarBannerInstalar`) — push e biometria entram nas Fases B/C
+  neste mesmo arquivo, não crio outro.
+- `index.html` — `<link manifest>`/apple-touch-icon/favicons,
+  `#pwa-install-banner` (mesma estrutura do v2), `<script native.js>` antes
+  do `app.js`.
+- `styles.css` — `env(safe-area-inset-top)` em `body`/`.hdr`/`.sidebar` (o
+  v1 só tratava `safe-area-inset-bottom`; notch/Dynamic Island do header
+  ainda não era tratado) + CSS do banner (`.pwa-install-*`), copiado do v2
+  quase 1:1 (usa os mesmos tokens `--c1`/`--c2`/`--r` que o v1 já tem).
+- **Hook único**: `_fluxaAvaliarBannerInstalar()` chamado de dentro de
+  `aplicarPermissoesPerfil()` (`app.js:103`) — confirmei por grep que é o
+  ÚNICO ponto por onde todo login bem-sucedido (novo ou "manter conectado")
+  passa, 6 call sites, todos pós-login. Mesmo ponto que a Fase B (gate de
+  biometria) vai usar.
+- `sw.js`: `fluxa-v229` → `fluxa-v230`, precache de
+  `manifest.json`/`native.js`/`icons/*`.
+
+**Ambiente desta sessão sem Node/Deno/Supabase CLI** (só `curl`/`openssl`/
+`python3`+`pip3` com rede) — isso não afeta a Fase A (100% client-side), mas
+vai exigir um passo manual do Marcos na Fase C (colar o código da Edge
+Function no painel do Supabase — não precisa de CLI do lado dele).
+
+Testado no Browser pane (servidor novo `fluxa-app-v1`, porta 8791,
+`dbOk=false;db=null;`): sessão gestor simulada
+(`setSessao`+`aplicarPermissoesPerfil()`) — desktop → banner fica oculto
+(`plataforma:'desktop'`); UA de iPhone → banner aparece com o texto de
+"Compartilhar → Adicionar à Tela de Início", botão escondido (instalação é
+manual no iOS); `fluxaDispensarInstalar()` → banner some E o snooze de 7
+dias impede reaparecer numa reavaliação seguinte; `matchMedia` mockado pra
+`standalone:true` → banner fica oculto (já instalado). 375×812 sem overflow
+horizontal, banner não sobrepõe a nav inferior mobile (usa o mesmo padrão
+`bottom:calc(72px + safe-area)` que o toast já usava). `manifest.json`/
+`native.js`/todos os ícones respondem HTTP 200. Sintaxe de `app.js`/
+`native.js` validada via `osascript -l JavaScript`+`new Function`
+(`SYNTAX_OK`). Zero erro novo no console. Desktop 1280px sem regressão
+visual (header/sidebar idênticos a antes — `env()` cai pra 0 sem notch).
+
+**Não testado**: notch real (só simulável em navegador desktop até certo
+ponto — o `env(safe-area-inset-top)` em si não tem como ser exercitado sem
+um iPhone físico ou o Simulador). `beforeinstallprompt` real do Android
+Chrome (não dispara neste ambiente sintético) — o texto/botão da branch
+Android só será validado de fato num Android real.
+
 ## 🔧 Limite de desconto sem aprovação — configurável, avisa e não bloqueia (21/08)
 
 Terceiro achado da rodada de verificação com a outra IA (apresentação de

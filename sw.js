@@ -1,13 +1,23 @@
 // Altere este número a cada novo deploy para forçar atualização em todos os dispositivos
 // (não é mais obrigatório: o index.html detecta novas versões sozinho via ETag/Last-Modified)
-const CACHE = 'fluxa-v229';
+const CACHE = 'fluxa-v230';
 
 const URLS = [
   'libs/supabase.min.js',
   'libs/emailjs.min.js',
   'libs/html2pdf.bundle.min.js',
   'libs/chart.umd.min.js',
-  'https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap'
+  'https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap',
+  // App de celular (Fase A, porte do FluxaSaas-/v2)
+  'manifest.json',
+  'native.js',
+  'icons/icon-192.png',
+  'icons/icon-512.png',
+  'icons/icon-192-maskable.png',
+  'icons/icon-512-maskable.png',
+  'icons/apple-touch-icon.png',
+  'icons/favicon-32.png',
+  'icons/favicon-16.png'
 ];
 
 self.addEventListener('install', e => {

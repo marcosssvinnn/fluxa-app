@@ -247,6 +247,11 @@ function aplicarPermissoesPerfil(){
   const pagesTecnicoOk=['minhas-os','visitas','os']; // 'os' para abrir/preencher a OS atribuída
   if(tecnico && !pagesTecnicoOk.includes(pid)) go('minhas-os');
   if(vendas  && !pagesVendasOk.includes(pid))  go('form');
+
+  // App de celular (Fase A, porte do FluxaSaas-/v2) — banner de instalar.
+  // Roda em todo login bem-sucedido (novo ou restaurado), é aqui que
+  // aplicarPermissoesPerfil() sempre passa.
+  try{ if(typeof _fluxaAvaliarBannerInstalar==='function') _fluxaAvaliarBannerInstalar(); }catch(e){ console.warn('[pwa banner]', e?.message||e); }
 }
 
 // Atualiza badge de usuário no header
