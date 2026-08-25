@@ -2055,6 +2055,13 @@
     .pwa-install-close:hover{color:white}
     @media(min-width:681px){ .pwa-install-banner{left:auto;right:20px;bottom:20px;max-width:360px} }
     @media(max-width:680px){ .pwa-install-banner{bottom:calc(72px + env(safe-area-inset-bottom))} }
+    /* Achado testando no emulador (elementFromPoint no ponto exato do banner
+       retornava a própria .toast-msg): o toast do app usa z-index:9999,
+       maior que os 850 daqui — qualquer toast na tela (ex.: aviso de acesso
+       restrito, comum logo no boot) cobria o banner por completo, mesmo ele
+       renderizando certinho por baixo. Aviso de atualização é mais
+       persistente e mais importante que um toast passageiro — fica por cima. */
+    #android-update-banner{z-index:10000}
 
     /* ── App de celular, Fase B — bloqueio biométrico (WebAuthn) ── */
     .biometric-lock-overlay{display:none;position:fixed;inset:0;z-index:9500;background:var(--c2);align-items:center;justify-content:center;padding:24px}
