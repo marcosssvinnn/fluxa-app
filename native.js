@@ -474,7 +474,10 @@ function _fluxaMostrarBannerAtualizacao(apkUrl){
   el.classList.add('on');
   const cs = getComputedStyle(el);
   const rect = el.getBoundingClientRect();
-  console.log('[DIAG3] className='+el.className+' display='+cs.display+' visibility='+cs.visibility+' opacity='+cs.opacity+' rect='+JSON.stringify(rect));
+  console.log('[DIAG3] className='+el.className+' display='+cs.display+' visibility='+cs.visibility+' opacity='+cs.opacity+' zIndex='+cs.zIndex+' rect='+JSON.stringify(rect));
+  const cx = rect.x + rect.width/2, cy = rect.y + rect.height/2;
+  const topo = document.elementFromPoint(cx, cy);
+  console.log('[DIAG3] elementFromPoint('+cx+','+cy+')='+(topo?(topo.tagName+'#'+topo.id+'.'+topo.className):'null')+' innerWidth='+innerWidth+' innerHeight='+innerHeight);
 }
 function fluxaDispensarAtualizacao(){
   const el = document.getElementById('android-update-banner');
