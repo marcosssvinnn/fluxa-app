@@ -61,9 +61,9 @@ async function fluxaInstalarAgora(){
 
 // Chamado de dentro de aplicarPermissoesPerfil() — o único ponto por onde
 // todo login bem-sucedido (novo ou restaurado) passa. Decide o que mostrar:
-// banner de instalar (se ainda não instalado) — as fases seguintes (push,
-// biometria) acrescentam outros estados aqui, nunca mais de um ao mesmo tempo.
-function _fluxaAvaliarBannerInstalar(){
+// banner de instalar (se ainda não instalado) OU banner de ativar biometria
+// (Fase B, se já instalado) — nunca mais de um ao mesmo tempo.
+async function _fluxaAvaliarBannerInstalar(){
   const el = document.getElementById('pwa-install-banner');
   if (!el) return;
 
@@ -88,5 +88,142 @@ function _fluxaAvaliarBannerInstalar(){
     return;
   }
 
+  // Já instalado — oferece ativar biometria (Fase B), se disponível e a
+  // pessoa da sessão ainda não tem credencial registrada neste aparelho.
+  const _sessAtual = typeof getSessao === 'function' ? getSessao() : null;
+  if (_sessAtual && _sessAtual.nome && typeof fluxaTemCredencialBiometrica === 'function'
+      && !fluxaTemCredencialBiometrica(_sessAtual.nome) && !_pwaDismissAtivo()){
+    const disponivel = await fluxaBiometriaDisponivel();
+    if (disponivel){
+      const corpo = document.getElementById('pwa-install-body');
+      const btn = document.getElementById('pwa-install-btn');
+      corpo.innerHTML = 'Ative o desbloqueio por Face ID/digital pra abrir o Fluxa mais rápido — e mais seguro se alguém pegar seu aparelho.';
+      btn.style.display = '';
+      btn.textContent = 'Ativar';
+      btn.onclick = async () => {
+        const ok = await fluxaAtivarBiometria();
+        if (ok){ const b = document.getElementById('pwa-install-banner'); if (b) b.classList.remove('on'); }
+      };
+      el.classList.add('on');
+      return;
+    }
+  }
+
   el.classList.remove('on');
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Desbloqueio biométrico (Fase B, porte do FluxaSaas-/v2) — WebAuthn (Face
+// ID/Touch ID/impressão digital via autenticador de plataforma do próprio
+// aparelho).
+//
+// O que isso NÃO é: não é uma segunda camada de autenticação server-side —
+// o v1 nem tem Supabase Auth (sessão é só nome+PIN em sessionStorage/
+// "manter conectado" em localStorage, ver getSessao()/getSessaoLembrada()
+// em app.js). Isso é só um GATE de conveniência/segurança física: sem ele,
+// "manter conectado" reabre o app direto pra qualquer um que pegue o
+// aparelho destravado. A credencial fica só no localStorage do aparelho, a
+// verificação nunca sai do navegador. Chave usada pra identificar de quem é
+// a credencial: sessaoExistente.nome — é o único identificador estável que
+// a sessão do v1 tem (não existe id de usuário na sessão, só perfil/loja_id/
+// nome; confirmado em app.js, os 4 pontos que chamam setSessao()).
+// ─────────────────────────────────────────────────────────────────────────
+
+function _bufParaB64url(buf){
+  const bytes = new Uint8Array(buf);
+  let bin = '';
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function _b64urlParaBuf(str){
+  const padding = '='.repeat((4 - str.length % 4) % 4);
+  const base64 = (str + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const bin = atob(base64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes.buffer;
+}
+
+async function fluxaBiometriaDisponivel(){
+  if (!window.PublicKeyCredential || !navigator.credentials) return false;
+  try{ return await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable(); }
+  catch(e){ return false; }
+}
+function fluxaTemCredencialBiometrica(nomeSessao){
+  return !!nomeSessao && localStorage.getItem('fluxa_webauthn_user') === nomeSessao && !!localStorage.getItem('fluxa_webauthn_cred');
+}
+
+// Registro — chamado a partir do banner (2º estado, "já instalado").
+async function fluxaAtivarBiometria(){
+  const sess = typeof getSessao === 'function' ? getSessao() : null;
+  if (!sess || !sess.nome) return false;
+  try{
+    const cred = await navigator.credentials.create({
+      publicKey: {
+        challenge: crypto.getRandomValues(new Uint8Array(32)),
+        rp: { name: 'Fluxa' },
+        user: {
+          id: new TextEncoder().encode(sess.nome),
+          name: sess.nome,
+          displayName: sess.nome,
+        },
+        pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }],
+        authenticatorSelection: { authenticatorAttachment: 'platform', userVerification: 'required', residentKey: 'required' },
+        timeout: 60000,
+      },
+    });
+    if (!cred) return false;
+    localStorage.setItem('fluxa_webauthn_cred', _bufParaB64url(cred.rawId));
+    localStorage.setItem('fluxa_webauthn_user', sess.nome);
+    return true;
+  }catch(e){ console.warn('[webauthn] ativar', e?.message||e); return false; }
+}
+
+// Verificação — usada na tela de bloqueio, antes do boot continuar.
+async function fluxaVerificarBiometria(){
+  const credId = localStorage.getItem('fluxa_webauthn_cred');
+  if (!credId) return true; // sem credencial registrada: sem gate, nada a verificar
+  try{
+    const assertion = await navigator.credentials.get({
+      publicKey: {
+        challenge: crypto.getRandomValues(new Uint8Array(32)),
+        allowCredentials: [{ id: _b64urlParaBuf(credId), type: 'public-key' }],
+        userVerification: 'required',
+        timeout: 60000,
+      },
+    });
+    return !!assertion;
+  }catch(e){ console.warn('[webauthn] verificar', e?.message||e); return false; }
+}
+
+function mostrarTelaBloqueioBiometrico(){
+  const el = document.getElementById('biometric-lock-overlay');
+  if (el) el.style.display = 'flex';
+}
+function esconderTelaBloqueioBiometrico(){
+  const el = document.getElementById('biometric-lock-overlay');
+  if (el) el.style.display = 'none';
+}
+async function fluxaDesbloquearBiometria(){
+  const status = document.getElementById('biometric-lock-status');
+  if (status) status.textContent = 'Verificando…';
+  const ok = await fluxaVerificarBiometria();
+  if (ok){
+    sessionStorage.setItem('fluxa_webauthn_ok', '1');
+    location.reload();
+  } else if (status){
+    status.textContent = 'Não foi possível verificar. Tente de novo.';
+  }
+}
+// Escape hatch: biometria falhando/indisponível — sai da conta e volta pra
+// tela de login normal (nome+PIN), sem meio-termo confuso. Precisa esconder
+// a própria tela de bloqueio (z-index mais alto que o login-overlay) —
+// senão fazerLogout() mostra o login por baixo, mas o cadeado continua
+// cobrindo a tela por cima, travando quem clicou aqui sem saída visível.
+function fluxaUsarOutroLogin(){
+  localStorage.removeItem('fluxa_webauthn_cred');
+  localStorage.removeItem('fluxa_webauthn_user');
+  esconderTelaBloqueioBiometrico();
+  if (typeof fazerLogout === 'function') fazerLogout();
+  else location.reload();
 }

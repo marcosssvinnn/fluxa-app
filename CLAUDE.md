@@ -2,6 +2,71 @@
 
 ---
 
+## 📱 App de celular — Fase B: desbloqueio biométrico (WebAuthn) (24/08)
+
+Segunda fase do plano (`~/.claude/plans/lucky-toasting-cocke.md`), porte do
+`native.js` do FluxaSaas-/v2 (Sprint 2 de lá). 100% client-side — WebAuthn
+puro, a credencial fica só no `localStorage` do aparelho, verificação nunca
+sai do navegador. **Não é uma segunda camada de autenticação server-side**
+— o v1 nem tem Supabase Auth pra isso; é só um checkpoint de conveniência/
+segurança física antes de "manter conectado" reabrir o app sozinho.
+
+**Adaptação em relação ao v2** (já prevista no plano, confirmada no código):
+a sessão do v1 não tem `id` de usuário — `getSessao()`/os 4 pontos que
+chamam `setSessao()` só gravam `{perfil, loja_id, nome}`. A credencial é
+chaveada por `sessaoExistente.nome` (único identificador estável que existe
+aqui), não por um id de conta como no v2.
+
+- **`native.js`** — `fluxaBiometriaDisponivel`/`fluxaTemCredencialBiometrica`/
+  `fluxaAtivarBiometria`/`fluxaVerificarBiometria`/
+  `mostrarTelaBloqueioBiometrico`/`fluxaDesbloquearBiometria`/
+  `fluxaUsarOutroLogin`, portados quase 1:1 do v2 (só a chave de identidade
+  mudou, acima). `_fluxaAvaliarBannerInstalar` (Fase A) ganhou o 2º estado:
+  se já instalado e a sessão atual não tem credencial ainda, oferece
+  "Ativar" desbloqueio biométrico.
+- **Gate no boot** (`app.js`, dentro do bloco `if(sessaoExistente){` que já
+  resolve sessão de aba/"manter conectado") — se há credencial pro
+  `sessaoExistente.nome` E esta aba ainda não desbloqueou
+  (`sessionStorage.fluxa_webauthn_ok`), mostra `#biometric-lock-overlay` e
+  `return` ANTES de aplicar a sessão/chamar `aplicarPermissoesPerfil()`.
+- **Escape hatch "Entrar de outro jeito"** → `fazerLogout()` (a função real
+  do v1, não existe `authLogout` aqui — isso é só do v2).
+- `index.html`/`styles.css` — markup e CSS do `#biometric-lock-overlay`
+  portados do v2 quase sem mudança (mesmos tokens `--c2`/`--r`).
+
+**🔴 Bug real achado e corrigido durante o próprio teste** (não existia no
+v2 original, porque lá `mostrarTelaBloqueioBiometrico` acontece ANTES do
+login-overlay ser escondido — aqui a ordem expôs um caso que o v2 nunca
+tinha exercitado): `fluxaUsarOutroLogin()` limpava a credencial e chamava
+`fazerLogout()` (que mostra o login por baixo), mas nunca escondia a
+PRÓPRIA tela de bloqueio — que tem z-index mais alto (9500) que o
+login-overlay. Resultado: clicar em "Entrar de outro jeito" deixava a
+pessoa olhando pro cadeado morto, sem nenhuma saída visível (só um reload
+manual resolvia). Corrigido com `esconderTelaBloqueioBiometrico()` (nova,
+espelha `mostrarTelaBloqueioBiometrico()`), chamada no início de
+`fluxaUsarOutroLogin()`.
+
+Testado no Browser pane (`dbOk=false;db=null;`, sessão gestor simulada em
+`sessionStorage`, credencial WebAuthn fake em `localStorage` — não dá pra
+exercitar o Face ID/Touch ID real neste ambiente, então mockei
+`fluxaVerificarBiometria`/`PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable`
+pontualmente, igual ao que as sessões do v2 já documentaram fazer): sessão
+"manter conectado" + credencial registrada → tela de bloqueio aparece
+ANTES do app (confirmado por screenshot, cobre a tela inteira); verificação
+falha → mensagem de erro, continua bloqueado; verificação com sucesso →
+`sessionStorage.fluxa_webauthn_ok='1'`, reload real confirma que o boot
+passa direto pro app da 2ª vez (sem re-perguntar); "Entrar de outro jeito"
+→ credencial limpa, `fazerLogout()` roda, tela de login aparece de verdade
+(screenshot confirma, depois do fix do bug acima); banner oferece "Ativar"
+biometria quando instalado+disponível+sem credencial ainda. Sintaxe de
+`app.js`/`native.js` validada via `osascript -l JavaScript`+`new Function`
+(`SYNTAX_OK`). Zero erro novo no console em todos os cenários.
+
+**Não testado**: cerimônia WebAuthn real (Face ID/Touch ID/impressão
+digital de verdade) — só simulável num iPhone/Android físico ou no
+Simulador; esta sessão só validou a lógica ao redor (gate, chaves de
+localStorage, fluxo de tela), não o autenticador de plataforma em si.
+
 ## 🔴 Achado logo após a Fase A: `injetarPWA()` sobrescrevia o manifest novo (24/08)
 
 Testando a Fase A já em produção (recarreguei a página real pra conferir),

@@ -1164,6 +1164,18 @@ function lsOrcProxNum(){ return lsOrcLer().reduce((a,o)=>Math.max(a,o.numero||0)
     if(lembrada){ setSessao(lembrada); sessaoExistente = lembrada; }
   }
   if(sessaoExistente){
+    // App de celular, Fase B (porte do FluxaSaas-/v2) — checkpoint biométrico
+    // ANTES de aplicar a sessão (de aba OU "manter conectado") silenciosamente.
+    // Sem isso, "manter conectado" reabre o app direto pra qualquer um que
+    // pegue o aparelho destravado. Só entra em ação se a pessoa da sessão já
+    // registrou uma credencial neste aparelho (fluxaAtivarBiometria, opt-in
+    // pelo banner) E esta aba ainda não desbloqueou nesta sessão.
+    if(typeof fluxaTemCredencialBiometrica==='function'
+       && fluxaTemCredencialBiometrica(sessaoExistente.nome)
+       && sessionStorage.getItem('fluxa_webauthn_ok')!=='1'){
+      if(typeof mostrarTelaBloqueioBiometrico==='function') mostrarTelaBloqueioBiometrico();
+      return;
+    }
     // Restaura loja ativa: gestor específico usa loja_id da sessão;
     // gestor principal usa o valor salvo no sessionStorage (persiste em F5)
     if(sessaoExistente.loja_id) lojaAtiva = sessaoExistente.loja_id;
