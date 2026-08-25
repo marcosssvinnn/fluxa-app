@@ -10,6 +10,45 @@
 // arquivo.
 // ─────────────────────────────────────────────────────────────────────────
 
+// Achado ao vivo (24/08, testando a tela de Vistoria em campo — o técnico
+// preenche fotos/avaliação por equipamento e finaliza): o banner fixo no
+// rodapé ("Instalar o Fluxa") cobria o botão "✅ Finalizar Vistoria" quando
+// a pessoa rolava até o fim do formulário — o próprio botão que fecha o
+// trabalho de campo ficava por baixo, inclicável.
+//
+// Tentativa descartada: somar padding-bottom ao `.wrap` da página ativa.
+// Não funciona de forma confiável — cada tela tem uma estrutura interna
+// diferente (na de Vistoria, por exemplo, o container das abas ainda
+// ocupa espaço de layout mesmo com a aba inativa em `display:none` em
+// outro ponto da árvore), então "quanto padding extra é suficiente" varia
+// por tela de um jeito que não dá pra calcular de fora sem depender da
+// estrutura interna de cada uma — exatamente o acoplamento frágil que
+// este arquivo tenta evitar (native.js não deve conhecer detalhes de tela
+// nenhuma do app.js).
+//
+// Solução robusta: o banner **se esconde sozinho** (fade, sem remover do
+// layout) sempre que a rolagem estiver perto do fim da página, e volta
+// quando a pessoa rola pra cima de novo. Não precisa saber nada sobre o
+// que tem no fim de cada tela — se tem alguma coisa lá embaixo, o banner
+// simplesmente sai da frente enquanto a pessoa está vendo aquele trecho.
+const _FLUXA_BANNER_SCROLL_MARGEM = 160; // px do fim da página onde o banner já se esconde
+function _fluxaBannerPertoDoFim(){
+  const doc = document.documentElement;
+  return (window.scrollY + window.innerHeight) >= (doc.scrollHeight - _FLUXA_BANNER_SCROLL_MARGEM);
+}
+function _fluxaSincronizarBannerComScroll(){
+  const el = document.getElementById('pwa-install-banner');
+  if (!el || !el.classList.contains('on')) return;
+  el.classList.toggle('pwa-banner-escondido-scroll', _fluxaBannerPertoDoFim());
+}
+window.addEventListener('scroll', _fluxaSincronizarBannerComScroll, { passive: true });
+(function _fluxaObservarBannerInstalar(){
+  const el = document.getElementById('pwa-install-banner');
+  if (!el || !window.MutationObserver) return;
+  new MutationObserver(_fluxaSincronizarBannerComScroll).observe(el, { attributes: true, attributeFilter: ['class'] });
+  _fluxaSincronizarBannerComScroll();
+})();
+
 function fluxaModoStandalone(){
   try{
     return window.matchMedia('(display-mode: standalone)').matches
@@ -74,12 +113,13 @@ async function _fluxaAvaliarBannerInstalar(){
     if (plataforma === 'android' && !_fluxaInstallEvent){ el.classList.remove('on'); return; }
     const corpo = document.getElementById('pwa-install-body');
     const btn = document.getElementById('pwa-install-btn');
+    const nomeApp = (typeof esc === 'function' && typeof CFG !== 'undefined' && CFG.nome) ? esc(CFG.nome) : 'Fluxa';
     if (plataforma === 'ios'){
-      corpo.innerHTML = 'Toque em <b>⬆️ Compartilhar</b> e depois em <b>"Adicionar à Tela de Início"</b> pra abrir o Fluxa como app, com tela cheia.';
+      corpo.innerHTML = `Toque em <b>⬆️ Compartilhar</b> e depois em <b>"Adicionar à Tela de Início"</b> pra abrir o ${nomeApp} como app, com tela cheia.`;
       btn.style.display = 'none';
       btn.onclick = null;
     } else {
-      corpo.innerHTML = 'Instale o Fluxa como app pra abrir mais rápido, com tela cheia.';
+      corpo.innerHTML = `Instale o ${nomeApp} como app pra abrir mais rápido, com tela cheia.`;
       btn.style.display = '';
       btn.textContent = 'Instalar';
       btn.onclick = fluxaInstalarAgora;
@@ -112,7 +152,8 @@ async function _fluxaAvaliarBannerInstalar(){
     if (disponivel){
       const corpo = document.getElementById('pwa-install-body');
       const btn = document.getElementById('pwa-install-btn');
-      corpo.innerHTML = 'Ative o desbloqueio por Face ID/digital pra abrir o Fluxa mais rápido — e mais seguro se alguém pegar seu aparelho.';
+      const nomeApp2 = (typeof esc === 'function' && typeof CFG !== 'undefined' && CFG.nome) ? esc(CFG.nome) : 'Fluxa';
+      corpo.innerHTML = `Ative o desbloqueio por Face ID/digital pra abrir o ${nomeApp2} mais rápido — e mais seguro se alguém pegar seu aparelho.`;
       btn.style.display = '';
       btn.textContent = 'Ativar';
       btn.onclick = async () => {
@@ -339,6 +380,11 @@ async function fluxaVerificarBiometria(){
 function mostrarTelaBloqueioBiometrico(){
   const el = document.getElementById('biometric-lock-overlay');
   if (el) el.style.display = 'flex';
+  const titulo = document.getElementById('biometric-lock-titulo');
+  if (titulo){
+    const nomeApp = (typeof esc === 'function' && typeof CFG !== 'undefined' && CFG.nome) ? esc(CFG.nome) : 'Fluxa';
+    titulo.textContent = `${nomeApp} bloqueado`;
+  }
 }
 function esconderTelaBloqueioBiometrico(){
   const el = document.getElementById('biometric-lock-overlay');

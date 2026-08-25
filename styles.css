@@ -2039,8 +2039,13 @@
     }
 
     /* ── App de celular, Fase A (porte do FluxaSaas-/v2) — banner de instalar ── */
-    .pwa-install-banner{display:none;position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:850;background:var(--c2);color:white;border-radius:var(--r);padding:12px 12px 12px 14px;box-shadow:0 10px 30px rgba(0,0,0,.3);align-items:center;gap:10px}
+    .pwa-install-banner{display:none;position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:850;background:var(--c2);color:white;border-radius:var(--r);padding:12px 12px 12px 14px;box-shadow:0 10px 30px rgba(0,0,0,.3);align-items:center;gap:10px;transition:opacity .18s ease,transform .18s ease}
     .pwa-install-banner.on{display:flex}
+    /* Rolagem perto do fim da página (native.js, _fluxaSincronizarBannerComScroll)
+       — o banner nunca deve competir com o que estiver lá embaixo (ex.: o botão
+       "Finalizar Vistoria"). Continua no layout (display:flex), só invisível e
+       sem clique, pra reaparecer com transição suave ao rolar pra cima de novo. */
+    .pwa-install-banner.on.pwa-banner-escondido-scroll{opacity:0;transform:translateY(12px);pointer-events:none}
     .pwa-install-icon{font-size:22px;flex-shrink:0}
     .pwa-install-txt{flex:1;font-size:12.5px;line-height:1.4;color:rgba(255,255,255,.92)}
     .pwa-install-txt b{color:white}

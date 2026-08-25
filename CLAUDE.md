@@ -2,6 +2,59 @@
 
 ---
 
+## 🔴 App de celular — banner de instalar cobria o botão "Finalizar Vistoria" (24/08)
+
+Marcos: "a parte mais importante é a de que o técnico faz a vistoria no
+local com as fotos e avaliações, então a usabilidade tem que estar
+perfeita". Fui verificar a tela real de Vistoria (não só a lista — o
+formulário de campo com os 51 equipamentos, fotos e avaliação de um
+cliente real, "Infinity Coast Tower") num viewport mobile, com o banner de
+instalar (Fase A) visível. Achado real: **rolando até o fim do
+formulário, o banner fixo cobria o botão "✅ Finalizar Vistoria"** — o
+próprio botão que fecha o trabalho de campo ficava embaixo dele,
+inclicável.
+
+**Duas tentativas de correção, a 1ª descartada por não funcionar de
+forma confiável:**
+1. *(descartada)* Somar `padding-bottom` ao `.wrap` da página ativa,
+   calculado a partir da altura do banner. Não funcionou: a tela de
+   Vistoria tem outras abas (`#vis-view-hist`/`#vis-view-locais`) que
+   continuam ocupando estrutura mesmo escondidas, então "quanto padding
+   extra é suficiente" varia por tela de um jeito que não dá pra calcular
+   de fora sem conhecer a estrutura interna de cada uma — medido ao vivo:
+   aumentar o padding de 150px pra 367px **não moveu o botão nem 1px** na
+   tela, porque o padding estava sendo somado depois de outro conteúdo
+   que eu não tinha enxergado.
+2. **(a que ficou)** O banner **se esconde sozinho** (fade + `pointer-
+   events:none`, sem sair do layout) sempre que a rolagem chega perto do
+   fim da página (`_fluxaBannerPertoDoFim()`, margem de 160px), e volta
+   suave ao rolar pra cima de novo. Não precisa saber nada sobre a
+   estrutura de nenhuma tela — se tem alguma coisa lá embaixo, o banner
+   simplesmente sai da frente enquanto a pessoa está vendo aquele trecho.
+   `native.js`: `_fluxaSincronizarBannerComScroll()` (listener de
+   `scroll`, passivo, + MutationObserver na classe do banner pra reagir
+   também quando ele aparece pela 1ª vez já perto do fim).
+   `styles.css`: `.pwa-install-banner.on.pwa-banner-escondido-scroll`.
+
+Testado no Browser pane (tela de Vistoria real, cliente "Infinity Coast
+Tower", 51 equipamentos, mobile 375×812, banner forçado visível): no topo
+da página → banner visível (`opacity:1`); rolado até o fim → banner
+invisível E sem clique (`opacity:0`, `pointer-events:none`),
+confirmado com `document.elementFromPoint()` no ponto exato do botão
+"Finalizar Vistoria" → retorna o próprio botão, não o banner
+(`botaoRecebeClique:true`); rolando de volta pro topo → banner reaparece.
+Sintaxe validada via `osascript -l JavaScript`+`new Function`
+(`SYNTAX_OK`). Zero erro novo no console.
+
+**Lição de processo desta rodada**: a 1ª tentativa (padding) parecia
+correta na teoria mas as medições ao vivo mostraram repetidamente que não
+funcionava — troquei de abordagem em vez de insistir ajustando o número.
+Vale registrar pra não cair na mesma armadilha: qualquer fix baseado em
+"calcular espaço reservado a partir de fora da tela" é frágil neste app
+(list/tabs escondidas ainda ocupam estrutura); esconder o elemento
+flutuante baseado na posição real de rolagem é mais robusto que tentar
+adivinhar o tamanho do conteúdo de cada página.
+
 ## ✍️ Vistoria — assinatura digital do técnico (24/08)
 
 Pedido do Marcos: confirmar que o técnico realmente esteve no local. Decisão
