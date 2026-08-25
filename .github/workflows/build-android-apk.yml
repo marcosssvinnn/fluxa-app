@@ -132,15 +132,6 @@ jobs:
       - name: Renomear o APK gerado
         run: cp android/app/build/outputs/apk/debug/app-debug.apk Forthemp.apk
 
-      - name: Gerar android-version.json (o app instalado confere este arquivo pra saber se tem versão nova)
-        run: |
-          BUILD_ID="${GITHUB_SHA::7}"
-          printf '{\n  "build": "%s",\n  "apk_url": "%s"\n}\n' \
-            "$BUILD_ID" \
-            "https://github.com/marcosssvinnn/fluxa-app/releases/download/forthemp-android-latest/Forthemp.apk" \
-            > android-version.json
-          cat android-version.json
-
       - name: Subir como artefato do build
         uses: actions/upload-artifact@v4
         with:
@@ -162,7 +153,33 @@ jobs:
             A partir desta versão, o próprio app avisa sozinho quando
             existir uma versão mais nova (banner "Nova versão disponível"),
             sem precisar voltar aqui.
-          files: |
-            Forthemp.apk
-            android-version.json
+          files: Forthemp.apk
           make_latest: false
+
+      - name: Atualizar android-version.json na própria branch (o app lê via raw.githubusercontent.com)
+        run: |
+          set -e
+          # Achado testando no emulador: publicar esse arquivo como asset
+          # do Release não funciona pro app conferir sozinho — a CDN de
+          # assets do GitHub (release-assets.githubusercontent.com) não
+          # manda cabeçalho Access-Control-Allow-Origin, e fetch() de
+          # dentro do WebView é bloqueado por CORS (silencioso, só aparece
+          # no console). raw.githubusercontent.com manda esse cabeçalho —
+          # commitando o arquivo na própria branch em vez de anexar no
+          # Release, o app consegue ler.
+          BUILD_ID="${GITHUB_SHA::7}"
+          printf '{\n  "build": "%s",\n  "apk_url": "%s"\n}\n' \
+            "$BUILD_ID" \
+            "https://github.com/marcosssvinnn/fluxa-app/releases/download/forthemp-android-latest/Forthemp.apk" \
+            > android-version.json
+          cat android-version.json
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add android-version.json
+          # [skip ci]: sem isso, este push disparava o próprio workflow nele
+          # de novo (o gatilho é qualquer push na branch), num loop.
+          # checkout -B: actions/checkout deixa o repo em detached HEAD no
+          # sha do push — sem isso "git push" não sabe pra qual branch ir.
+          git checkout -B android-apk
+          git commit -m "chore(android): atualiza android-version.json [skip ci]" || echo "nada novo pra commitar"
+          git push origin HEAD:android-apk
