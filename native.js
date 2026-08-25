@@ -186,6 +186,73 @@ async function fluxaInscreverPush(){
 }
 
 // ─────────────────────────────────────────────────────────────────────────
+// Histórico de push recebido (Fase D) — o Service Worker grava no IndexedDB
+// 'fluxa-notificacoes' (não tem window lá, é o único armazenamento
+// confiável sem nenhuma aba aberta). O v1 JÁ TEM seu próprio sino de
+// notificações (getNotificacoes()/#notif-panel, app.js — alertas
+// derivados: recebíveis, estoque, follow-up) — Fase D não cria um painel
+// novo, só alimenta ESSE com o que chegou por push. Estas funções aqui são
+// só a camada de acesso ao IndexedDB; a integração na lista/render vive em
+// app.js.
+// ─────────────────────────────────────────────────────────────────────────
+
+const FLUXA_NOTIF_DB = 'fluxa-notificacoes';
+function _abrirNotifDB(){
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(FLUXA_NOTIF_DB, 1);
+    req.onupgradeneeded = () => {
+      const idb = req.result;
+      if (!idb.objectStoreNames.contains('notificacoes')){
+        idb.createObjectStore('notificacoes', { keyPath: 'id', autoIncrement: true });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function fluxaListarNotificacoesPush(limite){
+  limite = limite || 30;
+  try{
+    const idb = await _abrirNotifDB();
+    return await new Promise((resolve, reject) => {
+      const tx = idb.transaction('notificacoes', 'readonly');
+      const req = tx.objectStore('notificacoes').getAll();
+      req.onsuccess = () => {
+        const todas = (req.result || []).sort((a, b) => b.recebidaEm - a.recebidaEm);
+        resolve(todas.slice(0, limite));
+      };
+      req.onerror = () => reject(req.error);
+    });
+  }catch(e){ console.warn('[push] listar', e?.message||e); return []; }
+}
+
+async function fluxaMarcarNotifPushLida(id){
+  try{
+    const idb = await _abrirNotifDB();
+    await new Promise((resolve) => {
+      const tx = idb.transaction('notificacoes', 'readwrite');
+      const store = tx.objectStore('notificacoes');
+      const r = store.get(id);
+      r.onsuccess = () => {
+        const v = r.result;
+        if (v && !v.lida){ v.lida = true; store.put(v); }
+        resolve();
+      };
+      r.onerror = () => resolve();
+    });
+  }catch(e){ console.warn('[push] marcar lida', e?.message||e); }
+}
+
+// Recebe o aviso do Service Worker (postMessage) de que uma notificação nova
+// chegou — atualiza o sino na hora, sem esperar o próximo boot/foco de aba.
+if (typeof navigator !== 'undefined' && navigator.serviceWorker){
+  navigator.serviceWorker.addEventListener('message', (e) => {
+    if (e.data && e.data.type === 'FLUXA_NOTIF_NOVA' && typeof renderNotificacoes === 'function') renderNotificacoes();
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────
 // Desbloqueio biométrico (Fase B, porte do FluxaSaas-/v2) — WebAuthn (Face
 // ID/Touch ID/impressão digital via autenticador de plataforma do próprio
 // aparelho).

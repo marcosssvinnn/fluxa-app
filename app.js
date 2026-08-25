@@ -5524,7 +5524,17 @@ document.addEventListener('click', e=>{
   const path = e.composedPath ? e.composedPath() : [e.target];
   if(!path.some(el=>el.classList && el.classList.contains('notif-wrap'))) closeNotif();
 });
+// Avisos de push (Fase D) têm id 'push_<idNoIndexedDB>' — dispensar aqui
+// significa marcar lido de vez (o evento já aconteceu, não é uma condição
+// que "volta amanhã" como os alertas derivados abaixo). Os demais seguem o
+// snooze de 1 dia + histórico local, como já era.
 function notifDispensar(id){
+  if(String(id).startsWith('push_')){
+    const idNum=Number(String(id).slice(5));
+    if(typeof fluxaMarcarNotifPushLida==='function') fluxaMarcarNotifPushLida(idNum);
+    renderNotificacoes();
+    return;
+  }
   const n=_notifCache.find(x=>x.id===id);
   const m=_notifDismissLer(); m[id]=Date.now(); _notifDismissSalvar(m);
   const h=_notifHistLer();
@@ -5533,12 +5543,33 @@ function notifDispensar(id){
   if(typeof toast==='function') toast('Ok, não aviso de novo por hoje');
   renderNotificacoes();
 }
+// Abre uma notificação de push (Fase D) — marca lida no IndexedDB e navega
+// se a URL do payload apontar pra uma página interna reconhecida por go().
+function _notifAbrirPush(idNum, url){
+  if(typeof fluxaMarcarNotifPushLida==='function') fluxaMarcarNotifPushLida(idNum);
+  const alvo=String(url||'').replace(/^\//,'').replace(/^#/,'').trim();
+  if(alvo && typeof go==='function'){ try{ go(alvo); }catch(e){ console.warn('[notif push] go', e?.message||e); } }
+  renderNotificacoes();
+}
 // marcarVistas=true só quando o usuário efetivamente abriu o painel — evita
 // que uma chamada de fundo (boot, troca de página) já "gaste" o toast antes
 // da pessoa ver.
-function renderNotificacoes(){
+async function renderNotificacoes(){
   let notifs=[];
   try{ notifs=getNotificacoes(); }catch(e){ console.warn('[notif]', e?.message||e); }
+  // Avisos de push recebidos (Fase D) — o v1 já tinha este sino pra alertas
+  // derivados de sistema; push some junto aqui em vez de ganhar painel
+  // próprio (o v2 fez um painel separado porque não tinha nada disso ainda).
+  try{
+    if(typeof fluxaListarNotificacoesPush==='function'){
+      const pushItens=await fluxaListarNotificacoesPush(30);
+      pushItens.filter(p=>!p.lida).forEach(p=>{
+        notifs.push({id:'push_'+p.id, cor:'var(--c1)', icone:'📲',
+          titulo:p.title||'Fluxa', sub:p.body||'',
+          acao:'Abrir', fn:`_notifAbrirPush(${p.id},'${String(p.url||'/').replace(/'/g,'')}')`});
+      });
+    }
+  }catch(e){ console.warn('[notif:push]', e?.message||e); }
   _notifCache=notifs;
 
   const badge=document.getElementById('notif-badge');

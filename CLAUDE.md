@@ -2,6 +2,82 @@
 
 ---
 
+## 📱 App de celular — Fase D: central de notificações, integrada ao sino já existente (24/08)
+
+Última fase do plano (`~/.claude/plans/lucky-toasting-cocke.md`). O v2 fez
+essa fase como um painel de histórico próprio (IndexedDB), porque não tinha
+nenhum sistema de notificação ainda. **O v1 já tinha o seu** (sino no
+cabeçalho, `getNotificacoes()`/`#notif-panel`/`renderNotificacoes()`,
+2026-08-13) — alertas DERIVADOS de dados (recebíveis vencidos, OS sem
+técnico, estoque negativo, fila de follow-up, cadência de recompra). Achado
+registrado desde a Fase C: a decisão certa aqui era **integrar o push
+recebido nesse sino**, não duplicar com um painel novo.
+
+- **`sw.js`** — o handler `push` (Fase C) ganhou a gravação no IndexedDB
+  `fluxa-notificacoes` (mesmo nome/estrutura que o v2 usa — é a única forma
+  de persistir isto com o app fechado, Service Worker não tem `window`) +
+  `postMessage` pras abas abertas atualizarem o sino na hora. `fluxa-v231`
+  → `fluxa-v232`.
+- **`native.js`** — camada de acesso ao IndexedDB
+  (`fluxaListarNotificacoesPush`/`fluxaMarcarNotifPushLida`), só isso; a
+  exibição continua 100% em `app.js`, no sino que já existia.
+- **`app.js`** — `renderNotificacoes()` virou `async` e passa a somar os
+  itens de push (não lidos) aos alertas derivados de `getNotificacoes()`,
+  antes de badge/toast-once/render rodarem — o resto do mecanismo (contador
+  do sino, "toca uma vez só", filtro por tab) não mudou nada, só ganhou mais
+  itens na lista. `notifDispensar(id)` ganhou um branch pro prefixo
+  `push_`: pra alerta derivado, dispensar é "não avisa de novo por 1 dia"
+  (a condição pode voltar); pra push, dispensar é **marcar lido de vez** no
+  IndexedDB (o evento já aconteceu, não volta sozinho). Nova
+  `_notifAbrirPush(idNum, url)` — marca lido e, se a URL do payload
+  apontar pra uma rota interna reconhecida (`#pagina`), chama `go(pagina)`;
+  hoje o gatilho da Fase C sempre manda `url:'/'` (o v1 não tem hash de
+  deep-link pra "Histórico" especificamente), então não navega pra lugar
+  nenhum ainda — só fecha/marca lido. Fica pronto pro dia em que o gatilho
+  mandar uma URL mais específica.
+
+**Escopo deliberadamente menor que o v2**: a aba "Histórico" do sino
+continua só com o log de alertas derivados dispensados
+(`_notifHistLer()`); push lido não migra pra lá nesta rodada — simplesmente
+para de aparecer em "Pendentes assim que fica lido. Juntar as duas fontes
+na mesma aba de histórico é um refinamento futuro, não um requisito desta
+fase.
+
+Testado no Browser pane (importante: **achado de processo, não bug de
+código** — o primeiro teste, numa aba já navegada várias vezes nesta
+sessão, mostrou `renderNotificacoes()` ainda síncrona, retornando
+`undefined` em vez de Promise; era o Service Worker antigo/cache do
+navegador servindo um `app.js` desatualizado dessa aba específica, não o
+código real — confirmado comparando com um `fetch('/app.js',
+{cache:'no-store'})`, que já trazia a versão nova. Resolvido testando numa
+aba nova após `serviceWorker.getRegistrations()...unregister()` +
+`caches.delete()` — lição pra próxima sessão de teste local, mesma
+categoria do achado já registrado em 2026-06-22 sobre cache mascarar fix
+por uma rodada inteira): com o ambiente limpo, gravei 2 notificações
+sintéticas direto no IndexedDB (simulando o que o Service Worker gravaria
+num push real) — sino mostra os 3 alertas derivados JÁ existentes (dados
+reais em cache local desta empresa) mais os itens de push, todos com ícone
+📲 e botão "Abrir"; `notifDispensar('push_N')` marca `lida:true` no
+IndexedDB (confirmado por leitura direta) em vez do snooze de 1 dia;
+`_notifAbrirPush` marca lido e não navega pra URL genérica `/` (correto),
+mas chama `go('estoque')` corretamente quando testado com uma URL
+`/#estoque` sintética (comportamento futuro-compatível, não exercitado
+pelo gatilho real ainda). Badge soma os dois tipos corretamente (3
+derivados + N de push). Screenshot confirma visual limpo, sem regressão
+nos alertas derivados existentes. Sintaxe de `app.js`/`native.js`/`sw.js`
+validada via `osascript -l JavaScript`+`new Function` (`SYNTAX_OK`). Zero
+erro novo no console.
+
+### 📱 Resumo das 4 fases — app de celular completo no v1
+Fase A (instalável: manifest/ícone/banner) → Fase B (biometria WebAuthn) →
+Fase C (push via Web Push/VAPID, trigger no banco) → Fase D (integrado ao
+sino já existente). **Único passo que ainda falta pra push funcionar de
+verdade em produção**: o deploy manual da Edge Function `enviar-push` no
+painel do Supabase (ver Fase C acima) — o Marcos tem o código pronto e os
+valores de VAPID/segredo que passei em chat, só falta colar e configurar.
+Todo o resto (A, B, e a infraestrutura client-side de C/D) já está em
+produção, commitado e pushado.
+
 ## 📱 App de celular — Fase C: notificações push (Web Push/VAPID) (24/08)
 
 Terceira fase do plano (`~/.claude/plans/lucky-toasting-cocke.md`), porte
