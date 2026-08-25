@@ -467,10 +467,14 @@ async function fluxaChecarAtualizacaoApp(){
 }
 function _fluxaMostrarBannerAtualizacao(apkUrl){
   const el = document.getElementById('android-update-banner');
+  console.log('[DIAG3] el='+(!!el));
   if (!el) return;
   const btn = document.getElementById('android-update-btn');
   if (btn) btn.onclick = () => window.open(apkUrl, '_system');
   el.classList.add('on');
+  const cs = getComputedStyle(el);
+  const rect = el.getBoundingClientRect();
+  console.log('[DIAG3] className='+el.className+' display='+cs.display+' visibility='+cs.visibility+' opacity='+cs.opacity+' rect='+JSON.stringify(rect));
 }
 function fluxaDispensarAtualizacao(){
   const el = document.getElementById('android-update-banner');
