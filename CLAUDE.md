@@ -10519,3 +10519,5 @@ de cliente tem de ser **assistido, não automático** — 73 nomes sem ficha e 1
 <!-- teste final: banner de atualização via raw.githubusercontent.com -->
 
 <!-- teste com diagnostico ligado -->
+
+<!-- teste final real do fix de cache do service worker -->
