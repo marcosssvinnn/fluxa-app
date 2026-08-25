@@ -442,6 +442,7 @@ function fluxaEhAppNativo(){
 const FORTHEMP_ANDROID_VERSION_URL = 'https://raw.githubusercontent.com/marcosssvinnn/fluxa-app/android-apk/android-version.json';
 const FORTHEMP_ANDROID_APK_URL = 'https://github.com/marcosssvinnn/fluxa-app/releases/download/forthemp-android-latest/Forthemp.apk';
 async function fluxaChecarAtualizacaoApp(){
+  console.log('[DIAG2] chamada, nativo='+fluxaEhAppNativo()+' build='+window.FORTHEMP_ANDROID_BUILD);
   if (!fluxaEhAppNativo()) return; // só faz sentido dentro do app instalado
   const buildAtual = window.FORTHEMP_ANDROID_BUILD || null;
   if (!buildAtual) return; // build sem o carimbo (ex.: instalado antes desta feature) — não sabe comparar, não incomoda
@@ -455,9 +456,12 @@ async function fluxaChecarAtualizacaoApp(){
     // faz o `caches.match` nunca achar uma entrada igual, forçando rede de
     // verdade — mais simples que ensinar o sw.js sobre mais um domínio.
     const r = await fetch(FORTHEMP_ANDROID_VERSION_URL + '?t=' + Date.now(), { cache: 'no-store' });
+    console.log('[DIAG2] fetch ok='+r.ok+' status='+r.status);
     if (!r.ok) return;
     const info = await r.json();
+    console.log('[DIAG2] info='+JSON.stringify(info)+' buildAtual='+buildAtual);
     if (!info || !info.build || info.build === buildAtual) return; // já está na versão mais nova
+    console.log('[DIAG2] vai mostrar banner');
     _fluxaMostrarBannerAtualizacao(info.apk_url || FORTHEMP_ANDROID_APK_URL);
   }catch(e){ console.warn('[fluxaChecarAtualizacaoApp]', e?.message||e); }
 }
