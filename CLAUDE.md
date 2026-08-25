@@ -10511,3 +10511,5 @@ de cliente tem de ser **assistido, não automático** — 73 nomes sem ficha e 1
 3. **Template EmailJS** — adicionar novas variáveis `{{duracao}}`, `{{status_geral}}`, `{{link_pdf}}` ao template
 4. **Tabela `auditoria` no banco de produção** — rodar o SQL acima se ainda não foi rodado (o app funciona sem ela, só não sincroniza o log).
 - [ ] **PIN legado:** com contas individuais criadas, o fallback de PIN legado em `pinValido()` pode ser removido. Confirmar com Marcos se há algum usuário legado antes de remover.
+
+<!-- teste real do banner de atualização -->
