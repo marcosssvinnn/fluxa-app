@@ -2,6 +2,114 @@
 
 ---
 
+## 📱 App de celular — Fase C: notificações push (Web Push/VAPID) (24/08)
+
+Terceira fase do plano (`~/.claude/plans/lucky-toasting-cocke.md`), porte
+do Sprint 1 do FluxaSaas-/v2. Maior mudança estrutural das 4 fases, porque
+o v1 **não tem Supabase Auth** pra autorizar a Edge Function do jeito que o
+v2 faz (`Authorization: Bearer <JWT>`). Solução adotada: **o cliente nunca
+chama a Edge Function diretamente** — só grava a própria inscrição na
+tabela (permitido, RLS do v1 é `anon full access` em toda tabela, igual
+sempre foi). Quem dispara o envio é sempre o **banco**, via trigger +
+`pg_net`, usando um segredo guardado no Supabase Vault que nunca passa pelo
+cliente/`app.js`.
+
+### O que foi feito
+- **`migracao-push-subscriptions.sql`** (aplicado e verificado no banco via
+  Management API): tabela `push_subscriptions` (sem `empresa_id`/`user_id
+  uuid` — não existem no v1; usa `usuario_nome`+`perfil`+`loja_id`
+  capturados da sessão no momento da inscrição), RLS `anon full access`
+  (mesmo padrão de toda tabela do v1) + extensão `pg_net` + segredo interno
+  no Vault (`push_internal_secret`) + **gatilho** `AFTER UPDATE ON
+  orcamentos` (dispara quando `status` vira `'aprovado'`, por QUALQUER
+  caminho — portal ou manual, mais simples e mais seguro que amarrar num
+  RPC que o v1 não tem) chamando a Edge Function via `pg_net`, filtrando
+  por `loja_id` e `perfis_alvo:['gestor','master']`. **O valor real do
+  segredo (gerado nesta sessão) NÃO está neste arquivo nem em nenhum
+  arquivo do repo** — só no Vault do banco e (depois do deploy manual, ver
+  abaixo) na Edge Function.
+- **VAPID keypair** gerado localmente via `openssl ecparam`/`ec` (sem
+  precisar de Node/`web-push` CLI, que não existem neste ambiente) —
+  chave pública embutida em `native.js` (`FLUXA_VAPID_PUBLIC_KEY`, é
+  pública por natureza, igual à anon key); a privada NUNCA foi escrita em
+  nenhum arquivo do repo, só entregue ao Marcos em chat pra colar no painel.
+- **`native.js`** — `fluxaAtivarNotificacoes`/`fluxaInscreverPush` (3º
+  estado do banner da Fase A/B: se já instalado, notificação nunca pedida
+  → oferece "Ativar"; se permissão já concedida → inscreve sozinho, sem
+  banner). Idempotente por `endpoint` (reativa/atualiza nome-perfil-loja em
+  vez de duplicar).
+- **`sw.js`** — handlers `push`/`notificationclick` portados do v2 (só
+  mostram a notificação e focam/abrem o app na URL do payload; a central
+  de histórico de notificações — Fase D — é uma peça separada, ver nota
+  abaixo). `fluxa-v230` → `fluxa-v231`.
+- **`supabase/functions/enviar-push/index.ts`** — código da Edge Function,
+  adaptado do v2: autorização **só** via `x-push-secret` (o v1 não tem
+  "JWT de usuário logado" pra aceitar como alternativa, diferente do v2 —
+  aceitar qualquer outra coisa aqui seria abrir a porta pra abuso, já que a
+  anon key é pública); filtro por `loja_id`+`perfil` em vez de
+  `empresa_id`+tabela `membros`.
+
+### ⚠️ Passo manual pendente (só o Marcos pode fazer)
+Este ambiente não tem Node/Deno/`supabase` CLI — não dá pra rodar `supabase
+functions deploy` daqui. **A função em si (código) já está pronta no repo**
+(`supabase/functions/enviar-push/index.ts`); falta só colar no painel:
+1. Painel do Supabase → Edge Functions → New Function → nome `enviar-push`
+   → colar o conteúdo do arquivo acima → Deploy.
+2. Nas variáveis de ambiente da função (Settings da própria função), setar:
+   `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` (ex.:
+   `mailto:contato@fortemp.com.br` ou similar — é só um contato de suporte
+   exigido pelo protocolo VAPID, os provedores de push usam isso se
+   precisarem avisar o dono da chave) e `PUSH_INTERNAL_SECRET` — os 2
+   primeiros e o secret eu passei pro Marcos direto no chat desta sessão
+   (não ficam escritos em nenhum arquivo do repo, só o público
+   `VAPID_PUBLIC_KEY` está em `native.js`, o resto ele já tem). `
+   SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` o próprio painel já preenche
+   sozinho pra toda Edge Function do projeto.
+3. Sem esse passo, o gatilho continua dormente — a linha some do bloqueio
+   dos testes desta sessão (o `pg_net` já enfileira a chamada certinha,
+   testado com um orçamento sintético e apagado em seguida), só não há
+   ninguém do outro lado respondendo ainda.
+
+### Testado nesta sessão (Browser pane + Management API)
+- **Trigger no banco** — inserida uma linha sintética em `orcamentos`
+  (`Cliente Teste Push`, apagada logo em seguida, confirmado por leitura
+  `count=0`), `UPDATE status='aprovado'` disparou o gatilho de verdade;
+  conferido em `net.http_request_queue` que a requisição foi enfileirada
+  com a URL certa, header `x-push-secret` batendo com o Vault, e corpo
+  JSON correto (`titulo`/`corpo` com nome do cliente/número/valor
+  formatado, `loja_id`, `perfis_alvo`).
+- **`fluxaInscreverPush()`** — mockado `navigator.serviceWorker.ready`/
+  `pushManager` (sem tocar rede real) e o `db`/`dbInsert` reais (achado
+  no processo: `db` é `let db` de `app.js` — um script clássico, não
+  módulo — então `window.db=...` NÃO sobrescreve o binding real; é preciso
+  reatribuir o identificador bare `db=...` direto. `dbInsert`, por ser
+  `function` no topo do arquivo, já é alias de `window.dbInsert`, esse
+  funciona por `window.`). Confirmado: 1ª inscrição insere
+  (`usuario_nome`/`perfil`/`loja_id` da sessão, `applicationServerKey`
+  decodificada com 65 bytes, formato EC correto); reinscrição com endpoint
+  já existente faz `UPDATE` (idempotente), nunca duplica.
+- **Banner (3 estados, prioridade confirmada)**: instalado + notificação
+  nunca pedida → oferece "Ativar notificações" (aparece ANTES do estado de
+  biometria, mesma ordem do v2); permissão concedida → chama
+  `fluxaInscreverPush()` sozinho, sem banner; nenhum dos dois → cai pro
+  estado de biometria da Fase B (já confirmado antes).
+- Sintaxe de `native.js`/`sw.js` validada via `osascript -l
+  JavaScript`+`new Function` (`SYNTAX_OK`). Zero erro novo no console em
+  todos os cenários.
+
+### Não testado / pendente
+- Entrega real de push (depende do deploy manual acima).
+- Filtro de `perfis_alvo`/`loja_id` na Edge Function em produção (a lógica
+  foi revisada, não exercitada contra um banco com inscrições reais).
+- Central de notificações (Fase D) — **achado importante durante esta
+  fase**: o v1 já tem seu PRÓPRIO sistema de sino/notificações
+  (`#notif-wrap`/`getNotificacoes()`/`.notif-panel`, alertas DERIVADOS de
+  dados — recebíveis, estoque, despesas — não histórico de push). A Fase D
+  não deve duplicar isso com um IndexedDB à parte como o v2 fez — o design
+  certo é integrar o push recebido a ESSE sino existente. Decisão de
+  desenho pra quando essa fase começar, não threads em aberto por
+  esquecimento.
+
 ## 📱 App de celular — Fase B: desbloqueio biométrico (WebAuthn) (24/08)
 
 Segunda fase do plano (`~/.claude/plans/lucky-toasting-cocke.md`), porte do

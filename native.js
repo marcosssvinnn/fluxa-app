@@ -88,8 +88,23 @@ async function _fluxaAvaliarBannerInstalar(){
     return;
   }
 
-  // Já instalado — oferece ativar biometria (Fase B), se disponível e a
-  // pessoa da sessão ainda não tem credencial registrada neste aparelho.
+  // Já instalado — até 3 estados possíveis, nunca dois ao mesmo tempo:
+  // 1) notificação nunca pedida (Fase C)  2) biometria disponível e não
+  // ativada (Fase B)  3) nada a oferecer.
+  if ('Notification' in window){
+    if (Notification.permission === 'granted'){ if (typeof fluxaInscreverPush === 'function') fluxaInscreverPush(); }
+    else if (Notification.permission !== 'denied' && !_pwaDismissAtivo()){
+      const corpo = document.getElementById('pwa-install-body');
+      const btn = document.getElementById('pwa-install-btn');
+      corpo.innerHTML = 'Ative as notificações pra saber na hora quando um cliente aprovar um orçamento, sem precisar abrir o app.';
+      btn.style.display = '';
+      btn.textContent = 'Ativar';
+      btn.onclick = fluxaAtivarNotificacoes;
+      el.classList.add('on');
+      return;
+    }
+  }
+
   const _sessAtual = typeof getSessao === 'function' ? getSessao() : null;
   if (_sessAtual && _sessAtual.nome && typeof fluxaTemCredencialBiometrica === 'function'
       && !fluxaTemCredencialBiometrica(_sessAtual.nome) && !_pwaDismissAtivo()){
@@ -110,6 +125,64 @@ async function _fluxaAvaliarBannerInstalar(){
   }
 
   el.classList.remove('on');
+}
+
+function _urlBase64ParaUint8Array(base64String){
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = atob(base64);
+  const out = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; i++) out[i] = rawData.charCodeAt(i);
+  return out;
+}
+
+// Chave pública VAPID — segura pra ficar no cliente (é a metade pública do
+// par; a privada mora só na Edge Function, nunca sai do servidor).
+const FLUXA_VAPID_PUBLIC_KEY = 'BAnQvDYnMkgO4GNitkktuivbK42z_sKlBGIIA7YRez3UvuXi55_gtClv3vgaCQ_rbJb0K2oNzkvUhP75ytSijk4';
+
+async function fluxaAtivarNotificacoes(){
+  try{
+    const perm = await Notification.requestPermission();
+    const el = document.getElementById('pwa-install-banner');
+    if (el) el.classList.remove('on');
+    if (perm === 'granted') await fluxaInscreverPush();
+  }catch(e){ console.warn('[push] permissão', e?.message||e); }
+}
+
+// Registra (ou reaproveita) a inscrição de push do navegador e salva no
+// banco. Idempotente: se já existe uma linha com esse endpoint, só reativa
+// e atualiza nome/perfil/loja (podem ter mudado desde a última inscrição);
+// nunca duplica.
+async function fluxaInscreverPush(){
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return false;
+  const sess = typeof getSessao === 'function' ? getSessao() : null;
+  if (!sess || !sess.nome || typeof db === 'undefined' || !db) return false;
+  try{
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub){
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: _urlBase64ParaUint8Array(FLUXA_VAPID_PUBLIC_KEY),
+      });
+    }
+    const json = sub.toJSON();
+    const dadosSessao = { usuario_nome: sess.nome, perfil: sess.perfil||null, loja_id: sess.loja_id||null, ativo: true };
+    const { data: existente } = await db.from('push_subscriptions').select('id').eq('endpoint', json.endpoint).maybeSingle();
+    if (existente){
+      await db.from('push_subscriptions').update(dadosSessao).eq('id', existente.id);
+    } else if (typeof dbInsert === 'function'){
+      await dbInsert('push_subscriptions', {
+        id: 'push_' + Date.now(),
+        ...dadosSessao,
+        endpoint: json.endpoint,
+        p256dh: json.keys.p256dh,
+        auth_key: json.keys.auth,
+        user_agent: navigator.userAgent,
+      });
+    }
+    return true;
+  }catch(e){ console.warn('[push] inscrever', e?.message||e); return false; }
 }
 
 // ─────────────────────────────────────────────────────────────────────────
