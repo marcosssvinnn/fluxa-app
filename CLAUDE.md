@@ -2,6 +2,54 @@
 
 ---
 
+## 🔴 Assinatura do técnico não saía no PDF/relatório da vistoria (26/08)
+
+Marcos, em campo: a vistoria pedia assinatura pra finalizar (obrigatória
+desde 24/08) mas não deixava assinar — pediu pra Tamara mexer direto
+(dois commits dela/IA já em `main`: 64ac2dd corrige o botão de assinar
+que não aparecia ao abrir vistoria por plano recorrente, e 987f544 corrige
+a corrida do Service Worker logo abaixo). Depois de conseguir assinar,
+achou um segundo problema: **a assinatura não saía no PDF gerado**.
+
+**Confirmado no código**: a assinatura sempre foi gravada no banco
+(`assinatura_tecnico_base64`) e usada só pra **bloquear** `finalizarVistoria()`
+e mostrar "✍️ Assinado" no status da TELA — mas o template do PDF
+(`pdoc-visita`, seção `.pd-sig-area`) sempre teve só **duas linhas em
+branco pra assinar na mão** ("Assinatura do Responsável/Síndico" e
+"Técnico Responsável"), sem nenhum `<img>` ligado à assinatura digital.
+`preencherRelatorioVistoria()` preenchia o NOME do técnico ao lado da
+linha, mas nunca a imagem em si — a linha ficava sempre vazia, mesmo com
+a assinatura já capturada e válida no banco.
+
+**Corrigido**: `.pd-sig-line` do técnico ganhou `id="pd-vis-sig-tec-line"`
+(`index.html`); `preencherRelatorioVistoria()` injeta
+`<img src="{assinatura_tecnico_base64}">` ali quando existe, mantendo a
+linha em branco pra registro antigo (antes de 24/08, sem assinatura
+digital) — sem regressão pro histórico. Único ponto de preenchimento do
+`#pdoc-visita`, então cobre os 3 usos de uma vez: baixar/imprimir
+(`baixarPDFVistoria`), abrir relatório (`abrirVisRelatorio`) e o PDF que
+sobe pro Storage e vai anexado no e-mail automático
+(`gerarEUploadPDFVistoria`).
+
+**Confirmado com o Marcos**: a validação (bloquear "Finalizar Vistoria")
+já era e continua sendo **só a assinatura do técnico** — síndico/
+responsável nunca foi obrigatório, decisão de 24/08 mantida, não mexida
+aqui. A linha "Assinatura do Responsável/Síndico" no PDF continua em
+branco de propósito (não existe captura digital pra ela, é só a linha
+física pra quem quiser assinar no papel).
+
+Testado no Browser pane (offline, `dbOk=false;db=null;`): registro
+sintético COM assinatura → `<img>` presente com o `src` certo, confirmado
+tanto direto no DOM quanto no HTML final que `_gerarPDFVistoria` gera
+(o mesmo blob que vira "Baixar / Imprimir PDF" e o anexo de e-mail);
+registro sintético SEM assinatura (simula histórico antigo) → linha
+continua vazia, nome do técnico correto do lado. Zero erro novo no
+console (só o ruído de boot já documentado).
+
+sw.js: fluxa-v245 → fluxa-v246.
+
+---
+
 ## 🔴 Deploy de versão nova podia derrubar TODO o CSS do app (26/08)
 
 Achado direto em produção, no mesmo minuto do fix acima: o Marcos recarregou
