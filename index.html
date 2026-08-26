@@ -171,7 +171,11 @@
         <div class="notif-corpo" id="notif-corpo"></div>
       </div>
     </div>
-    <div class="hdr-user" id="hdr-user" onclick="toggleGear()" title="Usuário logado">
+    <!-- Achado real (26/08, pedido do Marcos): avatar e o ⚙️ ao lado faziam a
+         MESMA coisa (os dois chamavam toggleGear()) — dois controles adjacentes
+         pro mesmo menu. Avatar virou só indicador de "quem está logado" (sem
+         onclick/cursor de botão); ⚙️ é o único jeito de abrir o menu aqui. -->
+    <div class="hdr-user" id="hdr-user" title="Usuário logado">
       <div class="hdr-user-avatar" id="hdr-user-avatar">G</div>
       <span class="hdr-user-nome" id="hdr-user-nome">Gestor</span>
     </div>
@@ -338,13 +342,16 @@
       <svg class="sicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M12 2v3M12 19v3M4 12H2M22 12h-2M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"></path></svg>
       <span class="slabel">Configurações</span>
     </button>
-    <button class="snb snav-foot-user" onclick="toggleGear()">
+    <!-- Mesmo achado do avatar do cabeçalho: esta linha e "Configurações" logo
+         acima chamavam o MESMO toggleGear() — virou <div> só informativa (quem
+         está logado), sem onclick, "Configurações" é o único botão aqui. -->
+    <div class="snb snav-foot-user">
       <div class="snav-avatar" id="snav-avatar">–</div>
       <div class="snav-user-tx">
         <span class="snav-user-nome" id="snav-user-nome">—</span>
         <span class="snav-user-papel" id="snav-user-papel">—</span>
       </div>
-    </button>
+    </div>
   </div>
 </aside>
 

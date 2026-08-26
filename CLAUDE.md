@@ -2,6 +2,48 @@
 
 ---
 
+## 🔧 Ícones repetidos no mobile — mesma ação em 2-3 lugares, consolidado (26/08)
+
+Continuação direta da correção anterior (menu de Configurações/sidebar).
+Marcos notou, olhando o app: "Mais" (nav inferior) parece fazer a mesma
+coisa que o ícone do lado da logo, e ainda tem um ⚙️ lá em cima — pediu
+pra avaliar o que faz sentido manter e ajustar.
+
+**Mapeado todo controle que abre sidebar ou o menu de conta — achados 2
+grupos de duplicata exata (mesmo `onclick`, controles diferentes):**
+
+1. **Abrir a sidebar**: `☰` do cabeçalho (`#btn-sbar`, ao lado da logo —
+   o que o Marcos chamou de "três pontinhos") e "Mais" da nav inferior
+   (`#mnb-mais`) — no mobile, os dois chamam a mesma coisa
+   (`toggleSidebar()` cai em `openSidebar()`/`closeSidebar()` nessa
+   largura). **`☰` escondido no mobile** (`@media(max-width:680px)`) —
+   "Mais" já é o caminho esperado ali. **Mantido no desktop**: lá `☰`
+   faz outra coisa de verdade (colapsa a sidebar pra só ícones), e não
+   existe nav inferior pra cobrir isso.
+2. **Abrir o menu de conta** (Empresa/Usuários/Auditoria/Sair): no
+   cabeçalho, o avatar (`#hdr-user`) e o `⚙️` (`#btn-gear`) ficavam lado
+   a lado chamando o MESMO `toggleGear()`; na sidebar, "Configurações" e
+   a linha do avatar/nome (rodapé, `.snav-foot-item`/`.snav-foot-user`)
+   faziam o mesmo par duplicado. **Avatar (cabeçalho e sidebar) virou só
+   indicador de quem está logado** — `onclick` removido, `cursor:default`
+   no lugar de `pointer`, sem `:hover` de botão; `.snav-foot-user` trocou
+   de `<button>` pra `<div>` (deixa de ser focável/parecer clicável de
+   verdade, não só visualmente). `⚙️` e "Configurações" continuam sendo o
+   único caminho de cada um (cabeçalho e sidebar, respectivamente) — zero
+   perda de acesso, só sobra 1 controle por ação em vez de 2.
+
+Testado no Browser pane (porta nova, clique real via `.click()`, offline):
+mobile 375px — `☰` ausente (`display:none`), avatar do cabeçalho não abre
+nada, `⚙️` abre normal, "Mais" abre a sidebar, avatar da sidebar não abre
+nada, "Configurações" da sidebar abre normal; desktop 1280px — `☰`
+visível e colapsando a sidebar de verdade ao clicar (confirmado
+`classList.contains('collapsed')` antes/depois). Zero erro novo no
+console (só o ruído de boot já documentado).
+
+sw.js: fluxa-v241 → fluxa-v242.
+
+---
+
 ## 🔴 "Configurações"/"Mais" na sidebar mobile não abria nada + cabeçalho empurrava os ícones pra fora da tela (26/08)
 
 Marcos relatou, testando no celular: clicar em "Configurações" ou no avatar
