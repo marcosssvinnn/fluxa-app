@@ -13792,6 +13792,8 @@ function iniciarVistoriaPlena(locId){
   _visClienteSelecionado = loc.cliente_id ? {id:loc.cliente_id, nome:loc.cliente} : null;
   _visPiscinaSelecionadaId=null;
   _visRenderPiscinas();
+  _visAssinaturaTecnico=null;
+  renderVisAssinaturaStatus();
 
   // Navega para a aba Nova Vistoria
   visTab('nova');
@@ -15887,9 +15889,11 @@ function novaVistoria(cliNome, cliLocal, tecNome){
   visCheckoutTime=null;
   visEditId=null;
   _visDraftId=null;
+  _visAssinaturaTecnico=null;
   if(visCheckinInterval){ clearInterval(visCheckinInterval); visCheckinInterval=null; }
   go('visitas');
   visTab('nova');
+  renderVisAssinaturaStatus();
   const hoje=new Date();
   const _hd=`${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}-${String(hoje.getDate()).padStart(2,'0')}`;
   const dd=document.getElementById('vis-data'); if(dd) dd.value=_hd;

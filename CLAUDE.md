@@ -2,6 +2,55 @@
 
 ---
 
+## 🔴 Vistoria por plano recorrente — botão de assinatura nunca aparecia (26/08)
+
+Marcos relatou pelo celular (iPhone, empresa Acquamotor): abriu uma vistoria,
+foi até o card "Assinatura do Técnico" pra finalizar, e não tinha nenhum botão
+"Assinar" ali — a área ficava vazia — e sem assinar, "Finalizar Vistoria"
+bloqueava (a trava obrigatória da entrada de 24/08 acima, funcionando como
+projetado, só que sem UI pra cumprir a exigência).
+
+**Causa raiz:** a entrada de 24/08 que tornou a assinatura obrigatória fez o
+reset (`_visAssinaturaTecnico=null`) e a renderização do botão
+(`renderVisAssinaturaStatus()`) só dentro de `_limparFormVistoria()` — a
+função chamada depois de FINALIZAR/DESCARTAR uma vistoria. **Os pontos que
+começam uma vistoria não passavam por ela** e nunca tinham o próprio código
+que desenha o botão inicial. `#vis-assinatura-status` (`index.html`) nasce
+vazio no HTML — sem alguém chamar `renderVisAssinaturaStatus()`, fica vazio
+pra sempre. O caso do Marcos é exatamente o caminho mais comum de todos:
+`iniciarVistoriaPlena(locId)`, disparado pelo botão "🔍 Fazer Vistoria" de um
+plano recorrente (`Meus Locais`) — nunca tocava nem em
+`_visAssinaturaTecnico` nem em `renderVisAssinaturaStatus()`.
+
+**Corrigido nos 3 pontos que iniciam uma vistoria nova** (mesmo par de linhas
+que `_limparFormVistoria()` já tinha, replicado):
+- `iniciarVistoriaPlena(locId)` — o caminho do Marcos.
+- `novaVistoria(cliNome, cliLocal, tecNome)` — atalho a partir da ficha do
+  cliente.
+- botão inline "Nova Vistoria" da própria aba (`#vis-tab-nova`,
+  `index.html`) — clicar nele no meio de uma sessão (ex.: depois de assinar
+  uma vistoria e querer começar outra sem passar por Finalizar) deixava a
+  assinatura da vistoria ANTERIOR marcada como "✍️ Assinado" na vistoria
+  nova — não só o bug do botão sumido, um segundo bug (falso positivo) pelo
+  mesmo motivo.
+
+Não mexido, já corretos por desenho: `_limparFormVistoria` (pós-finalizar/
+descartar), `editarVistoria` (reabrir vistoria salva) e
+`_restaurarRascunhoVis` (restaurar rascunho no boot) — os 3 já resetavam/
+renderizavam certo, só as 3 portas de ENTRADA de vistoria nova é que
+tinham o buraco.
+
+Testado por leitura de código + `node --check app.js` (sintaxe ok); não
+validado no Browser pane nesta sessão (ambiente sem acesso de rede ao
+Supabase de produção — a política de saída deste sandbox bloqueia
+`*.supabase.co`, confirmado via status do proxy). **Pendente**: Marcos
+confirmar no iPhone que o botão "✍️ Assinar" aparece agora ao entrar numa
+vistoria pelo plano recorrente.
+
+sw.js: fluxa-v243 → fluxa-v244.
+
+---
+
 ## 🔴 Login — "senha incorreta" contra usuário-placeholder de instalação nova (26/08)
 
 Marcos testou o Bruno no app novo (Android, instalação nova): "Senha
