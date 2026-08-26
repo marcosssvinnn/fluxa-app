@@ -2093,7 +2093,7 @@
         <div class="pd-sig-name">Assinatura do Responsável / Síndico</div>
       </div>
       <div class="pd-sig-blk">
-        <div class="pd-sig-line"></div>
+        <div class="pd-sig-line" id="pd-vis-sig-tec-line"></div>
         <div class="pd-sig-name" id="pd-vis-sign-tec">Técnico Responsável</div>
       </div>
     </div>
@@ -3252,7 +3252,7 @@
         <div class="novo-orc-titulo">🔍 Vistorias de Manutenção</div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button type="button" class="rd-chip on" id="vis-tab-nova" onclick="visTab('nova');window._visLocalId=null;visEditId=null;_visDraftId=null;_resetCheckinVis();document.getElementById('vis-plano-banner').style.display='none'">Nova Vistoria</button>
+        <button type="button" class="rd-chip on" id="vis-tab-nova" onclick="visTab('nova');window._visLocalId=null;visEditId=null;_visDraftId=null;_resetCheckinVis();document.getElementById('vis-plano-banner').style.display='none';_visAssinaturaTecnico=null;renderVisAssinaturaStatus()">Nova Vistoria</button>
         <button type="button" class="rd-chip" id="vis-tab-hist" onclick="visTab('hist')">Histórico</button>
         <button type="button" class="rd-chip" id="vis-tab-locais" onclick="visTab('locais')">Meus Locais</button>
       </div>

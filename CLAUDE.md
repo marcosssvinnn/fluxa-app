@@ -2,6 +2,162 @@
 
 ---
 
+## 🔴 Assinatura do técnico não saía no PDF/relatório da vistoria (26/08)
+
+Marcos, em campo: a vistoria pedia assinatura pra finalizar (obrigatória
+desde 24/08) mas não deixava assinar — pediu pra Tamara mexer direto
+(dois commits dela/IA já em `main`: 64ac2dd corrige o botão de assinar
+que não aparecia ao abrir vistoria por plano recorrente, e 987f544 corrige
+a corrida do Service Worker logo abaixo). Depois de conseguir assinar,
+achou um segundo problema: **a assinatura não saía no PDF gerado**.
+
+**Confirmado no código**: a assinatura sempre foi gravada no banco
+(`assinatura_tecnico_base64`) e usada só pra **bloquear** `finalizarVistoria()`
+e mostrar "✍️ Assinado" no status da TELA — mas o template do PDF
+(`pdoc-visita`, seção `.pd-sig-area`) sempre teve só **duas linhas em
+branco pra assinar na mão** ("Assinatura do Responsável/Síndico" e
+"Técnico Responsável"), sem nenhum `<img>` ligado à assinatura digital.
+`preencherRelatorioVistoria()` preenchia o NOME do técnico ao lado da
+linha, mas nunca a imagem em si — a linha ficava sempre vazia, mesmo com
+a assinatura já capturada e válida no banco.
+
+**Corrigido**: `.pd-sig-line` do técnico ganhou `id="pd-vis-sig-tec-line"`
+(`index.html`); `preencherRelatorioVistoria()` injeta
+`<img src="{assinatura_tecnico_base64}">` ali quando existe, mantendo a
+linha em branco pra registro antigo (antes de 24/08, sem assinatura
+digital) — sem regressão pro histórico. Único ponto de preenchimento do
+`#pdoc-visita`, então cobre os 3 usos de uma vez: baixar/imprimir
+(`baixarPDFVistoria`), abrir relatório (`abrirVisRelatorio`) e o PDF que
+sobe pro Storage e vai anexado no e-mail automático
+(`gerarEUploadPDFVistoria`).
+
+**Confirmado com o Marcos**: a validação (bloquear "Finalizar Vistoria")
+já era e continua sendo **só a assinatura do técnico** — síndico/
+responsável nunca foi obrigatório, decisão de 24/08 mantida, não mexida
+aqui. A linha "Assinatura do Responsável/Síndico" no PDF continua em
+branco de propósito (não existe captura digital pra ela, é só a linha
+física pra quem quiser assinar no papel).
+
+Testado no Browser pane (offline, `dbOk=false;db=null;`): registro
+sintético COM assinatura → `<img>` presente com o `src` certo, confirmado
+tanto direto no DOM quanto no HTML final que `_gerarPDFVistoria` gera
+(o mesmo blob que vira "Baixar / Imprimir PDF" e o anexo de e-mail);
+registro sintético SEM assinatura (simula histórico antigo) → linha
+continua vazia, nome do técnico correto do lado. Zero erro novo no
+console (só o ruído de boot já documentado).
+
+sw.js: fluxa-v245 → fluxa-v246.
+
+---
+
+## 🔴 Deploy de versão nova podia derrubar TODO o CSS do app (26/08)
+
+Achado direto em produção, no mesmo minuto do fix acima: o Marcos recarregou
+o app no Chrome do iPhone (pedido meu, pra pegar a correção da assinatura) e
+a tela veio **sem nenhum estilo — todas as páginas do app empilhadas uma
+embaixo da outra**, parecendo "quebrou tudo o sistema". Print mostrava o
+topo de `#page-setup` (assistente "Conectar Banco de Dados", primeira `.page`
+do HTML) direto seguido do início de `#page-empresa` ("Configurações da
+Empresa"/"Identidade da Empresa") — as duas visíveis ao mesmo tempo, sem
+nada escondendo uma da outra.
+
+**Não era o código da assinatura, nem perda de dado** — `.page{display:none}
+.page.on{display:block}` (`styles.css`) é a única coisa que esconde as
+páginas inativas; sem essa folha carregada, TODAS as `.page` ficam com o
+`display:block` padrão do navegador, empilhadas na ordem do HTML — o
+JavaScript continua rodando normal por trás (inclusive o autosave da
+vistoria), só a aparência quebra.
+
+**Causa real — corrida entre `activate` e `fetch` do Service Worker.**
+`activate` (`sw.js`) apaga TODO cache com nome diferente do `CACHE` atual
+assim que uma versão nova é ativada (`self.skipWaiting()`+`clients.claim()`,
+propositalmente agressivo, pra não deixar aparelho preso em versão velha).
+`index.html`/`app.js`/`styles.css` são network-first de propósito (sempre
+pegar a versão mais nova a cada deploy) e **nunca entram no precache** da
+instalação (`URLS`, só libs/ícones/manifest) — então, bem no instante em que
+uma versão nova acaba de assumir, não existe NENHUMA cópia em cache desses 3
+arquivos ainda. Se a 1ª tentativa de rede (`fetch(...,{cache:'no-cache'})`)
+falhar nessa janela — rede instável, o exato cenário de um técnico em campo
+puxando pra atualizar — o `.catch(() => caches.match(e.request))` não achava
+nada (cache vazio) e **resolvia pra `undefined`**.
+`e.respondWith(undefined)` mata o recurso em silêncio — pra `app.js`/
+`index.html` isso teria dado tela em branco (mais óbvio de perceber); caindo
+bem no `styles.css`, o HTML carrega igual, só sem nenhum estilo — o efeito
+visual mais confuso dos três, porque parece o app inteiro ter desmoronado
+sem nenhum erro na tela.
+
+**Corrigido**: o `.catch` ganhou mais um degrau —
+`caches.match(e.request).then(cached => cached || fetch(e.request))` — se o
+cache também estiver vazio, tenta a rede de novo (sem forçar `no-cache`
+desta vez, deixando o HTTP cache do próprio navegador ajudar) antes de
+desistir de verdade. `e.respondWith` nunca mais resolve pra `undefined`
+nesse caminho.
+
+**Não é bug específico deste deploy — é estrutural, pode acontecer em
+QUALQUER bump de `CACHE` daqui pra frente** (a cada `sw.js: fluxa-vN →
+vN+1` deste arquivo) se a rede piscar bem na hora da troca. Vale considerar
+isto resolvido de vez, não só para esta rodada.
+
+Testado por leitura de código + `node --check sw.js` (sintaxe ok); mesma
+limitação da entrada anterior — sem acesso de rede ao Supabase/GitHub Pages
+neste sandbox pra reproduzir a corrida de verdade. **Recuperação imediata
+que já funciona sem esperar o fix**: fechar a aba/app por completo e abrir
+de novo — na 2ª tentativa a rede já não está mais na janela crítica pós-
+`activate`, o fetch normal recupera o `styles.css`.
+
+sw.js: fluxa-v244 → fluxa-v245.
+
+---
+
+## 🔴 Vistoria por plano recorrente — botão de assinatura nunca aparecia (26/08)
+
+Marcos relatou pelo celular (iPhone, empresa Acquamotor): abriu uma vistoria,
+foi até o card "Assinatura do Técnico" pra finalizar, e não tinha nenhum botão
+"Assinar" ali — a área ficava vazia — e sem assinar, "Finalizar Vistoria"
+bloqueava (a trava obrigatória da entrada de 24/08 acima, funcionando como
+projetado, só que sem UI pra cumprir a exigência).
+
+**Causa raiz:** a entrada de 24/08 que tornou a assinatura obrigatória fez o
+reset (`_visAssinaturaTecnico=null`) e a renderização do botão
+(`renderVisAssinaturaStatus()`) só dentro de `_limparFormVistoria()` — a
+função chamada depois de FINALIZAR/DESCARTAR uma vistoria. **Os pontos que
+começam uma vistoria não passavam por ela** e nunca tinham o próprio código
+que desenha o botão inicial. `#vis-assinatura-status` (`index.html`) nasce
+vazio no HTML — sem alguém chamar `renderVisAssinaturaStatus()`, fica vazio
+pra sempre. O caso do Marcos é exatamente o caminho mais comum de todos:
+`iniciarVistoriaPlena(locId)`, disparado pelo botão "🔍 Fazer Vistoria" de um
+plano recorrente (`Meus Locais`) — nunca tocava nem em
+`_visAssinaturaTecnico` nem em `renderVisAssinaturaStatus()`.
+
+**Corrigido nos 3 pontos que iniciam uma vistoria nova** (mesmo par de linhas
+que `_limparFormVistoria()` já tinha, replicado):
+- `iniciarVistoriaPlena(locId)` — o caminho do Marcos.
+- `novaVistoria(cliNome, cliLocal, tecNome)` — atalho a partir da ficha do
+  cliente.
+- botão inline "Nova Vistoria" da própria aba (`#vis-tab-nova`,
+  `index.html`) — clicar nele no meio de uma sessão (ex.: depois de assinar
+  uma vistoria e querer começar outra sem passar por Finalizar) deixava a
+  assinatura da vistoria ANTERIOR marcada como "✍️ Assinado" na vistoria
+  nova — não só o bug do botão sumido, um segundo bug (falso positivo) pelo
+  mesmo motivo.
+
+Não mexido, já corretos por desenho: `_limparFormVistoria` (pós-finalizar/
+descartar), `editarVistoria` (reabrir vistoria salva) e
+`_restaurarRascunhoVis` (restaurar rascunho no boot) — os 3 já resetavam/
+renderizavam certo, só as 3 portas de ENTRADA de vistoria nova é que
+tinham o buraco.
+
+Testado por leitura de código + `node --check app.js` (sintaxe ok); não
+validado no Browser pane nesta sessão (ambiente sem acesso de rede ao
+Supabase de produção — a política de saída deste sandbox bloqueia
+`*.supabase.co`, confirmado via status do proxy). **Pendente**: Marcos
+confirmar no iPhone que o botão "✍️ Assinar" aparece agora ao entrar numa
+vistoria pelo plano recorrente.
+
+sw.js: fluxa-v243 → fluxa-v244.
+
+---
+
 ## 🔴 Login — "senha incorreta" contra usuário-placeholder de instalação nova (26/08)
 
 Marcos testou o Bruno no app novo (Android, instalação nova): "Senha

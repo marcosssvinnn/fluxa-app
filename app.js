@@ -13792,6 +13792,8 @@ function iniciarVistoriaPlena(locId){
   _visClienteSelecionado = loc.cliente_id ? {id:loc.cliente_id, nome:loc.cliente} : null;
   _visPiscinaSelecionadaId=null;
   _visRenderPiscinas();
+  _visAssinaturaTecnico=null;
+  renderVisAssinaturaStatus();
 
   // Navega para a aba Nova Vistoria
   visTab('nova');
@@ -15869,6 +15871,20 @@ function preencherRelatorioVistoria(vis){
     const empresaTec = LC.nome||'';
     signTec.innerHTML=`${esc(nomeTec)}<br><span style="font-size:10px;font-weight:400;color:#6b7280">${esc(empresaTec)}</span>`;
   }
+  // Assinatura digital do técnico DENTRO do PDF (achado real, 26/08: a
+  // assinatura era capturada, obrigatória pra finalizar, gravada no banco
+  // (assinatura_tecnico_base64) e mostrada no status da tela — mas o
+  // template do PDF sempre teve só a LINHA em branco pra assinar na mão, sem
+  // nenhum <img> ligado a ela. O técnico assinava no app e o relatório
+  // continuava saindo com a linha vazia, como se ninguém tivesse assinado).
+  // Registro antigo (antes de 24/08, sem assinatura) mantém a linha em
+  // branco — não força assinatura em relatório retroativo.
+  const sigLineTec=document.getElementById('pd-vis-sig-tec-line');
+  if(sigLineTec){
+    sigLineTec.innerHTML = vis.assinatura_tecnico_base64
+      ? `<img src="${vis.assinatura_tecnico_base64}" style="max-height:42px;max-width:100%">`
+      : '';
+  }
 
   // Footer
   const tel=LC.tel||''; const email=LC.email||'';
@@ -15887,9 +15903,11 @@ function novaVistoria(cliNome, cliLocal, tecNome){
   visCheckoutTime=null;
   visEditId=null;
   _visDraftId=null;
+  _visAssinaturaTecnico=null;
   if(visCheckinInterval){ clearInterval(visCheckinInterval); visCheckinInterval=null; }
   go('visitas');
   visTab('nova');
+  renderVisAssinaturaStatus();
   const hoje=new Date();
   const _hd=`${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}-${String(hoje.getDate()).padStart(2,'0')}`;
   const dd=document.getElementById('vis-data'); if(dd) dd.value=_hd;
