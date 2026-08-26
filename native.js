@@ -413,3 +413,17 @@ function fluxaUsarOutroLogin(){
   if (typeof fazerLogout === 'function') fazerLogout();
   else location.reload();
 }
+
+// ── Trava de zoom por gesto — WebKit/iOS ignora `user-scalable=no` (26/08) ──
+// O viewport meta (index.html, maximum-scale=1.0, user-scalable=no) já basta
+// no Android/Chrome — mas o Safari/WebKit, desde o iOS 10, IGNORA de propósito
+// essa restrição por acessibilidade (decisão da Apple, não bug deste app).
+// Achado real (26/08): o Marcos reportou que o double-tap/pinça continuava
+// dando zoom e desconfigurando a tela mesmo depois do fix do viewport — bate
+// exato com esse comportamento conhecido do WebKit, que só o meta tag não
+// resolve no iPhone.
+// `gesturestart` é evento proprietário do WebKit (pinça de 2 dedos) — bloquear
+// aqui cobre o pinch-zoom. Double-tap-zoom já é coberto pelo `touch-action:
+// manipulation` em `html,body` (styles.css), que o WebKit respeita desde a
+// versão 9.3 — juntos cobrem os dois gestos nos dois sistemas.
+document.addEventListener('gesturestart', e => e.preventDefault());
