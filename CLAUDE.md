@@ -2,6 +2,65 @@
 
 ---
 
+## 🔴 Deploy de versão nova podia derrubar TODO o CSS do app (26/08)
+
+Achado direto em produção, no mesmo minuto do fix acima: o Marcos recarregou
+o app no Chrome do iPhone (pedido meu, pra pegar a correção da assinatura) e
+a tela veio **sem nenhum estilo — todas as páginas do app empilhadas uma
+embaixo da outra**, parecendo "quebrou tudo o sistema". Print mostrava o
+topo de `#page-setup` (assistente "Conectar Banco de Dados", primeira `.page`
+do HTML) direto seguido do início de `#page-empresa` ("Configurações da
+Empresa"/"Identidade da Empresa") — as duas visíveis ao mesmo tempo, sem
+nada escondendo uma da outra.
+
+**Não era o código da assinatura, nem perda de dado** — `.page{display:none}
+.page.on{display:block}` (`styles.css`) é a única coisa que esconde as
+páginas inativas; sem essa folha carregada, TODAS as `.page` ficam com o
+`display:block` padrão do navegador, empilhadas na ordem do HTML — o
+JavaScript continua rodando normal por trás (inclusive o autosave da
+vistoria), só a aparência quebra.
+
+**Causa real — corrida entre `activate` e `fetch` do Service Worker.**
+`activate` (`sw.js`) apaga TODO cache com nome diferente do `CACHE` atual
+assim que uma versão nova é ativada (`self.skipWaiting()`+`clients.claim()`,
+propositalmente agressivo, pra não deixar aparelho preso em versão velha).
+`index.html`/`app.js`/`styles.css` são network-first de propósito (sempre
+pegar a versão mais nova a cada deploy) e **nunca entram no precache** da
+instalação (`URLS`, só libs/ícones/manifest) — então, bem no instante em que
+uma versão nova acaba de assumir, não existe NENHUMA cópia em cache desses 3
+arquivos ainda. Se a 1ª tentativa de rede (`fetch(...,{cache:'no-cache'})`)
+falhar nessa janela — rede instável, o exato cenário de um técnico em campo
+puxando pra atualizar — o `.catch(() => caches.match(e.request))` não achava
+nada (cache vazio) e **resolvia pra `undefined`**.
+`e.respondWith(undefined)` mata o recurso em silêncio — pra `app.js`/
+`index.html` isso teria dado tela em branco (mais óbvio de perceber); caindo
+bem no `styles.css`, o HTML carrega igual, só sem nenhum estilo — o efeito
+visual mais confuso dos três, porque parece o app inteiro ter desmoronado
+sem nenhum erro na tela.
+
+**Corrigido**: o `.catch` ganhou mais um degrau —
+`caches.match(e.request).then(cached => cached || fetch(e.request))` — se o
+cache também estiver vazio, tenta a rede de novo (sem forçar `no-cache`
+desta vez, deixando o HTTP cache do próprio navegador ajudar) antes de
+desistir de verdade. `e.respondWith` nunca mais resolve pra `undefined`
+nesse caminho.
+
+**Não é bug específico deste deploy — é estrutural, pode acontecer em
+QUALQUER bump de `CACHE` daqui pra frente** (a cada `sw.js: fluxa-vN →
+vN+1` deste arquivo) se a rede piscar bem na hora da troca. Vale considerar
+isto resolvido de vez, não só para esta rodada.
+
+Testado por leitura de código + `node --check sw.js` (sintaxe ok); mesma
+limitação da entrada anterior — sem acesso de rede ao Supabase/GitHub Pages
+neste sandbox pra reproduzir a corrida de verdade. **Recuperação imediata
+que já funciona sem esperar o fix**: fechar a aba/app por completo e abrir
+de novo — na 2ª tentativa a rede já não está mais na janela crítica pós-
+`activate`, o fetch normal recupera o `styles.css`.
+
+sw.js: fluxa-v244 → fluxa-v245.
+
+---
+
 ## 🔴 Vistoria por plano recorrente — botão de assinatura nunca aparecia (26/08)
 
 Marcos relatou pelo celular (iPhone, empresa Acquamotor): abriu uma vistoria,
