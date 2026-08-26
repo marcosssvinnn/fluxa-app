@@ -2,6 +2,42 @@
 
 ---
 
+## 🔧 Vistoria — aviso não-bloqueante para item crítico salvo sem foto (25/08)
+
+Continuação da revisão de usabilidade da Vistoria pedida pelo Marcos
+("veja o que da para melhorar la de usabilidade para o tecnico"). Esta
+mesma sessão já tinha registrado como "melhoria sugerida, não
+implementada" (auditoria da vistoria real do Infinity Coast Tower, ver
+entrada mais abaixo): um item marcado 🔴 crítico pode ser salvo **sem
+nenhuma foto** — a foto é a prova visual que sustenta o orçamento de
+conserto que vem depois; sem ela, quem aprova decide só pelo texto do
+técnico.
+
+**Implementado como aviso, nunca bloqueio** — mesmo princípio já usado em
+outros pontos do app (limite de desconto, item sem vínculo de estoque):
+avisa e deixa passar, quem decide é o técnico que está no local.
+`_visCriticosSemFoto()` (nova, perto de `finalizarVistoria`) varre
+`visEquipDados` por status `critico` sem nenhuma foto; `finalizarVistoria()`
+mostra `confirmar()` (nunca `window.confirm`, proibido no projeto) com
+"Voltar e adicionar foto" / "Finalizar mesmo assim" **só quando há algum
+caso** — item crítico COM foto, ou item em qualquer outro status, segue
+direto pro salvamento de sempre, sem nenhuma tela a mais. `_visNomeEquip(id)`
+(nova, extraída de dentro de `visPuxarPrioridades`, que passou a reusá-la)
+resolve o nome do equipamento pro texto do aviso.
+
+Testado no Browser pane (offline, `dbOk=false;db=null;`, sessão técnico
+sintética): crítico sem foto → modal aparece com o nome certo do
+equipamento; "Voltar e adicionar foto" → só fecha o modal, nada é
+descartado, campos continuam preenchidos; "Finalizar mesmo assim" → salva
+normalmente e vai pro histórico; crítico COM foto → modal nunca abre,
+salva direto; atenção/bom/N-A sem foto → não conta como crítico, não
+dispara o aviso. Zero erro novo no console (só o ruído de boot já
+documentado, sem relação com este código).
+
+sw.js: fluxa-v239 → fluxa-v240.
+
+---
+
 ## 🔴 Login travado no Android — hashPIN caía no PIN cru, corrigido; zoom preso e getTecnicos morto também (25/08)
 
 Marcos: "não estou conseguindo acessar com as senhas que eu tenho" — no
