@@ -1,6 +1,6 @@
 // Altere este número a cada novo deploy para forçar atualização em todos os dispositivos
 // (não é mais obrigatório: o index.html detecta novas versões sozinho via ETag/Last-Modified)
-const CACHE = 'fluxa-v244';
+const CACHE = 'fluxa-v245';
 
 const URLS = [
   'libs/supabase.min.js',
@@ -67,7 +67,16 @@ self.addEventListener('fetch', e => {
           }
           return res;
         })
-        .catch(() => caches.match(e.request))
+        // Achado real (26/08): logo após ativar uma versão nova, `activate`
+        // já apagou os caches antigos — se essa 1ª tentativa de rede falhar
+        // bem nessa janela (rede instável), `caches.match` não acha nada (o
+        // novo cache ainda está vazio pra este recurso) e resolve pra
+        // `undefined`. `e.respondWith(undefined)` mata o recurso em
+        // silêncio — pra `styles.css` isso derruba TODO o CSS do app (todas
+        // as páginas empilhadas, sem estilo, parecendo "quebrou tudo").
+        // Corrigido: se o cache também não tiver nada, tenta a rede de novo
+        // (sem forçar no-cache desta vez) antes de desistir de verdade.
+        .catch(() => caches.match(e.request).then(cached => cached || fetch(e.request)))
     );
     return;
   }
