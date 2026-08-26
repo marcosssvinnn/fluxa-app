@@ -541,6 +541,17 @@ function atualizarTecsPorLoja(lojaId, selectId){
 //  USUÁRIOS — tabela `usuarios` no Supabase
 // ══════════════════════════════════════════════════
 let todosUsuarios = [];
+// true só depois que carregarUsuarios() confirmou a lista REAL com o Supabase
+// (não o seed placeholder nem só o cache local). Achado real (26/08): numa
+// instalação nova do app — Android sem NENHUM cache local ainda — o boot
+// mostra a tela de login com o seed de `seedTecnicosIniciais()` (pin:null,
+// nunca valida) enquanto a rede ainda está buscando os usuários de verdade.
+// Digitar a senha certa NESSA janela sempre dá "senha incorreta", porque
+// está comparando contra o placeholder, não contra o registro real — no
+// navegador isso nunca aparecia porque o cache local já tinha dado real de
+// sessões anteriores. Usado em fazerLogin() pra não confundir "ainda
+// carregando" com "senha errada de verdade".
+let _usuariosConfirmadosDoServidor = false;
 
 // Pré-cadastra os 4 técnicos na primeira vez que o app abre
 function seedTecnicosIniciais(){
@@ -604,6 +615,7 @@ async function carregarUsuarios(){
         }
         todosUsuarios=data;
         lsSet('fluxa_usuarios',JSON.stringify(data));
+        _usuariosConfirmadosDoServidor=true;
         return;
       }
     }
@@ -967,6 +979,22 @@ async function fazerLogin(){
     }
   } else {
     _loginBusy(false);
+    // Achado real (26/08): instalação nova sem cache local ainda (Android
+    // recém-instalado) mostra o seed placeholder de seedTecnicosIniciais()
+    // (pin:null) até a lista real de usuários chegar do Supabase — digitar a
+    // senha CERTA nesse meio-tempo sempre bate contra o placeholder e falha,
+    // como se a senha estivesse errada. Não conta como tentativa (não soma
+    // pro lockout de 3 erros) — a pessoa não errou nada, só a lista ainda não
+    // confirmou com o servidor. Não se aplica ao gestor principal
+    // (CFG.pin tem carregamento próprio, não depende de todosUsuarios).
+    if(!_usuariosConfirmadosDoServidor && loginUserSelecionado.id!=='__gestor__'){
+      _loginErrMostrar('Ainda carregando', 'Os dados da equipe ainda estão chegando do servidor — aguarde alguns segundos e tente de novo.');
+      _loginPinShake();
+      document.getElementById('pin-input').value = '';
+      atualizarDotsPIN('');
+      document.getElementById('pin-input').focus();
+      return;
+    }
     loginAttempts++;
     lsSet(LS_ATTEMPTS_KEY, loginAttempts);
     if(loginAttempts >= 3){
@@ -1294,6 +1322,17 @@ function lsOrcProxNum(){ return lsOrcLer().reduce((a,o)=>Math.max(a,o.numero||0)
     try {
       const ok = await conectarDB(sbUrl, sbKey, false);
       if(ok){
+        // Usuários (= login) primeiro, antes de qualquer outra coisa — é o
+        // único dado que bloqueia alguém de entrar no app. Achado real
+        // (26/08): isto rodava DEPOIS de CFG/locais/clientes, então numa
+        // instalação nova (sem cache local ainda) a tela de login ficava
+        // vários segundos mostrando o seed placeholder (pin:null) enquanto
+        // esperava tudo o resto — tempo de sobra pra alguém digitar a senha
+        // certa e ver "senha incorreta" por comparar contra o placeholder,
+        // não contra o registro real. Nada abaixo depende de usuário logado.
+        await sincronizarSeedUsuarios();
+        await carregarUsuarios();
+        renderLoginUsers();
         await carregarCFGremoto(); aplicarCFG(); initEmailJS();
         loadLojasExtraConfig();
         atualizarHeaderLoja(); // re-aplica após lojas_extra carregado do Supabase
@@ -1302,11 +1341,8 @@ function lsOrcProxNum(){ return lsOrcLer().reduce((a,o)=>Math.max(a,o.numero||0)
         loadLocais(); // carrega locais_vistoria que vieram no CFG (modo legado)
         loadLocaisRemoto(); // tabela dedicada (se existir) — fonte de verdade + auto-migração
         await carregarClientesRemoto();
-        await sincronizarSeedUsuarios();
-        await carregarUsuarios();
         loadVistoriasRemoto();
         loadRecebimentos(); // contas a receber (não bloqueia o boot)
-        renderLoginUsers(); // sempre atualiza lista de usuários após carregar do banco
         // Atualiza aba Locais se estiver aberta
         if(document.getElementById('vis-view-locais')?.style.display!=='none') renderLocaisTab();
       }
