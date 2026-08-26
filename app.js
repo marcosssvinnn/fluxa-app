@@ -2035,12 +2035,23 @@ function voltar(){
 // Gear dropdown
 function toggleGear(){
   const m=document.getElementById('gear-menu');
-  m.style.display=m.style.display==='none'?'block':'none';
+  const abrindo=m.style.display==='none';
+  m.style.display=abrindo?'block':'none';
   if(typeof closeNotif==='function') closeNotif(); // só um dropdown do cabeçalho aberto por vez
+  // Achado real (26/08): "Configurações"/avatar no RODAPÉ DA SIDEBAR (mobile,
+  // .snav-footer) também chamam toggleGear() — mas o menu (#gear-menu) mora
+  // fisicamente dentro do cabeçalho (.gear-wrap). Sem fechar o drawer, o menu
+  // abre ancorado no topo da tela enquanto a sidebar cheia continua por cima —
+  // o usuário toca embaixo e o resultado aparece longe, fácil de nem notar.
+  if(abrindo && document.getElementById('sidebar')?.classList.contains('mob-open')) closeSidebar();
 }
 function closeGear(){ document.getElementById('gear-menu').style.display='none'; }
-// Fechar gear ao clicar fora
-document.addEventListener('click',e=>{ if(!e.target.closest('.gear-wrap')) closeGear(); });
+// Fechar gear ao clicar fora — inclui .snav-footer (o mesmo botão "Configurações"/
+// avatar existe ali, na sidebar mobile) além do .gear-wrap do cabeçalho. Sem essa
+// segunda origem, um clique vindo da sidebar sempre contava como "fora" e fechava
+// o menu no MESMO clique que acabou de abri-lo — abria e fechava juntos, em
+// silêncio, dando a impressão de "não faz nada" (achado real, 26/08).
+document.addEventListener('click',e=>{ if(!e.target.closest('.gear-wrap') && !e.target.closest('.snav-footer')) closeGear(); });
 
 function toggleOsCard(){
   const on=document.getElementById('toggle-os')?.checked;

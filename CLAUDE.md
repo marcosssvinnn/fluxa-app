@@ -2,6 +2,79 @@
 
 ---
 
+## 🔴 "Configurações"/"Mais" na sidebar mobile não abria nada + cabeçalho empurrava os ícones pra fora da tela (26/08)
+
+Marcos relatou, testando no celular: clicar em "Configurações" ou no avatar
+dentro da barra lateral "não consegue fazer nada" — sem trocar de usuário,
+sem sair. Investigado e achados **dois bugs reais e independentes**, os
+dois explicam o sintoma juntos.
+
+**1. 🔴 O menu abria e fechava no MESMO clique, em silêncio.** O rodapé da
+sidebar (`.snav-footer`, botões "Configurações" e avatar/nome) chama
+`toggleGear()` — a MESMA função do ⚙️ do cabeçalho. Só que o menu em si
+(`#gear-menu`) mora fisicamente dentro do `.gear-wrap` do **cabeçalho**, e
+o listener de "fechar ao clicar fora" só reconhecia clique de dentro do
+`.gear-wrap`:
+```js
+document.addEventListener('click',e=>{ if(!e.target.closest('.gear-wrap')) closeGear(); });
+```
+Um clique vindo da sidebar sempre bate fora do `.gear-wrap` — então, no
+MESMO evento de clique que `toggleGear()` acabou de abrir o menu, o
+listener de documento (que roda depois, na fase de bubble) fechava de
+novo. Resultado: o menu literalmente abre e fecha no mesmo instante,
+sem nenhum flash visível — parece que não fez nada.
+
+**Corrigido**: o listener passou a reconhecer também `.snav-footer` como
+origem válida; `toggleGear()` fecha a sidebar mobile automaticamente ao
+abrir (evita dois painéis grandes disputando a tela ao mesmo tempo —
+sidebar cheia por baixo + dropdown por cima).
+
+**2. 🔴 A tagline real da empresa empurrava 🔔/⚙️/avatar pra FORA da tela
+em celular — achado que provavelmente é a causa mais direta.** `.hdr-logo`
+(nome+tagline) e `.hdr-right` (ícones) tinham `flex-shrink:0` os DOIS —
+nenhum lado cede espaço ao outro. Com a tagline real da Forthemp
+("Aquecedores e Equipamentos para Piscina", confirmada direto no banco,
+`empresa_config.dados.sub`), o cabeçalho inteiro passa de 600px de
+largura mínima — em qualquer tela de celular (375px testado), os ícones
+do lado direito (🔔 notificação, ⚙️ configurações, avatar) ficavam
+fisicamente **fora da área visível**, inalcançáveis por toque, mesmo
+clicando direto no cabeçalho (não só pela sidebar). Confirmado ao vivo:
+`hdr.scrollWidth` 610px contra `hdr.clientWidth` 375px — 235px de conteúdo
+invisível à direita, exatamente onde ficam os 3 controles que ele
+reportou não conseguir usar.
+
+**Corrigido**: `.hdr-logo`/`.hdr-logo-text` ganharam `min-width:0` +
+`overflow:hidden`, `.hdr-nome`/`.hdr-sub` ganharam
+`white-space:nowrap;overflow:hidden;text-overflow:ellipsis` — o bloco de
+nome/tagline agora **encolhe e trunca com "…"** quando o espaço aperta,
+em vez de empurrar o resto do cabeçalho pra fora. Os ícones (a parte
+funcional) nunca perdem espaço; a tagline, puramente decorativa, é quem
+cede. Sem efeito em telas largas (testado 1280px: tagline completa,
+sem corte).
+
+**Achado no mesmo processo, corrigido de brinde**: o link "Pedir ao
+gestor" (tela de login, "Esqueceu a senha?") usava `window.alert(...)` —
+**proibido neste projeto** (bloqueado em silêncio em PWA/WebView Android,
+regra já documentada mais abaixo neste arquivo). Trocado por
+`toast(...)` com título, mesmo padrão usado em todo o resto do app.
+
+Testado no Browser pane (porta nova a cada rodada — lição já documentada
+neste arquivo sobre reaproveitar aba/porta mascarando o fix; usei sessão
+real conectada uma vez para confirmar a tagline real de produção, depois
+`dbOk=false` pro resto do teste): 375px — cabeçalho sem overflow
+(`hdr.scrollWidth===hdr.clientWidth===375`), ⚙️ dentro da tela e clicável,
+menu abrindo e permanecendo visível tanto pelo ⚙️ do cabeçalho quanto pelo
+"Configurações"/avatar da sidebar (a sidebar fecha sozinha nesse segundo
+caminho), "Sair / Trocar usuário" clicado de verdade → `getSessao()` volta
+`null`, tela de login aparece; 1280px sem regressão (tagline completa,
+ícones no lugar de sempre); toast do "Pedir ao gestor" aparece por cima da
+tela de login (z-index maior, confirmado) com texto legível. Zero erro
+novo no console (só o ruído de boot já documentado).
+
+sw.js: fluxa-v240 → fluxa-v241.
+
+---
+
 ## 🔧 Vistoria — aviso não-bloqueante para item crítico salvo sem foto (25/08)
 
 Continuação da revisão de usabilidade da Vistoria pedida pelo Marcos
