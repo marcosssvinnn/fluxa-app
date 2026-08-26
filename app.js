@@ -13181,16 +13181,22 @@ function visUpdAmbObs(amb, val){
   if(val && val.trim()) visAmbienteObs[k]=val; else delete visAmbienteObs[k];
   _salvarRascunhoVisDeb();
 }
+// Nome legível de um equipamento (custom do plano ou padrão) a partir do id —
+// única fonte, reusada por visPuxarPrioridades e pelo aviso de crítico sem foto.
+function _visNomeEquip(id){
+  const c=(_visEquipsCustom||[]).find(e=>e.id===id); if(c) return c.nome;
+  const d=(typeof VIS_EQUIPAMENTOS_DEFAULT!=='undefined'?VIS_EQUIPAMENTOS_DEFAULT:[]).find(x=>x.id===id);
+  return d?d.nome:id;
+}
 // Monta um rascunho das prioridades a partir dos itens críticos/atenção e das
 // observações de ambiente — o técnico só refina. Não substitui o que já digitou.
 function visPuxarPrioridades(){
-  const nomeDe=(id)=>{ const c=(_visEquipsCustom||[]).find(e=>e.id===id); if(c) return c.nome; const d=(typeof VIS_EQUIPAMENTOS_DEFAULT!=='undefined'?VIS_EQUIPAMENTOS_DEFAULT:[]).find(x=>x.id===id); return d?d.nome:id; };
   const naVistoria=(id)=>(_visEquipsCustom||[]).some(e=>e.id===id)||visEquipSelecionados.includes(id);
   const linhas=[];
   ['critico','atencao'].forEach(st=>{
     Object.keys(visEquipDados||{}).forEach(id=>{
       const d=visEquipDados[id]; if(!d||d.status!==st||!naVistoria(id)) return;
-      linhas.push(`${st==='critico'?'🔴':'⚠️'} ${nomeDe(id)}${d.obs?': '+d.obs.trim():''}`);
+      linhas.push(`${st==='critico'?'🔴':'⚠️'} ${_visNomeEquip(id)}${d.obs?': '+d.obs.trim():''}`);
     });
   });
   Object.keys(visAmbienteObs||{}).forEach(amb=>{ if((visAmbienteObs[amb]||'').trim()) linhas.push(`📍 ${amb}: ${visAmbienteObs[amb].trim()}`); });
@@ -15058,6 +15064,17 @@ function descartarVistoriaEmAndamento(){
 
 // ── Finalizar vistoria: salva, limpa o form e navega para o histórico ──
 let _finalizandoVis=false;
+// Itens marcados 🔴 crítico sem NENHUMA foto — achado real auditando a
+// vistoria do Infinity Coast Tower (25/08): item crítico ficou sem foto
+// nenhuma anexada, sem nada avisar. Foto é a prova visual do problema pro
+// relatório/orçamento que vem depois; sem ela, o gestor decide só pelo texto.
+function _visCriticosSemFoto(){
+  const naVistoria=(id)=>(_visEquipsCustom||[]).some(e=>e.id===id)||visEquipSelecionados.includes(id);
+  return Object.keys(visEquipDados||{}).filter(id=>{
+    const d=visEquipDados[id];
+    return d && d.status==='critico' && naVistoria(id) && !(d.fotos||[]).filter(Boolean).length;
+  });
+}
 async function finalizarVistoria(){
   if(_finalizandoVis) return; // trava contra múltiplos cliques enquanto processa
   if(!_visAssinaturaTecnico){
@@ -15065,6 +15082,21 @@ async function finalizarVistoria(){
     document.getElementById('vis-assinatura-card')?.scrollIntoView({behavior:'smooth',block:'center'});
     return;
   }
+  const _semFoto=_visCriticosSemFoto();
+  if(_semFoto.length){
+    const _nomes=_semFoto.map(_visNomeEquip).join(', ');
+    confirmar({
+      titulo:'Crítico sem foto',
+      msg:`${_semFoto.length>1?'Estes itens estão':'Este item está'} marcado 🔴 crítico sem nenhuma foto anexada: ${_nomes}. A foto é a prova visual do problema — sem ela, quem for aprovar o conserto vê só o texto.`,
+      labelNao:'Voltar e adicionar foto',
+      labelSim:'Finalizar mesmo assim',
+      onSim:()=>_finalizarVistoriaProsseguir()
+    });
+    return;
+  }
+  await _finalizarVistoriaProsseguir();
+}
+async function _finalizarVistoriaProsseguir(){
   _finalizandoVis=true;
   try{
     const ok = await salvarVistoria();

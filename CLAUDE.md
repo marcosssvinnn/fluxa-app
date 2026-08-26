@@ -2,6 +2,126 @@
 
 ---
 
+## 🔧 Vistoria — aviso não-bloqueante para item crítico salvo sem foto (25/08)
+
+Continuação da revisão de usabilidade da Vistoria pedida pelo Marcos
+("veja o que da para melhorar la de usabilidade para o tecnico"). Esta
+mesma sessão já tinha registrado como "melhoria sugerida, não
+implementada" (auditoria da vistoria real do Infinity Coast Tower, ver
+entrada mais abaixo): um item marcado 🔴 crítico pode ser salvo **sem
+nenhuma foto** — a foto é a prova visual que sustenta o orçamento de
+conserto que vem depois; sem ela, quem aprova decide só pelo texto do
+técnico.
+
+**Implementado como aviso, nunca bloqueio** — mesmo princípio já usado em
+outros pontos do app (limite de desconto, item sem vínculo de estoque):
+avisa e deixa passar, quem decide é o técnico que está no local.
+`_visCriticosSemFoto()` (nova, perto de `finalizarVistoria`) varre
+`visEquipDados` por status `critico` sem nenhuma foto; `finalizarVistoria()`
+mostra `confirmar()` (nunca `window.confirm`, proibido no projeto) com
+"Voltar e adicionar foto" / "Finalizar mesmo assim" **só quando há algum
+caso** — item crítico COM foto, ou item em qualquer outro status, segue
+direto pro salvamento de sempre, sem nenhuma tela a mais. `_visNomeEquip(id)`
+(nova, extraída de dentro de `visPuxarPrioridades`, que passou a reusá-la)
+resolve o nome do equipamento pro texto do aviso.
+
+Testado no Browser pane (offline, `dbOk=false;db=null;`, sessão técnico
+sintética): crítico sem foto → modal aparece com o nome certo do
+equipamento; "Voltar e adicionar foto" → só fecha o modal, nada é
+descartado, campos continuam preenchidos; "Finalizar mesmo assim" → salva
+normalmente e vai pro histórico; crítico COM foto → modal nunca abre,
+salva direto; atenção/bom/N-A sem foto → não conta como crítico, não
+dispara o aviso. Zero erro novo no console (só o ruído de boot já
+documentado, sem relação com este código).
+
+sw.js: fluxa-v239 → fluxa-v240.
+
+---
+
+## 🔴 Login travado no Android — hashPIN caía no PIN cru, corrigido; zoom preso e getTecnicos morto também (25/08)
+
+Marcos: "não estou conseguindo acessar com as senhas que eu tenho" — no
+celular específico rodando o app azul (Forthemp), nenhum PIN conhecido
+entrava. Achado real: `hashPIN()` tentava `crypto.subtle.digest` e, se
+falhasse (alguns WebView Android não expõem `crypto.subtle` de forma
+confiável), o `catch` devolvia o **PIN cru** em vez de um hash — a
+comparação contra o hash salvo em `usuarios.pin` falhava sempre, pra
+qualquer senha, só naquele aparelho.
+
+**Corrigido**: `_sha256Puro()` (nova, ~50 linhas, implementação pura-JS de
+SHA-256) como fallback dentro de `hashPIN()` — nunca mais devolve o PIN
+sem hash. Verificado byte a byte contra `hashlib.sha256` do Python nos
+vetores `''`, `'abc'` e PIN+salt reais (via `osascript -l JavaScript`, que
+não tem `crypto` global — ambiente de teste natural pro caminho de
+fallback). `app.js:hashPIN`/`_sha256Puro`.
+
+**Desbloqueio imediato, autorizado pelo Marcos** ("coloque a senha de
+todos eles 1234... depois corrigimos e depois corrija o bug"): PINs
+temporários gravados direto via Management API, usando o próprio
+mecanismo legado de PIN em texto puro que `pinValido()` já suporta
+(`stored===input` quando `stored.length!==64`) — não é gambiarra, é a
+via de compatibilidade que já existia. Marcos → `0246`; Bruno, Eldecir,
+Elis, Josimar, Tamara → `1234` cada. **Trocar por senha definitiva depois
+que o fix acima estiver instalado em todos os aparelhos.**
+
+**Achado à parte, no mesmo dia, revisando a tela de Vistoria a pedido do
+Marcos**: `getTecnicos()` lia `CFG.tecnicos || LOJAS.flatMap(...)` — e
+`CFG.tecnicos` é um campo **morto**, alimentado por um
+`<textarea id="cfg-tecnicos" style="display:none">` que nenhuma UI atual
+mostra ou edita, mas que `preencherFormEmpresa()`/`salvarEmpresa()`
+continuavam lendo e regravando a cada "Salvar" da tela Empresa —
+perpetuando pra sempre o valor placeholder `["Técnico 1","Técnico 2"]`
+que ficou preso lá (confirmado ao vivo em produção,
+`empresa_config.dados.tecnicos`). Como `CFG.tecnicos` vinha ANTES do `||`,
+sempre vencia a lista real (`LOJAS[].tecs`) — **9 seletores de técnico
+diferentes no app inteiro** mostravam só "Técnico 1"/"Técnico 2" em vez
+da equipe real: atribuição de técnico em OS, agendamento em lote,
+filtro de Produtividade **e o cálculo de estatística por técnico dela**,
+selects de Despesas/Agenda/check-in de OS, filtro de calendário, "técnico
+responsável" da Oficina, "técnico preferido" de Locais recorrentes.
+
+**Corrigido**: removida a leitura de `CFG.tecnicos` de `getTecnicos()`,
+`atualizarTecsPorLoja()` e `abrirLocForm()` — todos os 9 pontos agora
+resolvem sempre a partir de `LOJAS[].tecs` (a fonte real, editável pela
+tela de Empresa de verdade). Removido também o campo morto em si
+(`<textarea id="cfg-tecnicos">` do HTML + os 2 pontos que
+liam/regravavam `CFG.tecnicos` em `preencherFormEmpresa`/`salvarEmpresa`)
+— sem isso o próximo "Salvar" da tela Empresa reintroduziria o mesmo
+problema. `empresa_config.dados.tecnicos` no banco foi deixado como está
+(chave morta, inofensiva agora que nada mais lê) — não fiz limpeza
+destrutiva à toa.
+
+Testado localmente (`python3 -m http.server`, `dbOk=false;db=null;`,
+sessão sintética): `getTecnicos()` retorna a lista real; select de
+técnico da Vistoria mostra e restaura corretamente ao reabrir um registro
+(`tecnico:'Josimar'`); filtro de Produtividade e o check-in de OS também
+corretos; `salvarEmpresa()` sem erro. Zero regressão nos outros campos da
+tela Empresa.
+
+**Fora do escopo desta rodada, achado durante a revisão, ainda a fazer**:
+o restante da revisão de usabilidade da Vistoria (captura de checklist
+por ambiente, fluxo de foto, check-in/check-out, assinatura obrigatória,
+recomendações) — a lista de equipamentos/ambiente já estava bem otimizada
+de sessões anteriores (Fase 9c/9c-rev), não achei mais fricção nova além
+do bug de técnico acima.
+
+**Bug separado, achado e corrigido no mesmo dia, mobile**: pinch-zoom e
+double-tap-zoom quebravam o layout do app em celular (relatado pelo
+Marcos assistindo o app no Simulador iOS: "as vezes voce toca na tela e
+ele da zoom e desconfigura a tela"). Corrigido travando o zoom do
+viewport (`index.html`, meta viewport ganhou `maximum-scale=1.0,
+user-scalable=no`) — trade-off comum e aceitável pra um app instalável
+que já se trata como equivalente nativo em toda a documentação de PWA
+deste projeto.
+
+**Pipeline de deploy usado (main → android-apk) nas 3 correções acima**:
+commit em `main` (bump de `sw.js` incluso) → push → checkout
+`android-apk` → merge de `origin/main` → push, disparando o workflow
+`.github/workflows/build-android-apk.yml`. `sw.js`: `fluxa-v236` →
+`v237` (hashPIN) → `v238` (zoom) → `v239` (getTecnicos).
+
+---
+
 ## 🔴 App de celular — banner de instalar cobria o botão "Finalizar Vistoria" (24/08)
 
 Marcos: "a parte mais importante é a de que o técnico faz a vistoria no
