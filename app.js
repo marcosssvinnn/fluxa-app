@@ -529,7 +529,7 @@ function atualizarHeaderLoja(){
 function atualizarTecsPorLoja(lojaId, selectId){
   const sel=document.getElementById(selectId); if(!sel) return;
   const loja=getLoja(lojaId);
-  const tecs=loja?loja.tecs:(CFG.tecnicos||LOJAS.flatMap(l=>l.tecs).filter((v,i,a)=>a.indexOf(v)===i));
+  const tecs=loja?loja.tecs:getTecnicos();
   const atual=sel.value;
   const opts=tecs.map(t=>`<option value="${t}"${t===atual?' selected':''}>${t}</option>`).join('');
   // mantém opção vazia se não houver seleção
@@ -1598,7 +1598,6 @@ function preencherFormEmpresa(){
   setV('cfg-cor',LC.cor||CFG.cor); setV('cfg-cor-txt',LC.cor||CFG.cor);
   setV('cfg-cor2',LC.cor2||CFG.cor2); setV('cfg-cor2-txt',LC.cor2||CFG.cor2);
   setV('cfg-servicos', (CFG.svcs||[]).join('\n'));
-  setV('cfg-tecnicos', (CFG.tecnicos||[]).join('\n'));
   setV('cfg-limite-desconto', CFG.limite_desconto_pct?String(CFG.limite_desconto_pct):'');
   setV('cfg-pin', ''); // não exibir hash; usuário digita novo PIN para alterar
   setV('cfg-notif-visita', CFG.notif_visita || CFG_DEF.notif_visita);
@@ -1755,7 +1754,6 @@ async function salvarEmpresa(){
   CFG.cor  = gV('cfg-cor');
   CFG.cor2 = gV('cfg-cor2');
   CFG.svcs = gV('cfg-servicos').split('\n').map(s=>s.trim()).filter(Boolean);
-  CFG.tecnicos = gV('cfg-tecnicos').split('\n').map(s=>s.trim()).filter(Boolean);
   CFG.limite_desconto_pct = parseFloat(gV('cfg-limite-desconto'))||0; // 0 = sem limite
   const novoPin = gV('cfg-pin').trim();
   if(novoPin.length===4 && /^\d{4}$/.test(novoPin)){
@@ -11499,7 +11497,7 @@ function verFotoDesp(id){
 // ══════════════════════════════════════════════════
 let todosAg = [], calAno, calMes, checkinAt = null, checkinTimer = null;
 
-function getTecnicos(){ return CFG.tecnicos || LOJAS.flatMap(l=>l.tecs||[]).filter((v,i,a)=>a.indexOf(v)===i); }
+function getTecnicos(){ return LOJAS.flatMap(l=>l.tecs||[]).filter((v,i,a)=>a.indexOf(v)===i); }
 
 function populaTecSelects(){
   const tecs=getTecnicos();
@@ -13389,7 +13387,7 @@ function abrirLocForm(id){
   // técnico select
   const sel=document.getElementById('loc-tec');
   sel.innerHTML='<option value="">Qualquer técnico</option>';
-  const tecList=(typeof CFG!=='undefined'&&CFG.tecnicos)?CFG.tecnicos:[];
+  const tecList=getTecnicos();
   tecList.forEach(t=>{ const o=document.createElement('option'); o.value=t; o.textContent=t; sel.appendChild(o); });
   // seletor de unidade — visível quando gestor está em "Todas" e há múltiplas unidades no grupo
   const lojaRow=document.getElementById('loc-loja-row');
