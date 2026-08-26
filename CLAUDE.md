@@ -2,6 +2,75 @@
 
 ---
 
+## 🔴 Login — "senha incorreta" contra usuário-placeholder de instalação nova (26/08)
+
+Marcos testou o Bruno no app novo (Android, instalação nova): "Senha
+incorreta — restam 1 tentativa(s)" mesmo digitando a senha temporária
+certa. Investigado a fundo — achado um bug real, mas com uma ressalva
+importante: **ele não explica sozinho o caso do Bruno específico** (ver
+"O que NÃO foi confirmado" abaixo). Corrigido de qualquer forma, porque é
+real e vai morder alguém (o Marcos, com PIN `0246`, é o caso mais claro).
+
+**O bug confirmado**: `seedTecnicosIniciais()` (`app.js`) roda no boot e,
+numa instalação **sem NENHUM cache local ainda** (Android recém-instalado
+= sandbox de app vazio, diferente do navegador que já carrega meses de
+cache de uso), popula `todosUsuarios` com um placeholder de 4 nomes fixos
+(`Marcos/Josimar/Eldecir/Bruno`, todos com `pin:null`) e mostra a tela de
+login **antes** dos usuários reais chegarem do Supabase — que só acontece
+depois de uma cadeia de `await` sequenciais (CFG, locais, clientes...).
+Digitar a senha certa NESSA janela comparava contra o placeholder
+(`pin:null`), não contra o registro real — `pinValido(input, null)` é
+sempre `false`.
+
+**Por que isso NÃO explica sozinho a tela do Bruno**: achado no próprio
+teste, existe um fallback antigo em `fazerLogin()` —
+`if(!pinCorreto && !u.pin) pinCorreto = await pinValido(pin, CFG.pin||
+'1234')` — quando o usuário não tem PIN próprio, cai no PIN geral da
+empresa. **O PIN geral real da Forthemp É `1234`** (confirmado direto no
+banco) — exatamente a senha temporária que Bruno/Eldecir/Elis/Josimar/
+Tamara receberam. Ou seja: mesmo pego no placeholder (`pin:null`), digitar
+`1234` cai nesse fallback e **funciona por coincidência** — testado e
+confirmado. Só o Marcos (`0246`, diferente do fallback `1234`) seria
+travado de verdade por este bug específico. A causa real do "Bruno" da
+screenshot continua **em aberto** — hipóteses não descartadas: PIN
+diferente de `1234` digitado por engano (memória do PIN antigo), teclado
+Android inserindo algo diferente do que aparece nas 4 caixinhas visuais
+(elas só refletem `#pin-input`, não são o campo real), ou cache antigo
+sobrevivendo de uma instalação anterior do mesmo app no aparelho.
+
+**Corrigido mesmo assim (real e vale a pena)**:
+1. `_usuariosConfirmadosDoServidor` (flag nova) — só vira `true` depois que
+   `carregarUsuarios()` confirma a lista REAL com o Supabase (não cache/
+   seed). Em `fazerLogin()`, uma falha de PIN enquanto essa flag ainda é
+   `false` (e não é o gestor principal, que usa `CFG.pin` direto, sem
+   depender de `todosUsuarios`) mostra **"Ainda carregando" / "Os dados da
+   equipe ainda estão chegando do servidor — aguarde alguns segundos e
+   tente de novo"** em vez de "Senha incorreta" — e **não conta pro
+   lockout de 3 tentativas** (a pessoa não errou nada).
+2. Boot reordenado: `sincronizarSeedUsuarios()`/`carregarUsuarios()`/
+   `renderLoginUsers()` agora rodam **primeiro**, logo após conectar no
+   banco — antes de CFG/locais/clientes, que não bloqueiam login de
+   ninguém. Encolhe a janela vulnerável pra quem tem internet normal (não
+   elimina 100% — a própria conexão inicial ainda leva um tempo).
+
+Testado no Browser pane (offline, 3 cenários simulando o estado exato do
+boot, sem rede real): placeholder + PIN que NÃO bate com o fallback
+(`0246`) → "Ainda carregando", `loginAttempts` continua 0 (não conta);
+dados confirmados + PIN certo → login completa normal, sessão criada;
+dados confirmados + PIN genuinamente errado → "Senha incorreta" normal,
+conta pro lockout (comportamento de sempre, sem regressão). Zero erro
+novo no console.
+
+**Pendência real, precisa da resposta do Marcos**: confirmar com o Bruno
+exatamente o que ele digitou, e se esse Android já tinha o Forthemp
+instalado antes (atualizado por cima) ou era instalação 100% nova — isso
+decide se vale investigar cache antigo sobrevivendo no aparelho ou se foi
+só digitação errada.
+
+sw.js: fluxa-v242 → fluxa-v243.
+
+---
+
 ## 🔧 Ícones repetidos no mobile — mesma ação em 2-3 lugares, consolidado (26/08)
 
 Continuação direta da correção anterior (menu de Configurações/sidebar).
