@@ -149,25 +149,31 @@
 
     /* Ação primária fixa (Tarefa 3, 14/08) — único destino de "criar" da
        sidebar, mesma cor/hover do .rd-btn-primary do resto do app. */
-    .snav-primary{padding:0 12px 12px;flex-shrink:0}
-    .snav-primary-btn{width:100%;background:var(--c1);border:none;border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:9px;cursor:pointer;font-family:'Instrument Sans',sans-serif;transition:background .12s}
+    .snav-primary{padding:0 12px 10px;flex-shrink:0}
+    .snav-primary-btn{width:100%;background:var(--c1);border:none;border-radius:10px;padding:9px 12px;display:flex;align-items:center;gap:9px;cursor:pointer;font-family:'Instrument Sans',sans-serif;transition:background .12s}
     .snav-primary-btn:hover{background:var(--c1-hover)}
     .snav-primary-btn:active{background:var(--c1-press)}
     .snav-primary-label{font-size:13px;font-weight:600;color:#fff;white-space:nowrap;transition:opacity .15s,visibility .15s}
-    .sidebar.collapsed .snav-primary-btn{justify-content:center;padding:10px}
+    .sidebar.collapsed .snav-primary-btn{justify-content:center;padding:9px}
     .sidebar.collapsed .snav-primary-label{opacity:0;visibility:hidden;width:0}
 
     /* Bloco de atendimento — Balcão + Dar entrada (18/08, 3g, opção 9a).
        Dois secundários 50/50 abaixo do primário; divisória separa o bloco
-       de "ações" do resto da navegação. */
+       de "ações" do resto da navegação.
+       Achado 27/08: com o rótulo embaixo do ícone (flex-direction:column),
+       este bloco ficava ~50px de altura — quase o dobro de um item comum da
+       lista (.snb, ~32px) — "empurrando" a área rolável de navegação pra um
+       espaço menor em telas mais baixas (notebook). Ícone e rótulo lado a
+       lado (row) deixam a altura igual à do botão primário logo acima,
+       harmonizando o bloco inteiro com o resto da sidebar. */
     .snav-secondary-row{display:flex;gap:6px;margin-top:6px}
-    .snav-secondary-btn{flex:1;background:#1B2430;border:none;border-radius:10px;padding:9px 6px;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;font-family:'Instrument Sans',sans-serif;transition:background .12s}
+    .snav-secondary-btn{flex:1;background:#1B2430;border:none;border-radius:10px;padding:8px 6px;display:flex;flex-direction:row;align-items:center;justify-content:center;gap:6px;cursor:pointer;font-family:'Instrument Sans',sans-serif;transition:background .12s}
     .snav-secondary-btn:hover{background:#22303F}
     .snav-secondary-btn:hover .snav-secondary-label{color:#F2F6FB}
     .snav-secondary-label{font-size:11px;font-weight:600;color:#B4C1D1;white-space:nowrap;transition:opacity .15s,visibility .15s}
-    .snav-primary-divider{height:1px;background:#1B2430;margin:14px 12px 12px}
+    .snav-primary-divider{height:1px;background:#1B2430;margin:10px 12px 8px}
     .sidebar.collapsed .snav-secondary-row{flex-direction:column}
-    .sidebar.collapsed .snav-secondary-btn{padding:10px;width:100%}
+    .sidebar.collapsed .snav-secondary-btn{padding:9px;width:100%}
     .sidebar.collapsed .snav-secondary-label{opacity:0;visibility:hidden;width:0}
 
     /* Seletor de unidade real (Tarefa 3b) — <select> nativo transparente por
