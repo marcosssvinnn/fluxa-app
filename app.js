@@ -1954,11 +1954,21 @@ function go(p){
   // design substitui o desdobramento "Hoje"/"Resultado" feito mais cedo hoje:
   // ação e leitura convivem na mesma dobra, sem rolagem). Landing do gestor.
   if(p==='insights'){
+    // Achado real (27/08): faltava carregar `todosOrc` aqui. Toda a tela —
+    // pipeline, faturamento, a receber, "Precisa de você hoje", follow-up —
+    // é calculada em cima de todosOrc (_crmPipelineStats/_acaoQueue/
+    // crmCandidatos), mas loadHist() só era chamado ao visitar "Histórico".
+    // Como "Hoje" é a landing do gestor, quem loga e cai direto aqui via
+    // qualquer caminho (login, F5, sessão lembrada) via tudo zerado até
+    // visitar Histórico pelo menos uma vez na sessão — não era "sem dado",
+    // era dado nunca pedido ao banco/cache local.
     Promise.all([
+      (typeof loadHist==='function' && !(todosOrc||[]).length ? loadHist() : null),
       (typeof loadRecebimentos==='function'? loadRecebimentos() : null),
       (typeof loadEstoque==='function' && !(todosProdutos||[]).length ? loadEstoque() : null),
       (typeof loadDespesas==='function' && !(todasDesp||[]).length ? loadDespesas() : null),
-      (typeof loadOSHist==='function' && !(todosOS||[]).length ? loadOSHist() : null)
+      (typeof loadOSHist==='function' && !(todosOS||[]).length ? loadOSHist() : null),
+      (typeof loadVendasBalcao==='function' && !(todasVendasBalcao||[]).length ? loadVendasBalcao() : null)
     ]).then(()=>{
       try{ renderPainelInsights(); }catch(e){ console.warn('[painelInsights]', e?.message||e); }
     });
