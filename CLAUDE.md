@@ -2,6 +2,57 @@
 
 ---
 
+## 🔍 Varredura por mais bugs na Vistoria, pós-fix da corrida (27/08) — 1 achado (dead code), resto confirmado limpo
+
+Marcos pediu pra continuar caçando bugs na área de Vistoria depois dos 3
+achados anteriores desta mesma sessão. Investigação sistemática, não
+especulativa — cada hipótese checada contra o código real antes de mexer.
+
+**Checado e CONFIRMADO limpo (sem achado, registrado pra não reinvestigar
+à toa depois):**
+- **Todos os outros `window.open()` do app** (19 ocorrências) — só os 2 já
+  corrigidos (relatório de Vistoria e de OS) chamavam depois de um
+  `await`. Os demais (QR code, etiqueta da Oficina, foto de despesa,
+  dossiê de assembleia, links de WhatsApp) são todos síncronos, sem risco
+  de bloqueador de pop-up. Orçamento/OS (formulário) usam `window.print()`
+  direto na própria página (`imprimirDoc`), não abrem aba nova — categoria
+  de bug diferente, não se aplica.
+- **Timer de check-in/check-out** (`visCheckinInterval`) — 6 pontos que
+  usam a variável, todos limpam (`clearInterval`) antes de criar um novo;
+  não achei vazamento.
+- **Fotos de equipamento já são comprimidas na captura**
+  (`compressImage(...,800,0.55)`) e sobem pro Storage assim que possível,
+  virando URL leve em vez de base64 pesado na memória — descarta a
+  hipótese de "muita foto em memória" como causa de travamento (já era
+  bem resolvido antes desta sessão).
+- **`salvarVistoria()` chamada por Ctrl+S** (atalho de teclado) — mesma
+  função que tem o `setTimeout(()=>visTab('locais'),600)` interno, mas
+  **não é a mesma corrida** do achado anterior: esse caminho não tem
+  nenhuma navegação concorrente disputando, é chamada isolada e
+  intencional (o atalho existe só em desktop, sem teclado físico no
+  celular).
+
+**Achado — dead code removido:** `gerarRelatorioVistoria()` — zero
+chamadores em todo o projeto (confirmado por grep em todos os arquivos),
+superada pelo fluxo `finalizarVistoria()`/`salvarVistoria()` mais novo.
+Continha o MESMO padrão de bug do achado #1 desta sessão (agendava
+`visTab('locais')` sem checar concorrência) — inofensivo por estar morta,
+mas um risco real se alguém religasse um botão a ela no futuro sem saber
+disso. Removida.
+
+Testado: sintaxe validada via `osascript -l JavaScript`+`new Function`
+(`SYNTAX_OK`) depois da remoção; boot limpo no Browser pane, zero erro
+novo no console.
+
+**Sem mais achados nesta rodada** — a área de Vistoria (captura de foto,
+checklist, check-in/out, assinatura, navegação) está com os riscos
+concretos que dava pra achar por leitura de código já corrigidos. Deixar
+registrado: se o freeze relatado pelo Marcos persistir depois do fix da
+corrida de navegação, o próximo passo realista é um teste no aparelho
+real com o Safari Web Inspector conectado (via cabo, no Mac) — só isso
+mostra memória/travamento de verdade específico do WebKit, que não dá
+pra reproduzir só lendo código.
+
 ## 🔴 Vistoria: 3 achados reais reportados do campo (27/08) — corrida de navegação, PDF/Ver caindo no bloqueador de pop-up, assinatura do síndico removida
 
 Marcos, em campo (iPhone, empresa Acquamotor, print real): finalizou uma

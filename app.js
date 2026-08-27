@@ -15714,30 +15714,6 @@ async function abrirVisRelatorio(id, btn){
   finally{ if(btn){ btn.disabled=false; btn.textContent=_t; } }
 }
 
-async function gerarRelatorioVistoria(){
-  autoCheckoutSeNecessario();
-  { const _loc=window._visLocalId?(locaisVistoria||[]).find(x=>x.id===window._visLocalId):null; const _ci=document.getElementById('vis-cli'); if(_ci && !_ci.value.trim() && _loc?.cliente) _ci.value=_loc.cliente; }
-  const cli=(document.getElementById('vis-cli')?.value||'').trim();
-  if(!cli){ _pedirClienteVis(); return; }
-
-  const veioDoPlano=!!(window._visLocalId);
-  const rec=_montarRecVistoria();
-  _persistVistoria(rec);
-  window._visLocalId=null;
-  const planoBanner=document.getElementById('vis-plano-banner');
-  if(planoBanner) planoBanner.style.display='none';
-
-  // Relatório sempre em nova aba (leve, aguenta muitas fotos). Sem window.print
-  // em doc oculto (travava) nem html2pdf (PDF em branco).
-  const janela = _abrirJanelaRelatorio(); // sincrono — antes do await abaixo, senão cai no bloqueador de pop-up
-  toast('⏳ Preparando relatório…');
-  try{ await _gerarPDFVistoria(rec, {janela}); }
-  catch(e){ console.warn('[gerarRelatorioVistoria]',e?.message||e); toast('⚠️ Vistoria salva — abra o relatório pelo histórico.'); }
-
-  renderVisHistorico();
-  if(veioDoPlano) setTimeout(()=>visTab('locais'), 900);
-}
-
 function calcDuracao(cin, cout){
   if(!cin||!cout) return null;
   const p=t=>{ const [h,m]=(t||'').split(':').map(Number); return isNaN(h)||isNaN(m)?null:h*60+m; };
