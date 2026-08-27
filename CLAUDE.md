@@ -2,6 +2,139 @@
 
 ---
 
+## 🔴 Vistoria: teste completo no emulador Android real — login de toda a equipe confirmado + assinatura sumindo ao trocar de aba (27/08)
+
+A pedido do Marcos ("teste todo o sistema... veja se o usuário da Tamara e
+os outros consegue acessar, e faça o fluxo da Vistoria — o mais
+importante"), testado no emulador Android real (`android-apk`, conectado
+ao Supabase de produção) com o ambiente de emulador já preparado nesta
+sessão (ver seção mais abaixo, "Ambiente de emulador Android").
+
+**Login confirmado funcionando para os 6 usuários da equipe**: Marcos
+(master, `0246`), Bruno (técnico, `1234`), Tamara (gestor, `1234`), Elis
+(gestor, `1234` — sem opção Aquamotor, correto pelo `acessoGrupo`), Josimar
+(técnico, `1234` — cai direto em "Minhas OS", nav só com Vistorias/Minhas
+OS/Mais, correto), Eldecir (técnico, `1234`). Todos com o perfil e
+navegação certos.
+
+**Fluxo completo de Vistoria testado de ponta a ponta**, com cliente
+claramente marcado ("TESTE CLAUDE - APAGAR", endereço "Endereco Teste -
+Apagar") pra não sujar dado real: check-in, 4 equipamentos com status,
+recomendação, assinatura do técnico, "Finalizar Vistoria" → salvou de
+verdade em produção, confirmado no Histórico e no PDF gerado (assinatura
+do técnico aparecendo corretamente, linha do síndico em branco — confirma
+o fix de 26/08 funcionando em produção real). Vistoria de teste apagada
+do banco depois (via SQL direto, `delete from vistorias where id=...`,
+mais rápido que repetir a automação de UI pra achar o botão ✕ — confirmado
+`count=0` depois).
+
+**🔴 Bug real achado no próprio teste, corrigido**: assinar a vistoria,
+navegar pra "Meus Locais" (só pra checar algo) e voltar pra "Nova
+Vistoria" apagava a assinatura já feita — sem nenhum aviso, sem ter
+clicado em Finalizar/Descartar. Causa: o botão da aba `#vis-tab-nova`
+fazia um reset parcial (`_visAssinaturaTecnico=null` +
+`renderVisAssinaturaStatus()` + `visEditId=null` + `_visDraftId=null` +
+`window._visLocalId=null`) **toda vez que era clicado**, mesmo só
+voltando pra ver uma vistoria já em andamento — não só a assinatura, um
+técnico reabrindo uma vistoria salva (`visEditId` setado) por esse
+caminho teria a edição virada em "nova" (o próximo Finalizar criaria um
+registro duplicado em vez de atualizar o existente).
+
+**Corrigido**: removido o reset do onclick do botão — agora só chama
+`visTab('nova')` (troca de view, nada mais). As 3 rotas reais de "começar
+vistoria nova" (`iniciarVistoriaPlena`, `novaVistoria`,
+`_limparFormVistoria` — chamada depois de Finalizar/Descartar) já fazem
+seu próprio reset completo e correto (inclusive zerando
+`_visAssinaturaTecnico`), então tirar o reset da aba não reabre nenhum
+bug antigo — só corrige o novo. Confirmado por leitura de código: as 3
+funções resetam a assinatura sozinhas, a aba nunca precisou fazer isso.
+
+Testado por leitura de código + `node --check` (sintaxe ok); não
+re-testado no emulador depois do fix por custo de token (a automação de
+UI no Android via `adb`+screenshot+cálculo de coordenada mostrou-se cara
+nesta sessão — ver lição registrada na seção do ambiente de emulador).
+**Pendente**: confirmar no aparelho real que assinar → trocar de aba →
+voltar preserva a assinatura.
+
+sw.js: fluxa-v249 → fluxa-v250.
+
+### 🖥️ Ambiente de emulador Android — pronto e reutilizável (27/08)
+
+A pedido do Marcos ("mais importante testar no Android do que no iPhone,
+já que iPhone é só pelo navegador"), montado do zero um ambiente completo
+de SDK Android + emulador com **janela gráfica visível de verdade** na
+tela do Mac — não existia nenhuma ferramenta Android antes desta sessão.
+
+**Instalado**: Homebrew, `openjdk@17` (formula), `android-commandlinetools`
+(cask, SDK em `/opt/homebrew/share/android-commandlinetools`), `node`,
+pacotes via `sdkmanager` (`platform-tools`, `platforms;android-34`,
+`build-tools;34.0.0`, `emulator`, `system-images;android-34;google_apis;
+arm64-v8a` — imagem arm64 obrigatória em Apple Silicon), AVD
+`forthemp_test` (`avdmanager create avd -k
+"system-images;android-34;google_apis;arm64-v8a" -d pixel_6`).
+
+**Pipeline de build local** (espelha `.github/workflows/build-android-apk.yml`,
+roda sem esperar o CI): copia os assets pra `www/`, `npx cap add
+android`/`npx cap sync android`, `android/local.properties` com o
+`sdk.dir` certo, `./gradlew assembleDebug --no-daemon`, `adb install -r`.
+
+**🔴 Achado importante — "impossível mostrar janela" era diagnóstico
+errado.** Primeira tentativa concluiu que não dava pra ter janela visível
+neste ambiente (só o headless funcionava) — o Marcos questionou
+("Ah interessante, que eu não vi ele aqui na tela... o que precisamos
+fazer pra emular ele aqui na tela?") e a investigação mais a fundo achou
+a causa real: um processo de emulador **headless** (`-no-window`) de uma
+sessão anterior (compactada/perdida do histórico) já estava rodando e
+segurando as portas 5554/5555 — o `adb`/`screencap` sempre falava com
+ESSE processo, não com nenhum que eu tentava iniciar. Matando ele
+(`adb -s emulator-5554 emu kill`) e subindo o emulador de novo pelo
+binário do próprio `/opt/homebrew`, sem `-no-window`, a janela apareceu
+de verdade (confirmado via `System Events` mostrando `qemu-system-aarch64`
+como app em primeiro plano). **Lição**: não concluir "impossível" de uma
+falha só sem descartar conflito de porta/processo primeiro.
+
+**Lições de automação de UI no Android, pra quem for repetir isso**:
+- `adb shell input text` em caixa de PIN mascarada (4 dígitos) é **não
+  confiável** (dropa/reordena caracteres) — usar
+  `adb shell input keyevent KEYCODE_0`...`KEYCODE_9` um de cada vez.
+- WebView é invisível pro `uiautomator dump` (só `ViewGroup` genérico,
+  sem texto/id) — a única forma de mirar um botão é por coordenada de
+  pixel em cima do screenshot. **Screenshot real do device é 1080×2400;
+  a imagem mostrada ao Claude vem escalada pra 900×2000 — todo cálculo de
+  coordenada feito olhando a imagem precisa multiplicar por 1,2 antes de
+  mandar pro `adb shell input tap`.** Esquecer esse fator de escala foi a
+  causa da maioria dos cliques errados desta sessão (abriu OS/Estoque/
+  orçamento em branco por engano várias vezes — sempre view-only, nunca
+  alterou nada real, mas consumiu bastante token repetindo screenshot →
+  calcular → tentar de novo).
+- Depois de escolher um nome no autocomplete, o campo resiste a
+  limpar/reditar — mais confiável dar `am force-stop`+`am start` completo
+  antes de cada novo teste de login. **Mas isso NÃO desconecta uma sessão
+  "Manter conectado"** — pra trocar de usuário de teste é preciso sair
+  explicitamente pelo menu (⚙️ → Sair), senão o relaunch só volta pra
+  sessão anterior.
+- Toast "Nova versão do app disponível" reaparece a cada navegação e
+  cobre botões da parte de baixo da tela — sempre re-printar depois de
+  rolar/navegar antes de calcular a próxima coordenada, nunca reusar uma
+  coordenada calculada num screenshot anterior.
+
+**⚠️ CRÍTICO — o emulador conecta no Supabase de PRODUÇÃO, não numa
+sandbox.** Toda navegação/teste feito é real; qualquer escrita
+(criar/editar/excluir) mexe em dado de verdade. Testes desta sessão
+foram cuidadosos: login é só leitura; a única escrita real (a vistoria de
+teste) usou cliente claramente marcado "TESTE CLAUDE - APAGAR" e foi
+apagada depois.
+
+**Custo de token real**: a automação de UI via screenshot+cálculo de
+coordenada+adb tap é cara — cada tentativa errada custa um screenshot
+inteiro de contexto. Pra sessões futuras: preferir resolver bugs
+encontrados direto no código (grep + leitura + fix), e usar o emulador
+só pra reproduzir/confirmar o sintoma inicial, não pra repetir uma
+sequência de cliques longa (como excluir um registro) quando o mesmo
+resultado é alcançável via SQL direto (Management API) em 2 comandos.
+
+---
+
 ## 🔴 OS no celular: botão da nav inferior só criava, nunca abria uma existente + TDZ real achado no processo (27/08)
 
 Marcos: fluxo real de negócio tem dois papéis — gestor cadastra a OS
