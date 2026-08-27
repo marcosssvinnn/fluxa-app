@@ -988,7 +988,11 @@ async function fazerLogin(){
     // confirmou com o servidor. Não se aplica ao gestor principal
     // (CFG.pin tem carregamento próprio, não depende de todosUsuarios).
     if(!_usuariosConfirmadosDoServidor && loginUserSelecionado.id!=='__gestor__'){
-      _loginErrMostrar('Ainda carregando', 'Os dados da equipe ainda estão chegando do servidor — aguarde alguns segundos e tente de novo.');
+      // Achado real (27/08): sem `dbOk` isto ficaria repetindo "aguarde alguns
+      // segundos" pra sempre em quem tem problema de conexão — parece "não
+      // consigo entrar" sem nenhuma pista do motivo real.
+      if(!dbOk) _loginErrMostrar('Sem conexão com o servidor', 'Verifique sua internet (Wi-Fi ou dados móveis) e tente novamente.');
+      else _loginErrMostrar('Ainda carregando', 'Os dados da equipe ainda estão chegando do servidor — aguarde alguns segundos e tente de novo.');
       _loginPinShake();
       document.getElementById('pin-input').value = '';
       atualizarDotsPIN('');
@@ -1336,6 +1340,7 @@ function lsOrcProxNum(){ return lsOrcLer().reduce((a,o)=>Math.max(a,o.numero||0)
     try {
       const ok = await conectarDB(sbUrl, sbKey, false);
       if(ok){
+        _loginErrLimpar();
         // Usuários (= login) primeiro, antes de qualquer outra coisa — é o
         // único dado que bloqueia alguém de entrar no app. Achado real
         // (26/08): isto rodava DEPOIS de CFG/locais/clientes, então numa
@@ -1360,11 +1365,24 @@ function lsOrcProxNum(){ return lsOrcLer().reduce((a,o)=>Math.max(a,o.numero||0)
         // Atualiza aba Locais se estiver aberta
         if(document.getElementById('vis-view-locais')?.style.display!=='none') renderLocaisTab();
       }
-      else if(tentativa < 3) setTimeout(()=>tentarConectar(tentativa+1), tentativa===1?3000:15000);
+      else { _avisarSemConexaoNoLogin(tentativa); setTimeout(()=>tentarConectar(tentativa+1), tentativa===1?3000:(tentativa===2?15000:30000)); }
     } catch(e) {
       console.warn('BD offline (tentativa '+tentativa+'):', e.message);
-      if(tentativa < 3) setTimeout(()=>tentarConectar(tentativa+1), tentativa===1?3000:15000);
+      _avisarSemConexaoNoLogin(tentativa);
+      setTimeout(()=>tentarConectar(tentativa+1), tentativa===1?3000:(tentativa===2?15000:30000));
     }
+  }
+  // Achado real (27/08): depois de 3 tentativas o boot desistia de vez —
+  // quem tivesse uma queda de conexão mais longa (rede fraca, wifi caindo e
+  // voltando) nunca mais tentava reconectar sozinho, precisava fechar e
+  // reabrir o app. Agora continua tentando de 30 em 30s pra sempre, e o
+  // indicador de banco (`db-dot`) fica atrás do overlay de login sem
+  // nenhuma pista visível — por isso a partir da 3ª tentativa avisa direto
+  // na tela de login em vez de falhar em silêncio.
+  function _avisarSemConexaoNoLogin(tentativa){
+    if(tentativa < 3) return;
+    const overlay=document.getElementById('login-overlay');
+    if(overlay && overlay.style.display!=='none') _loginErrMostrar('Sem conexão com o servidor', 'Verifique sua internet — vamos continuar tentando automaticamente.');
   }
   tentarConectar(1);
   checkQRHash();
