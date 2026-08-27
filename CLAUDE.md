@@ -2,6 +2,95 @@
 
 ---
 
+## 🔴 Vistoria: 3 achados reais reportados do campo (27/08) — corrida de navegação, PDF/Ver caindo no bloqueador de pop-up, assinatura do síndico removida
+
+Marcos, em campo (iPhone, empresa Acquamotor, print real): finalizou uma
+vistoria e a tela ficou mostrando o Histórico e "Meus Locais" **misturados
+ao mesmo tempo**, travando até precisar recarregar. Investigado a fundo,
+achados dois bugs reais e independentes — mais um pedido explícito.
+
+**1. 🔴 Corrida de navegação real, confirmada e corrigida.** Ao finalizar
+uma vistoria que veio de um plano recorrente (`window._visLocalId`), DOIS
+`setTimeout` competiam: `salvarVistoria()` já agenda
+`setTimeout(()=>visTab('locais'),600)` quando `veioDoPlano`; a função que a
+chama, `_finalizarVistoriaProsseguir()`, **sem saber disso**, sempre
+agendava por cima `setTimeout(()=>visTab('hist'),300)` — os dois escritos
+em momentos diferentes, um sem conhecimento do outro. Resultado: 300ms
+depois de finalizar, a tela ia pra "Histórico" (com `renderVisHistorico()`
+completo); 300ms depois disso, ia pra "Meus Locais" (com
+`renderLocaisTab()` completo) — dois redesenhos de lista grande em
+sequência rápida, exatamente o tipo de coisa que pode travar a UI numa
+rolagem em andamento num iPhone real. `visTab()` em si é defensivo (sempre
+esconde as 3 seções e mostra só a alvo, a cada chamada) — o problema nunca
+foi ele, foi a duplicidade de QUEM decidia pra onde navegar.
+
+**Corrigido**: `_finalizarVistoriaProsseguir()` captura `veioDoPlano`
+ANTES de chamar `salvarVistoria()` (que zera `window._visLocalId`
+internamente) e só agenda `visTab('hist')` quando a vistoria **não** veio
+de um plano — nesse caso, `salvarVistoria()` já cuida da navegação
+sozinho. Nunca mais dois `setTimeout` de navegação concorrentes.
+
+**Não é garantido que isso explique 100% do freeze visual do print** (o
+navegador real/WebKit sob pressão pode ter contribuído — sem acesso a um
+iPhone físico não dá pra confirmar a fundo), mas é uma corrida de código
+real e verificável, e o fix elimina a causa mais óbvia. Vale o Marcos
+testar de novo no aparelho real depois deste deploy.
+
+**2. 🔴 "Ver relatório"/PDF de Vistoria (e também de OS) podiam cair no
+bloqueador de pop-up em silêncio — achado ao investigar o fluxo, mesma
+rodada.** `_gerarPDFVistoria`/`_gerarPDFRelatorioOS` sempre chamaram
+`window.open(blobUrl,'_blank')` só DEPOIS de um `await` (miniaturizar
+fotos / buscar materiais da OS — genuinamente assíncrono, mais lento ainda
+num registro grande). Nenhum navegador conta um `window.open()` disparado
+depois de um `await` como parte do mesmo gesto de clique — cai no
+bloqueador de pop-up. O app já tinha um aviso pra esse caso ("Permita
+pop-ups"), mas isso não ajuda de verdade num PWA instalado, que não tem
+prompt nenhum de "permitir" — o toque simplesmente não fazia nada visível.
+
+**Corrigido**: `_abrirJanelaRelatorio()` (nova) abre uma aba em branco
+**sincronamente**, como a primeira linha de cada handler de clique (antes
+de qualquer `await`) — conta como gesto do usuário pro navegador. O
+conteúdo real (blob do relatório) só é escrito nela depois, via
+`.location.href`, quando fica pronto — a aba já mostra "⏳ Preparando
+relatório…" nesse meio tempo, feedback imediato em vez de tela em branco.
+Aplicado nos 4 pontos que abrem relatório de Vistoria (`baixarPDFVistoria`,
+`abrirVisRelatorio`, `gerarRelatorioVistoria`, `_portalAbrirPDFVistoria`)
+e, autocontido dentro da própria função (é chamada direto de onclick em
+vários lugares — mais simples que mudar cada chamador), no relatório de OS
+(`_gerarPDFRelatorioOS`, usado por "Ver relatório" do menu da OS, timeline
+do cliente e portal).
+
+**3. ✍️ Assinatura do síndico/responsável removida do relatório de
+Vistoria — pedido explícito do Marcos.** Essa linha nunca teve captura
+digital (sempre foi só uma linha em branco pra assinar no papel — o
+síndico não usa o app) — ele confirmou que não é necessária.
+`index.html`, `#pdoc-visita`: removido o bloco `.pd-sig-blk` do
+"Responsável/Síndico"; sobra só o do "Técnico Responsável"
+(`#pd-vis-sig-tec-line`, onde a assinatura digital já é injetada desde o
+fix de 26/08). `.pd-sig-blk{flex:1}` deixaria o único bloco restante
+esticado a largura toda — adicionado `max-width:280px;margin:0 auto`
+inline pra manter proporção razoável. Relatório de OS (`pdoc-os-relatorio`)
+**não foi mexido** — pedido era especificamente sobre vistoria.
+
+Testado no Browser pane (offline, `dbOk=false;db=null;`): corrida de
+navegação — mockei `visTab`/`salvarVistoria`/`_limparFormVistoria` e chamei
+`_finalizarVistoriaProsseguir()` real nos 2 cenários (veio de plano / não
+veio) — exatamente 1 chamada de `visTab` em cada caso, nunca 2; assinatura
+— `preencherRelatorioVistoria()` com registro sintético COM assinatura →
+`.pd-sig-area` com 1 bloco só, `<img>` presente, nome do técnico correto;
+SEM assinatura (legado) → linha vazia, sem erro. Sintaxe de `app.js`
+validada via `osascript -l JavaScript`+`new Function` (`SYNTAX_OK`). Zero
+erro novo no console.
+
+**Não testado nesta sessão** (sem acesso a dispositivo real): se o fix da
+corrida de navegação resolve 100% o freeze visual relatado, e se a aba
+pré-aberta realmente evita o bloqueio de pop-up no Safari/PWA instalado de
+verdade — a lógica está correta e testável no sandbox, mas o comportamento
+final de bloqueador de pop-up é específico do navegador/SO real. Pedir
+pro Marcos confirmar em campo depois deste deploy.
+
+sw.js: fluxa-v247 → fluxa-v248.
+
 ## ⚠️ Nota de coordenação — commit caiu na branch errada por engano (27/08)
 
 **Se você é a outra IA/sessão: isto explica um desvio no histórico de
