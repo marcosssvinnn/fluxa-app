@@ -2,6 +2,72 @@
 
 ---
 
+## 🔴 OS no celular: botão da nav inferior só criava, nunca abria uma existente + TDZ real achado no processo (27/08)
+
+Marcos: fluxo real de negócio tem dois papéis — gestor cadastra a OS
+(local, técnico, o que precisa ser feito), técnico depois abre ESSA MESMA
+OS pra executar. No celular, ele só achava "criar uma OS nova", nunca "abrir
+uma que já existe".
+
+**Causa confirmada**: o botão "OS" da navegação inferior (mobile,
+`#mnb-os`) sempre chamava `novaOS();go('os')` — pulava direto pro
+formulário em branco, **mesmo tendo um ícone de lista** (inconsistência
+visual que já era uma pista). A tela que lista e abre OS existentes
+sempre existiu (`page-os-history` — "Ordens de Serviço", com busca, filtro
+por técnico/status, e "+ Nova OS" no próprio topo), só que só era
+alcançável via sidebar/"Mais" — não pelo atalho principal do celular, que
+é onde o Marcos primeiro olha.
+
+**Corrigido**: `#mnb-os` agora chama `_mnbAbrirOS()` (nova) — gestor cai
+na lista (`os-history`), pode abrir qualquer OS existente OU criar uma nova
+em 1 toque a mais; vendas mantém o atalho direto de criar (não tem acesso
+à página de histórico — `pagesVendasOk` não inclui `os-history`, dar esse
+acesso seria uma decisão de permissão maior, fora do que foi pedido).
+Técnico não é afetado — já tinha "Minhas OS" própria (`#mnb-minhas-os`),
+que é exatamente esse mesmo conceito (abrir pra executar), só que já
+correto desde antes.
+
+**🔴 Achado no processo, sem relação com o pedido — TDZ real, silencioso,
+em TODO carregamento do app pra sessão de vendas (e qualquer boot que
+navegue direto pra 'form').** Testando o fix acima, um erro apareceu no
+console mesmo numa aba limpa, sem eu ter mexido em nada daquela área:
+`ReferenceError: Cannot access '_ORC_STEP_GRUPOS' before initialization`.
+Confirmado reproduzível numa aba 100% limpa, sem relação com o botão de
+OS — bug pré-existente, só nunca tinha sido notado porque é um "Uncaught
+(in promise)" silencioso (não trava a tela, não aparece toast nenhum).
+
+Causa: `_orcMobileStep`/`_ORC_STEP_GRUPOS` (wizard mobile do orçamento,
+Fase 9b) eram declaradas no MEIO do arquivo, junto da função que as usa.
+`go('form')` chama `_orcApplyMobileStep()` (que lê as duas) sempre que
+alguém navega pra lá — inclusive durante o BOOT, quando uma sessão de
+vendas é restaurada (`telaInicial()` de vendas é `'form'`) — nesse ponto
+da execução síncrona do script, a declaração no meio do arquivo ainda não
+tinha sido alcançada. **Mesma classe de bug que este arquivo já documenta
+duas vezes na mesma seção do código** (`_orcRemotoOk`/`_estoqueRemotoOk`,
+comentário "declarar junto da função daria TDZ (já aconteceu)") — só que
+essas duas já tinham sido corrigidas antes, e esta não.
+
+**Corrigido com o mesmo padrão já estabelecido**: `_orcMobileStep`/
+`_ORC_STEP_GRUPOS` movidas pro topo do arquivo, junto das outras (mesmo
+bloco, mesmo comentário de aviso). A função `_orcApplyMobileStep()` ficou
+no lugar de sempre, só sem redeclarar as duas variáveis.
+
+Testado no Browser pane (aba limpa, sem SW/cache antigo — achado de
+processo: numa aba JÁ usada muitas vezes nesta sessão, o erro **continuou
+aparecendo mesmo depois do fix** porque o navegador ainda rodava o
+`app.js` antigo em cache; só sumiu numa aba nova de verdade — mesma lição
+de cache já documentada várias vezes neste arquivo, registrada de novo
+porque quase me fez achar que o fix não tinha funcionado): sessão vendas,
+boot completo → sem erro no console, `page-form` carrega normal,
+`_orcMobileStep===1` confirmado inicializado; sessão gestor, `_mnbAbrirOS()`
+→ `page-os-history` (lista real, 39 OS, "+ Nova OS" visível); sessão
+vendas, `_mnbAbrirOS()` → `page-os` (formulário em branco, `osEditId:null`,
+comportamento inalterado). Sintaxe validada via `osascript -l
+JavaScript`+`new Function` (`SYNTAX_OK`). Zero erro novo no console nos 3
+cenários, numa aba genuinamente limpa.
+
+sw.js: fluxa-v248 → fluxa-v249.
+
 ## 🔍 Varredura por mais bugs na Vistoria, pós-fix da corrida (27/08) — 1 achado (dead code), resto confirmado limpo
 
 Marcos pediu pra continuar caçando bugs na área de Vistoria depois dos 3

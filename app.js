@@ -1182,6 +1182,20 @@ let histOrdem = 'recente';
 // Declaradas aqui no topo de propósito: são lidas por loadHist/loadEstoque, que
 // podem rodar durante o boot — declarar junto da função daria TDZ (já aconteceu).
 let _orcRemotoOk = false, _estoqueRemotoOk = false;
+// Wizard mobile do orçamento (Fase 9b) — achado real (27/08): go('form')
+// chama _orcApplyMobileStep() (linha ~1970), que lê estas duas variáveis.
+// Sessão de vendas restaurada no boot cai direto em telaInicial()==='form'
+// — g o() roda ANTES do script chegar na declaração original (que ficava
+// no meio do arquivo, junto da função) — mesma classe de TDZ já documentada
+// nesta seção pra _orcRemotoOk/_estoqueRemotoOk, só que sem ninguém ter
+// notado até agora porque o erro é um "Uncaught (in promise)" silencioso,
+// não trava a tela.
+let _orcMobileStep = 1;
+const _ORC_STEP_GRUPOS = {
+  1: ['orc-step-cliente'],
+  2: ['orc-step-servicos-card'],
+  3: ['orc-step-final', 'card-os-toggle']
+};
 let todosOS = [], filtroOSSt = localStorage.getItem('fluxa_filtroOSSt')||'todos', buscaOS = '', filtroOSTec = '';
 // Seleção em lote da tabela de OS (Tarefa 3e.2, 15/08) — nunca persiste
 // entre navegações (Set em memória só), limpa sozinha ao trocar de filtro
@@ -3759,13 +3773,9 @@ function formatPagamento(pag, total){
 // Os campos NUNCA saem do DOM (só style.display), então tudo que lê
 // .value direto — rascunho automático, prévia ao vivo — continua
 // funcionando igual em qualquer passo.
-let _orcMobileStep=1;
+// `_orcMobileStep`/`_ORC_STEP_GRUPOS` ficam declaradas lá no topo do
+// arquivo (perto de _orcRemotoOk) — daria TDZ aqui, ver comentário lá.
 function _orcIsMobileWizard(){ return window.innerWidth<=900 && !!document.getElementById('novo-orc-steps'); }
-const _ORC_STEP_GRUPOS={
-  1:['orc-step-cliente'],
-  2:['orc-step-servicos-card'],
-  3:['orc-step-final','card-os-toggle']
-};
 function _orcApplyMobileStep(){
   const mobile=_orcIsMobileWizard();
   Object.keys(_ORC_STEP_GRUPOS).forEach(k=>{
@@ -7305,6 +7315,21 @@ function _gerarOSdeOrcProsseguir(id){
   }
   go('os');
   atualizarPainelItensOS();
+}
+
+// Botão "OS" da nav inferior do celular (achado real, 27/08 — relato do
+// Marcos: "no celular eu só tenho a parte pra criar uma OS", sem achar
+// onde abrir uma já existente pra executar). O botão sempre pulava direto
+// pra criar (`novaOS()`), mesmo tendo um ícone de lista — a tela que lista
+// e abre OS existentes (`page-os-history`, com "+ Nova OS" no próprio
+// topo) sempre existiu, só ficava escondida dentro de "Mais" → sidebar.
+// Gestor agora cai na lista primeiro (pode abrir qualquer OS existente OU
+// criar uma nova, 1 toque). Vendas mantém o atalho direto de criar — não
+// tem acesso a `os-history` (`pagesVendas` não inclui essa página; dar
+// acesso seria uma decisão de permissão maior, fora do que foi pedido).
+function _mnbAbrirOS(){
+  if (typeof eGestor === 'function' && eGestor()) go('os-history');
+  else { novaOS(); go('os'); }
 }
 
 function novaOS(){
