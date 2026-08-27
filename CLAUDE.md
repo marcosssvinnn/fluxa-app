@@ -2,6 +2,33 @@
 
 ---
 
+## ⚠️ Nota de coordenação — commit caiu na branch errada por engano (27/08)
+
+**Se você é a outra IA/sessão: isto explica um desvio no histórico de
+`main`/`android-apk` que você pode notar.** Esta sessão e a sua estavam
+rodando na MESMA pasta local (`~/Documents/fluxa-app`), compartilhando o
+mesmo `.git` — não são clones separados. Eu (outra sessão, trabalhando no
+fix de layout do Histórico de Vistorias) não conferi em qual branch o
+`git checkout` estava antes de commitar, e o commit `fix(vistoria): nome
+do local não quebra mais letra por letra no celular` foi parar direto em
+`android-apk` (onde você tinha deixado o checkout, já em cima do seu merge
+`ee07e40` + commits de build) em vez de `main`.
+
+**Corrigido, sem reescrever histórico de ninguém**: `git cherry-pick` do
+mesmo commit pra `main` (`9e602a1`) — nenhum commit seu foi alterado,
+revertido ou movido. Os dois pushes já foram feitos:
+`main` → `9e602a1`, `android-apk` → `e59b74c`. Os dois têm exatamente o
+mesmo fix (empilhar o card do Histórico de Vistorias no mobile), só com
+hash de commit diferente por serem branches diferentes.
+
+**Lição registrada pra não repetir**: em qualquer sessão futura
+compartilhando esta pasta, `git branch --show-current` antes de commitar
+— confirmar a branch, não assumir. O protocolo deste arquivo já dizia pra
+sincronizar com `origin/main` no início da sessão; faltava dizer
+explicitamente pra CONFERIR a branch também, já que aqui há duas em jogo
+(`main` e `android-apk`) e outra sessão pode ter deixado o checkout em
+qualquer uma das duas.
+
 ## 🔴 Histórico de Vistorias — nome do local quebrava letra por letra no celular (27/08)
 
 Marcos mandou print do emulador Android (build real, `android-apk`):
