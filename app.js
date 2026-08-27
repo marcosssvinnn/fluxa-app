@@ -15267,18 +15267,18 @@ function renderVisHistorico(){
     equips.filter(e=>e.status!=='na').forEach(e=>{ if(cnt[e.status]!==undefined) cnt[e.status]++; });
     const dataFmt = v.data?new Date(v.data+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'}):'';
     return `<div class="vis-history-item" onclick="abrirVisRelatorio('${v.id}')">
-      <div style="flex:1;min-width:0">
+      <div class="vis-hist-info" style="flex:1;min-width:0">
         <div class="vis-hist-data">${dataFmt}${mRef?' · '+mRef:''}</div>
         <div class="vis-hist-cli">${esc(v.cliente||'')}${v.local?' · '+esc(v.local):''}${(()=>{ if(!lojaAtiva&&v.loja_id&&v.loja_id!=='default'){ const _lv=getLoja(v.loja_id); return _lv?` <span class="loja-badge ${_lv.cor}" style="font-size:9px;vertical-align:middle">${_lv.nome.replace('Fortemp ','')}</span>`:'' } return ''; })()}</div>
         <div class="vis-hist-cli" style="margin-top:2px">👤 ${esc(v.tecnico||'')} · ${equips.length} equip.${v.email_responsavel?' · 📧 '+esc(v.email_responsavel):''}</div>
       </div>
-      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0">
+      <div class="vis-hist-acoes">
         <div class="vis-hist-badges">
           ${cnt.critico?`<span class="vis-hist-badge" style="background:var(--red-bg);color:var(--red)">🔴 ${cnt.critico}</span>`:''}
           ${cnt.atencao?`<span class="vis-hist-badge" style="background:var(--yellow-bg);color:var(--yellow)">⚠️ ${cnt.atencao}</span>`:''}
           ${cnt.bom?`<span class="vis-hist-badge" style="background:var(--green-bg);color:var(--green)">✅ ${cnt.bom}</span>`:''}
         </div>
-        <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end">
+        <div class="vis-hist-botoes">
           ${v.email_responsavel?`<button class="tb" title="Reenviar e-mail" onclick="event.stopPropagation();reenviarEmailVistoria('${v.id}')" style="font-size:11px;background:var(--blue-bg);color:var(--blue);border-color:var(--blue-bg)">📧</button>`:''}
           <button class="tb" title="Enviar resumo via WhatsApp" onclick="event.stopPropagation();enviarWAResumoVistoria('${v.id}')" style="font-size:11px;background:var(--wa-light,#dcfce7);color:var(--wa);border-color:var(--wa-light,#dcfce7)">💬</button>
           <button class="tb" title="Editar / refazer vistoria" onclick="event.stopPropagation();editarVistoria('${v.id}')" style="font-size:11px;background:var(--blue-bg);color:var(--blue);border-color:var(--blue-bg)">✏️</button>
