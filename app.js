@@ -8593,6 +8593,15 @@ function preencherRelatorioOS(os, opts={}){
   if(footEl){ footEl.style.background=cor2; footEl.textContent=`${LC.nome||''}${tel?' · '+tel:''}${email?' · '+email:''}`; }
 }
 async function _gerarPDFRelatorioOS(os, opts={}){
+  // Autocontido (diferente do relatório de Vistoria, que recebe a janela já
+  // aberta de quem chamou): esta função é invocada direto de onclick em
+  // vários lugares (menu "Ver relatório", timeline do cliente, portal) —
+  // mais simples abrir a aba já aqui dentro, como a 1ª linha, do que mudar
+  // cada chamador. Tem que ser ANTES do await abaixo (busca de materiais da
+  // OS, genuinamente assíncrona) — depois disso o navegador não conta mais
+  // como gesto síncrono de clique e o window.open cai no bloqueador de
+  // pop-up em silêncio (mesmo achado do relatório de Vistoria, 27/08).
+  const janela = opts.output==='bloburl' ? undefined : _abrirJanelaRelatorio();
   if(!os.loja_id || os.loja_id==='default') os.loja_id = lojaAtiva || LOJA_PADRAO_ID;
   const osComDados={...os};
   osComDados._materiaisRelatorio = await _osMateriaisParaRelatorio(os.id);
@@ -10515,7 +10524,8 @@ async function renderPortal(cli){
 // de _portalVistorias, populado por renderPortal()).
 async function _portalAbrirPDFVistoria(idx){
   const vis=_portalVistorias[idx]; if(!vis){ toast('Relatório não encontrado'); return; }
-  await _gerarPDFVistoria(vis);
+  const janela = _abrirJanelaRelatorio(); // sincrono — antes do await abaixo, senão cai no bloqueador de pop-up
+  await _gerarPDFVistoria(vis, {janela});
 }
 // Mesmo princípio — abre o relatório de serviço (versão cliente, nunca a
 // interna) a partir do objeto já buscado pelo portal (Tarefa 3i.8, 19/08).
@@ -15147,11 +15157,24 @@ async function finalizarVistoria(){
 }
 async function _finalizarVistoriaProsseguir(){
   _finalizandoVis=true;
+  // Achado real (27/08, print do Marcos: tela mostrando Histórico e Meus
+  // Locais "misturados" depois de finalizar, travando até recarregar):
+  // salvarVistoria() JÁ agenda seu próprio setTimeout(()=>visTab('locais'),600)
+  // quando a vistoria veio de um plano recorrente (window._visLocalId) — e
+  // esta função, sem saber disso, sempre agendava outro
+  // setTimeout(()=>visTab('hist'),300) por cima. Os dois disparavam com
+  // 300ms de diferença, cada um refazendo o render completo da lista alvo —
+  // exatamente o tipo de corrida que explica duas telas competindo. Captura
+  // ANTES do await: salvarVistoria() zera window._visLocalId internamente,
+  // checar depois já veria sempre null.
+  const veioDoPlano = !!(window._visLocalId);
   try{
     const ok = await salvarVistoria();
     if(ok){
       _limparFormVistoria(); // previne re-submit acidental ao voltar para "Nova Vistoria"
-      setTimeout(()=>visTab('hist'), 300);
+      // Veio de plano: salvarVistoria() já agenda visTab('locais') sozinho —
+      // não duplica a navegação aqui, senão volta a corrida.
+      if(!veioDoPlano) setTimeout(()=>visTab('hist'), 300);
     }
   }finally{ _finalizandoVis=false; }
 }
@@ -15574,10 +15597,37 @@ async function _prepRelatorioFotos(vis){
   })));
   return {...vis, equipamentos};
 }
+// Abre (sincronamente!) uma aba em branco com um aviso de carregamento —
+// chame isto como a PRIMEIRA linha de qualquer handler de clique que vai
+// levar a um gerador de relatório (_gerarPDFVistoria, _gerarPDFRelatorioOS),
+// ANTES de qualquer await. Achado real (27/08): os dois sempre chamaram
+// window.open() só DEPOIS de um await (miniaturizar fotos, buscar
+// materiais da OS — genuinamente assíncrono, mais lento ainda em registro
+// grande, tipo a vistoria do Infinity Coast Tower, 51 equipamentos).
+// Nenhum navegador (Safari/iOS em especial, mas também WebView Android)
+// considera um window.open() disparado depois de um await como parte do
+// mesmo gesto de clique — cai no bloqueador de pop-up em silêncio. O app
+// já tinha um aviso pra esse caso ("Permita pop-ups"), mas isso não ajuda:
+// no PWA instalado não tem prompt nenhum pra "permitir" — o clique só não
+// fazia nada. Abrir a aba ANTES do await (mesmo vazia) conta como gesto
+// síncrono pro navegador; só o conteúdo é preenchido depois, via
+// `.location.href`.
+function _abrirJanelaRelatorio(){
+  const w = window.open('', '_blank');
+  if (w){
+    try{ w.document.write('<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Preparando…</title></head><body style="margin:0;height:100vh;display:flex;align-items:center;justify-content:center;font-family:sans-serif;color:#6b7280;background:#f3f4f6"><p>⏳ Preparando relatório…</p></body></html>'); }catch(e){}
+  }
+  return w;
+}
+
 // Núcleo único do relatório de vistoria: SEMPRE abre numa aba nova (HTML leve,
 // renderização incremental + lazy-load + fotos miniaturizadas). Não usa mais
 // window.print() num doc oculto (que travava com muitas fotos). O usuário usa o
 // botão "Baixar / Imprimir PDF" na aba (impressão nativa, aguenta muitas fotos).
+// `opts.janela`, se informada, já foi aberta ANTES do await por quem chamou
+// (ver _abrirJanelaRelatorio acima) — usamos ela em vez de abrir uma nova
+// (que aí sim cairia no bloqueador). Sem `opts.janela`, mantém o
+// comportamento antigo (window.open direto), pros poucos chamadores restantes.
 async function _gerarPDFVistoria(vis, opts={}){
   if(!vis.loja_id || vis.loja_id==='default') vis.loja_id = lojaAtiva || LOJA_PADRAO_ID;
   const visMini = await _prepRelatorioFotos(vis); // miniaturiza fotos base64
@@ -15597,18 +15647,22 @@ async function _gerarPDFVistoria(vis, opts={}){
     </head><body><button id="btn-baixar-pdf" onclick="window.print()">📥 Baixar / Imprimir PDF</button>${el?el.outerHTML:''}</body></html>`;
   const blobUrl = URL.createObjectURL(new Blob([html], {type:'text/html;charset=utf-8'}));
   if(opts.output === 'bloburl') return blobUrl;
-  const w = window.open(blobUrl, '_blank');
-  if(w){ toast('✅ Relatório aberto — toque em "Baixar / Imprimir PDF"'); setTimeout(()=>URL.revokeObjectURL(blobUrl), 120000); }
-  else { URL.revokeObjectURL(blobUrl); toast('⚠️ Permita pop-ups para abrir o relatório'); }
+  const w = opts.janela!==undefined ? opts.janela : window.open(blobUrl, '_blank');
+  if(w){
+    if(opts.janela!==undefined) w.location.href = blobUrl; // já aberta em branco — só navega
+    toast('✅ Relatório aberto — toque em "Baixar / Imprimir PDF"');
+    setTimeout(()=>URL.revokeObjectURL(blobUrl), 120000);
+  } else { URL.revokeObjectURL(blobUrl); toast('⚠️ Permita pop-ups para abrir o relatório'); }
 }
 
 async function baixarPDFVistoria(id, btn){
   const vis = lsVisLer().find(x=>x.id===id);
   if(!vis){ toast('Vistoria não encontrada'); return; }
+  const janela = _abrirJanelaRelatorio(); // sincrono — antes do await abaixo, senão cai no bloqueador de pop-up
   const origTxt = btn ? btn.textContent : '';
   if(btn){ btn.disabled=true; btn.textContent='⏳'; }
   try{
-    await _gerarPDFVistoria(vis); // usa window.print()
+    await _gerarPDFVistoria(vis, {janela}); // usa window.print()
   }finally{
     if(btn){ btn.disabled=false; btn.textContent=origTxt; }
   }
@@ -15653,8 +15707,9 @@ function enviarWAResumoVistoria(id){
 async function abrirVisRelatorio(id, btn){
   const vis = lsVisLer().find(x=>x.id===id);
   if(!vis){ toast('⚠️ Vistoria não encontrada'); return; }
+  const janela = _abrirJanelaRelatorio(); // sincrono — antes do await abaixo, senão cai no bloqueador de pop-up
   const _t=btn?btn.textContent:''; if(btn){ btn.disabled=true; btn.textContent='⏳'; }
-  try{ await _gerarPDFVistoria(vis); }
+  try{ await _gerarPDFVistoria(vis, {janela}); }
   catch(e){ console.warn('[abrirVisRelatorio]', e?.message||e); toast('⚠️ Falha ao abrir o relatório'); }
   finally{ if(btn){ btn.disabled=false; btn.textContent=_t; } }
 }
@@ -15674,8 +15729,9 @@ async function gerarRelatorioVistoria(){
 
   // Relatório sempre em nova aba (leve, aguenta muitas fotos). Sem window.print
   // em doc oculto (travava) nem html2pdf (PDF em branco).
+  const janela = _abrirJanelaRelatorio(); // sincrono — antes do await abaixo, senão cai no bloqueador de pop-up
   toast('⏳ Preparando relatório…');
-  try{ await _gerarPDFVistoria(rec); }
+  try{ await _gerarPDFVistoria(rec, {janela}); }
   catch(e){ console.warn('[gerarRelatorioVistoria]',e?.message||e); toast('⚠️ Vistoria salva — abra o relatório pelo histórico.'); }
 
   renderVisHistorico();
