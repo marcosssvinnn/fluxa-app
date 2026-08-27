@@ -2,6 +2,47 @@
 
 ---
 
+## 🔴 Equipe não conseguia logar (nem no celular, nem no app) — causa raiz: atualização automática forçando reload no meio do login (27/08)
+
+Marcos reportou: *"desde que fizemos o app envio o link pra galera e eles nao
+conseguem acessar o saas pelo celular e nem pelo app"*. Sintoma afetava todo
+mundo, tanto no navegador do celular quanto no app Android instalado.
+
+**Causa raiz**: o mecanismo de auto-atualização (`app.js`) recarrega a
+página sozinho sempre que detecta um deploy novo — via 3 gatilhos:
+`serviceWorker.controllerchange`, mensagem `NEW_VERSION` do `sw.js`
+(`activate`) e o polling de `_verificarVersaoApp()` (a cada 60s, checando
+ETag/Last-Modified). Todos chamavam `_forcarAtualizacao()`, que dava
+`location.reload()` incondicional após 1.5s — sem checar se tinha alguém no
+meio do login. Com o ritmo de deploys dessa sessão (`sw.js` passou de v239 a
+v251 no mesmo dia), qualquer pessoa abrindo o app durante uma janela de
+deploy tinha o reload disparado bem quando estava digitando nome/PIN — a
+tela voltava em branco, dando exatamente a sensação de "não consigo
+acessar". Isso vale igual pro app Android nativo, porque ele carrega o
+mesmo `app.js`/WebView.
+
+**Corrigido**: nova função `_atualizacaoAdiada()` — se o overlay de login
+está visível E tem nome/PIN parcialmente preenchido, ou a etapa "Qual
+empresa?" (`#login-step-loja`) está mostrando, o reload é adiado (mostra um
+toast avisando que a atualização será aplicada assim que a pessoa terminar
+de entrar, e tenta de novo a cada 10s) em vez de forçar na hora. Fora do
+login, comportamento não muda. `sw.js` v250→v251, deploy em `main`
+(`917ce37`) e `android-apk` (`5adc2c9`).
+
+**Checado e descartado como causa**: o checador de atualização nativo do
+Android (`native.js`, `fluxaChecarAtualizacaoApp`) é separado e seguro —
+só mostra um banner dispensável com botão "Atualizar" explícito, nunca
+recarrega sozinho.
+
+**Ponta solta, não urgente**: o asset da GitHub Release
+(`android-version.json` anexado ao release `forthemp-android-latest`)
+está desatualizado (build antigo) mesmo com builds novos passando — não é
+o que `native.js` lê (ele lê direto do branch via
+`raw.githubusercontent.com`, que está correto), mas vale investigar depois
+por que o asset do release não atualiza a cada workflow.
+
+---
+
 ## 🔴 Vistoria: teste completo no emulador Android real — login de toda a equipe confirmado + assinatura sumindo ao trocar de aba (27/08)
 
 A pedido do Marcos ("teste todo o sistema... veja se o usuário da Tamara e
