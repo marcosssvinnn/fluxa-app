@@ -2,6 +2,43 @@
 
 ---
 
+## 🔴 Histórico de Vistorias — nome do local quebrava letra por letra no celular (27/08)
+
+Marcos mandou print do emulador Android (build real, `android-apk`):
+"a função mais utilizada é ver e o pdf no celular" — a lista de Histórico
+de Vistorias, e o nome/endereço do local aparecia espremido numa coluna
+tão estreita que quebrava quase palavra por palavra, ocupando a tela
+inteira por um único item.
+
+**Causa**: `.vis-history-item` (`renderVisHistorico()`, `app.js`) é um
+flex row — texto (cliente/local/técnico) de um lado, coluna de badges +
+até 7 botões de ação do outro (📧💬✏️💰Orçar🗳️Dossiê👁Ver📥PDF✕, gestor vê
+quase todos). A coluna de botões tem `flex-shrink:0` (nunca encolhe); no
+celular, esses botões sozinhos já ocupam a maior parte da largura da
+tela, sobrando uma faixa estreitíssima pro texto — que aí quebra em
+quase uma letra por linha.
+
+**Corrigido**: `@media(max-width:680px)` — o card empilha
+(`flex-direction:column`), texto ocupa a largura toda em cima, botões
+numa fileira própria embaixo (com espaço de sobra pra quebrar em 2 linhas
+sem espremer nada). Desktop sem mudança (continua lado a lado). Precisou
+extrair os estilos inline dos containers pra classes (`.vis-hist-acoes`,
+`.vis-hist-botoes`) — inline não dá pra sobrescrever por media query sem
+`!important`.
+
+Testado no Browser pane, com a MESMA vistoria real do print do Marcos
+(carregada de verdade do Supabase nesta sessão, não sintética — achado no
+processo: `dbOk=false` que eu tinha forçado antes de navegar foi
+sobrescrito pra `true` de forma assíncrona pelo próprio boot, mesmo risco
+já documentado no `CLAUDE.md`; confirmei que só rodei leitura/render,
+nenhum insert/update, e forcei offline de novo assim que percebi):
+"Infinity Coast Tower · R. Julieta Lins, 32 - Pioneiros, Balneário
+Camboriú - SC, 88331-010" agora quebra em 2 linhas limpas, botões numa
+fileira própria abaixo, nada cortado; 1280px sem regressão (`flex-
+direction:row`, layout de sempre). Zero erro novo no console.
+
+sw.js: fluxa-v246 → fluxa-v247.
+
 ## 🔴 Assinatura do técnico não saía no PDF/relatório da vistoria (26/08)
 
 Marcos, em campo: a vistoria pedia assinatura pra finalizar (obrigatória
