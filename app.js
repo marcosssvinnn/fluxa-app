@@ -21191,8 +21191,34 @@ function _insightsMargem(prods){
 //  SERVICE WORKER (PWA — funciona quando hospedado)
 // ──────────────────────────────────────────────────
 let _swRefreshing=false;
+let _atualizacaoPendenteAvisada=false;
+// Recarregar no meio do login (ou de uma vistoria em campo) apaga o que a
+// pessoa estava digitando — achado real: com deploys frequentes, quem está
+// tentando entrar no app é interrompido antes de terminar de digitar o PIN,
+// parecendo "não consigo acessar". Se há login em andamento, adia o reload
+// e tenta de novo em breve, em vez de forçar.
+function _atualizacaoAdiada(){
+  try{
+    const overlay=document.getElementById('login-overlay');
+    if(overlay && overlay.style.display!=='none'){
+      const nome=(document.getElementById('login-nome-input')?.value||'').trim();
+      const pin=(document.getElementById('pin-input')?.value||'').trim();
+      const lojaVisivel=document.getElementById('login-step-loja')?.classList.contains('show');
+      if(nome || pin || lojaVisivel) return true;
+    }
+  }catch(e){ console.warn('[atualizacaoAdiada]', e?.message||e); }
+  return false;
+}
 function _forcarAtualizacao(){
   if(_swRefreshing) return;
+  if(_atualizacaoAdiada()){
+    if(!_atualizacaoPendenteAvisada){
+      _atualizacaoPendenteAvisada=true;
+      toast('Uma nova versão está pronta — vai ser aplicada assim que você terminar de entrar.', {tipo:'info', ms:6000});
+    }
+    setTimeout(_forcarAtualizacao, 10000);
+    return;
+  }
   _swRefreshing=true;
   toast('🔄 Nova versão disponível. Atualizando...');
   setTimeout(()=>location.reload(),1500);
