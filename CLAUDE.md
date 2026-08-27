@@ -2,6 +2,46 @@
 
 ---
 
+## 🔴 Equipe não conseguia logar — 2ª causa achada: conexão falhando em silêncio, sem nenhum aviso na tela de login (27/08)
+
+Continuação do achado logo abaixo (auto-update forçando reload). O Marcos
+questionou com razão: o sintoma dele é **de dias**, não só do dia dos
+muitos deploys, e é o mesmo link — funciona no celular dele, não funciona
+no de outra pessoa, sempre. Isso não bate com timing de deploy (seria
+intermitente pra qualquer um, não consistente numa pessoa só).
+
+**2º problema real, achado no código**: `carregarUsuarios()`/`conectarDB()`
+rodam no boot pra buscar a lista de usuários do Supabase antes de liberar
+o login. Se a conexão falhar (rede fraca, Wi-Fi caindo, alguma coisa
+bloqueando o domínio do Supabase naquela rede específica), o boot tentava
+reconectar só 3 vezes (3s, depois 15s) e **desistia de vez** — sem nunca
+mais tentar sozinho, e **sem nenhum aviso visível**: o indicador de status
+do banco (`#db-dot`) fica atrás do overlay de login, escondido. A pessoa
+via a tela de login normal, digitava a senha certa, e recebia "Ainda
+carregando, aguarde" pra sempre (`_usuariosConfirmadosDoServidor` nunca
+vira `true`) — sem nunca virar um erro claro tipo "sem conexão". Exatamente
+o "não sei o que aparecia, só sei que não conseguia entrar".
+
+**Corrigido**: (1) o boot agora continua tentando reconectar de 30 em 30s
+pra sempre, em vez de desistir depois de 3 tentativas; (2) a partir da 3ª
+tentativa falha, mostra um aviso visível na própria tela de login ("Sem
+conexão com o servidor — vamos continuar tentando automaticamente"); (3)
+se a pessoa tentar logar sem conexão nenhuma, a mensagem agora diz "Sem
+conexão com o servidor, verifique sua internet" em vez do enganoso "ainda
+carregando, aguarde" (que dava a entender que só precisava esperar).
+`sw.js` v251→v252.
+
+**Ainda não confirmado**: por que a conexão falha especificamente pra
+algumas pessoas/redes e não pra outras com o mesmo link — hipóteses não
+testadas: rede/Wi-Fi específica bloqueando o domínio do Supabase, ou (bem
+comum nesse tipo de sintoma) a pessoa abrindo o link **dentro do
+WhatsApp/Instagram** (navegador embutido do app), que em alguns celulares
+tem mais restrição de conexão/armazenamento do que abrir no Chrome/Safari
+de verdade. Vale perguntar pra pessoa que não conseguiu: abriu tocando o
+link direto na conversa do WhatsApp, ou copiou e colou no navegador?
+
+---
+
 ## 🔴 Equipe não conseguia logar (nem no celular, nem no app) — causa raiz: atualização automática forçando reload no meio do login (27/08)
 
 Marcos reportou: *"desde que fizemos o app envio o link pra galera e eles nao
