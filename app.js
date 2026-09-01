@@ -507,7 +507,7 @@ function atualizarHeaderLoja(){
     if(LC.logoB64){ img.src=LC.logoB64; img.classList.add('has-logo'); }
     else { img.classList.remove('has-logo'); }
   }
-  document.title=(LC.nome||CFG.nome||'Fluxa')+' — Orçamentos';
+  document.title=(LC.nome||CFG.nome||'Fluxa')+' — Gestão';
   // Sidebar (redesign 13/08) — mesma info de marca do header, só que também
   // no bloco fixo do topo da nav (nome do app + nome da empresa) e no
   // seletor de unidade (loja ativa, ou "Todas" quando o gestor não filtrou).
@@ -1647,7 +1647,7 @@ function aplicarCFG(){
   // Tagline no painel lateral do login
   const loginTagline=document.getElementById('login-brand-tagline');
   if(loginTagline) loginTagline.textContent=CFG.tagline||'';
-  document.title = CFG.nome + ' — Orçamentos';
+  document.title = CFG.nome + ' — Gestão';
   renderPresets();
   preencherFormEmpresa();
   injetarPWA();
@@ -9832,7 +9832,7 @@ window.addEventListener('afterprint',()=>{
   document.getElementById('pdoc-os').classList.remove('print-active');
   document.getElementById('pdoc-visita')?.classList.remove('print-active');
   document.getElementById('pdoc-entrega')?.classList.remove('print-active');
-  document.title = _printTitleBackup || 'Sistema de Orçamentos';
+  document.title = _printTitleBackup || 'Sistema de Gestão';
   printMode = '';
 });
 
