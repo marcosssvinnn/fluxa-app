@@ -2,6 +2,53 @@
 
 ---
 
+## 🔴 Equipe não conseguia logar — 3ª investigação: descartado conta/servidor, suspeita de WebView desatualizado (28/08)
+
+Marcos testou pessoalmente no celular da Elis: baixou o app de novo, tentou
+com a senha DELE e com a DELA, nenhuma das duas entrou. Isso descarta de
+vez conta/senha errada (já eram os dois achados anteriores, v251 e v252 —
+ver abaixo — que não resolveram o caso dela).
+
+**Checado e descartado nesta rodada**:
+- Registro dela no banco: `ativo=true`, PIN de 4 dígitos cadastrado, perfil
+  `gestor` — tudo normal (`select * from usuarios where nome='Elis'`).
+- `config.js` (URL + anon key do Supabase empacotados no app/site): projeto
+  certo (`lbxwclwzeqqtnwvlxsxs`), chave válida, não expirada (expira 2036).
+- Logs de API do projeto: sem retenção de logs nesse plano do Supabase
+  (`edge_logs`/`postgres_logs` vazios) — não deu pra confirmar se a
+  requisição chega ou não no servidor por esse caminho.
+
+**Suspeita mais forte agora (não confirmada — falta o modelo do celular
+dela)**: o celular da Elis pode ter o "Android System WebView" (ou
+navegador) desatualizado a ponto de não conseguir nem interpretar o
+`app.js` (usa `?.` — optional chaining — em centenas de lugares, sintaxe
+que só engines mais novos entendem). Isso bate com TODOS os sintomas: (1)
+trava igual no app instalado E no navegador, porque os dois rodam o mesmo
+`app.js`; (2) reinstalar o app não resolve, porque o WebView é componente
+do sistema Android, não do app; (3) a senha de OUTRA pessoa (Marcos) falha
+igual, porque o problema é antes de chegar no login — o script inteiro
+falha ao carregar, silenciosamente, sem nenhum erro visível; (4) é
+consistente há dias no aparelho dela e não no de mais ninguém.
+
+**Mitigado**: adicionado um teste de compatibilidade em ES5 puro bem no
+topo do `<body>` (`#compat-erro` em `index.html`) que roda ANTES de
+`app.js` — se o motor de JS não suporta a sintaxe que o app usa, mostra um
+aviso claro em tela cheia ("Este navegador está desatualizado... atualize
+o Android System WebView e o Google Chrome na Play Store") em vez da tela
+de login ficando morta em silêncio. Testado manualmente simulando os dois
+casos (engine moderno → aviso continua escondido; engine antigo → aviso
+aparece). `sw.js` v252→v253.
+
+**Ainda em aberto**: não foi possível confirmar 100% que é isso sem saber
+o modelo/versão do Android do celular da Elis — pedir pro Marcos esse
+dado, e se der, pedir pra ela testar de novo e ver SE aparece esse novo
+aviso (se aparecer, confirma a causa; se a tela continuar do jeito que
+estava, sem aviso nenhum, essa hipótese cai e o problema é outro nível
+mais abaixo — provavelmente rede/conectividade específica daquele
+aparelho, sem log disponível pra confirmar via Supabase).
+
+---
+
 ## 🔴 Equipe não conseguia logar — 2ª causa achada: conexão falhando em silêncio, sem nenhum aviso na tela de login (27/08)
 
 Continuação do achado logo abaixo (auto-update forçando reload). O Marcos
