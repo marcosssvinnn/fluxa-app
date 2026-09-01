@@ -51,6 +51,10 @@ jobs:
       - name: Gerar o projeto nativo Android (não fica commitado no repo)
         run: npx cap add android
 
+      - name: Desligar o Autofill do Android no WebView (evita senha salva substituindo o PIN digitado)
+        working-directory: android
+        run: python3 ../scripts/patch-android-autofill.py
+
       - name: Aplicar o ícone real da Forthemp (icons/icon-master-1024.png)
         run: |
           set -e
