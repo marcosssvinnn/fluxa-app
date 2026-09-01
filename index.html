@@ -129,8 +129,10 @@
             <div class="login-pin-box" data-i="2"></div>
             <div class="login-pin-box" data-i="3"></div>
           </div>
-          <input id="pin-input" class="login-pin-input" type="password" inputmode="numeric" maxlength="4"
-            autocomplete="off" aria-label="Senha PIN de 4 dígitos"
+          <input id="pin-input" name="fluxa-pin-nao-autofill" class="login-pin-input" type="password" inputmode="numeric" maxlength="4"
+            autocomplete="one-time-code" aria-label="Senha PIN de 4 dígitos"
+            autocorrect="off" autocapitalize="off" spellcheck="false"
+            data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"
             oninput="atualizarDotsPIN(this.value)"
             onfocus="_loginPinFocusUI(true)" onblur="_loginPinFocusUI(false)"
             onkeydown="if(event.key==='Enter')fazerLogin()">

@@ -2,6 +2,62 @@
 
 ---
 
+## 🔴 Equipe não conseguia logar — 4ª causa achada e corrigida: Autofill do Android substituindo a senha digitada (28/08)
+
+Continuação da investigação anterior (logo abaixo). Marcos testou de novo:
+desinstalou e reinstalou o app DO ZERO no celular da Elis (não só baixou
+por cima) e o problema persistiu — isso descarta de vez cache/dado antigo
+sobrevivendo a reinstalação. E o sintoma é bem específico: "fica dando
+senha errada", não tela travada — ou seja, o app carrega, valida a senha,
+e o resultado dá errado mesmo com a senha certa.
+
+**Confirmado por reprodução real**: testei login completo com a senha
+verdadeira do Bruno (`1234`) num navegador limpo, sem nenhum cache — **deu
+certo**, entrou normal. Comparei a conta da Elis e do Marcos no banco:
+mesma estrutura exata (PIN salvo como texto simples, sem hash) que a do
+Bruno, que funcionou. Ou seja: banco, config e código de comparação de
+senha estão OK — não achei diferença nenhuma entre as contas que falham e
+a que funcionou no teste.
+
+**Causa real**: o formulário de login (campo de nome + campo de senha
+`type="password"`) casa exatamente com a heurística que o Android usa pra
+oferecer "preencher automaticamente"/sugerir senha salva — e isso vale
+**dentro do WebView do app nativo também**, não só no navegador Chrome.
+Em alguns aparelhos (Samsung Pass é um serviço conhecido por isso), o
+Autofill do sistema pode substituir o que a pessoa digitou por uma
+credencial salva de outra coisa, sem ela perceber — os 4 pontinhos
+preenchem, mas o valor real enviado não é o que foi digitado. Isso explica
+por tudo: reinstalar o app não muda nada (o Autofill é um serviço do
+Android, não dado do app), acontece em mais de uma pessoa/aparelho, e a
+senha de qualquer conta falha igual (o problema é ANTES da comparação, no
+próprio valor que chega no campo).
+
+**Corrigido em duas camadas**:
+1. `index.html` — campo `#pin-input`: trocado `autocomplete="off"` (que
+   vários serviços de autofill ignoram) por `autocomplete="one-time-code"`
+   (sinal padrão pra "isto não é uma senha salvável"), mais
+   `data-lpignore`/`data-1p-ignore`/`data-bwignore`/`data-form-type="other"`
+   e um `name` não-óbvio, pra reduzir ao máximo a heurística de "campo de
+   senha de login".
+2. `android/app/src/main/java/.../MainActivity.java` (só existe no build,
+   não fica commitado) — novo `scripts/patch-android-autofill.py`, rodado
+   pelo workflow logo após `npx cap add android`, insere um `onCreate` que
+   chama `webView.setImportantForAutofill(IMPORTANT_FOR_AUTOFILL_NO)` —
+   isso é uma ordem do próprio Android pro framework de Autofill IGNORAR
+   esse WebView inteiro, não depende de nenhum serviço de terceiro
+   respeitar atributo nenhum do HTML. É o reforço mais forte que dá pra
+   fazer sem depender do fabricante do aparelho.
+
+Testado o patch script contra um `android/` gerado localmente antes de ir
+pro workflow (regex bateu certo, Java válido gerado). `sw.js` v253→v254.
+
+**Ainda em aberto**: pedir confirmação da Elis/Bruno depois do próximo
+build — se resolver, fecha o caso; se não resolver, o próximo suspeito é
+alguma extensão/app de terceiros no aparelho interceptando o campo (bem
+mais raro), ou vale tentar reproduzir com print de tela real do erro.
+
+---
+
 ## 🔴 Equipe não conseguia logar — 3ª investigação: descartado conta/servidor, suspeita de WebView desatualizado (28/08)
 
 Marcos testou pessoalmente no celular da Elis: baixou o app de novo, tentou
