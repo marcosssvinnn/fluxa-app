@@ -2,6 +2,52 @@
 
 ---
 
+## 🔴 Equipe não conseguia logar — 5ª causa, com PROVA em print de tela: `autocomplete="one-time-code"` (fix anterior) pode ter piorado, corrigido de vez trocando o tipo do campo (01-02/09)
+
+Marcos mandou print de tela real (celular Android da Tamara, tentando
+logar como Marcos e como Bruno pelo NAVEGADOR): mensagem exata **"Senha
+incorreta — Restam 2 tentativa(s)..."**, repetida até bloquear
+("Muitas tentativas. Aguarde..."). Isso prova, sem dúvida, que o problema
+é uma comparação de senha genuinamente falhando nesse aparelho — não tela
+travada, não falta de conexão (a marca "Forthemp — Sistema de gestão" no
+topo confirma que o código mais recente estava rodando).
+
+**Suspeita: o fix anterior (achado 4, logo abaixo) pode ter trocado um
+problema por outro pior.** `autocomplete="one-time-code"` foi escolhido
+pra impedir sugestão de senha salva — mas esse é EXATAMENTE o atributo
+que ativa o preenchimento automático de **código de SMS** no Android/
+Chrome (WebOTP). Se o celular recebeu qualquer SMS de 4 dígitos por perto
+do momento do login (banco, entrega, verificação de outro app), o Chrome
+pode ter substituído o PIN digitado pelo código do SMS, sem a pessoa
+perceber — os pontinhos preenchem (são desenhados por uma div separada,
+só contam caracteres), mas o valor real enviado é outro.
+
+**Causa raiz real, resolvida agora**: o campo `#pin-input` SEMPRE foi
+`type="password"`, mas ele é **invisível** (`opacity:0;width:1px`,
+ver `styles.css` `.login-pin-input`) — quem mostra os pontinhos na tela é
+uma UI decorativa separada (`.login-pin-box`). Ou seja, `type="password"`
+nunca teve função visual nenhuma, só servia de sinal pro Android tratar
+aquilo como "campo de senha de login" — e é justamente esse sinal a raiz
+de todo esse capítulo (autofill de senha salva OU, pior, autofill de SMS).
+
+**Corrigido**: trocado `type="password"` → `type="tel"` (mantém o teclado
+numérico via `inputmode="numeric"`, sem nenhuma mudança visual, já que o
+campo real é invisível) e `autocomplete="one-time-code"` → `autocomplete=
+"off"` (sem `type="password"` no formulário, o Android não tem mais
+motivo pra oferecer autofill de senha; sem `one-time-code`, o WebOTP não
+tem gatilho pra tentar preencher com código de SMS). Testado localmente:
+tela de login idêntica, campo continua funcionando normal com o teclado
+numérico. `sw.js` v255→v256.
+
+**Ainda em aberto**: pedir pro Marcos testar de novo no MESMO celular da
+Tamara (é o único aparelho com reprodução confirmada até agora) depois
+desse deploy — se resolver, fecha o capítulo de vez; se persistir mesmo
+sem `type="password"` nem `one-time-code` no formulário, o próximo
+suspeito vira o teclado/IME daquele aparelho especificamente (não mais
+autofill do sistema).
+
+---
+
 ## 🔴 Equipe não conseguia logar — 4ª causa achada e corrigida: Autofill do Android substituindo a senha digitada (28/08)
 
 Continuação da investigação anterior (logo abaixo). Marcos testou de novo:
