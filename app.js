@@ -8621,14 +8621,23 @@ function preencherRelatorioOS(os, opts={}){
       </div>`);
     }
     const sobraAntes=fAntes.slice(nPares), sobraDepois=fDepois.slice(nPares);
+    // Colunas/altura adaptam à quantidade em vez do grid fixo de 2 col/210px
+    // que `.pd-vis-equip-fotos` tinha por padrão — achado do Marcos, 04/09:
+    // com 1 ou 2 fotos (o caso mais comum, quando não há "antes" pra parear)
+    // ficava minúsculo e desperdiçando metade da largura; com 5+ a 5ª/6ª
+    // cortava mais do que precisava. Mesma fórmula que preencherDocOS já usa
+    // pras fotos da ordem de serviço, aplicada aqui pro relatório.
+    const nSobra=sobraAntes.length+sobraDepois.length;
+    const colsSobra=nSobra===1?1:nSobra<=4?2:3;
+    const hSobra=nSobra===1?320:nSobra<=2?260:190;
     const grade=(arr,lbl,classe)=>arr.map((f,i)=>`
-      <div class="pd-vis-foto-item"><img src="${f}" alt="${lbl} ${i+1}" loading="lazy" decoding="async">
+      <div class="pd-vis-foto-item"><img src="${f}" alt="${lbl} ${i+1}" loading="lazy" decoding="async" style="height:${hSobra}px">
       <div class="pd-vis-foto-lbl ${classe}">${lbl}</div></div>`).join('');
     // "Sobra" cobre tanto o resto de quem tem mais fotos que o outro lado
     // quanto o caso comum de só um lado ter fotos (nPares fica 0, sobra é
     // o array inteiro) — não precisa de um 3º caminho pra isso.
     const sobraHtml = (sobraAntes.length||sobraDepois.length)
-      ? `<div class="pd-vis-equip-fotos" style="margin-top:${nPares?'14px':'0'}">${grade(sobraAntes,'Antes','antes')}${grade(sobraDepois,'Depois','depois')}</div>`
+      ? `<div class="pd-vis-equip-fotos" style="margin-top:${nPares?'14px':'0'};grid-template-columns:repeat(${colsSobra},1fr)">${grade(sobraAntes,'Antes','antes')}${grade(sobraDepois,'Depois','depois')}</div>`
       : '';
     fotosGrid.innerHTML = (pares.length ? `<div class="pd-osr-ad-grid">${pares.join('')}</div>` : '') + sobraHtml;
   }
@@ -15905,10 +15914,15 @@ function preencherRelatorioVistoria(vis){
     const temAmbienteDet=gruposDet.some(g=>g.nome);
     const itemHtml=e=>{
       const fotosArr=(e.fotos||[]).filter(Boolean);
+      // Adaptativo (mesmo achado do relatório de OS, 04/09): 1 foto sozinha
+      // num grid fixo de 2 colunas ficava pequena e desperdiçava metade do
+      // espaço.
+      const colsFoto=fotosArr.length===1?1:2;
+      const hFoto=fotosArr.length===1?300:210;
       const fotosHtml=fotosArr.length
-        ?`<div class="pd-vis-equip-fotos">${fotosArr.map((f,i)=>`
+        ?`<div class="pd-vis-equip-fotos" style="grid-template-columns:repeat(${colsFoto},1fr)">${fotosArr.map((f,i)=>`
             <div class="pd-vis-foto-item">
-              <img src="${f}" alt="Foto ${i+1}" loading="lazy" decoding="async">
+              <img src="${f}" alt="Foto ${i+1}" loading="lazy" decoding="async" style="height:${hFoto}px">
               <div class="pd-vis-foto-lbl">Foto ${i+1}${e.nome?' — '+e.nome:''}</div>
             </div>`).join('')}</div>`
         :'';
