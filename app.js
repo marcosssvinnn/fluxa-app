@@ -6976,7 +6976,13 @@ async function mudarSt(id, sel){
     const pag=(o.pag_cod||'').trim();
     if(!pag || /^a combinar$/i.test(pag)){
       sel.value=stAnterior||'pendente';
-      toast('⚠️ Defina a forma de pagamento antes de aprovar — sem isso, a parcela de recebimento não pode ser gerada e o financeiro fica sem saber como cobrar. Edite o orçamento e escolha em "Pagamento".');
+      // Achado real (16/09): só dizer "escolha em 'Pagamento'" não bastava —
+      // esse campo mora dentro do card "Dados do Cliente" (não tem seção
+      // própria) e no mobile some se a pessoa estiver num passo diferente do
+      // wizard, resultando em "não achei lá". Leva a pessoa direto pro campo
+      // (mesmo padrão do _orcMobileFinalizar: passo 1 antes de apontar).
+      if(typeof _orcIrParaPasso==='function') _orcIrParaPasso(1);
+      avisarCampoObrigatorio('pag','Defina a forma de pagamento antes de aprovar — sem isso, a parcela de recebimento não pode ser gerada e o financeiro fica sem saber como cobrar.');
       return;
     }
     // Item sem produto_id e sem marcar "avulso" é sinal de que ninguém decidiu
