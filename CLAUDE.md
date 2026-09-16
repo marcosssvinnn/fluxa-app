@@ -2,6 +2,35 @@
 
 ---
 
+## 🟡 Aprovar orçamento pedia "forma de pagamento" mas não dizia onde estava (16/09)
+
+Marcos reportou (acompanhando o uso real): mudar orçamento de "pendente"
+pra "aprovado" pedia pra definir forma de pagamento, mas mesmo entrando
+no orçamento não achava o campo.
+
+**Causa**: `mudarSt()` (`app.js`) bloqueia a aprovação sem forma de
+pagamento definida (regra de 07/08 — 33 dos 88 aprovados na época nunca
+tinham isso resolvido, quebrava o financeiro). O aviso só dizia *"Edite o
+orçamento e escolha em 'Pagamento'"* — mas esse campo não tem seção
+própria, mora dentro do card "Dados do Cliente" (é o 4º campo de uma
+linha, ao lado de "Empresa"). No mobile o formulário é um wizard de 3
+passos (Cliente/Serviços/Finalizar) e "Pagamento" fica só no passo 1 — se
+a pessoa estivesse tentando aprovar a partir de outro passo (bem comum,
+já que o seletor de status fica fixo no topo, visível em qualquer passo),
+o campo ficava literalmente escondido (`display:none`), impossível de
+achar por instrução nenhuma.
+
+**Corrigido**: em vez de só avisar, agora leva a pessoa direto no campo —
+`_orcIrParaPasso(1)` (mesmo padrão já usado em `_orcMobileFinalizar()`,
+garante que o campo não está escondido num passo diferente) seguido de
+`avisarCampoObrigatorio('pag', ...)` (helper já existente no projeto:
+faz scroll + foco + borda vermelha no campo). Testado via
+`sessionStorage.fluxa_user` fake (sem digitar senha nenhuma) simulando
+alguém no passo 2 tentando aprovar — confirmado que volta pro passo 1 e
+o campo aparece destacado e focado. `sw.js` v256→v257.
+
+---
+
 ## 🔴 Equipe não conseguia logar — 5ª causa, com PROVA em print de tela: `autocomplete="one-time-code"` (fix anterior) pode ter piorado, corrigido de vez trocando o tipo do campo (01-02/09)
 
 Marcos mandou print de tela real (celular Android da Tamara, tentando
