@@ -2,6 +2,63 @@
 
 ---
 
+## 🔴 Vistoria resetando sozinha em campo — auto-atualização recarregava sem avisar (16/10)
+
+Marcos relatou: vistoria aberta no celular "caindo o tempo todo, resetando",
+precisando voltar e reabrir sempre. Achado real, e explica o sintoma por
+completo — não é rede nem memória do navegador, é o próprio mecanismo de
+auto-atualização do app.
+
+**Causa:** o detector de versão nova (`_verificarVersaoApp`, roda a cada 60s
+e também toda vez que a aba volta a ficar visível — ex.: técnico volta do
+WhatsApp/câmera pro Fluxa) chama `_forcarAtualizacao()` assim que percebe
+deploy novo no servidor (o que acontece várias vezes por dia neste projeto).
+`_forcarAtualizacao()` só adia o reload quando `_atualizacaoAdiada()` diz que
+há algo em andamento — **e essa função só checava o login**. O comentário
+logo acima dela já dizia a intenção ("recarregar no meio do login ou de uma
+vistoria em campo apaga o que a pessoa estava digitando") desde o commit que
+corrigiu o caso do login (`917ce37`), mas a parte da vistoria nunca foi
+escrita — só ficou prometida no comentário.
+
+**Segundo caminho pro mesmo problema, nem passava pela checagem:** o listener
+de `controllerchange` (dispara quando o novo Service Worker assume o
+controle) recarregava a página direto, sem chamar `_atualizacaoAdiada()` em
+nenhum momento — um reload garantido, nem adiável, independente do que a
+pessoa estivesse fazendo.
+
+Numa vistoria de campo (a captura de dado mais longa do app — 30min+ em local
+com rede instável, documentado várias vezes neste arquivo), bastava um deploy
+acontecer nesse meio tempo — ou o técnico só trocar de app e voltar — para
+disparar um dos dois caminhos.
+
+**Corrigido:**
+1. `_atualizacaoAdiada()` ganhou a checagem que faltava: `#page-visitas` ativo
+   + aba "Nova Vistoria" ativa + (checkin já feito, OU algum equipamento já
+   avaliado — `status` diferente de `'na'`, mesmo critério de "progresso
+   real" já usado na barra de progresso mobile — OU campo de cliente já
+   preenchido). Com qualquer um desses sinais, adia o reload (mesmo toast de
+   aviso do caso do login) em vez de forçar.
+2. O listener de `controllerchange` passou a chamar `_forcarAtualizacao()`
+   em vez de recarregar direto — unificando os dois caminhos na mesma
+   checagem de adiamento, sem segunda via escondida.
+
+**Escopo deliberadamente restrito à vistoria** (o sintoma relatado) — não
+estendi a mesma proteção para orçamento/OS em edição nesta rodada; é a mesma
+classe de risco, mas cada formulário tem seu próprio jeito de detectar "tem
+algo não salvo" e merece ser conferido um de cada vez, não generalizado às
+pressas.
+
+Testado por leitura de código + `node --check app.js` (sintaxe ok); não
+validado no Browser pane nesta sessão (ambiente sem acesso de rede ao
+GitHub Pages/Supabase de produção — a política de saída deste sandbox
+bloqueia esses domínios). **Pendente**: Marcos confirmar em campo que a
+vistoria não reseta mais sozinha depois de um tempo parado na tela ou
+trocando de app no celular.
+
+sw.js: fluxa-v257 → fluxa-v258.
+
+---
+
 ## 🟡 Aprovar orçamento pedia "forma de pagamento" mas não dizia onde estava (16/09)
 
 Marcos reportou (acompanhando o uso real): mudar orçamento de "pendente"
