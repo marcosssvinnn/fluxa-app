@@ -21244,6 +21244,21 @@ function _atualizacaoAdiada(){
       const lojaVisivel=document.getElementById('login-step-loja')?.classList.contains('show');
       if(nome || pin || lojaVisivel) return true;
     }
+    // Vistoria em campo: o comentário acima já prometia isso, mas nunca foi
+    // implementado — a função só olhava o login. Com deploy frequente, um
+    // técnico no meio de uma vistoria longa (30min+, rede instável) tinha
+    // quase certeza de pegar um reload no meio do preenchimento. Não basta
+    // a vistoria ter dado checkin; qualquer equipamento já avaliado, foto
+    // anexada ou cliente/local digitado conta como "em andamento".
+    const visPageOn=document.getElementById('page-visitas')?.classList.contains('on');
+    const visAbaNova=document.getElementById('vis-tab-nova')?.classList.contains('on');
+    if(visPageOn && visAbaNova){
+      const algumEquipAvaliado=(visEquipSelecionados||[]).some(id=>{
+        const d=visEquipDados?.[id]; return d && (d.status||'').length && d.status!=='na';
+      });
+      const cliDigitado=(document.getElementById('vis-cli')?.value||'').trim().length>0;
+      if(visCheckinTime || algumEquipAvaliado || cliDigitado) return true;
+    }
   }catch(e){ console.warn('[atualizacaoAdiada]', e?.message||e); }
   return false;
 }
@@ -21313,10 +21328,11 @@ window.addEventListener('online', ()=>{ toast('🌐 Conexão restaurada — sinc
 setInterval(()=>{ if(navigator.onLine) _reenviarPendentes(true); }, 180000);
 
 if('serviceWorker' in navigator){
-  // Reload automático quando um novo SW assume o controle (nova versão deployada)
-  navigator.serviceWorker.addEventListener('controllerchange',()=>{
-    if(!_swRefreshing){ _swRefreshing=true; location.reload(); }
-  });
+  // Reload automático quando um novo SW assume o controle (nova versão deployada).
+  // Antes recarregava direto, sem passar por _atualizacaoAdiada() — segundo
+  // caminho pro mesmo bug do reload no meio da vistoria, além do detector de
+  // ETag. Unificado: os dois passam pela mesma checagem de adiamento agora.
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{ _forcarAtualizacao(); });
   navigator.serviceWorker.addEventListener('message',e=>{
     if(e.data?.type==='NEW_VERSION') _forcarAtualizacao();
   });
