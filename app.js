@@ -298,7 +298,7 @@ function atualizarBadgesNav(){
     set('snb-badge-os', osAbertas||'');
   }catch(e){ console.warn('[badge os]', e?.message||e); }
   try{
-    const venc=(filtrarPorLoja(todosReceb||[])).filter(r=>!r.data_pagamento && _recebDiasAtraso(r)>0).length;
+    const venc=(filtrarPorLoja(todosReceb||[])).filter(r=>!r.data_pagamento && _recebDiasAtraso(r)>0 && _recebDiasAtraso(r)<=90).length;
     set('snb-badge-receber', venc||'');
   }catch(e){ console.warn('[badge receber]', e?.message||e); }
   try{
@@ -5381,6 +5381,12 @@ function _crmPipelineStats(){
 
   const pipeQtd=abertos.length;
   const pipeValor=abertos.reduce((a,o)=>a+val(o),0);
+  // +90 dias parado não é carteira viva: o cliente já decidiu (ou desistiu) e só
+  // falta alguém registrar. Mantém separado pra não inflar o número do funil
+  // (17/10/2026: 150 de 352 abertos, R$ 1,54 mi de R$ 3,78 mi).
+  const frios=abertos.filter(o=>idade(o)>90);
+  const friosQtd=frios.length, friosValor=frios.reduce((a,o)=>a+val(o),0);
+  const pipeAtivoQtd=pipeQtd-friosQtd, pipeAtivoValor=pipeValor-friosValor;
 
   const parados=abertos.filter(o=>idade(o)>30);
   // nullish guard: empresa nova (0 abertos) não pode virar NaN%
@@ -5434,7 +5440,7 @@ function _crmPipelineStats(){
   abertos.forEach(o=>{ const f=faixas[_crmFaixaDe(idade(o))]; f.qtd++; f.valor+=val(o); });
 
   return {
-    pipeQtd, pipeValor,
+    pipeQtd, pipeValor, friosQtd, friosValor, pipeAtivoQtd, pipeAtivoValor,
     paradoQtd:parados.length, paradoValor:parados.reduce((a,o)=>a+val(o),0), paradoPct,
     vencQtd:vencendo.length, vencValor:vencendo.reduce((a,o)=>a+val(o),0),
     fechQtd:fechados.length+vendasMes.length, fechValor:fechados.reduce((a,o)=>a+val(o),0)+vendasValorMes, emitidosMes:doMes.length, convPct,
@@ -5527,13 +5533,22 @@ function _itensPainelHoje(){
 
   // 1. Recebíveis vencidos e vencendo
   const rec=filtrarPorLoja(todosReceb||[]).filter(r=>!r.data_pagamento);
-  const venc=rec.filter(r=>_recebDiasAtraso(r)>0);
+  const vencTodas=rec.filter(r=>_recebDiasAtraso(r)>0);
+  // +90 dias de atraso vai pra um item próprio: muita parcela antiga nasceu
+  // "vencida" na migração de 15/08 (vencimento = data de aprovação), então pode
+  // não ser inadimplência de verdade — alguém precisa confirmar antes de cobrar.
+  const venc=vencTodas.filter(r=>_recebDiasAtraso(r)<=90);
+  const vencAntigas=vencTodas.filter(r=>_recebDiasAtraso(r)>90);
   const hoje=rec.filter(r=>_recebDiasAtraso(r)===0);
   const somaR=l=>l.reduce((a,r)=>a+(parseFloat(r.valor)||0),0);
   if(venc.length) itens.push({id:'receb-vencido', cor:'var(--red)', icone:'💸',
     titulo:`${brl(somaR(venc))} vencido`,
     sub:`${venc.length} parcela${venc.length!==1?'s':''} · a mais antiga há ${Math.max(...venc.map(_recebDiasAtraso))} dias`,
     acao:'Cobrar', fn:"go('recebiveis')", valor:somaR(venc)});
+  if(vencAntigas.length) itens.push({id:'receb-antigas', cor:'var(--gray)', icone:'🗄️',
+    titulo:`${brl(somaR(vencAntigas))} vencido há mais de 90 dias`,
+    sub:`${vencAntigas.length} parcela${vencAntigas.length!==1?'s':''} · confira se ainda são cobráveis ou se já foram resolvidas`,
+    acao:'Revisar', fn:"go('recebiveis')", valor:somaR(vencAntigas)});
   if(hoje.length) itens.push({id:'receb-hoje', cor:'var(--yellow)', icone:'📅',
     titulo:`${brl(somaR(hoje))} vence hoje`,
     sub:`${hoje.length} parcela${hoje.length!==1?'s':''} — marque quando entrar`,
@@ -5747,12 +5762,14 @@ async function renderNotificacoes(){
   const seen=_notifSeenLer();
   const idsAtuais=new Set(notifs.map(n=>n.id));
   let mudou=false;
-  notifs.forEach(n=>{
-    if(!seen[n.id]){
-      if(typeof toast==='function') toast(`${n.icone} ${n.titulo}`);
-      seen[n.id]=true; mudou=true;
-    }
-  });
+  // Um toast só, mesmo com várias categorias novas: antes cada uma disparava o
+  // seu e, no boot, apareciam 7 avisos empilhados (e voltavam a cada recarga
+  // quando o localStorage estava cheio e o "já vi" não gravava).
+  const novas=notifs.filter(n=>!seen[n.id]);
+  if(novas.length && typeof toast==='function'){
+    toast(novas.length===1 ? `${novas[0].icone} ${novas[0].titulo}` : `🔔 ${novas.length} pendências novas — abra o sino para ver`);
+  }
+  novas.forEach(n=>{ seen[n.id]=true; mudou=true; });
   Object.keys(seen).forEach(id=>{ if(!idsAtuais.has(id)){ delete seen[id]; mudou=true; } });
   if(mudou) _notifSeenSalvar(seen);
 
@@ -5815,7 +5832,7 @@ function _acaoQueue(){
 
   // Sistema: dinheiro parado, estoque travado, despesa não lançada — já vem
   // pronto do painel de hoje (_itensPainelHoje), urgência alta por padrão.
-  try{ _itensPainelHoje().forEach(i=>out.push({...i, urgencia:88, tipo:'sistema'})); }
+  try{ _itensPainelHoje().forEach(i=>out.push({...i, urgencia:i.id==='receb-antigas'?45:88, tipo:'sistema'})); }
   catch(e){ console.warn('[acaoQueue:sistema]', e?.message||e); }
 
   // Fila de follow-up: usa o score que crmCandidatos() já pondera pela
@@ -6093,8 +6110,8 @@ function renderPainelInsights(){
   const agoraStr=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
   set('ins-atualizado','Atualizado às '+agoraStr+' · '+(lojaAtiva?esc(getLojaNome(lojaAtiva)):(CFG.todasLabel||'todas as unidades')));
 
-  set('ins-d-pipe', brl(s.pipeValor));
-  set('ins-d-pipe-q', s.pipeQtd+' orçamento(s) · ticket '+(s.pipeQtd?brl(s.pipeValor/s.pipeQtd):'—'));
+  set('ins-d-pipe', brl(s.pipeAtivoValor));
+  set('ins-d-pipe-q', s.pipeAtivoQtd+' orçamento(s) ativos'+(s.friosQtd?' · +'+brl(s.friosValor)+' parados há +90 dias ('+s.friosQtd+')':' · ticket '+(s.pipeAtivoQtd?brl(s.pipeAtivoValor/s.pipeAtivoQtd):'—')));
   set('ins-d-fech', brl(s.fechValor));
   const varMes = s.fechValorAnt>0 ? Math.round((s.fechValor-s.fechValorAnt)/s.fechValorAnt*100) : null;
   // Queda ganha destaque visual — "não pode ter o mesmo peso de um +18%"
@@ -6117,7 +6134,8 @@ function renderPainelInsights(){
   const vencidosValor=abertosReceb.filter(r=>_recebDiasAtraso(r)>0).reduce((a,r)=>a+(parseFloat(r.valor)||0),0);
   const aReceberValor=filtrarPorLoja(todosOrc||[]).filter(o=>o.status==='aprovado').reduce((a,o)=>a+_orcSaldoAReceber(o),0);
   set('ins-d-receber', brl(aReceberValor));
-  set('ins-d-receber-q', vencidosValor>0 ? brl(vencidosValor)+' vencidos' : 'nada vencido');
+  const vencidosAntigosValor=abertosReceb.filter(r=>_recebDiasAtraso(r)>90).reduce((a,r)=>a+(parseFloat(r.valor)||0),0);
+  set('ins-d-receber-q', vencidosValor>0 ? brl(vencidosValor-vencidosAntigosValor)+' vencidos'+(vencidosAntigosValor>0?' · '+brl(vencidosAntigosValor)+' há +90 dias':'') : 'nada vencido');
   set('ins-d-taxa', s.convPct+'%');
   set('ins-d-taxa-q', s.diasMedioFechar!==null ? 'média de '+s.diasMedioFechar+' dias até o sim' : s.mesLabel);
 
@@ -6138,8 +6156,8 @@ function _brlK(v){
 // mesmo vocabulário da Fase 5, em vez de inventar uma 2ª categorização).
 function _renderInsMobileHero(s){
   const el=document.getElementById('ins-mobile-hero'); if(!el) return;
-  setV_el('ins-mh-pipe-num', brl(s.pipeValor).replace('R$','').trim(),'textContent');
-  setV_el('ins-mh-pipe-qtd', s.pipeQtd+' orç.','textContent');
+  setV_el('ins-mh-pipe-num', brl(s.pipeAtivoValor).replace('R$','').trim(),'textContent');
+  setV_el('ins-mh-pipe-qtd', s.pipeAtivoQtd+' orç.','textContent');
   setV_el('ins-mh-venc', String(s.vencQtd),'textContent');
   setV_el('ins-mh-parado', String(s.paradoQtd),'textContent');
   setV_el('ins-mh-parado-q', brl(s.paradoValor),'textContent');

@@ -2,6 +2,46 @@
 
 ---
 
+## 🔴 Fotos em base64 travando OS e orçamentos + avisos repetidos (17/10)
+
+Marcos pediu pra "olhar como o sistema está rodando" na produção da Fortemp.
+Dois problemas reais achados com o app logado (console + consultas só de leitura):
+
+1. **Lista de OS vazia (`statement timeout`)** — `loadOSHist`/`loadMinhasOS` fazem
+   `select('*')` e 5 OS concluídas (#73, #191, #197, #199, #200) guardavam 18 MB de
+   foto em base64 na coluna `fotos`; a consulta levava ~8 s e estourava o limite do
+   Supabase. Fotos das 5 OS migradas pro Storage (bucket `orcamentos-fotos`, caminho
+   `os/<id>/<d|a>/<i>.jpg`): lista caiu de 17,6 MB pra 110 KB, 131 OS sem erro.
+2. **`fluxa_orc_data` nunca gravava (quota do localStorage)** — 16 orçamentos com foto
+   em base64 (4,4 MB de 5,1 MB). **Causa raiz:** `_fotosOrcParaStorage` lia a GLOBAL
+   `fotosB64` depois do insert assíncrono resolver; a essa altura ela já tinha sido
+   limpa/trocada, então nenhuma foto subia. Corrigido com cópia (`_fotosSnap`) tirada
+   na hora do salvamento. Os 16 migrados (62 fotos); cache local 5,1 MB → 743 KB.
+
+**Salvaguarda nova:** `_varrerFotosOrcBase64`/`_varrerFotosOSBase64` (uma vez por
+sessão, só gestor/master) levam pro Storage qualquer foto que ainda esteja em base64.
+⚠️ O bucket **não permite sobrescrever** (upsert exige policy UPDATE que o `anon` não
+tem): subir de novo um caminho que já existe dá 403 — se uma varredura falhar no meio,
+o arquivo já subido existe, e basta apontar a URL (conferir `content-length` antes).
+⚠️ Ainda aberto: no boot o app chama `loadOSHist` ~5x ao mesmo tempo.
+
+**Pendências / avisos repetidos:** o mesmo aviso aparecia no sino, na fila do Insights
+e nos selos, e o boot soltava um toast por categoria (7 de uma vez). Agora é UM toast
+resumido ("N pendências novas — abra o sino"). Parcelas vencidas há +90 dias e
+orçamentos abertos há +90 dias foram separados do número principal: eles não inflam
+mais "vencido" nem "Pipeline aberto" (aparecem numa linha própria). Contexto medido:
+metade dos R$ 175 mil "vencidos" tem +90 dias — muita parcela nasceu vencida na
+migração retroativa de 18/08 (vencimento = data de aprovação).
+
+**Não usado (medido, nada apagado):** 0 contatos de follow-up registrados nos 526
+orçamentos; despesas, oficina, piscinas, fornecedores/OC e NF-e com 0 registros;
+OS só 1 em 30 dias; 17 produtos com saldo negativo e 108 orçamentos sem cliente
+vinculado aguardando decisão humana.
+
+sw.js: fluxa-v258 → fluxa-v260.
+
+---
+
 ## 🔴 Vistoria resetando sozinha em campo — auto-atualização recarregava sem avisar (16/10)
 
 Marcos relatou: vistoria aberta no celular "caindo o tempo todo, resetando",
