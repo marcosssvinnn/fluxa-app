@@ -290,7 +290,8 @@ function atualizarBadgeUsuario(){
 function atualizarBadgesNav(){
   const set=(id,val)=>{ const el=document.getElementById(id); if(el) el.textContent=val||''; };
   try{
-    const abertos=(filtrarPorLoja(todosOrc||[])).filter(o=>o.status && o.status!=='aprovado' && o.status!=='recusado').length;
+    // só carteira viva (≤90 dias) — o que passa disso não é pendência que alguém resolve pelo selo
+    const abertos=(filtrarPorLoja(todosOrc||[])).filter(o=>o.status && o.status!=='aprovado' && o.status!=='recusado' && _idadeEmDias(o)<=90).length;
     set('snb-badge-orc', abertos||'');
   }catch(e){ console.warn('[badge orc]', e?.message||e); }
   try{
@@ -298,7 +299,7 @@ function atualizarBadgesNav(){
     set('snb-badge-os', osAbertas||'');
   }catch(e){ console.warn('[badge os]', e?.message||e); }
   try{
-    const venc=(filtrarPorLoja(todosReceb||[])).filter(r=>!r.data_pagamento && _recebDiasAtraso(r)>0 && _recebDiasAtraso(r)<=90).length;
+    const venc=(filtrarPorLoja(todosReceb||[])).filter(r=>!r.data_pagamento && _recebDiasAtraso(r)>0).length;
     set('snb-badge-receber', venc||'');
   }catch(e){ console.warn('[badge receber]', e?.message||e); }
   try{
@@ -5533,22 +5534,13 @@ function _itensPainelHoje(){
 
   // 1. Recebíveis vencidos e vencendo
   const rec=filtrarPorLoja(todosReceb||[]).filter(r=>!r.data_pagamento);
-  const vencTodas=rec.filter(r=>_recebDiasAtraso(r)>0);
-  // +90 dias de atraso vai pra um item próprio: muita parcela antiga nasceu
-  // "vencida" na migração de 15/08 (vencimento = data de aprovação), então pode
-  // não ser inadimplência de verdade — alguém precisa confirmar antes de cobrar.
-  const venc=vencTodas.filter(r=>_recebDiasAtraso(r)<=90);
-  const vencAntigas=vencTodas.filter(r=>_recebDiasAtraso(r)>90);
+  const venc=rec.filter(r=>_recebDiasAtraso(r)>0);
   const hoje=rec.filter(r=>_recebDiasAtraso(r)===0);
   const somaR=l=>l.reduce((a,r)=>a+(parseFloat(r.valor)||0),0);
   if(venc.length) itens.push({id:'receb-vencido', cor:'var(--red)', icone:'💸',
     titulo:`${brl(somaR(venc))} vencido`,
     sub:`${venc.length} parcela${venc.length!==1?'s':''} · a mais antiga há ${Math.max(...venc.map(_recebDiasAtraso))} dias`,
     acao:'Cobrar', fn:"go('recebiveis')", valor:somaR(venc)});
-  if(vencAntigas.length) itens.push({id:'receb-antigas', cor:'var(--gray)', icone:'🗄️',
-    titulo:`${brl(somaR(vencAntigas))} vencido há mais de 90 dias`,
-    sub:`${vencAntigas.length} parcela${vencAntigas.length!==1?'s':''} · confira se ainda são cobráveis ou se já foram resolvidas`,
-    acao:'Revisar', fn:"go('recebiveis')", valor:somaR(vencAntigas)});
   if(hoje.length) itens.push({id:'receb-hoje', cor:'var(--yellow)', icone:'📅',
     titulo:`${brl(somaR(hoje))} vence hoje`,
     sub:`${hoje.length} parcela${hoje.length!==1?'s':''} — marque quando entrar`,
@@ -5634,6 +5626,13 @@ function _notifDismissAtivo(id){
   const t=_notifDismissLer()[id]; if(!t) return false;
   return (Date.now()-t) < 86400000; // 1 dia
 }
+// Há quanto tempo cada aviso está ligado sem parar. {id:{t:primeiraVez, ult:vistoPorUltimo}}.
+// "ult" evita zerar o relógio quando o app abre antes dos dados carregarem (lista
+// vazia por alguns segundos): só considera que o aviso sumiu depois de 2 dias.
+const LS_NOTIF_DESDE='fluxa_notif_desde';
+const NOTIF_ANTIGA_DIAS=14, NOTIF_GRACA_MS=2*86400000;
+function _notifDesdeLer(){ try{ return JSON.parse(localStorage.getItem(LS_NOTIF_DESDE)||'{}'); }catch(e){ return {}; } }
+function _notifDesdeSalvar(m){ try{ localStorage.setItem(LS_NOTIF_DESDE, JSON.stringify(m)); }catch(e){ console.warn('[notifDesde]', e?.message||e); } }
 function _notifSeenLer(){ try{ return JSON.parse(localStorage.getItem(LS_NOTIF_SEEN)||'{}'); }catch(e){ return {}; } }
 function _notifSeenSalvar(m){ try{ localStorage.setItem(LS_NOTIF_SEEN, JSON.stringify(m)); }catch(e){ console.warn('[notifSeen]', e?.message||e); } }
 function _notifHistLer(){ try{ return JSON.parse(localStorage.getItem(LS_NOTIF_HIST)||'[]'); }catch(e){ return []; } }
@@ -5651,28 +5650,11 @@ function _notifQuando(ts){
 function getNotificacoes(){
   const out=[];
   try{ out.push(..._itensPainelHoje()); }catch(e){ console.warn('[notif:hoje]', e?.message||e); }
-  try{
-    const c=crmCandidatos();
-    const total=(c.equipamento?.length||0)+(c.servico?.length||0);
-    if(total) out.push({id:'crm-fila', cor:'var(--c1)', icone:'📞',
-      titulo:`${total} cliente${total!==1?'s':''} na fila de follow-up`,
-      sub:'Orçamentos parados esperando contato',
-      acao:'Ver fila', fn:"go('insights')"});
-  }catch(e){ console.warn('[notif:fila]', e?.message||e); }
-  try{
-    const cad=cadenciaCandidatos();
-    if(cad.length) out.push({id:'crm-cadencia', cor:'var(--c1)', icone:'🔁',
-      titulo:`${cad.length} cliente${cad.length!==1?'s':''} atrasado${cad.length!==1?'s':''} na recompra`,
-      sub:'Pelo próprio ritmo de consumo, já deveriam ter voltado',
-      acao:'Ver', fn:"go('insights')"});
-  }catch(e){ console.warn('[notif:cadencia]', e?.message||e); }
-  try{
-    const prox=cadenciaProximos();
-    if(prox.length) out.push({id:'crm-cadencia-proximos', cor:'var(--gray)', icone:'📅',
-      titulo:`${prox.length} cliente${prox.length!==1?'s':''} vai${prox.length!==1?'ão':''} precisar de reposição em breve`,
-      sub:`Nos próximos ${CADENCIA_JANELA_PROXIMOS} dias, pelo próprio ritmo — ainda dá tempo de se antecipar`,
-      acao:'Ver', fn:"go('insights')"});
-  }catch(e){ console.warn('[notif:cadencia-proximos]', e?.message||e); }
+  // Follow-up de orçamento, recompra atrasada e recompra chegando NÃO vêm mais pro
+  // sino (17/10/2026): em 90 dias a equipe registrou 5 contatos em 526 orçamentos e
+  // ninguém nunca dispensou um aviso — viravam contagem fixa ("126 clientes na
+  // fila") que só acumulava. Continuam na fila "Precisa de você hoje" do Insights,
+  // que mostra os casos com nome e valor em vez de um número.
   try{
     const neg=_estoqueNegativos().filter(n=>!n.inativo);
     if(neg.length) out.push({id:'estoque-negativo', cor:'var(--red)', icone:'⚠️',
@@ -5680,6 +5662,19 @@ function getNotificacoes(){
       sub:'A contagem física não bate com o sistema',
       acao:'Ver', fn:"go('estoque')"});
   }catch(e){ console.warn('[notif:estoqueneg]', e?.message||e); }
+  // Aviso que fica ligado há semanas sem ninguém agir deixa de contar no selo e de
+  // empilhar no sino: vai pra uma seção recolhida. Sai de lá sozinho quando a
+  // condição some, e volta a contar se sumir e reaparecer.
+  const desde=_notifDesdeLer(), agora=Date.now(); let mudouDesde=false;
+  out.forEach(n=>{
+    const reg=desde[n.id];
+    if(!reg || (agora-reg.ult)>NOTIF_GRACA_MS){ desde[n.id]={t:agora,ult:agora}; mudouDesde=true; }
+    else { reg.ult=agora; mudouDesde=true; }
+    n.semAcaoDias=Math.floor((agora-desde[n.id].t)/86400000);
+    n.antiga=n.semAcaoDias>=NOTIF_ANTIGA_DIAS;
+  });
+  Object.keys(desde).forEach(id=>{ if((agora-desde[id].ult)>NOTIF_GRACA_MS){ delete desde[id]; mudouDesde=true; } });
+  if(mudouDesde) _notifDesdeSalvar(desde);
   return out.filter(n=>n.id && !_notifDismissAtivo(n.id));
 }
 let _notifCache=[];
@@ -5751,9 +5746,10 @@ async function renderNotificacoes(){
   }catch(e){ console.warn('[notif:push]', e?.message||e); }
   _notifCache=notifs;
 
+  const recentes=notifs.filter(n=>!n.antiga), antigas=notifs.filter(n=>n.antiga);
   const badge=document.getElementById('notif-badge');
   if(badge){
-    if(notifs.length){ badge.textContent = notifs.length>9?'9+':String(notifs.length); badge.style.display='flex'; }
+    if(recentes.length){ badge.textContent = recentes.length>9?'9+':String(recentes.length); badge.style.display='flex'; }
     else badge.style.display='none';
   }
 
@@ -5765,7 +5761,7 @@ async function renderNotificacoes(){
   // Um toast só, mesmo com várias categorias novas: antes cada uma disparava o
   // seu e, no boot, apareciam 7 avisos empilhados (e voltavam a cada recarga
   // quando o localStorage estava cheio e o "já vi" não gravava).
-  const novas=notifs.filter(n=>!seen[n.id]);
+  const novas=recentes.filter(n=>!seen[n.id]);
   if(novas.length && typeof toast==='function'){
     toast(novas.length===1 ? `${novas[0].icone} ${novas[0].titulo}` : `🔔 ${novas.length} pendências novas — abra o sino para ver`);
   }
@@ -5789,18 +5785,24 @@ async function renderNotificacoes(){
       </div>`).join('') : `<div class="notif-vazio">Nada no histórico ainda.</div>`;
     return;
   }
-  corpo.innerHTML = notifs.length ? notifs.map(n=>`
+  const itemHtml=(n,antiga)=>`
     <div class="notif-item">
       <div class="icon-badge ${_corParaBadge(n.cor)}">${n.icone}</div>
       <div style="flex:1;min-width:0">
         <div class="notif-item-tit">${esc(n.titulo)}</div>
-        <div class="notif-item-sub">${esc(n.sub||'')}</div>
+        <div class="notif-item-sub">${esc(n.sub||'')}${antiga?` · há ${n.semAcaoDias} dias sem mudar`:''}</div>
       </div>
       <div class="notif-item-acts">
         <button class="tb g" onclick="closeNotif();${n.fn}">${n.acao}</button>
         <button class="tb d" onclick="notifDispensar('${n.id}')" title="Dispensar por hoje">✕</button>
       </div>
-    </div>`).join('') : `<div class="notif-vazio">✅ Nada pendente agora.</div>`;
+    </div>`;
+  const blocoAntigas = antigas.length ? `
+    <details class="notif-antigas" style="border-top:1px solid var(--line,#e5e7eb);margin-top:6px">
+      <summary style="cursor:pointer;padding:10px 14px;font-size:12px;color:var(--tx3,#6b7280)">Parados há mais de ${NOTIF_ANTIGA_DIAS} dias (${antigas.length}) — seguem na tela Hoje</summary>
+      ${antigas.map(n=>itemHtml(n,true)).join('')}
+    </details>` : '';
+  corpo.innerHTML = (recentes.length ? recentes.map(n=>itemHtml(n,false)).join('') : `<div class="notif-vazio">✅ Nada novo pendente.</div>`) + blocoAntigas;
 }
 
 // ── Insights (Fase 4 do redesign, 13/08) — o handoff substitui o desdobramento
@@ -5832,7 +5834,7 @@ function _acaoQueue(){
 
   // Sistema: dinheiro parado, estoque travado, despesa não lançada — já vem
   // pronto do painel de hoje (_itensPainelHoje), urgência alta por padrão.
-  try{ _itensPainelHoje().forEach(i=>out.push({...i, urgencia:i.id==='receb-antigas'?45:88, tipo:'sistema'})); }
+  try{ _itensPainelHoje().forEach(i=>out.push({...i, urgencia:88, tipo:'sistema'})); }
   catch(e){ console.warn('[acaoQueue:sistema]', e?.message||e); }
 
   // Fila de follow-up: usa o score que crmCandidatos() já pondera pela
@@ -6134,8 +6136,7 @@ function renderPainelInsights(){
   const vencidosValor=abertosReceb.filter(r=>_recebDiasAtraso(r)>0).reduce((a,r)=>a+(parseFloat(r.valor)||0),0);
   const aReceberValor=filtrarPorLoja(todosOrc||[]).filter(o=>o.status==='aprovado').reduce((a,o)=>a+_orcSaldoAReceber(o),0);
   set('ins-d-receber', brl(aReceberValor));
-  const vencidosAntigosValor=abertosReceb.filter(r=>_recebDiasAtraso(r)>90).reduce((a,r)=>a+(parseFloat(r.valor)||0),0);
-  set('ins-d-receber-q', vencidosValor>0 ? brl(vencidosValor-vencidosAntigosValor)+' vencidos'+(vencidosAntigosValor>0?' · '+brl(vencidosAntigosValor)+' há +90 dias':'') : 'nada vencido');
+  set('ins-d-receber-q', vencidosValor>0 ? brl(vencidosValor)+' vencidos' : 'nada vencido');
   set('ins-d-taxa', s.convPct+'%');
   set('ins-d-taxa-q', s.diasMedioFechar!==null ? 'média de '+s.diasMedioFechar+' dias até o sim' : s.mesLabel);
 

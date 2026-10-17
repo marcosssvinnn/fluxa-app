@@ -27,18 +27,32 @@ o arquivo já subido existe, e basta apontar a URL (conferir `content-length` an
 
 **Pendências / avisos repetidos:** o mesmo aviso aparecia no sino, na fila do Insights
 e nos selos, e o boot soltava um toast por categoria (7 de uma vez). Agora é UM toast
-resumido ("N pendências novas — abra o sino"). Parcelas vencidas há +90 dias e
-orçamentos abertos há +90 dias foram separados do número principal: eles não inflam
-mais "vencido" nem "Pipeline aberto" (aparecem numa linha própria). Contexto medido:
-metade dos R$ 175 mil "vencidos" tem +90 dias — muita parcela nasceu vencida na
-migração retroativa de 18/08 (vencimento = data de aprovação).
+resumido ("N pendências novas — abra o sino"). Orçamentos abertos há +90 dias foram
+separados do "Pipeline aberto" (linha própria "parados há +90 dias") e o selo de
+Orçamentos da barra lateral conta só a carteira viva.
+
+**Parcelas vencidas NÃO foram mexidas (decisão do Marcos, 17/10):** ele não sabe como
+a equipe lida com elas e não quer mexer sem entender. Uma separação "+90 dias" chegou a
+ir ao ar na v260 e foi DESFEITA na v261 — vencido/selo/aviso voltaram a somar tudo.
+Contexto medido: metade dos R$ 175 mil "vencidos" tem +90 dias, e muita parcela nasceu
+vencida na migração retroativa de 18/08 (vencimento = data de aprovação); em 30 dias
+ninguém deu baixa em parcela nenhuma. Antes de mexer de novo, perguntar como o time
+cobra/recebe hoje.
+
+**Limpeza do sino (17/10, v261)** — evidência em 30 dias: ninguém dispensou aviso
+(0) nem usou o histórico; follow-up com 5 contatos em 90 dias; só 36 de 94 orçamentos
+novos saem com cliente vinculado. Mudanças: (1) "N clientes na fila de follow-up",
+"recompra atrasada" e "recompra chegando" saíram do SINO (seguem, com nome e valor, na
+fila do Insights); (2) aviso ligado há ≥14 dias sem parar (`NOTIF_ANTIGA_DIAS`) deixa de
+contar no selo/toast e vai pra seção recolhida "Parados há mais de 14 dias" — relógio em
+`fluxa_notif_desde`, com folga de 2 dias pra não zerar quando o app abre antes dos dados.
 
 **Não usado (medido, nada apagado):** 0 contatos de follow-up registrados nos 526
 orçamentos; despesas, oficina, piscinas, fornecedores/OC e NF-e com 0 registros;
 OS só 1 em 30 dias; 17 produtos com saldo negativo e 108 orçamentos sem cliente
 vinculado aguardando decisão humana.
 
-sw.js: fluxa-v258 → fluxa-v260.
+sw.js: fluxa-v258 → fluxa-v261.
 
 ---
 
