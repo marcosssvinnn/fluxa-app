@@ -4201,10 +4201,11 @@ async function salvarApenas(){
       const idx=todosOrc.findIndex(x=>x.id===editId);
       if(idx>=0) todosOrc[idx]=updated; else todosOrc.unshift(updated);
       // 2. Tenta sincronizar com BD (sem bloquear)
+      const _fotosSnap=fotosB64.filter(Boolean); // foto do orçamento sendo salvo AGORA — fotosB64 é global e muda se o usuário abrir outro orçamento antes do upload
       if(dbOk&&db&&!String(editId).startsWith('local_')){
         orcSyncUpdate(editId, camposBase).then(r=>{
           if(r.error) console.warn('[salvarApenas] update falhou:', r.error.message);
-          else _fotosOrcParaStorage(editId, fotosB64.filter(Boolean));
+          else _fotosOrcParaStorage(editId, _fotosSnap);
         }).catch(e=>console.warn('[salvarApenas] update erro:', e?.message||e));
       }
       _autoSalvarCliente(dados.cli, dados.tel, dados.loc, dados.cnpj, dados.loja_id);
@@ -4221,6 +4222,7 @@ async function salvarApenas(){
       editId=tempId;
       toast('✅ Orçamento #'+String(num).padStart(3,'0')+' salvo!');
       // 2. Tenta sincronizar com BD em background
+      const _fotosSnapN=fotosB64.filter(Boolean);
       if(dbOk&&db){
         // Trava contra a corrida com loadHist()/_reenviarPendentes (achado em
         // produção 19/08, ver nota em orcSyncInsert): go('history') roda logo
@@ -4240,7 +4242,7 @@ async function salvarApenas(){
               if(editId===tempId) editId=ins.id; // só atualiza se AINDA estiver neste orçamento
               savedNum=ins.numero;
               atualizarDash(); renderTabela();
-              _fotosOrcParaStorage(ins.id, fotosB64.filter(Boolean));
+              _fotosOrcParaStorage(ins.id, _fotosSnapN);
             }
           }catch(e){ console.warn('Sync BD falhou — salvo local:', e?.message||e); }
           finally{ _orcSyncEmVoo.delete(tempId); }
@@ -4299,10 +4301,11 @@ async function gerarPDF(){
     lsOrcUpsert(updated);
     const idx=todosOrc.findIndex(x=>x.id===editId);
     if(idx>=0) todosOrc[idx]=updated;
+    const _fotosSnap=fotosB64.filter(Boolean); // ver nota em salvarApenas
     if(dbOk&&db&&!String(editId).startsWith('local_')){
       orcSyncUpdate(editId, camposBase).then(r=>{
         if(r.error) console.warn('[gerarPDF] update falhou:', r.error.message);
-        else _fotosOrcParaStorage(editId, fotosB64.filter(Boolean));
+        else _fotosOrcParaStorage(editId, _fotosSnap);
       }).catch(e=>console.warn('[gerarPDF] update erro:', e?.message||e));
     }
   } else {
@@ -4314,6 +4317,7 @@ async function gerarPDF(){
     todosOrc.unshift(rec);
     editId=tempId;
     logAcao('orcamento_criado', `#${num} ${camposBase.cliente||''} · R$ ${(camposBase.total||0).toFixed(2)}`);
+    const _fotosSnapN=fotosB64.filter(Boolean);
     if(dbOk&&db){
       // Mesma trava de salvarApenas — go('history') no fim desta função
       // dispara loadHist() antes deste insert resolver (ver nota em
@@ -4331,7 +4335,7 @@ async function gerarPDF(){
             if(editId===tempId) editId=ins.id; // só atualiza se AINDA estiver neste orçamento
             num=ins.numero;
             atualizarDash(); renderTabela();
-            _fotosOrcParaStorage(ins.id, fotosB64.filter(Boolean));
+            _fotosOrcParaStorage(ins.id, _fotosSnapN);
           }
         }catch(e){ console.warn('gerarPDF: sync BD falhou:', e?.message||e); }
         finally{ _orcSyncEmVoo.delete(tempId); }
@@ -4903,6 +4907,7 @@ async function loadHist(){
       }
       // Migração única: aprovados sem data_aprovacao recebem data_criacao como referência
       await _migrarDataAprovacao();
+      setTimeout(_varrerFotosOrcBase64, 4000);
       // _migrarClientesDeOrcamentos() DESLIGADA (2026-08-11) — investigação do
       // incidente de duplicação de clientes em produção aponta ela como causa
       // raiz mais provável: chamada aqui SEM NENHUMA guarda de "já rodou",
@@ -7437,6 +7442,7 @@ async function loadOSHist(){
     lsSet('fluxa_os_hist', JSON.stringify(todosOS.slice(0,200))); // mesmo teto usado nos demais pontos que escrevem fluxa_os_hist
     renderOSTabela();
     if(soLocal.length) await _reenviarOSLocais(soLocal);
+    setTimeout(_varrerFotosOSBase64, 4000);
   }catch(e){ console.warn('loadOSHist erro:',e?.message||e); }
 }
 
@@ -14706,9 +14712,53 @@ async function _fotosOrcParaStorage(orcId, fotosArr){
   }
   if(!mudou) return;
   try{
-    const r=await dbUpdate('orcamentos', {foto_base64: JSON.stringify(resultado.filter(Boolean))}, 'id', orcId);
-    if(r&&r.error) console.warn('[fotosOrcStorage] update falhou:', r.error.message);
+    const novo=JSON.stringify(resultado.filter(Boolean));
+    const r=await dbUpdate('orcamentos', {foto_base64: novo}, 'id', orcId);
+    if(r&&r.error){ console.warn('[fotosOrcStorage] update falhou:', r.error.message); return; }
+    const loc=todosOrc.find(x=>x.id===orcId); if(loc){ loc.foto_base64=novo; lsOrcUpsert(loc); }
   }catch(e){ console.warn('[fotosOrcStorage]', e?.message||e); }
+}
+
+// Varredura única por sessão (só gestor/master): leva pro Storage as fotos que
+// ficaram em base64 dentro do banco. Achado 17/10/2026: 16 orçamentos (4,4 MB) e
+// 5 OS (18 MB) com foto embutida — os orçamentos estouravam o localStorage
+// (fluxa_orc_data nunca gravava) e a lista de OS dava "statement timeout" no
+// Supabase, ficando vazia. A causa do orçamento era _fotosOrcParaStorage ler a
+// variável global fotosB64 DEPOIS do insert assíncrono (já trocada/limpa);
+// aqui o upload parte do que está GRAVADO no registro, então não depende disso.
+// Idempotente: foto que já é URL é ignorada, upload usa x-upsert.
+let _varreduraOrcFeita=false, _varreduraOSFeita=false;
+const _temB64=v=>JSON.stringify(v||'').includes('data:image');
+async function _varrerFotosOrcBase64(){
+  if(_varreduraOrcFeita||!dbOk||!db||!eGestor()) return;
+  _varreduraOrcFeita=true;
+  for(const o of todosOrc.filter(x=>x.id&&!String(x.id).startsWith('local_')&&_temB64(x.foto_base64))){
+    try{
+      const raw=o.foto_base64||'';
+      const arr=raw.startsWith('[')?JSON.parse(raw):(raw?[raw]:[]);
+      await _fotosOrcParaStorage(o.id, arr);
+    }catch(e){ console.warn('[varrerFotosOrc]', o.id, e?.message||e); }
+  }
+}
+async function _varrerFotosOSBase64(){
+  if(_varreduraOSFeita||!dbOk||!db||!eGestor()) return;
+  _varreduraOSFeita=true;
+  for(const o of todosOS.filter(x=>x.id&&!String(x.id).startsWith('local_')&&_temB64(x.fotos))){
+    try{
+      // relê só as fotos dessa OS: se alguém editou nesse meio-tempo, parte do dado atual
+      const {data:fr,error:fe}=await db.from('ordens_servico').select('fotos').eq('id',o.id).maybeSingle();
+      if(fe||!fr||!_temB64(fr.fotos)) continue;
+      const sobe=async(lista,grupo)=>{ const out=[]; for(let i=0;i<lista.length;i++){ const f=lista[i]; if(!f||String(f).startsWith('http')){ out.push(f); continue; } const u=await _uploadFotoStorage(f, `os/${o.id}/${grupo}/${i}.jpg`, 1, 'orcamentos-fotos'); out.push(u&&u.startsWith('http')?u:f); } return out; };
+      const raw=fr.fotos;
+      const novo=Array.isArray(raw) ? await sobe(raw,'d')
+        : {...raw, antes:await sobe(raw.antes||[],'a'), depois:await sobe(raw.depois||[],'d')};
+      if(!_temB64(novo)||JSON.stringify(novo)!==JSON.stringify(raw)){
+        const r=await dbUpdate('ordens_servico',{fotos:novo},'id',o.id);
+        if(r&&r.error){ console.warn('[varrerFotosOS] update falhou:', r.error.message); continue; }
+        const loc=todosOS.find(x=>x.id===o.id); if(loc) loc.fotos=novo;
+      }
+    }catch(e){ console.warn('[varrerFotosOS]', o.id, e?.message||e); }
+  }
 }
 
 // Faz upload de todas as fotos base64 de uma vistoria para o Storage.
