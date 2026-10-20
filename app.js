@@ -512,8 +512,12 @@ function atualizarHeaderLoja(){
   // Sidebar (redesign 13/08) — mesma info de marca do header, só que também
   // no bloco fixo do topo da nav (nome do app + nome da empresa) e no
   // seletor de unidade (loja ativa, ou "Todas" quando o gestor não filtrou).
-  const snNome=document.getElementById('snav-brand-sub');
-  if(snNome) snNome.textContent = LC.nome||CFG.nome||'';
+  // Título = nome da empresa; "Fluxa" é o nome do produto e não deve aparecer
+  // pro usuário (pedido do Marcos 20/10: o sistema é só da Forthemp).
+  const snNome=document.getElementById('snav-brand-nome');
+  if(snNome) snNome.textContent = LC.nome||CFG.nome||'Gestão';
+  const snSub=document.getElementById('snav-brand-sub');
+  if(snSub) snSub.textContent = 'Sistema de gestão';
   const snLogo=document.getElementById('snav-logo');
   if(snLogo) snLogo.textContent = (LC.nome||CFG.nome||'F').charAt(0).toUpperCase();
   const snUnitVal=document.getElementById('snav-unit-val');

@@ -2,6 +2,19 @@
 
 ---
 
+## 🔧 Barra lateral mostra o nome da empresa, não "Fluxa" (20/10)
+
+Marcos: ao lado do "F" no topo da barra lateral aparecia "Fluxa" — o sistema é só da
+Forthemp e o nome do produto não deve aparecer pro usuário. O título (`#snav-brand-nome`)
+estava fixo no HTML e só o subtítulo recebia o nome da empresa. Agora o título vem de
+`atualizarHeaderLoja()` (`LC.nome||CFG.nome`) e o subtítulo é "Sistema de gestão", como no
+login. Ainda dizem "Fluxa" (não mexidos, não pedidos): "Fluxa bloqueado" na tela de
+biometria, `aria-label` do banner de instalar o app, título padrão de push sem título.
+
+sw.js: fluxa-v261 → fluxa-v262.
+
+---
+
 ## 🔴 Fotos em base64 travando OS e orçamentos + avisos repetidos (17/10)
 
 Marcos pediu pra "olhar como o sistema está rodando" na produção da Fortemp.
