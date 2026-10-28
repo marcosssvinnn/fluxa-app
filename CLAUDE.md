@@ -2,6 +2,43 @@
 
 ---
 
+## 📱 Celular — etapa 1: abrir na vistoria, botão voltar, trocar de empresa (28/10)
+
+Marcos: no celular o app só é usado pra vistoria e "parece versão de computador". Regra
+dele: **mexer só no celular; computador fica como está**. Tudo condicionado a
+`_fxCelular()` (`matchMedia('(max-width:680px)')`) — não usar `innerWidth` direto.
+
+- **Abre direto nas vistorias:** `telaInicial()` devolve `'visitas'` pro técnico no celular
+  (antes `'minhas-os'`, tela quase sem uso: 1 OS em 30 dias). Desktop segue `'minhas-os'`.
+- **Botão voltar do celular** (`_fxArmarVoltar`/`_fxVoltarInterno`, antes de `toggleGear`):
+  o app é PWA de página única e não tratava `popstate` — voltar/gesto fechava ou recarregava
+  e a pessoa perdia o lugar. Mantém sempre 1 entrada de histórico à frente da base; ao voltar
+  re-empurra a entrada e navega DENTRO do app (fecha menu/aviso/janela → sai do formulário de
+  vistoria pra lista, rascunho salvo → volta a página anterior → na tela inicial pede
+  "Toque em voltar de novo para sair"; 2º toque em 2,5 s sai). Sem contabilidade de entradas,
+  então não desalinha com os "← Voltar" da tela. A tela inicial conta como raiz mesmo que
+  `_navHist` tenha a página padrão do HTML (pego em teste).
+- **Puxar pra atualizar** apagava o que estava na tela: `overscroll-behavior-y:contain` só ≤680px.
+- **Trocar de empresa sem sair:** no celular o nome sob a logo do cabeçalho vira "Empresa ▾" e abre
+  uma folha (`abrirSeletorEmpresa`). Gestor/master: Todas / Camboriú / Itapema / Aquamotor (se
+  tiver acesso, `podeAcessarGrupo`) via `trocarLojaAtiva`; técnico com acesso: Fortemp ↔
+  Aquamotor via `trocarEmpresaTecnico` (mesma regra do login: na Aquamotor `loja_id` da sessão
+  vai a null; a loja Fortemp original fica em `sessao.loja_base`). Quem só tem uma opção não vê nada.
+- Testado no painel (390×844, offline): abertura em Vistorias, 4 casos do voltar, troca
+  Fortemp↔Aquamotor (lista e header mudam), master, gestor com loja fixa sem seletor, e desktop
+  (1280px) idêntico. ⚠️ Teste local: service worker/cache do navegador serve app.js velho —
+  `fetch('/app.js',{cache:'reload'})` + reload antes de testar.
+
+**Etapa 2 (proposta, NÃO feita):** a vistoria em si. Uma vistoria real tem 51 equipamentos e
+~7.300 px de rolagem numa página só; "Dados da Visita" e o card de check-in ocupam a primeira
+tela inteira. Ideia: lista compacta de equipamentos por ambiente (bolinha de status) que abre
+um cartão de tela cheia por equipamento (Bom/Atenção/Crítico grandes, observação, fotos,
+"próximo"), barra de progresso fixa, lista de visitas do mês mais enxuta.
+
+sw.js: fluxa-v262 → fluxa-v263.
+
+---
+
 ## 🔧 Barra lateral mostra o nome da empresa, não "Fluxa" (20/10)
 
 Marcos: ao lado do "F" no topo da barra lateral aparecia "Fluxa" — o sistema é só da

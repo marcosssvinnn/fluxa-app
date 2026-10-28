@@ -15,10 +15,15 @@ function eGestor(){ const s=getSessao(); return s?.perfil==='gestor'||s?.perfil=
 // "Insights" (rótulo visível "Hoje") é gestor/master: não está em
 // pagesVendasOk nem em pagesTecnicoOk, então mandar vendas ou técnico pra lá
 // só dispara "Acesso não permitido".
+// Celular = tela estreita (mesmo corte do restante do CSS mobile). Todo ajuste de
+// usabilidade de celular passa por aqui para o computador seguir exatamente igual.
+function _fxCelular(){ try{ return window.matchMedia('(max-width: 680px)').matches; }catch(e){ return false; } }
 function telaInicial(sessao){
   const s = sessao || getSessao();
   if(!s) return 'form';                        // sem sessão: fica atrás do login
-  if(s.perfil==='tecnico') return 'minhas-os';
+  // No celular o técnico só faz vistoria (OS quase não é usada) — abre direto na
+  // lista de visitas do mês em vez de "Minhas OS". Desktop continua igual.
+  if(s.perfil==='tecnico') return _fxCelular() ? 'visitas' : 'minhas-os';
   if(s.perfil==='vendas')  return 'form';
   return 'insights';                            // gestor e master
 }
@@ -528,6 +533,7 @@ function atualizarHeaderLoja(){
   // Só mostra o seletor pra quem tem mais de 1 unidade pra escolher (mesmo
   // critério do <select> antigo do header, isMainGestor()).
   if(snUnitWrap) snUnitWrap.style.display = (typeof isMainGestor==='function' && isMainGestor()) ? '' : 'none';
+  try{ _fxAtualizarSeletorHeader(); }catch(e){ console.warn('[fxSeletorHeader]', e?.message||e); }
 }
 
 // Atualiza o select de técnicos de acordo com a loja selecionada no form
@@ -1146,7 +1152,7 @@ function confirmarEmpresaTecnico(grupo){
   aplicarPermissoesPerfil();
   atualizarHeaderLoja();
   logAcao('login', loginUserSelecionado.nome+' (técnico '+(grupo==='aquamotor'?'Aquamotor':'Fortemp')+')');
-  go('minhas-os');
+  go(telaInicial(sessao));
 }
 
 function voltarParaPin(){
@@ -1339,6 +1345,7 @@ function lsOrcProxNum(){ return lsOrcLer().reduce((a,o)=>Math.max(a,o.numero||0)
   // recarga (F5, reabrir o app pelo atalho, voltar de um PDF) o largava no Novo
   // Orçamento. Sem sessão o destino é irrelevante (fica atrás do login), mas
   // 'form' evita disparar o toast de "acesso não permitido".
+  _fxArmarVoltar();
   go(telaInicial(sessaoExistente));
 
   async function tentarConectar(tentativa){
@@ -2110,10 +2117,168 @@ function voltar(){
   let dest=hist.pop();
   while(dest && dest===atual) dest=hist.pop(); // não volta pra própria página
   window._navHist=hist;
-  if(!dest) dest = eTecnico()?'minhas-os':eVendas()?'form':'history';
+  if(!dest) dest = eTecnico()?telaInicial():eVendas()?'form':'history';
   window._skipNavHist=true; // não re-empilha ao voltar
   go(dest);
 }
+
+
+// ══════════════════════════════════════════════════
+//  CELULAR — botão voltar e troca rápida de empresa/loja
+//  (tudo condicionado a _fxCelular(); o computador não muda)
+// ══════════════════════════════════════════════════
+// Botão voltar do celular: o app é uma PWA de página única, então "voltar" (botão
+// do Android ou gesto do iPhone) fechava o app / recarregava e a pessoa perdia o
+// lugar. Mantemos sempre UMA entrada de histórico à frente da base: ao voltar,
+// recolocamos a entrada e fazemos o "voltar" dentro do app. Sem contabilidade de
+// entradas, então não desalinha com os botões "← Voltar" da própria tela.
+let _fxUltimoVoltar=0, _fxSaindo=false;
+function _fxArmarVoltar(){
+  if(!_fxCelular()) return;
+  try{
+    if(history.state && history.state.fx===1) return;
+    history.replaceState({fx:0},'');
+    history.pushState({fx:1},'');
+  }catch(e){ console.warn('[fxArmarVoltar]', e?.message||e); }
+}
+// Fecha o que estiver "por cima" (menu, aviso, janela). Retorna true se fechou algo.
+function _fxFecharCamada(){
+  const sb=document.getElementById('sidebar');
+  if(sb && sb.classList.contains('mob-open')){ closeSidebar(); return true; }
+  const np=document.getElementById('notif-panel');
+  if(np && np.style.display==='block'){ closeNotif(); return true; }
+  const gm=document.getElementById('gear-menu');
+  if(gm && gm.style.display==='block'){ closeGear(); return true; }
+  const conf=document.querySelector('#confirmar-modal-bg.on');
+  if(conf){ (document.getElementById('confirmar-nao')||{click(){conf.classList.remove('on')}}).click(); return true; }
+  const m=document.querySelector('.rd-modal-bg.on, .modal-cli-bg.on, .qr-modal-bg.on');
+  if(m){ m.classList.remove('on'); if(m.style.display) m.style.display='none'; return true; }
+  const ov=document.querySelector('.cli-hist-overlay');
+  if(ov){ ov.remove(); return true; }
+  return false;
+}
+// "Voltar" dentro do app. Retorna true se navegou/fechou algo; false se já está na raiz.
+function _fxVoltarInterno(){
+  if(document.getElementById('login-overlay')?.style.display==='flex') return false;
+  if(_fxFecharCamada()) return true;
+  const atual=document.querySelector('.page.on')?.id?.replace('page-','');
+  // Dentro do formulário de vistoria → volta pra lista (o rascunho já é salvo sozinho)
+  if(atual==='visitas' && document.getElementById('vis-view-nova')?.style.display!=='none'){
+    try{ if(typeof _salvarRascunhoVis==='function') _salvarRascunhoVis(); }catch(e){}
+    visTab('locais'); window.scrollTo(0,0); return true;
+  }
+  // Tela inicial = raiz: voltar dali é "sair do app" (o histórico pode ter a página
+  // padrão do HTML, anterior ao login, e não deve valer como tela anterior).
+  const casa=telaInicial();
+  if(atual===casa) return false;
+  const hist=window._navHist||[];
+  if(hist.some(h=>h!==atual)){ voltar(); return true; }
+  if(atual){ window._skipNavHist=true; go(casa); return true; }
+  return false;
+}
+window.addEventListener('popstate', ()=>{
+  if(!_fxCelular() || _fxSaindo) return;
+  if(history.state && history.state.fx===1) return; // entrada nossa; nada a fazer
+  // Chegou na base → recoloca a entrada e age dentro do app
+  try{ history.pushState({fx:1},''); }catch(e){}
+  if(_fxVoltarInterno()) return;
+  const agora=Date.now();
+  if(agora-_fxUltimoVoltar<2500){ // segundo toque rápido = sair de verdade
+    _fxUltimoVoltar=0; _fxSaindo=true; // deixa o navegador/SO fechar o app
+    try{ history.go(-2); }catch(e){}
+    return;
+  }
+  _fxUltimoVoltar=agora;
+  toast('Toque em voltar de novo para sair');
+});
+
+// Troca rápida de empresa/loja sem sair do app (celular). Gestor/master escolhe
+// entre "Todas", cada unidade e empresas separadas com acesso; técnico alterna
+// entre Fortemp e Aquamotor (antes só dava pra escolher no login → sair e entrar).
+function _fxOpcoesEmpresa(){
+  const s=getSessao(); if(!s) return [];
+  if(s.perfil==='tecnico'){
+    if(!podeAcessarGrupo('aquamotor')) return [];
+    return [
+      {tipo:'tec', id:'forthemp', nome:'Fortemp', sub:'Camboriú + Itapema'},
+      {tipo:'tec', id:'aquamotor', nome:'Aquamotor', sub:'Vistorias da Aquamotor'}
+    ];
+  }
+  if(!(typeof isMainGestor==='function' && isMainGestor())) return [];
+  const principais=LOJAS.filter(l=>GRUPO_FORTHEMP.includes(l.id));
+  const outros=LOJAS.filter(l=>!GRUPO_FORTHEMP.includes(l.id) && podeAcessarGrupo(l.grupo));
+  return [{tipo:'loja', id:'', nome:(FLUXA_CONFIG.todasLabel||'Todas as unidades'), sub:'Visão do grupo'}]
+    .concat(principais.map(l=>({tipo:'loja', id:l.id, nome:l.nome, sub:''})))
+    .concat(outros.map(l=>({tipo:'loja', id:l.id, nome:l.nome, sub:'Empresa separada'})));
+}
+function _fxEmpresaAtualId(){
+  const s=getSessao();
+  if(s?.perfil==='tecnico') return visEmpresaTecnico||s.empresa_tec||sessionStorage.getItem('fluxa_vis_empresa_tec')||'forthemp';
+  return lojaAtiva||'';
+}
+function _fxEmpresaAtualNome(){
+  const o=_fxOpcoesEmpresa().find(x=>x.id===_fxEmpresaAtualId());
+  return o?o.nome:'';
+}
+function abrirSeletorEmpresa(){
+  const ops=_fxOpcoesEmpresa(); if(ops.length<2) return;
+  const atual=_fxEmpresaAtualId();
+  const corpo=`<div class="rd-modal-head"><div class="rd-modal-headtx"><h3>Trocar de empresa</h3><p>Sem sair do app</p></div></div>
+    <div class="fx-opcoes">${ops.map(o=>`
+      <button type="button" class="fx-opcao${o.id===atual?' on':''}" onclick="_fxTrocarEmpresa('${o.tipo}','${o.id}')">
+        <span class="fx-opcao-bola">${esc((o.nome||'?').charAt(0).toUpperCase())}</span>
+        <span class="fx-opcao-tx"><b>${esc(o.nome)}</b>${o.sub?`<small>${esc(o.sub)}</small>`:''}</span>
+        ${o.id===atual?'<span class="fx-opcao-ok">✓</span>':''}
+      </button>`).join('')}</div>
+    <div class="rd-modal-acts"><button type="button" class="rd-modal-btn rd-modal-btn-nao" onclick="fecharModal('fx-empresa-modal')">Fechar</button></div>`;
+  abrirModal({corpo, id:'fx-empresa-modal'});
+}
+function _fxTrocarEmpresa(tipo,id){
+  fecharModal('fx-empresa-modal');
+  if(id===_fxEmpresaAtualId()) return;
+  if(tipo==='tec') trocarEmpresaTecnico(id); else trocarLojaAtiva(id);
+  atualizarHeaderLoja();
+  toast('✅ '+(_fxEmpresaAtualNome()||'Empresa')+' selecionada');
+}
+function trocarEmpresaTecnico(grupo){
+  const s=getSessao(); if(!s||s.perfil!=='tecnico') return;
+  if(grupo==='aquamotor' && !podeAcessarGrupo('aquamotor')){ toast('⚠️ Você não tem acesso a esta empresa'); return; }
+  const usr=(todosUsuarios||[]).find(u=>u&&_normNome(u.nome)===_normNome(s.nome));
+  const lojaBase=s.loja_base!==undefined ? s.loja_base : (s.loja_id||usr?.loja_id||'');
+  visEmpresaTecnico=grupo;
+  lojaAtiva=(grupo==='aquamotor')?'aquamotor':(lojaBase||'');
+  sessionStorage.setItem('fluxa_loja_ativa', lojaAtiva);
+  sessionStorage.setItem('fluxa_vis_empresa_tec', grupo);
+  // Mesma regra do login: na Aquamotor a sessão não carrega a loja Fortemp do técnico
+  const nova={...s, loja_id:(grupo==='aquamotor')?null:(lojaBase||null), loja_base:lojaBase, empresa_tec:grupo};
+  setSessao(nova);
+  if(getSessaoLembrada()) setSessaoLembrada(nova);
+  _invalidarSaldoCache();
+  atualizarHeaderLoja();
+  logAcao('troca_empresa', s.nome+' → '+(grupo==='aquamotor'?'Aquamotor':'Fortemp'));
+  const pid=document.querySelector('.page.on')?.id?.replace('page-','');
+  if(pid==='visitas'){
+    renderLocaisTab(); renderVisHistorico();
+    (async()=>{ try{
+      if(typeof loadLocaisRemoto==='function') await loadLocaisRemoto();
+      if(typeof loadVistoriasRemoto==='function') await loadVistoriasRemoto();
+      renderLocaisTab(); renderVisHistorico();
+    }catch(e){ console.warn('[trocaEmpresaTecnico sync]', e?.message||e); } })();
+  } else if(pid==='minhas-os'){ loadMinhasOS(); }
+}
+// Cabeçalho: no celular, mostra a empresa atual com ▾ e abre o seletor ao tocar
+function _fxAtualizarSeletorHeader(){
+  const logo=document.querySelector('.hdr-logo'); const sub=document.getElementById('hdr-sub');
+  if(!logo||!sub) return;
+  const ativo=_fxCelular() && _fxOpcoesEmpresa().length>=2;
+  logo.classList.toggle('fx-troca', ativo);
+  if(ativo){
+    sub.textContent=(_fxEmpresaAtualNome()||'Empresa')+' ▾';
+    logo.onclick=abrirSeletorEmpresa;
+    logo.setAttribute('role','button'); logo.setAttribute('aria-label','Trocar de empresa');
+  } else { logo.onclick=null; logo.removeAttribute('role'); logo.removeAttribute('aria-label'); }
+}
+window.addEventListener('resize', ()=>{ try{ atualizarHeaderLoja(); }catch(e){} }); // volta o texto original do cabeçalho ao sair do modo celular
 
 // Gear dropdown
 function toggleGear(){

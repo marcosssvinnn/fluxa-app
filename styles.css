@@ -2112,3 +2112,18 @@
     .biometric-lock-outro{display:block;width:100%;margin-top:14px;background:none;border:none;color:rgba(255,255,255,.55);font-size:12.5px;font-family:'Instrument Sans',sans-serif;cursor:pointer;padding:10px;text-decoration:underline}
     .biometric-lock-outro:hover{color:white}
     .nfe-hist-item:last-child{border-bottom:none}
+
+    /* ── Celular: usabilidade (só abaixo de 680px; computador não muda) ── */
+    @media(max-width:680px){
+      /* puxar a tela pra baixo no topo recarregava o app e apagava o que estava aberto */
+      html,body{overscroll-behavior-y:contain}
+      .hdr-logo.fx-troca{cursor:pointer;-webkit-tap-highlight-color:transparent}
+      .hdr-logo.fx-troca .hdr-sub{color:var(--c1);font-weight:700;letter-spacing:.2px;text-transform:none;font-size:12px}
+    }
+    .fx-opcoes{padding:2px 16px 8px;display:flex;flex-direction:column;gap:8px}
+    .fx-opcao{display:flex;align-items:center;gap:12px;width:100%;min-height:56px;padding:10px 14px;border:1.5px solid var(--line,#e5e7eb);border-radius:14px;background:#fff;text-align:left;cursor:pointer;font-family:'Instrument Sans',sans-serif}
+    .fx-opcao.on{border-color:var(--c1);background:var(--c1-light)}
+    .fx-opcao-bola{width:36px;height:36px;border-radius:50%;background:var(--c1);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0}
+    .fx-opcao-tx{display:flex;flex-direction:column;flex:1;min-width:0;font-size:15px;color:var(--c2)}
+    .fx-opcao-tx small{font-size:12px;color:var(--gray);margin-top:2px}
+    .fx-opcao-ok{color:var(--c1);font-weight:800;font-size:18px}
