@@ -9,7 +9,7 @@ Decisões dele: estoque físico todo pra Itapema; histórico passa tudo pra Itap
 Camboriú já parou; nome exibido "Fortemp".
 
 **Medido antes (produção):** Camboriú era a MAIOR parte — 381/572 orçamentos, 35 OS, 251 clientes,
-421/432 produtos, 544 movimentos de estoque (193 produtos, ~1.899 un., ~R$ 164,7 mil a custo),
+421/432 produtos, 544 movimentos de estoque (150 produtos com saldo, 793 un., ~R$ 82,4 mil a custo; Itapema: 113 produtos, 752 un., ~R$ 35,8 mil),
 83 recebimentos, 6 vistorias, 2 locais, 4 agendamentos, 2 equipamentos, 2 vendas de balcão e 2
 técnicos (Josimar, Eldecir). Numeração (`numero`) é única no banco todo → juntar lojas não colide.
 158 clientes e 6 orçamentos têm `loja_id` VAZIO (legado): NÃO mexidos — só aparecem em "Todas".
@@ -22,8 +22,12 @@ Resultado: o app funciona igual com dado antigo (Camboriú) ou migrado (Itapema)
 duplicam opção com uma unidade só.
 
 **Estoque: não foi preciso criar transferências.** Relabelar `estoque_movimentos` Camboriú→Itapema
-já soma o saldo na loja única (e mantém o histórico contínuo por produto). Foto do saldo antes:
-962 movimentos, 223 produtos com saldo, 3.674 un. físicas, 817 reservadas — conferir igual depois.
+já soma o saldo na loja única (e mantém o histórico contínuo por produto). Referência (Fortemp
+combinado, antes): 195 produtos com saldo, 1.495 un., 7 produtos negativos. Conferido em produção
+com o código novo e dado ainda antigo: saldo do app = saldo real em 432/432 produtos, nos modos
+Todas, unidade Fortemp e técnico com sessão velha.
+⚠️ `estoque_movimentos.quantidade` já vem COM SINAL (saída/transf_saida/liberação negativas) —
+somar direto; aplicar sinal por tipo conta duas vezes (erro cometido e corrigido nesta análise).
 
 **Migração dos dados:** backup JÁ gerado em `~/Downloads/backup-camboriu-para-itapema-2026-10-28.json`
 (1.733 registros: id + loja_id original por tabela; `usuarios` também leva loja_nome). Script =
