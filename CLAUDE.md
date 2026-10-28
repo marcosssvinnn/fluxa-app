@@ -7,7 +7,7 @@
 - **Clientes sem unidade (pedido do Marcos):** 157 dos 160 clientes com `loja_id` vazio/'default'
   foram para `fortemp-itapema`. FICARAM DE FORA 3 que também têm registros da Aquamotor (SNI BRASIL,
   CONDOMINIO BRISA DO MAR, TORRI DI MARE RESIDENZIALE). Banco depois: Fortemp 495, Aquamotor 52,
-  sem unidade 3. Os 6 orçamentos (#4,5,7,8,10,14 — abril, vencidos, clientes da Fortemp) + a OS #192 sem loja também foram
+  sem unidade 3 → **os 3 também foram para a Fortemp (28/10, a pedido): clientes Fortemp 498, Aquamotor 52, sem unidade 0; backup em `auditoria` id `aud_migr_cli3_1793183086619`. ⚠️ Esses 3 têm registros da Aquamotor (orçamentos/vistorias); como cliente ficam na Fortemp e não aparecem na lista de clientes da Aquamotor (o filtro é estrito por loja, e antes, sem unidade, também não apareciam).** Os 6 orçamentos (#4,5,7,8,10,14 — abril, vencidos, clientes da Fortemp) + a OS #192 sem loja também foram
   para `fortemp-itapema` (28/10, a pedido; nenhum sinal de Aquamotor). Backup em `auditoria` id
   `aud_migr_orc_os_1793182991677` (`detalhe` = ids + loja original). Agora orçamentos: Fortemp 519, Aquamotor 53,
   sem unidade 0; OS: Fortemp 41, Aquamotor 90, sem unidade 0. **Backup dentro do banco:** linha
