@@ -2,6 +2,18 @@
 
 ---
 
+## 🏢 "Qual empresa?": só Fortemp e Aquamotor (28/10)
+
+Visto no emulador Android: o login do gestor ainda mostrava 3 opções ("Todas as unidades", "Fortemp"
+e "Aquamotor"). Com Camboriú encerrada a Fortemp é UMA empresa e a Aquamotor é outra, totalmente
+separada. `mostrarSelecaoLojaGestor` agora mostra um botão "Fortemp" (valor '' por baixo, visão do
+grupo) + "Outras empresas → Aquamotor" quando o grupo Fortemp tem ≤1 unidade; `todasLabel` virou
+"Fortemp" (seletor da barra lateral, Insights, DRE). Multi-unidade continua igual.
+
+sw.js: fluxa-v268 → fluxa-v269.
+
+---
+
 ## 🧹 Clientes sem unidade → Fortemp + fichas "fantasma" no cache (28/10)
 
 - **Clientes sem unidade (pedido do Marcos):** 157 dos 160 clientes com `loja_id` vazio/'default'

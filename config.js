@@ -24,7 +24,7 @@ window.FLUXA_CONFIG = {
   lojaPadrao: 'fortemp-itapema',
 
   // << Rótulo da opção "ver todas" no seletor do cabeçalho >>
-  todasLabel: 'Forthemp — Todas',
+  todasLabel: 'Fortemp',
 
   // << Lojas/unidades que o gestor principal vê juntas em "Todas" >>
   grupoPrincipal: ['fortemp-itapema'],

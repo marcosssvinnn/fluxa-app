@@ -358,7 +358,7 @@ const FLUXA_CONFIG = Object.assign({
   supabaseUrl: 'https://lbxwclwzeqqtnwvlxsxs.supabase.co',
   supabaseKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxieHdjbHd6ZXFxdG53dmx4c3hzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDc3MTUsImV4cCI6MjA5MTA4MzcxNX0.M1ET8Ho-AFJP9Fh-EtYHt4tdQMZj9zdIayYddrwIlhk',
   lojaPadrao: 'fortemp-itapema',
-  todasLabel: 'Forthemp — Todas',
+  todasLabel: 'Fortemp',
   grupoPrincipal: ['fortemp-itapema'],
   // Acesso a grupos "separados": grupos NÃO listados (ex.: forthemp) são abertos
   // a todos os gestores. A Aquamotor é restrita — só estes usuários (por nome).
@@ -1063,7 +1063,7 @@ function mostrarSelecaoLojaGestor(){
   const atual=sessionStorage.getItem('fluxa_loja_ativa')||'';
 
   function lojaBtn(id, cor, icon, nome, sub){
-    const cur = id===atual;
+    const cur = id===atual || (id==='' && atual==='fortemp-itapema' && forthemp.length<=1);
     return `<button class="login-loja-btn${cur?' current':''}" onclick="confirmarLojaGestor('${id}')">
       <div class="login-loja-circle" style="background:${cor}">${icon}</div>
       <div class="login-loja-info">
@@ -1077,11 +1077,18 @@ function mostrarSelecaoLojaGestor(){
   function subAberto(n, fallback){ return n===null ? fallback : `${n} orçamento(s) aberto(s)`; }
 
   const nAbertoTodos=_loginOrcAbertosLoja('');
-  let html = lojaBtn('','var(--c1)','📊','Todas as unidades',subAberto(nAbertoTodos,'Visão geral da Fortemp'));
-  forthemp.forEach(l=>{
-    const n=_loginOrcAbertosLoja(l.id);
-    html += lojaBtn(l.id,'var(--c2)',l.nome.replace('Fortemp ','').charAt(0),esc(l.nome),subAberto(n,'Gerenciar esta unidade'));
-  });
+  let html='';
+  if(forthemp.length<=1){
+    // Uma unidade só (Camboriú encerrada em 28/10): "Fortemp" é UMA empresa, não
+    // "todas as unidades". Mantém o valor '' (visão do grupo) por baixo.
+    html += lojaBtn('','var(--c2)','F','Fortemp',subAberto(nAbertoTodos,'Gerenciar a Fortemp'));
+  } else {
+    html += lojaBtn('','var(--c1)','📊','Todas as unidades',subAberto(nAbertoTodos,'Visão geral da Fortemp'));
+    forthemp.forEach(l=>{
+      const n=_loginOrcAbertosLoja(l.id);
+      html += lojaBtn(l.id,'var(--c2)',l.nome.replace('Fortemp ','').charAt(0),esc(l.nome),subAberto(n,'Gerenciar esta unidade'));
+    });
+  }
   if(outros.length){
     html += `<div class="login-section-label" style="margin-top:14px">Outras empresas</div>`;
     outros.forEach(l=>{
