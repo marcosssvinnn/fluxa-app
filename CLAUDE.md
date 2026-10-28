@@ -29,13 +29,20 @@ Todas, unidade Fortemp e técnico com sessão velha.
 ⚠️ `estoque_movimentos.quantidade` já vem COM SINAL (saída/transf_saida/liberação negativas) —
 somar direto; aplicar sinal por tipo conta duas vezes (erro cometido e corrigido nesta análise).
 
-**Migração dos dados:** backup JÁ gerado em `~/Downloads/backup-camboriu-para-itapema-2026-10-28.json`
-(1.733 registros: id + loja_id original por tabela; `usuarios` também leva loja_nome). Script =
-`update loja_id` por tabela (produtos, clientes, estoque_movimentos, orcamentos, ordens_servico,
-recebimentos, agendamentos, equipamentos, vistorias, locais_vistoria, vendas_balcao, usuarios).
-⚠️ O classificador bloqueou a gravação em massa feita pelo assistente — rodar com autorização do
-Marcos; o backup permite desfazer (set loja_id='fortemp-camboriu' nos ids do arquivo).
-`auditoria` NÃO é alterada (é log).
+**Migração dos dados — FEITA em 28/10 (autorizada pelo Marcos):** `update loja_id` Camboriú→Itapema
+em 12 tabelas, cada uma conferida (migrados = esperado, restam 0): produtos 421, clientes 251,
+estoque_movimentos 544, orcamentos 381, ordens_servico 35, recebimentos 83, agendamentos 4,
+equipamentos 2, vistorias 6, locais_vistoria 2, vendas_balcao 2, usuarios 2 (loja_nome → "Fortemp",
+incl. Bruno). Backup (id + loja_id original por tabela) em
+`~/Downloads/backup-camboriu-para-itapema-2026-10-28.json` — assinatura SHA-256 dos ids idêntica ao
+estado do banco no momento da migração. **Desfazer:** `update <tabela> set loja_id='fortemp-camboriu'
+where id in (ids do arquivo)` (e `usuarios.loja_nome='Fortemp Camboriú'`); o código (alias) funciona
+nos dois estados. `auditoria` não foi alterada (log).
+Conferido depois: Fortemp 513 orç. (=381+132), 40 OS, 338 clientes, 432 produtos, 947 movimentos,
+136 recebimentos; estoque combinado idêntico ao de antes (195 produtos, 1.495 un., 7 negativos);
+Aquamotor intacta (53 orç., 14 locais); seletor sem opção duplicada; Insights calcula.
+Pendente de decisão: 158 clientes + 6 orçamentos + 1 OS com `loja_id` vazio (legado) seguem só em
+"Todas". Criação offline com a loja velha, se aparecer, cai no alias — rodar o update de novo.
 
 sw.js: fluxa-v265 → fluxa-v267.
 
