@@ -1047,7 +1047,7 @@ function _loginOrcAbertosLoja(lojaId){
     if(!(todosOrc||[]).length) return null;
     return todosOrc.filter(o=>{
       if(!orcAbertoNoPipeline(o)) return false;
-      return lojaId ? o.loja_id===lojaId : GRUPO_FORTHEMP.includes(o.loja_id||'');
+      return lojaId ? _aliasLoja(o.loja_id)===lojaId : GRUPO_FORTHEMP.includes(_aliasLoja(o.loja_id||''));
     }).length;
   }catch(e){ return null; }
 }
@@ -11038,7 +11038,7 @@ function _dreMesesDisponiveis(){
 // custo_hora cadastrado) pelo mesmo motivo de margemOrcamento: custo parcial
 // não pode ser lido como custo total.
 function _custoMaoDeObra(mes, lojas){
-  const dentro = lj => lojas.includes(lj||'');
+  const dentro = lj => lojas.includes(_aliasLoja(lj||''));
   const _hora = nome => {
     const n=String(nome||'').trim().toLowerCase();
     if(!n) return 0;
@@ -11065,7 +11065,7 @@ function _custoMaoDeObra(mes, lojas){
 }
 
 function _dreCalcular(mes, lojas){
-  const dentro = lj => lojas.includes(lj||'');
+  const dentro = lj => lojas.includes(_aliasLoja(lj||''));
   // Receita: orçamento aprovado, pelo mês de referência que o app já usa
   const receita=(todosOrc||[]).filter(o=>{
     if(o.status!=='aprovado' || !dentro(o.loja_id)) return false;
@@ -11301,7 +11301,7 @@ function renderDRE(){
   // material já foi estornado, que o CMV do razão não pega.
   const aprovMes=(todosOrc||[]).filter(o=>{
     if(o.status!=='aprovado') return false;
-    if(!visiveis.some(l=>l.id===(o.loja_id||''))) return false;
+    if(!visiveis.some(l=>l.id===_aliasLoja(o.loja_id||''))) return false;
     const ap=o.data_aprovacao?new Date(o.data_aprovacao):null;
     const d=(ap&&!isNaN(ap))?ap:_orcData(o);
     return d&&!isNaN(d)&&(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'))===mes;
@@ -16866,9 +16866,13 @@ initOS();
 // ══════════════════════════════════════════════════════════════════
 // todosProdutos, todosMovEstoque, estoqueBusca declarados no topo (evita TDZ no boot)
 
-function lsProdLer(){ try{ return JSON.parse(ls('fluxa_produtos')||'[]'); }catch(e){ return []; } }
+// Camboriú encerrada: normaliza a loja ao LER produtos/movimentos (cache local e
+// banco), pra todo o módulo de estoque — que compara loja_id cru em ~10 pontos —
+// funcionar igual antes e depois da migração dos dados no banco.
+function _estoqueAliasLoja(lista){ (lista||[]).forEach(x=>{ if(x && x.loja_id==='fortemp-camboriu') x.loja_id='fortemp-itapema'; }); return lista; }
+function lsProdLer(){ try{ return _estoqueAliasLoja(JSON.parse(ls('fluxa_produtos')||'[]')); }catch(e){ return []; } }
 function lsProdSalvar(l){ lsSet('fluxa_produtos', JSON.stringify(l)); }
-function lsMovLer(){ try{ return JSON.parse(ls('fluxa_estoque_mov')||'[]'); }catch(e){ return []; } }
+function lsMovLer(){ try{ return _estoqueAliasLoja(JSON.parse(ls('fluxa_estoque_mov')||'[]')); }catch(e){ return []; } }
 function lsMovSalvar(l){ lsSet('fluxa_estoque_mov', JSON.stringify(l.slice(0,2000))); }
 
 // Carrega produtos e movimentos: local primeiro, depois funde com o banco.
@@ -16900,11 +16904,11 @@ async function loadEstoque(){
       // merge: banco prevalece, mantém locais ainda não sincronizados
       const idP=new Set((prods||[]).map(x=>x.id));
       const soLocalP=todosProdutos.filter(x=>String(x.id).startsWith('prod_')&&!idP.has(x.id));
-      todosProdutos=[...(prods||[]),...soLocalP];
+      todosProdutos=_estoqueAliasLoja([...(prods||[]),...soLocalP]);
       lsProdSalvar(todosProdutos);
       const idM=new Set((movs||[]).map(x=>x.id));
       const soLocalM=todosMovEstoque.filter(x=>String(x.id).startsWith('mov_')&&!idM.has(x.id));
-      todosMovEstoque=[...(movs||[]),...soLocalM];
+      todosMovEstoque=_estoqueAliasLoja([...(movs||[]),...soLocalM]);
       _estoqueRemotoOk=true; // ledger confirmado pelo banco — libera a reconciliação de órfãs
       _invalidarSaldoCache();
       lsMovSalvar(todosMovEstoque);

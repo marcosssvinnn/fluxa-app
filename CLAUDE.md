@@ -2,6 +2,41 @@
 
 ---
 
+## 🏬 Loja de Camboriú encerrada — Itapema vira a única unidade "Fortemp" (28/10)
+
+Pedido do Marcos: Camboriú não existe mais; unificar tudo (clientes, contatos, estoque, histórico).
+Decisões dele: estoque físico todo pra Itapema; histórico passa tudo pra Itapema COM backup;
+Camboriú já parou; nome exibido "Fortemp".
+
+**Medido antes (produção):** Camboriú era a MAIOR parte — 381/572 orçamentos, 35 OS, 251 clientes,
+421/432 produtos, 544 movimentos de estoque (193 produtos, ~1.899 un., ~R$ 164,7 mil a custo),
+83 recebimentos, 6 vistorias, 2 locais, 4 agendamentos, 2 equipamentos, 2 vendas de balcão e 2
+técnicos (Josimar, Eldecir). Numeração (`numero`) é única no banco todo → juntar lojas não colide.
+158 clientes e 6 orçamentos têm `loja_id` VAZIO (legado): NÃO mexidos — só aparecem em "Todas".
+
+**Código (no ar, v266/v267):** `config.js` e defaults sem Camboriú (`lojaPadrao`/`grupoPrincipal` =
+`fortemp-itapema`, nome "Fortemp"). `_aliasLoja()` converte 'fortemp-camboriu'→'fortemp-itapema'
+em sessão, `getLoja`, `filtrarPorLoja`, `_normLojaId`, login, DRE e na LEITURA de produtos/
+movimentos (`_estoqueAliasLoja`, pois o módulo de estoque compara loja_id cru em ~10 pontos).
+Resultado: o app funciona igual com dado antigo (Camboriú) ou migrado (Itapema). Seletores não
+duplicam opção com uma unidade só.
+
+**Estoque: não foi preciso criar transferências.** Relabelar `estoque_movimentos` Camboriú→Itapema
+já soma o saldo na loja única (e mantém o histórico contínuo por produto). Foto do saldo antes:
+962 movimentos, 223 produtos com saldo, 3.674 un. físicas, 817 reservadas — conferir igual depois.
+
+**Migração dos dados:** backup JÁ gerado em `~/Downloads/backup-camboriu-para-itapema-2026-10-28.json`
+(1.733 registros: id + loja_id original por tabela; `usuarios` também leva loja_nome). Script =
+`update loja_id` por tabela (produtos, clientes, estoque_movimentos, orcamentos, ordens_servico,
+recebimentos, agendamentos, equipamentos, vistorias, locais_vistoria, vendas_balcao, usuarios).
+⚠️ O classificador bloqueou a gravação em massa feita pelo assistente — rodar com autorização do
+Marcos; o backup permite desfazer (set loja_id='fortemp-camboriu' nos ids do arquivo).
+`auditoria` NÃO é alterada (é log).
+
+sw.js: fluxa-v265 → fluxa-v267.
+
+---
+
 ## 📋 Vistoria: o plano do local guarda os equipamentos (28/10)
 
 Marcos refazia a lista de equipamentos de cada local TODO mês. O plano
