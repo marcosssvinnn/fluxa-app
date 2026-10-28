@@ -1,7 +1,11 @@
 // ══════════════════════════════════════════════════
 //  SESSÃO — login multi-usuário
 // ══════════════════════════════════════════════════
-function getSessao(){ try{ return JSON.parse(sessionStorage.getItem('fluxa_user')||'null'); }catch(e){ return null; } }
+// Loja de Camboriú encerrada (28/10/2026): tudo que era 'fortemp-camboriu' passou
+// a 'fortemp-itapema' (dados migrados no banco). Este alias é a rede de segurança
+// pra sessão/cache de aparelho antigo e pra registro criado offline com a loja velha.
+function _aliasLoja(id){ return id==='fortemp-camboriu' ? 'fortemp-itapema' : id; }
+function getSessao(){ try{ const s=JSON.parse(sessionStorage.getItem('fluxa_user')||'null'); if(s && s.loja_id) s.loja_id=_aliasLoja(s.loja_id); return s; }catch(e){ return null; } }
 function setSessao(u){ sessionStorage.setItem('fluxa_user',JSON.stringify(u)); }
 function clearSessao(){ sessionStorage.removeItem('fluxa_user'); }
 function eGestor(){ const s=getSessao(); return s?.perfil==='gestor'||s?.perfil==='master'; } // master herda acesso de gestor
@@ -353,9 +357,9 @@ const FLUXA_CONFIG = Object.assign({
   appName: 'Fluxa',
   supabaseUrl: 'https://lbxwclwzeqqtnwvlxsxs.supabase.co',
   supabaseKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxieHdjbHd6ZXFxdG53dmx4c3hzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MDc3MTUsImV4cCI6MjA5MTA4MzcxNX0.M1ET8Ho-AFJP9Fh-EtYHt4tdQMZj9zdIayYddrwIlhk',
-  lojaPadrao: 'fortemp-camboriu',
+  lojaPadrao: 'fortemp-itapema',
   todasLabel: 'Forthemp — Todas',
-  grupoPrincipal: ['fortemp-camboriu','fortemp-itapema'],
+  grupoPrincipal: ['fortemp-itapema'],
   // Acesso a grupos "separados": grupos NÃO listados (ex.: forthemp) são abertos
   // a todos os gestores. A Aquamotor é restrita — só estes usuários (por nome).
   // Marcos/Tamara = gestão; Bruno = técnico que faz as vistorias da Aquamotor.
@@ -363,8 +367,7 @@ const FLUXA_CONFIG = Object.assign({
   // vistoria acabava sendo feita na sessão da Tamara — técnico errado no PDF.)
   acessoGrupo: { aquamotor: ['Marcos','Tamara','Bruno'] },
   lojas: [
-    { id:'fortemp-camboriu', nome:'Fortemp Camboriú',  cor:'loja-0', grupo:'forthemp', tecs:['Marcos','Josimar','Eldecir','Bruno'] },
-    { id:'fortemp-itapema',  nome:'Fortemp Itapema',   cor:'loja-1', grupo:'forthemp', tecs:['Marcos','Josimar','Eldecir','Bruno'] },
+    { id:'fortemp-itapema',  nome:'Fortemp',           cor:'loja-1', grupo:'forthemp', tecs:['Marcos','Josimar','Eldecir','Bruno'] },
     { id:'aquamotor',        nome:'Aquamotor',          cor:'loja-2', grupo:'aquamotor', tecs:['Marcos','Bruno'] }
   ]
 }, (typeof window!=='undefined' && window.FLUXA_CONFIG) || {});
@@ -422,14 +425,14 @@ function filtrarPorLoja(lista, campo='loja_id'){
     // lojas Forthemp ao mesmo tempo e bagunçavam os totais. Eles só aparecem na
     // visão "Todas". Registros novos sempre recebem loja_id, então isto só afeta
     // dados antigos.
-    return lista.filter(o=>(o[campo]||'')===lojaAtiva);
+    return lista.filter(o=>(_aliasLoja(o[campo])||'')===lojaAtiva);
   }
-  if(isMainGestor()) return lista.filter(o=>GRUPO_FORTHEMP.includes(o[campo])||!o[campo]);
+  if(isMainGestor()) return lista.filter(o=>GRUPO_FORTHEMP.includes(_aliasLoja(o[campo]))||!o[campo]);
   // company gestor ou técnico — lojaAtiva já está definido na sua empresa
   return lista;
 }
 
-function getLoja(id){ return LOJAS.find(l=>l.id===id)||null; }
+function getLoja(id){ id=_aliasLoja(id); return LOJAS.find(l=>l.id===id)||null; }
 function getLojaNome(id){ return getLoja(id)?.nome || id || '—'; }
 function getLojaBadge(id){
   const l=getLoja(id); if(!l) return '';
@@ -452,7 +455,7 @@ function populaLojaSelect(){
   const outros=LOJAS.filter(l=>!GRUPO_FORTHEMP.includes(l.id) && podeAcessarGrupo(l.grupo));
   sel.innerHTML=
     `<option value="">${esc(FLUXA_CONFIG.todasLabel||'Todas')}</option>`+
-    principais.map(l=>`<option value="${l.id}">${esc(l.nome)}</option>`).join('')+
+    (principais.length>1 ? principais.map(l=>`<option value="${l.id}">${esc(l.nome)}</option>`).join('') : '')+
     (outros.length?'<option disabled>──────────</option>'+outros.map(l=>`<option value="${l.id}">${esc(l.nome)}</option>`).join(''):'');
   sel.value=lojaAtiva;
 }
@@ -724,7 +727,7 @@ function loginNomeKeydown(e){
 
 function loginEscolherSugestao(id){
   const u = _loginUsersCache.find(x=>x.id===id); if(!u) return;
-  loginUserSelecionado = {id:u.id, perfil:u.perfil, nome:u.nome, loja_id:u.loja_id};
+  loginUserSelecionado = {id:u.id, perfil:u.perfil, nome:u.nome, loja_id:_aliasLoja(u.loja_id)};
   const inp = document.getElementById('login-nome-input');
   if(inp) inp.value = u.nome;
   const box = document.getElementById('login-nome-sugestoes');
@@ -924,7 +927,7 @@ async function fazerLogin(){
     if(!encontrados.length){ _loginErrMostrar('Nome não encontrado', 'Confira a digitação ou selecione um nome da lista de sugestões.'); return; }
     if(encontrados.length > 1){ _loginErrMostrar('Nome ambíguo', 'Mais de uma pessoa com esse nome — selecione da lista de sugestões.'); return; }
     const u = encontrados[0];
-    loginUserSelecionado = {id:u.id, perfil:u.perfil, nome:u.nome, loja_id:u.loja_id};
+    loginUserSelecionado = {id:u.id, perfil:u.perfil, nome:u.nome, loja_id:_aliasLoja(u.loja_id)};
   }
 
   const pin = document.getElementById('pin-input').value;
@@ -1074,7 +1077,7 @@ function mostrarSelecaoLojaGestor(){
   function subAberto(n, fallback){ return n===null ? fallback : `${n} orçamento(s) aberto(s)`; }
 
   const nAbertoTodos=_loginOrcAbertosLoja('');
-  let html = lojaBtn('','var(--c1)','📊','Todas as unidades',subAberto(nAbertoTodos,'Camboriú + Itapema consolidado'));
+  let html = lojaBtn('','var(--c1)','📊','Todas as unidades',subAberto(nAbertoTodos,'Visão geral da Fortemp'));
   forthemp.forEach(l=>{
     const n=_loginOrcAbertosLoja(l.id);
     html += lojaBtn(l.id,'var(--c2)',l.nome.replace('Fortemp ','').charAt(0),esc(l.nome),subAberto(n,'Gerenciar esta unidade'));
@@ -1133,7 +1136,7 @@ function mostrarSelecaoEmpresaTecnico(){
   const temAquamotor=podeAcessarGrupo('aquamotor', loginUserSelecionado?.nome);
   if(!temAquamotor){ confirmarEmpresaTecnico('forthemp'); return; }
   list.innerHTML =
-    empBtn('forthemp','F','Fortemp','Vistorias Camboriú + Itapema')+
+    empBtn('forthemp','F','Fortemp','Vistorias da Fortemp')+
     empBtn('aquamotor','A','Aquamotor','Vistorias da Aquamotor');
   document.getElementById('login-step-users').style.display='none';
   document.getElementById('login-step-loja').classList.add('show');
@@ -1318,7 +1321,7 @@ function lsOrcProxNum(){ return lsOrcLer().reduce((a,o)=>Math.max(a,o.numero||0)
     // Restaura loja ativa: gestor específico usa loja_id da sessão;
     // gestor principal usa o valor salvo no sessionStorage (persiste em F5)
     if(sessaoExistente.loja_id) lojaAtiva = sessaoExistente.loja_id;
-    else { const sal=sessionStorage.getItem('fluxa_loja_ativa'); if(sal) lojaAtiva=sal; }
+    else { const sal=_aliasLoja(sessionStorage.getItem('fluxa_loja_ativa')||''); if(sal) lojaAtiva=sal; }
     // Defesa: se restaurou uma empresa separada sem acesso, volta p/ Forthemp
     { const _lr=getLoja(lojaAtiva); if(_lr && !podeAcessarGrupo(_lr.grupo, sessaoExistente.nome)){ lojaAtiva=''; sessionStorage.setItem('fluxa_loja_ativa',''); } }
     // Restaura a empresa escolhida pelo técnico (Fortemp/Aquamotor) em F5
@@ -2207,15 +2210,15 @@ function _fxOpcoesEmpresa(){
   if(s.perfil==='tecnico'){
     if(!podeAcessarGrupo('aquamotor')) return [];
     return [
-      {tipo:'tec', id:'forthemp', nome:'Fortemp', sub:'Camboriú + Itapema'},
+      {tipo:'tec', id:'forthemp', nome:'Fortemp', sub:'Vistorias da Fortemp'},
       {tipo:'tec', id:'aquamotor', nome:'Aquamotor', sub:'Vistorias da Aquamotor'}
     ];
   }
   if(!(typeof isMainGestor==='function' && isMainGestor())) return [];
   const principais=LOJAS.filter(l=>GRUPO_FORTHEMP.includes(l.id));
   const outros=LOJAS.filter(l=>!GRUPO_FORTHEMP.includes(l.id) && podeAcessarGrupo(l.grupo));
-  return [{tipo:'loja', id:'', nome:(FLUXA_CONFIG.todasLabel||'Todas as unidades'), sub:'Visão do grupo'}]
-    .concat(principais.map(l=>({tipo:'loja', id:l.id, nome:l.nome, sub:''})))
+  return [{tipo:'loja', id:'', nome:(LOJAS.filter(l=>GRUPO_FORTHEMP.includes(l.id)).length>1 ? (FLUXA_CONFIG.todasLabel||'Todas as unidades') : 'Fortemp'), sub:(LOJAS.filter(l=>GRUPO_FORTHEMP.includes(l.id)).length>1?'Visão do grupo':'')}]
+    .concat(principais.length>1 ? principais.map(l=>({tipo:'loja', id:l.id, nome:l.nome, sub:''})) : [])
     .concat(outros.map(l=>({tipo:'loja', id:l.id, nome:l.nome, sub:'Empresa separada'})));
 }
 function _fxEmpresaAtualId(){
@@ -13587,7 +13590,7 @@ function lsVisSalvar(lista){
 // ══ ESCOPO DE EMPRESA (vistorias/locais) ══
 // Fonte única de verdade para "este local/vistoria pertence à empresa em foco?".
 // Usado por renderLocaisTab E renderVisHistorico para nunca divergirem.
-function _normLojaId(lid){ return (!lid||lid==='default')?LOJA_PADRAO_ID:lid; }
+function _normLojaId(lid){ return (!lid||lid==='default')?LOJA_PADRAO_ID:_aliasLoja(lid); }
 function _grupoDaLoja(lid){ const L=LOJAS.find(x=>x.id===_normLojaId(lid)); return L?L.grupo:'forthemp'; }
 // Empresa atualmente em foco: técnico → grupo escolhido no login; gestor sem
 // loja → grupo forthemp (Aquamotor não mistura); gestor em loja específica → aquela loja.
@@ -15406,7 +15409,7 @@ function _vistoriaExistente(localId, mesRef){
 // Empresa de uma vistoria/local: herda do LOCAL/plano; fallback à sessão/loja ativa.
 function _lojaDaVistoria(loc){
   const s=getSessao();
-  if(loc && loc.loja_id && loc.loja_id!=='default') return loc.loja_id;
+  if(loc && loc.loja_id && loc.loja_id!=='default') return _aliasLoja(loc.loja_id);
   return s?.loja_id||lojaAtiva||LOJA_PADRAO_ID;
 }
 function _montarRecVistoria(){
