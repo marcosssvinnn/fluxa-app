@@ -2127,3 +2127,99 @@
     .fx-opcao-tx{display:flex;flex-direction:column;flex:1;min-width:0;font-size:15px;color:var(--c2)}
     .fx-opcao-tx small{font-size:12px;color:var(--gray);margin-top:2px}
     .fx-opcao-ok{color:var(--c1);font-weight:800;font-size:18px}
+
+    /* ══ Vistoria no celular, etapa 2 (28/10) — lista compacta + tela cheia por
+       equipamento. Tudo ≤680px; o desktop não é tocado. A tela cheia (#vx-tela)
+       só é aberta por JS no celular. ══ */
+    .vx-tela{display:none;position:fixed;inset:0;z-index:650;background:#fff;flex-direction:column}
+    .vx-tela.on{display:flex}
+    body.vx-aberto{overflow:hidden}
+    .vx-topo{display:flex;align-items:center;gap:10px;padding:8px 12px;padding-top:calc(8px + env(safe-area-inset-top));border-bottom:1px solid var(--line,#e5e7eb);background:#fff;flex-shrink:0}
+    .vx-voltar{min-height:44px;padding:0 14px;border:1.5px solid var(--gray-mid);border-radius:12px;background:#fff;font-weight:800;font-size:15px;color:var(--c2);font-family:'Instrument Sans',sans-serif;cursor:pointer;flex-shrink:0}
+    .vx-topo-tit{flex:1;min-width:0;display:flex;flex-direction:column}
+    .vx-topo-tit span{font-size:16px;font-weight:800;color:var(--c2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .vx-topo-tit small{font-size:11px;color:var(--gray);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .vx-topo-st{font-size:11px;font-weight:800;padding:5px 9px;border-radius:50px;background:var(--gray-light);color:var(--gray);flex-shrink:0;white-space:nowrap}
+    .vx-topo-st.st-bom{background:var(--green-bg);color:var(--green)}
+    .vx-topo-st.st-atencao{background:var(--yellow-bg);color:var(--yellow)}
+    .vx-topo-st.st-critico{background:var(--red-bg);color:var(--red)}
+    .vx-corpo{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:14px 14px 24px}
+    .vx-corpo .vis-equip-block{border:none;border-radius:0;overflow:visible;background:transparent}
+    .vx-corpo .vis-equip-hdr{display:none}
+    .vx-corpo .vis-equip-body{display:block;padding:0;background:transparent}
+    .vx-corpo .vis-status-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+    .vx-corpo .vis-status-btn{min-height:58px!important;font-size:16px!important;padding:10px 6px!important;border-radius:14px}
+    .vx-corpo textarea{font-size:16px!important;min-height:90px}
+    .vx-corpo .vis-obs-chip{padding:8px 12px;font-size:13px}
+    .vx-corpo .vis-fotos-row{grid-template-columns:repeat(2,1fr);gap:10px}
+    .vx-corpo .vis-foto-slot img{height:120px}
+    .vx-corpo .tb{min-height:52px;font-size:15px!important;border-radius:12px}
+    .vx-rodape{flex-shrink:0;padding:10px 12px calc(8px + env(safe-area-inset-bottom));border-top:1px solid var(--line,#e5e7eb);background:#fff;box-shadow:0 -6px 16px -10px rgba(16,28,48,.25)}
+    .vx-rodape-btns{display:flex;gap:10px}
+    .vx-rodape button{flex:1;min-height:54px;border-radius:14px;border:1.5px solid var(--gray-mid);background:#fff;font-size:16px;font-weight:800;color:var(--c2);font-family:'Instrument Sans',sans-serif;cursor:pointer}
+    .vx-rodape button.vx-prox{flex:1.4;background:var(--c1);border-color:var(--c1);color:#fff}
+    .vx-rodape button:disabled{opacity:.4}
+    .vx-auto{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--gray);margin-top:8px;justify-content:center}
+    .vx-auto input{width:18px;height:18px}
+
+    @media(max-width:680px){
+      /* barra fixa de progresso + filtros (substitui a barra de progresso antiga) */
+      #vis-progresso-mobile{display:none!important}
+      #vis-equip-card{padding:12px}
+      #vis-equip-card>.rd-card-title{display:none}
+      .vx-sticky{position:sticky;top:calc(56px + env(safe-area-inset-top));z-index:30;background:#fff;margin:-4px -2px 4px;padding:8px 2px 8px;border-bottom:1px solid var(--line,#e5e7eb)}
+      .vx-prog{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;color:var(--c2);margin-bottom:6px}
+      .vx-resumo{font-size:12px;font-weight:700}
+      .vx-barra{height:6px;border-radius:3px;background:var(--gray-light);overflow:hidden}
+      .vx-barra i{display:block;height:100%;background:var(--c1);border-radius:3px;transition:width .2s}
+      .vx-filtros{display:flex;gap:8px;margin-top:8px;overflow-x:auto}
+      .vx-chip{flex-shrink:0;min-height:36px;padding:0 14px;border:1.5px solid var(--gray-mid);border-radius:50px;background:#fff;font-size:13px;font-weight:700;color:var(--c2);font-family:'Instrument Sans',sans-serif;cursor:pointer}
+      .vx-chip.on{background:var(--c2);border-color:var(--c2);color:#fff}
+      .vx-grupo{display:flex;justify-content:space-between;align-items:center;margin:14px 0 6px;font-size:12px;font-weight:800;color:var(--c1);text-transform:uppercase;letter-spacing:.3px}
+      .vx-grupo small{font-size:12px;color:var(--gray);font-weight:700}
+      .vx-amb-obs{margin:0 0 8px;font-size:12px;color:var(--gray)}
+      .vx-amb-obs summary{cursor:pointer;padding:6px 0;font-weight:700;color:var(--c1)}
+      .vx-amb-obs textarea{width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px dashed var(--c1);border-radius:10px;font-size:16px;font-family:'Instrument Sans',sans-serif;background:var(--c1-light);outline:none}
+      .vx-row{display:flex;align-items:center;gap:12px;width:100%;min-height:62px;padding:10px 12px;margin-bottom:8px;border:1.5px solid var(--gray-mid);border-left-width:5px;border-radius:12px;background:#fff;text-align:left;font-family:'Instrument Sans',sans-serif;cursor:pointer;-webkit-tap-highlight-color:transparent}
+      .vx-row:active{background:var(--gray-light)}
+      .vx-row.st-bom{border-color:var(--green);background:var(--green-bg)}
+      .vx-row.st-atencao{border-color:var(--yellow);background:var(--yellow-bg)}
+      .vx-row.st-critico{border-color:var(--red);background:var(--red-bg)}
+      /* forma além de cor, igual ao restante do app: círculo = bom, anel = atenção, triângulo = crítico */
+      .vx-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0;background:var(--gray-mid)}
+      .vx-row.st-bom .vx-dot{background:var(--green)}
+      .vx-row.st-atencao .vx-dot{background:transparent;border:3px solid var(--yellow);box-sizing:border-box}
+      .vx-row.st-critico .vx-dot{background:var(--red);border-radius:2px;clip-path:polygon(50% 4%,4% 96%,96% 96%);width:14px;height:12px}
+      .vx-tx{flex:1;min-width:0;display:flex;flex-direction:column}
+      .vx-tx b{font-size:15px;font-weight:700;color:var(--c2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      .vx-tx small{font-size:12px;color:var(--gray);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+      .vx-meta{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--gray);flex-shrink:0}
+      .vx-meta em{font-style:normal;font-weight:800}
+      .vx-row.st-bom .vx-meta em{color:var(--green)}
+      .vx-row.st-atencao .vx-meta em{color:var(--yellow)}
+      .vx-row.st-critico .vx-meta em{color:var(--red)}
+      .vx-chev{font-size:22px;color:var(--gray);flex-shrink:0;line-height:1}
+      .vx-vazio{padding:24px 8px;text-align:center;color:var(--gray);font-size:14px}
+      /* "Equipamentos do Local" (tipos + adicionar vários): recolhido por padrão em plano com equipamentos */
+      #vis-local-eq-card .rd-card-title{cursor:pointer;display:flex;justify-content:space-between;align-items:center}
+      #vis-local-eq-card .rd-card-title::after{content:'▾';color:var(--gray);font-size:14px}
+      #vis-local-eq-card.vx-rec .rd-card-title::after{content:'＋ editar';font-size:12px;font-weight:700;color:var(--c1)}
+      #vis-local-eq-card.vx-rec>*:not(.rd-card-title){display:none}
+      #vis-local-eq-card.vx-rec{padding-bottom:12px}
+      /* check-in: faixa única em vez de cartão com título */
+      #vis-checkin-card{padding:10px 12px}
+      #vis-checkin-card .rd-card-title{display:none}
+      #vis-checkin-card .checkin-bar{margin-bottom:0;padding:8px 12px}
+      #vis-checkin-info{margin-top:4px!important}
+      /* lista "Minhas visitas do mês" mais enxuta */
+      .loc-page-header{padding:12px}
+      .loc-page-title-row{margin-bottom:8px}
+      .loc-page-header .novo-orc-sub{display:none}
+      .loc-mes-bar{flex-direction:column;align-items:stretch;gap:8px}
+      .loc-mes-nav{justify-content:space-between}
+      .loc-stats-row{flex-wrap:nowrap;gap:6px}
+      .loc-stat{flex:1;justify-content:center;padding:6px 6px;gap:5px}
+      .loc-stat-icon{font-size:14px}
+      /* técnico no celular já abre em Vistorias: o atalho "← Minhas OS" só ocupa espaço */
+      #vis-back-os{display:none!important}
+    }

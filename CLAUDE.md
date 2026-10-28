@@ -2,6 +2,37 @@
 
 ---
 
+## 📱 Celular — etapa 2: vistoria em lista compacta + tela cheia por equipamento (28/10)
+
+Continuação da etapa 1 (abaixo). Uma vistoria real (Infinity Coast Tower) tem 51 equipamentos e
+rolava ~7.300 px numa página só, com a primeira tela inteira tomada por "Dados da Visita" +
+check-in. **Só ≤680px (`_fxCelular()`); o desktop continua com os 51 cartões inline.**
+
+- **Decisão de projeto: a captura NÃO foi reescrita.** A tela cheia reaproveita o mesmo
+  `buildEquipBlock()` (status/observação/fotos/chips/rascunho) — nenhum caminho de gravação foi
+  duplicado. No celular `renderVisEquipGrid()` desvia (`_vxRenderMobile`) pra linhas curtas e o
+  cartão só é montado pro equipamento aberto (também alivia a lista: antes cada toque em status
+  recriava 51 cartões com fotos em base64).
+- **Lista:** linhas por ambiente (`📍 Ambiente 2/6`), forma+cor do status (círculo/anel/triângulo),
+  contagem 📷/📝, observação do ambiente recolhida (mesmo dado `visAmbienteObs`), barra fixa
+  "N de M vistoriados" + filtros Todos/Pendentes/Com problema. "Equipamentos do Local" (tipos +
+  adicionar vários) fica recolhido quando o plano já traz equipamentos (toque no título abre).
+  Check-in vira faixa; lista de visitas do mês mais enxuta; "← Minhas OS" some no celular.
+- **Tela cheia (`#vx-tela`, `vxAbrir/vxFechar/vxNav`):** botões Bom/Atenção/Crítico/N-A grandes,
+  Anterior/Próximo ("Concluir ✓" no último). **Marcar "Bom" avança sozinho** após 450 ms (opção
+  "Avançar sozinho ao marcar Bom", `fluxa_vx_auto`, liga/desliga na própria tela); Atenção/Crítico
+  ficam na tela pra observação e foto. O botão voltar do celular fecha a tela cheia
+  (`_fxFecharCamada`). Re-render não recria o cartão enquanto há foco em textarea (não fecha o
+  teclado); estado `_vxAtual/_vxOrdem/_vxFiltro/_vxAuto` declarado no topo do arquivo (TDZ).
+- Testado no painel (390×844, offline, vistoria real de 51 equipamentos): 51 linhas, filtros, avanço
+  automático, foco preservado, Anterior/Próximo, voltar fecha, rascunho restaura "3 de 51" após
+  recarregar, foto aparece na linha, e desktop (1280px) com 51 cartões inline e zero elemento novo.
+  Ainda NÃO validado num aparelho real (câmera/galeria, teclado, iPhone).
+
+sw.js: fluxa-v263 → fluxa-v264.
+
+---
+
 ## 📱 Celular — etapa 1: abrir na vistoria, botão voltar, trocar de empresa (28/10)
 
 Marcos: no celular o app só é usado pra vistoria e "parece versão de computador". Regra

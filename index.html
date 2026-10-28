@@ -3370,7 +3370,7 @@
       </div>
 
       <!-- Check-in -->
-      <div class="rd-card">
+      <div class="rd-card" id="vis-checkin-card">
         <div class="rd-card-title" style="margin-bottom:12px">Check-in / Check-out</div>
         <div id="vis-checkin-bar" style="display:none" class="checkin-bar">
           <span>✅ Check-in realizado</span>
@@ -3385,8 +3385,8 @@
       </div>
 
       <!-- Equipamentos presentes neste local -->
-      <div class="rd-card">
-        <div class="rd-card-title" style="margin-bottom:4px">Equipamentos do Local</div>
+      <div class="rd-card" id="vis-local-eq-card">
+        <div class="rd-card-title" id="vis-local-eq-titulo" style="margin-bottom:4px" onclick="vxToggleLocalEq()">Equipamentos do Local</div>
         <div class="rd-card-sub" style="margin-bottom:12px">Toque nos que existem — ou adicione vários do mesmo tipo abaixo</div>
         <div class="vis-chips" id="vis-equip-chips"></div>
         <!-- Adicionar VÁRIOS do mesmo tipo (ex.: 15 motobombas), nomeados/numerados -->
@@ -4035,6 +4035,25 @@ window.onerror = function(msg, src, line, col, err){
 
 <!-- App de celular (Fase A, porte do FluxaSaas-/v2) — antes de app.js, que chama _fluxaAvaliarBannerInstalar() -->
 <script src="native.js"></script>
+
+<!-- ══ Vistoria no celular: tela cheia por equipamento (só abre abaixo de 680px;
+     ver _vx* em app.js). Reaproveita o cartão do equipamento (buildEquipBlock),
+     então status/observação/fotos/rascunho são exatamente os mesmos do desktop. ══ -->
+<div class="vx-tela" id="vx-tela" role="dialog" aria-modal="true" aria-label="Equipamento">
+  <div class="vx-topo">
+    <button type="button" class="vx-voltar" onclick="vxFechar()" aria-label="Voltar para a lista">‹ Lista</button>
+    <div class="vx-topo-tit"><span id="vx-tit">—</span><small id="vx-pos"></small></div>
+    <span class="vx-topo-st" id="vx-st"></span>
+  </div>
+  <div class="vx-corpo" id="vx-corpo"></div>
+  <div class="vx-rodape">
+    <div class="vx-rodape-btns">
+      <button type="button" class="vx-ant" id="vx-ant" onclick="vxNav(-1)">‹ Anterior</button>
+      <button type="button" class="vx-prox" id="vx-prox" onclick="vxNav(1)">Próximo ›</button>
+    </div>
+    <label class="vx-auto"><input type="checkbox" id="vx-auto" onchange="vxAuto(this.checked)" checked> Avançar sozinho ao marcar “Bom”</label>
+  </div>
+</div>
 <script src="app.js"></script>
 </body>
 </html>

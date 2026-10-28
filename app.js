@@ -40,6 +40,12 @@ let _ofFotos = [], _ofEstadoEntrada = {};
 let _ofStatusLog = [], _ofFiltroBusca = '', _ofFiltroOrigem = '', _ofView = 'quadro';
 let _ofRetrabalhoDe = null;
 let _ofContatos = [], _ofReparoAtivoId = null; // Tarefa 3h — ficha do reparo
+// Vistoria no celular (tela cheia por equipamento) — declarado no topo pelo mesmo motivo de TDZ das linhas acima
+let _vxAtual=null;                 // id do equipamento aberto em tela cheia
+let _vxOrdem=[];                   // ids na ordem de exibição (navegação Anterior/Próximo)
+let _vxFiltro='todos';             // todos | pend | prob
+let _vxAuto=(function(){ try{ return localStorage.getItem('fluxa_vx_auto')!=='0'; }catch(e){ return true; } })();
+
 let _ofOSCampoVinculada = null; // id da OS de campo vinculada (Fase 7, 18/08)
 
 // ── Log de auditoria (quem fez o quê) ──
@@ -2143,6 +2149,7 @@ function _fxArmarVoltar(){
 }
 // Fecha o que estiver "por cima" (menu, aviso, janela). Retorna true se fechou algo.
 function _fxFecharCamada(){
+  if(typeof _vxAtual!=='undefined' && _vxAtual){ vxFechar(); return true; }
   const sb=document.getElementById('sidebar');
   if(sb && sb.classList.contains('mob-open')){ closeSidebar(); return true; }
   const np=document.getElementById('notif-panel');
@@ -14466,6 +14473,8 @@ function renderVisEquipGrid(){
     const fill=document.getElementById('vis-progresso-fill');
     if(fill) fill.style.width=Math.round(feitos/ordem.length*100)+'%';
   })();
+  // Celular: lista compacta + tela cheia por equipamento (o desktop segue abaixo, igual)
+  if(_fxCelular()){ _vxRenderMobile(el); return; }
   // Renderiza equipamentos customizados do plano, agrupados por ambiente
   // (facilita achar tudo de um mesmo local durante a vistoria)
   if(_visEquipsCustom.length){
@@ -14578,6 +14587,141 @@ function buildEquipBlock(id,emoji,nome,d,modelo,potencia,marca,ficha,aberto){
   return block;
 }
 
+
+// ══════════════════════════════════════════════════
+//  VISTORIA NO CELULAR — lista compacta + tela cheia por equipamento
+//  (só abaixo de 680px; o desktop usa buildEquipBlock inline como sempre)
+//  Uma vistoria real chega a 51 equipamentos (~7.300 px de rolagem numa página
+//  só). Aqui a lista vira linhas curtas por ambiente, e cada equipamento abre
+//  numa tela cheia com botões grandes. O cartão da tela cheia É o mesmo
+//  buildEquipBlock — nenhum caminho de gravação foi duplicado.
+// ══════════════════════════════════════════════════
+const _VX_ROT={bom:'✅ Bom',atencao:'⚠️ Atenção',critico:'🔴 Crítico',na:'— Não avaliado'};
+
+// Equipamentos da vistoria em edição, normalizados (plano + avulsos + padrão)
+function _vxItens(){
+  const customIds=(_visEquipsCustom||[]).map(e=>e.id);
+  const out=(_visEquipsCustom||[]).map(c=>({id:c.id,emoji:c.emoji||'⚙️',nome:c.nome||'Equipamento',marca:c.marca||'',modelo:c.modelo||'',potencia:c.potencia||'',ficha:c.ficha||'',ambiente:(c.ambiente||'').trim()}));
+  visEquipSelecionados.filter(id=>!customIds.includes(id)).forEach(id=>{
+    const d=VIS_EQUIPAMENTOS_DEFAULT.find(x=>x.id===id); if(!d) return;
+    out.push({id,emoji:d.emoji,nome:d.nome,marca:'',modelo:'',potencia:'',ficha:'',ambiente:'',padrao:true});
+  });
+  return out;
+}
+function _vxStatus(id){ return (visEquipDados[id]&&visEquipDados[id].status)||'na'; }
+function _vxFotos(id){ return ((visEquipDados[id]||{}).fotos||[]).filter(Boolean).length; }
+
+function _vxRenderMobile(el){
+  const itens=_vxItens();
+  // ordem de exibição: ambientes do plano (sem ambiente por último), depois "outros"
+  const grupos=[];
+  itens.filter(i=>!i.padrao).forEach(i=>{ let g=grupos.find(x=>x.nome===i.ambiente); if(!g){ g={nome:i.ambiente,itens:[]}; grupos.push(g); } g.itens.push(i); });
+  grupos.sort((a,b)=>(a.nome===''?1:0)-(b.nome===''?1:0));
+  const padrao=itens.filter(i=>i.padrao);
+  if(padrao.length) grupos.push({nome:'Outros equipamentos',itens:padrao,semAmb:true});
+  _vxOrdem=grupos.flatMap(g=>g.itens.map(i=>i.id));
+  const total=_vxOrdem.length;
+  if(!total){ el.innerHTML=''; if(_vxAtual) vxFechar(); return; }
+
+  // Digitando a observação de um ambiente: não recria a lista (perderia o foco/teclado)
+  const ativo=document.activeElement;
+  if(ativo && ativo.tagName==='TEXTAREA' && el.contains(ativo)){ if(_vxAtual) _vxRenderTela(false); return; }
+
+  const cont={bom:0,atencao:0,critico:0,na:0};
+  _vxOrdem.forEach(id=>{ cont[_vxStatus(id)]=(cont[_vxStatus(id)]||0)+1; });
+  const feitos=total-cont.na, prob=cont.atencao+cont.critico;
+  if(_vxFiltro==='pend' && !cont.na) _vxFiltro='todos';
+  if(_vxFiltro==='prob' && !prob) _vxFiltro='todos';
+  const passa=id=>{ const st=_vxStatus(id); return _vxFiltro==='todos' || (_vxFiltro==='pend'&&st==='na') || (_vxFiltro==='prob'&&(st==='atencao'||st==='critico')); };
+  const chip=(k,rot,n)=>`<button type="button" class="vx-chip${_vxFiltro===k?' on':''}" onclick="vxFiltro('${k}')">${rot}${n!==null?` <b>${n}</b>`:''}</button>`;
+
+  let html=`<div class="vx-sticky">
+      <div class="vx-prog"><span><b>${feitos}</b> de ${total} vistoriados</span><span class="vx-resumo">${cont.atencao?`⚠️ ${cont.atencao} `:''}${cont.critico?`🔴 ${cont.critico}`:''}</span></div>
+      <div class="vx-barra"><i style="width:${Math.round(feitos/total*100)}%"></i></div>
+      <div class="vx-filtros">${chip('todos','Todos',null)}${chip('pend','Pendentes',cont.na)}${chip('prob','Com problema',prob)}</div>
+    </div>`;
+  const varios=grupos.length>1;
+  grupos.forEach(g=>{
+    const vis=g.itens.filter(i=>passa(i.id)); if(!vis.length) return;
+    const feitosG=g.itens.filter(i=>_vxStatus(i.id)!=='na').length;
+    const nomeG=g.nome||(varios?'Sem ambiente':'Equipamentos');
+    html+=`<div class="vx-grupo"><span>${g.semAmb?'':'📍 '}${esc(nomeG)}</span><small>${feitosG}/${g.itens.length}</small></div>`;
+    // Observação GERAL do ambiente (vazamento na tubulação etc.) — mesmo dado do desktop
+    if(g.nome && !g.semAmb){
+      const _nAmb=esc(g.nome).replace(/'/g,"\\'"); const tem=!!(visAmbienteObs[g.nome]||'').trim();
+      html+=`<details class="vx-amb-obs"${tem?' open':''}><summary>${tem?'✎ ':'＋ '}Observação do ambiente</summary>
+        <textarea rows="2" placeholder="Algo fora dos equipamentos (ex.: vazamento na tubulação)…" oninput="visUpdAmbObs('${_nAmb}',this.value)">${esc(visAmbienteObs[g.nome]||'')}</textarea></details>`;
+    }
+    vis.forEach(i=>{
+      const st=_vxStatus(i.id), nf=_vxFotos(i.id), temObs=!!((visEquipDados[i.id]||{}).obs||'').trim();
+      const sub=[i.marca,i.modelo,i.potencia].filter(Boolean).join(' · ');
+      html+=`<button type="button" class="vx-row st-${st}" id="vx-row-${i.id}" onclick="vxAbrir('${i.id}')">
+        <span class="vx-dot" aria-hidden="true"></span>
+        <span class="vx-tx"><b>${esc(i.nome)}</b>${sub?`<small>${esc(sub)}</small>`:''}</span>
+        <span class="vx-meta">${st!=='na'?`<em>${_VX_ROT[st].replace(/^\S+\s/,'')}</em>`:''}${nf?`<span>📷${nf}</span>`:''}${temObs?'<span>📝</span>':''}</span>
+        <span class="vx-chev" aria-hidden="true">›</span></button>`;
+    });
+  });
+  if(!_vxOrdem.some(passa)) html+=`<div class="vx-vazio">Nenhum equipamento neste filtro.</div>`;
+  el.innerHTML=html;
+  if(_vxAtual) _vxRenderTela(false);
+
+  // Plano com muitos equipamentos: recolhe o bloco de "tipos de equipamento" (raramente usado)
+  const card=document.getElementById('vis-local-eq-card');
+  if(card && !window._vxLocalTocado) card.classList.toggle('vx-rec', (_visEquipsCustom||[]).length>0);
+}
+function vxToggleLocalEq(){
+  if(!_fxCelular()) return;
+  const c=document.getElementById('vis-local-eq-card'); if(!c) return;
+  window._vxLocalTocado=true; c.classList.toggle('vx-rec');
+}
+function vxFiltro(k){ _vxFiltro=k; renderVisEquipGrid(); }
+function vxAuto(on){ _vxAuto=!!on; try{ localStorage.setItem('fluxa_vx_auto', on?'1':'0'); }catch(e){} }
+
+function vxAbrir(id){
+  _vxAtual=id;
+  const t=document.getElementById('vx-tela'); if(!t) return;
+  t.classList.add('on'); document.body.classList.add('vx-aberto');
+  const ck=document.getElementById('vx-auto'); if(ck) ck.checked=_vxAuto;
+  _vxRenderTela(true);
+}
+function vxFechar(){
+  const id=_vxAtual; _vxAtual=null;
+  document.getElementById('vx-tela')?.classList.remove('on'); document.body.classList.remove('vx-aberto');
+  try{ _salvarRascunhoVis(); }catch(e){}
+  renderVisEquipGrid(); // atualiza a lista (status/contadores) com o que foi preenchido
+  if(id) document.getElementById('vx-row-'+id)?.scrollIntoView({block:'center'});
+}
+function vxNav(dir){
+  const i=_vxOrdem.indexOf(_vxAtual); if(i<0) return;
+  const j=i+dir;
+  if(j<0) return;
+  if(j>=_vxOrdem.length){ vxFechar(); toast('✅ Fim da lista — confira os pendentes'); return; }
+  _vxAtual=_vxOrdem[j]; _vxRenderTela(true);
+}
+function _vxRenderTela(reset){
+  const id=_vxAtual; if(!id) return;
+  const info=_vxItens().find(i=>i.id===id);
+  if(!info){ vxFechar(); return; }
+  const corpo=document.getElementById('vx-corpo'); if(!corpo) return;
+  // Digitando a observação: não recria o cartão (fecharia o teclado)
+  const ativo=document.activeElement;
+  if(!reset && ativo && corpo.contains(ativo) && /^(TEXTAREA|INPUT)$/.test(ativo.tagName)) return;
+  const topo=corpo.scrollTop;
+  if(!visEquipDados[id]) visEquipDados[id]={status:'na',obs:'',fotos:[]};
+  corpo.innerHTML='';
+  corpo.appendChild(buildEquipBlock(id,info.emoji,info.nome,visEquipDados[id],info.modelo,info.potencia,info.marca,info.ficha,true));
+  corpo.scrollTop=reset?0:topo;
+  const pos=_vxOrdem.indexOf(id);
+  const sub=[info.ambiente,[info.marca,info.modelo,info.potencia].filter(Boolean).join(' · ')].filter(Boolean).join(' — ');
+  const tit=document.getElementById('vx-tit'); if(tit) tit.textContent=info.nome;
+  const pp=document.getElementById('vx-pos'); if(pp) pp.textContent=`${pos+1} de ${_vxOrdem.length}${sub?' · '+sub:''}`;
+  const st=_vxStatus(id), stEl=document.getElementById('vx-st');
+  if(stEl){ stEl.textContent=_VX_ROT[st]; stEl.className='vx-topo-st st-'+st; }
+  const ant=document.getElementById('vx-ant'); if(ant) ant.disabled=pos<=0;
+  const prox=document.getElementById('vx-prox'); if(prox) prox.textContent=(pos>=_vxOrdem.length-1)?'Concluir ✓':'Próximo ›';
+}
+
 // Renomeia um equipamento avulso (só atualiza o cabeçalho, sem re-render p/
 // não perder o foco do input). O nome é salvo no rascunho via debounce.
 function visRenomearEquip(id, val){
@@ -14585,6 +14729,7 @@ function visRenomearEquip(id, val){
   ceq.nome=val;
   const nm=document.querySelector(`#vis-block-${id} .vis-equip-nome`);
   if(nm) nm.textContent=val||'Equipamento';
+  if(_vxAtual===id){ const t=document.getElementById('vx-tit'); if(t) t.textContent=val||'Equipamento'; }
   _salvarRascunhoVisDeb();
 }
 function visRemoverEquipAdhoc(id){
@@ -14610,6 +14755,7 @@ function setVisEquipStatus(id, status){
   visEquipDados[id].status = status;
   renderVisEquipGrid();
   _salvarRascunhoVis();
+  if(_vxAtual===id && status==='bom' && _vxAuto) setTimeout(()=>{ if(_vxAtual===id) vxNav(1); }, 450);
 }
 
 function visUpdObs(id, val){
