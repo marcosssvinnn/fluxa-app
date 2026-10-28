@@ -2,6 +2,25 @@
 
 ---
 
+## 🧹 Clientes sem unidade → Fortemp + fichas "fantasma" no cache (28/10)
+
+- **Clientes sem unidade (pedido do Marcos):** 157 dos 160 clientes com `loja_id` vazio/'default'
+  foram para `fortemp-itapema`. FICARAM DE FORA 3 que também têm registros da Aquamotor (SNI BRASIL,
+  CONDOMINIO BRISA DO MAR, TORRI DI MARE RESIDENZIALE). Banco depois: Fortemp 495, Aquamotor 52,
+  sem unidade 3. Os 6 orçamentos + 1 OS sem loja NÃO foram mexidos. **Backup dentro do banco:** linha
+  de `auditoria` id `aud_migr_cli_1793182754396` (acao `migracao_clientes_sem_unidade`, `detalhe` =
+  JSON com `itens:[[id, loja_original]]`) — para desfazer, `update clientes set loja_id=<original>`.
+  (O download de arquivo foi bloqueado pelo Chrome na 2ª tentativa.)
+- **Bug achado:** `carregarClientesRemoto` mesclava TODO cliente do cache local que não estava no
+  banco — inclusive os apagados em outro lugar —, então fichas duplicadas apagadas voltavam em
+  qualquer aparelho com cache antigo (um Chrome tinha 1.006 clientes no cache contra 550 no banco,
+  456 fantasmas). A regra de 48 h só valia para ENVIAR ao banco, não para exibir. Agora só mantém
+  localmente id `cli_<timestamp>` recente (cadastro novo ainda não sincronizado).
+
+sw.js: fluxa-v267 → fluxa-v268.
+
+---
+
 ## 🏬 Loja de Camboriú encerrada — Itapema vira a única unidade "Fortemp" (28/10)
 
 Pedido do Marcos: Camboriú não existe mais; unificar tudo (clientes, contatos, estoque, histórico).

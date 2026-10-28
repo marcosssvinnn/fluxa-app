@@ -1624,7 +1624,12 @@ async function carregarClientesRemoto(){
     const dbIds=new Set(remoto.map(x=>x.id));
     // Merge: BD é fonte de verdade + preserva clientes criados offline
     const merged=[...remoto];
-    const soLocal=local.filter(l=>!dbIds.has(l.id)&&!_tombCli.has(l.id));
+    // Só mantém o que é cadastro NOVO ainda não sincronizado (id 'cli_<timestamp>',
+    // recente). Cliente com id de banco (uuid) que não veio do banco foi APAGADO em
+    // outro lugar — manter ele aqui "ressuscitava" no cache e na tela, em qualquer
+    // aparelho com cache antigo (28/10: um Chrome tinha 456 fichas fantasma de duplicatas
+    // já apagadas, com a loja de Camboriú). Antes a idade só valia pra enviar ao banco.
+    const soLocal=local.filter(l=>!dbIds.has(l.id)&&!_tombCli.has(l.id)&&String(l.id).startsWith('cli_')&&_idadeIdMs(l.id)<DOIS_DIAS_MS);
     soLocal.forEach(l=>merged.push(l));
     lsCliSalvar(merged);
     if(document.getElementById('page-clientes').classList.contains('on')) renderClientes();
