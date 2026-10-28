@@ -2,6 +2,35 @@
 
 ---
 
+## 📋 Vistoria: o plano do local guarda os equipamentos (28/10)
+
+Marcos refazia a lista de equipamentos de cada local TODO mês. O plano
+(`locais_vistoria.equipamentos`) já era a "configuração do local" que a vistoria carrega, mas
+medido em produção: **só o Infinity Coast Tower tinha plano preenchido (51)**; 11 locais (10
+da Aquamotor, 1 da Fortemp) tinham vistorias de 3–7 equipamentos e plano VAZIO.
+
+- **Padrão por frequência** (`_equipsPadraoDoHistorico`): últimas 3 vistorias do local; item que
+  aparece em ≥2 delas entra (com <3 vistorias vale a mais recente). Pedido do Marcos: mês corrido
+  não pode encolher a lista. Chave = nome+ambiente normalizados; ordem da vistoria mais recente.
+  Usado como reserva em `iniciarVistoriaPlena` quando o plano está vazio.
+- **O plano só muda por ação explícita** (`_visSincronizarPlano`, chamado em `salvarVistoria`):
+  adicionar / tirar / renomear / mudar ambiente dentro da vistoria. Deixar de preencher um
+  equipamento NÃO o tira do plano. Só a vistoria mais recente do local manda (refazer mês antigo
+  não desfaz o plano). `_salvarLocalUnico` grava só aquele plano; offline fica `_pendingSync` e
+  `loadLocaisRemoto` agora reenvia edição pendente de plano que já existe no banco (antes o
+  remoto sobrescrevia).
+- **Todo equipamento do local** (não só os avulsos) ganhou nome editável, ambiente (com sugestões
+  dos ambientes já usados) e "🗑 Tirar" com confirmação — vale no desktop e no celular. No celular,
+  "＋ Adicionar equipamento" no fim da lista (nome + ambiente) já abre a tela cheia dele.
+- Aquamotor é uma das empresas que MAIS faz vistoria (dito pelo Marcos) — conferir sempre as duas
+  empresas ao mexer em vistoria.
+- Preenchimento inicial dos planos vazios: rodado em produção (ver nota abaixo, se existir) a
+  partir de `_equipsPadraoDoHistorico`.
+
+sw.js: fluxa-v264 → fluxa-v265.
+
+---
+
 ## 📱 Celular — etapa 2: vistoria em lista compacta + tela cheia por equipamento (28/10)
 
 Continuação da etapa 1 (abaixo). Uma vistoria real (Infinity Coast Tower) tem 51 equipamentos e

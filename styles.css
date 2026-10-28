@@ -2223,3 +2223,8 @@
       /* técnico no celular já abre em Vistorias: o atalho "← Minhas OS" só ocupa espaço */
       #vis-back-os{display:none!important}
     }
+
+    @media(max-width:680px){
+      .vx-add{display:block;width:100%;min-height:54px;margin:12px 0 4px;border:2px dashed var(--c1);border-radius:12px;background:var(--c1-light);color:var(--c1);font-size:15px;font-weight:800;font-family:'Instrument Sans',sans-serif;cursor:pointer}
+      .vx-corpo .vis-eq-edit input{font-size:16px!important;min-height:46px}
+    }

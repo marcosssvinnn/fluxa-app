@@ -13705,6 +13705,16 @@ async function loadLocaisRemoto(){
       try{ const r=await dbUpsert('locais_vistoria', {...l, updated_at:new Date().toISOString()}); if(r&&r.error){ if(_tabelaAusente(r.error.message)){ _locaisTabelaOk=false; return; } } else { delete l._pendingSync; } }
       catch(e){ console.warn('[loadLocaisRemoto:migra]', e?.message||e); }
     }
+    // Edição feita offline em plano que JÁ existe no banco (ex.: equipamentos aprendidos
+    // na vistoria): reenvia a versão do aparelho em vez de deixar o remoto sobrescrever.
+    for(const l of local.filter(x=>remotoIds.has(x.id) && !_tomb.has(x.id) && x._pendingSync===true)){
+      try{
+        const {_pendingSync, ...payload}=l;
+        const r=await dbUpsert('locais_vistoria', {...payload, updated_at:new Date().toISOString()});
+        if(!(r&&r.error)){ const i=remoto.findIndex(x=>x.id===l.id); if(i>=0) remoto[i]={...remoto[i], ...payload}; }
+        else console.warn('[loadLocaisRemoto:pend]', r.error.message);
+      }catch(e){ console.warn('[loadLocaisRemoto:pend]', e?.message||e); }
+    }
     locaisVistoria=[...remoto, ...soLocalPend];
     lsSet(LS_LOCAIS_VIS, JSON.stringify(locaisVistoria));
     CFG.locais_vistoria=locaisVistoria;
@@ -13781,6 +13791,77 @@ function normalizeLocEquips(equips){
   const vistos=new Set();
   list.forEach(e=>{ if(vistos.has(e.id)) e.id=_novoEquipId(); vistos.add(e.id); });
   return list;
+}
+
+
+// ══════════════════════════════════════════════════
+//  PLANO APRENDE OS EQUIPAMENTOS DO LOCAL (28/10)
+//  Todo mês o técnico refazia a lista de equipamentos de cada local. O plano
+//  (locais_vistoria.equipamentos) já guarda isso, mas só o Infinity Coast Tower
+//  estava preenchido (os outros 11 locais com vistoria tinham plano vazio).
+//  Regras:
+//   • Padrão por FREQUÊNCIA: olha as últimas 3 vistorias do local; item que
+//     aparece em ≥2 delas entra (com <3 vistorias, vale a mais recente). Mês
+//     corrido (poucos itens preenchidos) não encolhe a lista.
+//   • O plano só muda por ação EXPLÍCITA (adicionar / tirar / renomear / ambiente
+//     na vistoria) — deixar de preencher um equipamento NÃO tira ele do plano.
+// ══════════════════════════════════════════════════
+function _eqNomeNorm(s){ return (s||'').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,' ').trim(); }
+function _equipsDeVistoria(v){
+  let e=v&&v.equipamentos; if(typeof e==='string'){ try{ e=JSON.parse(e); }catch(_){ e=[]; } }
+  return Array.isArray(e)?e:[];
+}
+function _vistoriasDoLocal(loc, vistorias){
+  const nc=_eqNomeNorm(loc.cliente), nl=_eqNomeNorm(loc.local);
+  return (vistorias||lsVisLer()||[]).filter(v=> (v.local_id&&v.local_id===loc.id) || (_eqNomeNorm(v.cliente)===nc && _eqNomeNorm(v.local)===nl))
+    .sort((a,b)=>(b.data||'').localeCompare(a.data||''));
+}
+function _equipsPadraoDoHistorico(loc, vistorias){
+  const ult=_vistoriasDoLocal(loc, vistorias).slice(0,3);
+  if(!ult.length) return [];
+  const chave=e=>_eqNomeNorm(e.nome)+'|'+_eqNomeNorm(e.ambiente||'');
+  const cont=new Map();
+  ult.forEach(v=>{ const vistos=new Set(); _equipsDeVistoria(v).forEach(e=>{ if(!e||!e.nome) return; const k=chave(e); if(vistos.has(k)) return; vistos.add(k); cont.set(k,(cont.get(k)||0)+1); }); });
+  const vale=k=> ult.length>=3 ? (cont.get(k)||0)>=2 : _equipsDeVistoria(ult[0]).some(e=>e&&e.nome&&chave(e)===k);
+  const out=[], usados=new Set();
+  ult.forEach(v=>_equipsDeVistoria(v).forEach(e=>{
+    if(!e||!e.nome) return; const k=chave(e); if(usados.has(k)||!vale(k)) return; usados.add(k);
+    out.push({id:(String(e.id||'').startsWith('eq_')?e.id:_novoEquipId()), nome:String(e.nome).trim(), marca:e.marca||'', modelo:e.modelo||'', potencia:e.potencia||'', serie:e.serie||'', ficha:e.ficha||'', ambiente:String(e.ambiente||'').trim()});
+  }));
+  return out;
+}
+// Grava UM plano (não reenvia todos como o saveLocais). Offline: fica pendente
+// e é reenviado em loadLocaisRemoto.
+async function _salvarLocalUnico(loc){
+  loc.updated_at=new Date().toISOString();
+  const grava=()=>{ lsSet(LS_LOCAIS_VIS, JSON.stringify(locaisVistoria)); CFG.locais_vistoria=locaisVistoria; };
+  if(!dbOk||!db){ loc._pendingSync=true; grava(); return false; }
+  try{
+    const {_pendingSync, ...payload}=loc;
+    const r=await dbUpsert('locais_vistoria', payload);
+    if(r&&r.error){ loc._pendingSync=true; grava(); console.warn('[salvarLocalUnico]', r.error.message); return false; }
+    delete loc._pendingSync; grava(); return true;
+  }catch(e){ loc._pendingSync=true; grava(); console.warn('[salvarLocalUnico]', e?.message||e); return false; }
+}
+// Ao salvar uma vistoria de um plano: o plano passa a refletir a lista usada nela
+// (inclui o que foi adicionado, tirado e renomeado). Só a vistoria mais recente do
+// local manda — refazer um mês antigo não desfaz o plano atual.
+function _visSincronizarPlano(locId, rec){
+  try{
+    const loc=(locaisVistoria||[]).find(x=>x.id===locId); if(!loc||!rec) return;
+    const mes=rec.mes_ref||(rec.data||'').slice(0,7);
+    const maisNova=(lsVisLer()||[]).filter(v=>v.id!==rec.id && v.local_id===locId).some(v=>(v.mes_ref||(v.data||'').slice(0,7))>mes);
+    if(maisNova) return;
+    const novos=_equipsDeVistoria(rec).filter(e=>e&&(e.nome||'').trim()).map(e=>({
+      id:(String(e.id||'').startsWith('eq_')?e.id:_novoEquipId()), nome:String(e.nome).trim(), marca:e.marca||'', modelo:e.modelo||'', potencia:e.potencia||'', serie:e.serie||'', ficha:e.ficha||'', ambiente:String(e.ambiente||'').trim()}));
+    if(!novos.length) return;
+    const antes=JSON.stringify(normalizeLocEquips(loc.equipamentos||[]).map(e=>[e.id,e.nome,e.marca,e.modelo,e.potencia,e.ambiente]));
+    const depois=JSON.stringify(novos.map(e=>[e.id,e.nome,e.marca,e.modelo,e.potencia,e.ambiente]));
+    if(antes===depois) return;
+    loc.equipamentos=novos;
+    _salvarLocalUnico(loc);
+    toast('📌 Lista de equipamentos deste local salva para as próximas vistorias');
+  }catch(e){ console.warn('[visSincronizarPlano]', e?.message||e); }
 }
 
 let _locEquipCustom=[]; // [{id, nome, marca, modelo, potencia, serie, ficha, ambiente}]
@@ -14120,8 +14201,13 @@ function iniciarVistoriaPlena(locId){
     if(tNome){ for(const o of tecSel.options){ if(o.text===tNome||o.value===tNome){ o.selected=true; break; } } }
   }
 
-  // Carrega equipamentos do plano como _visEquipsCustom (com modelo/potência)
-  const equips=normalizeLocEquips(loc.equipamentos||[]);
+  // Carrega equipamentos do plano como _visEquipsCustom (com modelo/potência).
+  // Plano vazio → usa o padrão do histórico (itens frequentes das últimas 3 vistorias).
+  let equips=normalizeLocEquips(loc.equipamentos||[]);
+  if(!equips.length){
+    equips=_equipsPadraoDoHistorico(loc);
+    if(equips.length) toast('📋 '+equips.length+' equipamentos carregados do histórico deste local — ajuste se precisar');
+  }
   if(equips.length){
     _visEquipsCustom=equips.map(e=>({id:e.id,nome:e.nome,emoji:e.emoji||'⚙️',marca:e.marca||'',modelo:e.modelo||'',potencia:e.potencia||'',ficha:e.ficha||'',ambiente:e.ambiente||''}));
     equips.forEach(e=>{ visEquipDados[e.id]={status:'na',obs:'',fotos:[]}; });
@@ -14473,6 +14559,7 @@ function renderVisEquipGrid(){
     const fill=document.getElementById('vis-progresso-fill');
     if(fill) fill.style.width=Math.round(feitos/ordem.length*100)+'%';
   })();
+  _visAtualizarDatalistAmbientes();
   // Celular: lista compacta + tela cheia por equipamento (o desktop segue abaixo, igual)
   if(_fxCelular()){ _vxRenderMobile(el); return; }
   // Renderiza equipamentos customizados do plano, agrupados por ambiente
@@ -14530,7 +14617,7 @@ function renderVisEquipGrid(){
 
 function buildEquipBlock(id,emoji,nome,d,modelo,potencia,marca,ficha,aberto){
   const _ceq=(_visEquipsCustom||[]).find(e=>e.id===id);
-  const _adhoc=!!(_ceq&&_ceq._adhoc); // equipamento avulso adicionado na vistoria
+  const _adhoc=!!_ceq; // equipamento do local (plano ou avulso): pode renomear, mudar de ambiente e tirar
   const badgeMap={bom:'badge-bom',atencao:'badge-atencao',critico:'badge-critico',na:'badge-na'};
   const badgeTxt={bom:'✅ Bom',atencao:'⚠️ Atenção',critico:'🔴 Crítico',na:'— N/A'};
   const stClass='status-'+(d.status||'na');
@@ -14555,9 +14642,12 @@ function buildEquipBlock(id,emoji,nome,d,modelo,potencia,marca,ficha,aberto){
       <div class="vis-equip-toggle" id="vis-arr-${id}">${aberto?'▼':'▶'}</div>
     </div>
     <div class="vis-equip-body${aberto?' open':''}" id="vis-body-${id}">
-      ${_adhoc?`<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
-        <input type="text" value="${esc(nome)}" oninput="visRenomearEquip('${id}',this.value)" placeholder="Nome do equipamento" style="flex:1;padding:8px 10px;border:1.5px solid var(--c1);border-radius:8px;font-size:13px;font-weight:600;font-family:'Instrument Sans',sans-serif;outline:none;color:var(--c2)">
-        <button type="button" class="tb d" onclick="visRemoverEquipAdhoc('${id}')" title="Remover este equipamento">🗑</button>
+      ${_adhoc?`<div class="vis-eq-edit" style="margin-bottom:12px">
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="text" value="${esc(nome)}" oninput="visRenomearEquip('${id}',this.value)" placeholder="Nome do equipamento (descreva: ex. Bomba da casa de máquinas da piscina aberta)" style="flex:1;padding:8px 10px;border:1.5px solid var(--c1);border-radius:8px;font-size:13px;font-weight:600;font-family:'Instrument Sans',sans-serif;outline:none;color:var(--c2)">
+          <button type="button" class="tb d" onclick="visRemoverEquipAdhoc('${id}')" title="Tirar este equipamento do local">🗑 Tirar</button>
+        </div>
+        <input type="text" list="vis-ambientes-dl" value="${esc((_ceq&&_ceq.ambiente)||'')}" onchange="visSetAmbienteEquip('${id}',this.value)" placeholder="Ambiente / local (ex.: Casa de máquinas piscina externa)" style="width:100%;box-sizing:border-box;margin-top:6px;padding:8px 10px;border:1.5px solid var(--gray-mid);border-radius:8px;font-size:13px;font-family:'Instrument Sans',sans-serif;outline:none;color:var(--c2)">
       </div>`:''}
       ${fichaHtml}
       <div style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Status</div>
@@ -14663,6 +14753,7 @@ function _vxRenderMobile(el){
     });
   });
   if(!_vxOrdem.some(passa)) html+=`<div class="vx-vazio">Nenhum equipamento neste filtro.</div>`;
+  html+=`<button type="button" class="vx-add" onclick="vxAdicionar()">＋ Adicionar equipamento</button>`;
   el.innerHTML=html;
   if(_vxAtual) _vxRenderTela(false);
 
@@ -14733,11 +14824,57 @@ function visRenomearEquip(id, val){
   _salvarRascunhoVisDeb();
 }
 function visRemoverEquipAdhoc(id){
-  _visEquipsCustom=(_visEquipsCustom||[]).filter(e=>e.id!==id);
-  delete visEquipDados[id];
-  _visEquipAbertos.delete(id);
+  const ceq=(_visEquipsCustom||[]).find(e=>e.id===id); if(!ceq) return;
+  confirmar({
+    titulo:'Tirar equipamento do local',
+    msg:`"${ceq.nome||'Equipamento'}" sai desta vistoria e, ao finalizar, das próximas vistorias deste local. As vistorias já feitas não mudam.`,
+    destrutivo:true, labelSim:'Tirar', labelNao:'Manter',
+    onSim:()=>{
+      _visEquipsCustom=(_visEquipsCustom||[]).filter(e=>e.id!==id);
+      delete visEquipDados[id];
+      _visEquipAbertos.delete(id);
+      if(typeof _vxAtual!=='undefined' && _vxAtual===id){ _vxAtual=null; document.getElementById('vx-tela')?.classList.remove('on'); document.body.classList.remove('vx-aberto'); }
+      renderVisEquipGrid();
+      _salvarRascunhoVis();
+      toast('🗑 Equipamento tirado');
+    }
+  });
+}
+// Muda o ambiente de um equipamento do local (agrupa a lista e vai pro plano ao finalizar)
+function visSetAmbienteEquip(id, val){
+  const ceq=(_visEquipsCustom||[]).find(e=>e.id===id); if(!ceq) return;
+  ceq.ambiente=(val||'').trim();
   renderVisEquipGrid();
   _salvarRascunhoVis();
+}
+function _visAtualizarDatalistAmbientes(){
+  const dl=document.getElementById('vis-ambientes-dl'); if(!dl) return;
+  const set=new Set((_visEquipsCustom||[]).map(e=>(e.ambiente||'').trim()).filter(Boolean));
+  dl.innerHTML=[...set].map(a=>`<option value="${esc(a)}">`).join('');
+}
+// Celular: adicionar um equipamento sem sair da lista (nome + ambiente)
+function vxAdicionar(){
+  _visAtualizarDatalistAmbientes();
+  const corpo=`<div class="rd-modal-head"><div class="rd-modal-headtx"><h3>Adicionar equipamento</h3><p>Fica salvo neste local para as próximas vistorias</p></div></div>
+    <div style="padding:0 20px 8px">
+      <div class="rd-field"><span class="rd-field-lbl">Nome / descrição</span><input type="text" class="rd-field-box" id="vx-add-nome" placeholder="Ex.: Bomba da casa de máquinas da piscina aberta" style="font-size:16px"></div>
+      <div class="rd-field" style="margin-top:10px"><span class="rd-field-lbl">Ambiente (opcional)</span><input type="text" class="rd-field-box" id="vx-add-amb" list="vis-ambientes-dl" placeholder="Ex.: Casa de máquinas piscina externa" style="font-size:16px"></div>
+    </div>
+    <div class="rd-modal-acts"><button type="button" class="rd-modal-btn rd-modal-btn-nao" onclick="fecharModal('vx-add-modal')">Cancelar</button><button type="button" class="rd-modal-btn rd-modal-btn-sim" onclick="vxAdicionarConfirmar()">Adicionar</button></div>`;
+  abrirModal({corpo, id:'vx-add-modal'});
+  setTimeout(()=>document.getElementById('vx-add-nome')?.focus(), 150);
+}
+function vxAdicionarConfirmar(){
+  const nome=(document.getElementById('vx-add-nome')?.value||'').trim();
+  const amb=(document.getElementById('vx-add-amb')?.value||'').trim();
+  if(!nome){ toast('⚠️ Digite o nome do equipamento'); return; }
+  const id=_novoEquipId();
+  _visEquipsCustom.push({id, nome, emoji:'⚙️', marca:'', modelo:'', potencia:'', ficha:'', ambiente:amb, _adhoc:true});
+  visEquipDados[id]={status:'na',obs:'',fotos:[]};
+  fecharModal('vx-add-modal');
+  const card=document.getElementById('vis-equip-card'); if(card) card.style.display='';
+  renderVisEquipGrid(); _salvarRascunhoVis();
+  vxAbrir(id);
 }
 
 function toggleVisEquipBody(id){
@@ -15459,8 +15596,10 @@ async function salvarVistoria(){
 
   try{
     const veioDoPlano = !!(window._visLocalId); // lido ANTES de zerar
+    const _locIdPlano = window._visLocalId;
     const rec = _montarRecVistoria();
     _persistVistoria(rec);          // local imediato + nuvem em background
+    if(_locIdPlano) _visSincronizarPlano(_locIdPlano, rec); // plano aprende a lista usada
     window._visLocalId = null;
 
     // Feedback IMEDIATO — não espera a rede.
