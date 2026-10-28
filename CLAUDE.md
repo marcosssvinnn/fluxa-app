@@ -2,6 +2,34 @@
 
 ---
 
+## 🔧 Fluxo de OS do técnico: "Minhas OS" + assumir de propósito (28/10)
+
+Pedido do Marcos: ver se o fluxo gestor → técnico → OS funciona de verdade ("nunca funcionou direito").
+Testado no emulador Android como Bruno (técnico). Achados:
+
+- **Abrir uma OS gravava no banco.** `_abrirOSForm` fazia check-in automático (13/08) e preenchia
+  `os-tec` com o nome da sessão; o autosave então gravava `tecnico='Bruno'` + `checkin_time=agora`,
+  mesmo numa OS sem dono só aberta pra ler. (No teste isso aconteceu na OS #210 — revertida à mão:
+  `tecnico=''`, `checkin_time=null`, uma linha, condição restrita.) Agora: check-in automático só
+  se a OS já é DESTE técnico e é de hoje/atrasada (`_osEhDoTecnico`); em OS sem dono o técnico
+  toca em "Check-in" (que agora grava `tecnico` junto) ou em "Assumir" na lista.
+- **OS sem técnico = ninguém é responsável.** A maioria das OS reais nasce sem técnico (criação
+  na aprovação deixava técnico/data opcionais) e aparecia pra todos. Agora `criarOSdeAprovacao`
+  exige data e técnico (quem não sabe usa "Não por agora"), e a lista de técnicos é a da empresa
+  do orçamento (`_tecnicosDaLoja`: Aquamotor = Marcos e Bruno).
+- **Minhas OS:** cartão "Sem técnico" + botão **Assumir** (`assumirOS`, grava só `tecnico`);
+  OS sem dono não mostra "Concluir"; nome que não é de técnico (ex.: "Forthemp" na OS #192)
+  conta como sem dono; "Concluídas" só as do próprio técnico (as sem técnico antigas poluíam);
+  linha de resumo ("N suas · M sem técnico · K atrasadas"); vazio explica que as vistorias
+  mensais ficam na aba Vistorias (na Aquamotor só existem placeholders `ag_plano`, nenhuma OS
+  de serviço). "Dar baixa" saiu da fileira de filtros (parecia mais um filtro).
+- Testado local (offline) + Android. Não há aviso/notificação de "OS atribuída a você" (o técnico só
+  vê abrindo Minhas OS) — fica como ideia, não feito.
+
+sw.js: fluxa-v270 → fluxa-v271.
+
+---
+
 ## 🧹 Rodada "corrigir tudo" do emulador Android + limpeza de avisos no celular (28/10)
 
 Achados do teste no emulador (Android 14) e o pedido do Marcos: no celular o sino/avisos

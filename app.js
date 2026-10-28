@@ -3417,7 +3417,7 @@ function _perguntarCriarOS(orc){
   dataEl.value=orc.data_servico||_hojeLocal();
   document.getElementById('aprov-os-hora').value='08:00';
   const sel=document.getElementById('aprov-os-tec');
-  const tecs=getTecnicos();
+  const tecs=_tecnicosDaLoja(orc.loja_id);
   sel.innerHTML='<option value="">Selecione…</option>'+tecs.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join('');
   // Só oferece a Ordem de Entrega se houver o que entregar.
   const _row=document.getElementById('aprov-entrega-row');
@@ -3499,9 +3499,12 @@ async function criarOSdeAprovacao(){
   const data=document.getElementById('aprov-os-data').value;
   const hora=document.getElementById('aprov-os-hora').value||'08:00';
   const tec=document.getElementById('aprov-os-tec').value;
-  // data e tec são opcionais — podem ser preenchidos depois via "Editar OS"
+  // Data e técnico agora são obrigatórios (28/10): OS sem técnico não aparece como
+  // "minha" pra ninguém e ficava parada. Quem não sabe ainda escolhe "Não por agora".
   const orc=todosOrc.find(x=>x.id===orcId);
   if(!orc){ toast('⚠️ Orçamento não encontrado'); fecharAprovOS(); return; }
+  if(!data){ avisarCampoObrigatorio('aprov-os-data','Escolha a data do serviço — ou toque em "Não por agora" e agende depois.'); return; }
+  if(!tec){ avisarCampoObrigatorio('aprov-os-tec','Escolha o técnico responsável: é ele que vê a OS em "Minhas OS". Se ainda não sabe, toque em "Não por agora".'); return; }
   const btn=document.getElementById('aprov-os-btn');
   if(btn){ btn.disabled=true; btn.textContent='Criando…'; }
   try{
@@ -8424,7 +8427,10 @@ function _abrirOSForm(o){
   setV('os-data',o.data_servico||''); setV('os-hora',o.hora||'08:00');
   // Técnico: auto-preencher com o usuário logado se o campo estiver vazio
   const nomeSessao=getSessao()?.nome||'';
-  setV('os-tec',o.tecnico||nomeSessao); setV('os-total',String(o.total||0));
+  // Técnico só vira responsável quando assume de propósito (check-in/"Assumir"):
+  // antes, só abrir a OS gravava o nome dele via autosave, mesmo sem ser dele.
+  const _tecReal=LOJAS.flatMap(l=>l.tecs||[]).some(t=>t.toLowerCase().trim()===(o.tecnico||'').toLowerCase().trim());
+  setV('os-tec',eTecnico()?(_tecReal?o.tecnico:''):(o.tecnico||nomeSessao)); setV('os-total',String(o.total||0));
   // Materiais estruturados agora persistem de verdade (Tarefa 3i.8,
   // tabela os_materiais) — antes a lista sempre começava zerada ao reabrir
   // a OS (limitação registrada em 13/08); carrega em background (a função
@@ -8491,10 +8497,38 @@ function _abrirOSForm(o){
   // sem exigir um toque a mais. Guardado por OS nesta sessão do navegador
   // (_autoCheckinFeitoPara) pra não re-disparar — e resetar checkinAt — toda
   // vez que o técnico só volta a olhar a mesma OS que já tinha aberto antes.
-  if(_tecMode && o.status!=='concluido' && !checkinAt && !_autoCheckinFeitoPara.has(o.id) && checkinSel?.value){
+  // 28/10: só automático quando a OS já é DESTE técnico e é de hoje (ou atrasada).
+  // OS sem dono ou de outra pessoa não inicia relógio só por ser aberta (abrir
+  // pra ler o que precisa levar gravava "técnico no local" e assumia a OS) —
+  // nesse caso o técnico toca em "Check-in", que também assume a OS.
+  if(_tecMode && o.status!=='concluido' && !checkinAt && !_autoCheckinFeitoPara.has(o.id) && checkinSel?.value
+     && _osEhDoTecnico(o) && (!o.data_servico || o.data_servico<=_hojeLocal())){
     fazerCheckin();
     _autoCheckinFeitoPara.add(o.id);
   }
+}
+function _osEhDoTecnico(o, nome){
+  const meu=(nome||getSessao()?.nome||'').toLowerCase().trim();
+  return !!meu && (o?.tecnico||'').toLowerCase().trim()===meu;
+}
+// "Assumir" na lista Minhas OS: grava o técnico na OS sem dono, sem abrir o formulário.
+async function assumirOS(id){
+  const sess=getSessao(); if(!sess||sess.perfil!=='tecnico') return;
+  const nome=sess.nome;
+  const o=(window._minhasOSAll||[]).find(x=>x.id===id)||_acharOS(id);
+  if(!o){ toast('OS não encontrada'); return; }
+  if((o.tecnico||'').trim() && !_osEhDoTecnico(o) && (LOJAS.flatMap(l=>l.tecs||[]).some(t=>t.toLowerCase().trim()===(o.tecnico||'').toLowerCase().trim()))){
+    toast('Esta OS já é de '+o.tecnico); return;
+  }
+  o.tecnico=nome;
+  const i=(todosOS||[]).findIndex(x=>x.id===id); if(i>=0) todosOS[i]={...todosOS[i], tecnico:nome};
+  if(dbOk&&db&&!String(id).startsWith('local_')){
+    const r=await dbUpdate('ordens_servico',{tecnico:nome},'id',id);
+    if(r&&r.error){ toast('⚠️ Não sincronizou com o servidor — verifique a conexão e tente de novo'); return; }
+  }
+  logAcao('os_assumida','#'+String(o.numero||'?').padStart(3,'0')+' por '+nome);
+  toast('OS #'+String(o.numero||'?').padStart(3,'0')+' agora é sua');
+  renderMinhasOS();
 }
 
 // Trava o Valor Total quando a OS está vinculada a um orçamento aprovado
@@ -9333,15 +9367,33 @@ async function loadMinhasOS(){
   renderMinhasOS();
 }
 function renderMinhasOS(){
+  const _nomesReais=new Set(LOJAS.flatMap(l=>l.tecs||[]).map(t=>(t||'').toLowerCase().trim()));
+  // "sem dono": campo vazio ou nome que não é de técnico (ex.: "Forthemp") — qualquer técnico pode assumir
+  const _semDono=o=>{ const t=(o.tecnico||'').toLowerCase().trim(); return t==='' || !_nomesReais.has(t); };
+  const _abertas=o=>o.status!=='concluido' && o.status!=='cancelado';
+  const _hj0=_hojeLocal();
   let lista = (window._minhasOSAll || []).filter(o => {
-    if(tecOSFiltro === 'pendente') return o.status !== 'concluido' && o.status !== 'cancelado';
-    if(tecOSFiltro === 'concluido') return o.status === 'concluido';
-    return true;
+    if(tecOSFiltro === 'pendente') return _abertas(o);
+    // concluídas: só as dele (as sem técnico do passado não são de ninguém e poluíam a lista)
+    if(tecOSFiltro === 'concluido') return o.status === 'concluido' && _osEhDoTecnico(o);
+    return _abertas(o) || _osEhDoTecnico(o);
   });
   const el = document.getElementById('tec-os-lista');
   if(!el) return;
+  const _resumo=document.getElementById('tec-os-resumo');
+  if(_resumo){
+    const ab=(window._minhasOSAll||[]).filter(_abertas);
+    const minhas=ab.filter(o=>!_semDono(o)).length, livres=ab.filter(_semDono).length;
+    const atr=ab.filter(o=>o.status==='agendado'&&o.data_servico&&o.data_servico<_hj0).length;
+    _resumo.innerHTML = ab.length
+      ? `<b>${minhas}</b> sua${minhas===1?'':'s'}${livres?` · <b>${livres}</b> sem técnico (toque em Assumir)`:''}${atr?` · <span style="color:var(--bad,#c2410c)"><b>${atr}</b> atrasada${atr===1?'':'s'}</span>`:''}`
+      : '';
+  }
   if(!lista.length){
-    el.innerHTML = `<div class="empty-st"><div class="ei">📋</div><p>Nenhuma OS encontrada.</p></div>`;
+    const _vazio = tecOSFiltro==='pendente'
+      ? 'Nenhuma OS de serviço para você agora.<br><span style="font-size:12.5px;color:var(--gray)">As vistorias mensais ficam na aba Vistorias.</span>'
+      : 'Nenhuma OS encontrada.';
+    el.innerHTML = `<div class="empty-st"><div class="ei">📋</div><p>${_vazio}</p></div>`;
     return;
   }
   const _hj=_hojeLocal();
@@ -9372,19 +9424,26 @@ function renderMinhasOS(){
     const btnPDF=`<button class="tb" style="font-size:11px;padding:5px 8px" title="Gerar PDF desta OS" onclick="event.stopPropagation();_gerarPDFdaOS('${o.id}')">📄 PDF</button>`;
     const naoConcluida=o.status!=='concluido'&&o.status!=='cancelado';
     // Botão grande de conclusão em 1 toque — para uso em campo, sem abrir o formulário longo
-    const btnConcluir=naoConcluida
+    const semDono=naoConcluida && _semDono(o);
+    const btnAssumir=semDono
+      ?`<button class="tb" style="background:var(--c1);color:white;border-color:var(--c1);font-weight:700;font-size:13px;padding:8px 14px" onclick="event.stopPropagation();assumirOS('${o.id}')">Assumir</button>`:'';
+    const tagDono=naoConcluida
+      ? (semDono?'<span style="font-size:10px;font-weight:700;background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:50px">Sem técnico</span>'
+        : (_osEhDoTecnico(o)?'':`<span style="font-size:10px;font-weight:700;background:var(--gray-light);color:var(--gray);padding:2px 8px;border-radius:50px">${esc(o.tecnico||'')}</span>`))
+      : '';
+    const btnConcluir=(naoConcluida && !semDono)
       ?`<button class="tb" style="background:#16a34a;color:white;border-color:#16a34a;font-weight:700;font-size:13px;padding:8px 14px" title="Concluir esta OS (baixa de estoque automática)" onclick="event.stopPropagation();concluirOSHistorico('${o.id}')">✅ Concluir</button>`:'';
     return `<div class="tec-os-card" onclick="editarOS('${o.id}')">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;gap:8px">
         <span class="on">#${num}</span>
-        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end">${tipoBadge}<span class="os-badge ${stCl}">${stTx}</span></div>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end">${tagDono}${tipoBadge}<span class="os-badge ${stCl}">${stTx}</span></div>
       </div>
       <div class="tec-os-cli">${esc(o.cliente||'—')}</div>
       <div class="tec-os-det">${esc(o.local_servico||'')}${o.local_servico&&dt!=='—'?' · ':''}${dt!=='—'?`<strong>${dt}</strong>`:''}</div>
       ${svcs?`<div class="tec-os-det" style="margin-top:2px;color:var(--gray)">${esc(svcs)}</div>`:''}
       <div style="margin-top:8px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
         <div>${getLojaBadge(o.loja_id)}</div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">${btnWA}${btnPDF}${btnConcluir}</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">${btnWA}${btnPDF}${btnAssumir}${btnConcluir}</div>
       </div>
     </div>`;
   }).join('');
@@ -11870,6 +11929,12 @@ function verFotoDesp(id){
 let todosAg = [], calAno, calMes, checkinAt = null, checkinTimer = null;
 
 function getTecnicos(){ return LOJAS.flatMap(l=>l.tecs||[]).filter((v,i,a)=>a.indexOf(v)===i); }
+// Técnicos da empresa da OS/orçamento (Josimar e Eldecir não atendem a Aquamotor).
+// Sem empresa conhecida, cai na lista geral.
+function _tecnicosDaLoja(lojaId){
+  const l=LOJAS.find(x=>x.id===_normLojaId(lojaId));
+  return (l&&(l.tecs||[]).length) ? l.tecs : getTecnicos();
+}
 
 function populaTecSelects(){
   const tecs=getTecnicos();
@@ -12322,9 +12387,10 @@ function fazerCheckin(){
   // não muda nada do fluxo de checkout que já funcionava.
   if(osCheckinId){
     const idx=(todosOS||[]).findIndex(x=>x.id===osCheckinId);
-    if(idx>=0) todosOS[idx]={...todosOS[idx], checkin_time:checkinAt.toISOString()};
+    if(idx>=0) todosOS[idx]={...todosOS[idx], checkin_time:checkinAt.toISOString(), tecnico:tec};
     if(dbOk&&db&&!String(osCheckinId).startsWith('local_')){
-      dbUpdate('ordens_servico', {checkin_time:checkinAt.toISOString()}, 'id', osCheckinId)
+      // tecnico junto: quem faz check-in é quem assumiu a OS (antes só o autosave gravava)
+      dbUpdate('ordens_servico', {checkin_time:checkinAt.toISOString(), tecnico:tec}, 'id', osCheckinId)
         .catch(e=>console.warn('[fazerCheckin]', e?.message||e));
     }
     if(typeof _renderOSEstado==='function' && osEditId===osCheckinId) _renderOSEstado(todosOS.find(x=>x.id===osCheckinId));
