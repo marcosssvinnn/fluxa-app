@@ -234,11 +234,11 @@ function aplicarPermissoesPerfil(){
   // contando "Mais"). Vistorias continua acessível pelo gestor via sidebar;
   // quem faz vistoria de verdade é o técnico, que mantém o atalho aqui.
   const mnbRules = {
-    'mnb-visitas'  : tecnico,
+    'mnb-visitas'  : tecnico||gestor, // gestor também faz vistoria pelo celular (28/10)
     'mnb-insights' : gestor,
     'mnb-minhas-os': tecnico,
     'mnb-form'     : gestor||vendas,
-    'mnb-os'       : gestor||vendas,
+    'mnb-os'       : vendas, // gestor: OS fica no menu "Mais" (1 OS nova em 30 dias; Vistorias ocupa o lugar)
     'mnb-venda-balcao' : gestor||vendas,
   };
   Object.entries(mnbRules).forEach(([id,pode])=>{
@@ -433,10 +433,18 @@ function filtrarPorLoja(lista, campo='loja_id'){
 }
 
 function getLoja(id){ id=_aliasLoja(id); return LOJAS.find(l=>l.id===id)||null; }
-function getLojaNome(id){ return getLoja(id)?.nome || id || '—'; }
+// Nome de exibição de uma unidade/empresa: o que está configurado em "Dados da
+// Empresa" (ex.: logo e título dizem "Acquamotor"/"Forthemp") tem prioridade sobre o
+// rótulo interno do config — antes o cabeçalho dizia "Forthemp" e o seletor "Fortemp".
+function _nomeLoja(l){ try{ const x=(typeof lojasExtraConfig!=='undefined'&&lojasExtraConfig||{})[l.id]; return (x&&x.nome)||l.nome; }catch(e){ return l.nome; } }
+function getLojaNome(id){ const l=getLoja(id); return l?_nomeLoja(l):(id||'—'); }
+// Rótulo da "visão geral" da Fortemp (uma unidade só): nome configurado, não texto fixo
+function _rotuloFortemp(){ const l=(typeof LOJAS!=='undefined'?LOJAS:[]).find(x=>GRUPO_FORTHEMP.includes(x.id)); return (l?_nomeLoja(l):null)||CFG.nome||FLUXA_CONFIG.todasLabel||'Fortemp'; }
 function getLojaBadge(id){
   const l=getLoja(id); if(!l) return '';
-  return `<span class="loja-badge ${l.cor}">${l.nome}</span>`;
+  // Uma unidade só no grupo (Camboriú encerrada): a etiqueta em cada linha é só ruído
+  if(GRUPO_FORTHEMP.length<=1 && GRUPO_FORTHEMP.includes(l.id)) return '';
+  return `<span class="loja-badge ${l.cor}">${_nomeLoja(l)}</span>`;
 }
 // Emoji por origem do lead (captação)
 const ORIGEM_EMOJI={'Já é cliente':'✅','Indicação':'🗣️','Anúncio Google':'🔎','Instagram / Facebook':'📱','WhatsApp direto':'💬','Passou na loja / Fachada':'🏪','Parceiro / Construtora':'🤝'};
@@ -454,9 +462,9 @@ function populaLojaSelect(){
   // Empresas separadas (ex.: Aquamotor) só entram se o usuário tiver acesso ao grupo
   const outros=LOJAS.filter(l=>!GRUPO_FORTHEMP.includes(l.id) && podeAcessarGrupo(l.grupo));
   sel.innerHTML=
-    `<option value="">${esc(FLUXA_CONFIG.todasLabel||'Todas')}</option>`+
-    (principais.length>1 ? principais.map(l=>`<option value="${l.id}">${esc(l.nome)}</option>`).join('') : '')+
-    (outros.length?'<option disabled>──────────</option>'+outros.map(l=>`<option value="${l.id}">${esc(l.nome)}</option>`).join(''):'');
+    `<option value="">${esc(principais.length>1?(FLUXA_CONFIG.todasLabel||'Todas'):_rotuloFortemp())}</option>`+
+    (principais.length>1 ? principais.map(l=>`<option value="${l.id}">${esc(_nomeLoja(l))}</option>`).join('') : '')+
+    (outros.length?'<option disabled>──────────</option>'+outros.map(l=>`<option value="${l.id}">${esc(_nomeLoja(l))}</option>`).join(''):'');
   sel.value=lojaAtiva;
 }
 // Preenche os <select> de empresa dos formulários (orçamento, OS, usuários) a
@@ -537,7 +545,7 @@ function atualizarHeaderLoja(){
   const snUnitVal=document.getElementById('snav-unit-val');
   const snUnitWrap=document.getElementById('snav-unit-wrap');
   if(snUnitVal){
-    snUnitVal.textContent = lojaAtiva ? (getLojaNome(lojaAtiva)||LC.nome||'—') : (CFG.todasLabel||'Todas as unidades');
+    snUnitVal.textContent = lojaAtiva ? (getLojaNome(lojaAtiva)||LC.nome||'—') : (GRUPO_FORTHEMP.length>1 ? (FLUXA_CONFIG.todasLabel||'Todas as unidades') : _rotuloFortemp());
   }
   // Só mostra o seletor pra quem tem mais de 1 unidade pra escolher (mesmo
   // critério do <select> antigo do header, isMainGestor()).
@@ -1081,9 +1089,9 @@ function mostrarSelecaoLojaGestor(){
   if(forthemp.length<=1){
     // Uma unidade só (Camboriú encerrada em 28/10): "Fortemp" é UMA empresa, não
     // "todas as unidades". Mantém o valor '' (visão do grupo) por baixo.
-    html += lojaBtn('','var(--c2)','F','Fortemp',subAberto(nAbertoTodos,'Gerenciar a Fortemp'));
+    html += lojaBtn('','var(--c2)',esc(_rotuloFortemp().charAt(0).toUpperCase()),esc(_rotuloFortemp()),subAberto(nAbertoTodos,'Gerenciar a '+_rotuloFortemp()));
   } else {
-    html += lojaBtn('','var(--c1)','📊','Todas as unidades',subAberto(nAbertoTodos,'Visão geral da Fortemp'));
+    html += lojaBtn('','var(--c1)','📊','Todas as unidades',subAberto(nAbertoTodos,'Visão geral da '+_rotuloFortemp()));
     forthemp.forEach(l=>{
       const n=_loginOrcAbertosLoja(l.id);
       html += lojaBtn(l.id,'var(--c2)',l.nome.replace('Fortemp ','').charAt(0),esc(l.nome),subAberto(n,'Gerenciar esta unidade'));
@@ -1093,7 +1101,7 @@ function mostrarSelecaoLojaGestor(){
     html += `<div class="login-section-label" style="margin-top:14px">Outras empresas</div>`;
     outros.forEach(l=>{
       const n=_loginOrcAbertosLoja(l.id);
-      html += lojaBtn(l.id,corGrupo[l.grupo]||'var(--blue)',l.nome.charAt(0),esc(l.nome),subAberto(n,'Gerenciar empresa'));
+      html += lojaBtn(l.id,corGrupo[l.grupo]||'var(--blue)',_nomeLoja(l).charAt(0),esc(_nomeLoja(l)),subAberto(n,'Gerenciar empresa'));
     });
   }
 
@@ -1143,8 +1151,8 @@ function mostrarSelecaoEmpresaTecnico(){
   const temAquamotor=podeAcessarGrupo('aquamotor', loginUserSelecionado?.nome);
   if(!temAquamotor){ confirmarEmpresaTecnico('forthemp'); return; }
   list.innerHTML =
-    empBtn('forthemp','F','Fortemp','Vistorias da Fortemp')+
-    empBtn('aquamotor','A','Aquamotor','Vistorias da Aquamotor');
+    empBtn('forthemp',esc(_rotuloFortemp().charAt(0).toUpperCase()),esc(_rotuloFortemp()),'Vistorias da '+esc(_rotuloFortemp()))+
+    empBtn('aquamotor',esc(getLojaNome('aquamotor').charAt(0).toUpperCase()),esc(getLojaNome('aquamotor')),'Vistorias da '+esc(getLojaNome('aquamotor')));
   document.getElementById('login-step-users').style.display='none';
   document.getElementById('login-step-loja').classList.add('show');
 }
@@ -1176,7 +1184,7 @@ function voltarParaPin(){
   document.getElementById('login-step-users').style.display='';
   const inp=document.getElementById('pin-input'); if(inp){ inp.value=''; }
   document.getElementById('login-err').textContent='';
-  setTimeout(()=>{ const ni=document.getElementById('login-nome-input'); if(ni) ni.focus(); },100);
+  if(!_fxCelular()) setTimeout(()=>{ const ni=document.getElementById('login-nome-input'); if(ni) ni.focus(); },100); // celular: teclado aberto cobria o botão Entrar
 }
 
 
@@ -1944,12 +1952,14 @@ function openSidebar(){
   const ov=document.getElementById('sidebar-overlay');
   if(sb) sb.classList.add('mob-open');
   if(ov) ov.classList.add('on');
+  try{ _fluxaSincronizarBannerComScroll(); }catch(e){}
 }
 function closeSidebar(){
   const sb=document.getElementById('sidebar');
   const ov=document.getElementById('sidebar-overlay');
   if(sb) sb.classList.remove('mob-open');
   if(ov) ov.classList.remove('on');
+  try{ _fluxaSincronizarBannerComScroll(); }catch(e){}
 }
 
 function go(p){
@@ -1975,6 +1985,7 @@ function go(p){
   else if(_atual && _atual!==p){ window._navHist=(window._navHist||[]); window._navHist.push(_atual); if(window._navHist.length>25) window._navHist.shift(); }
   document.querySelectorAll('.page').forEach(x=>x.classList.remove('on'));
   document.getElementById('page-'+p).classList.add('on');
+  try{ _fluxaSincronizarBannerComScroll(); }catch(e){}
   document.querySelectorAll('.nb').forEach(x=>{ x.classList.remove('on'); x.removeAttribute('aria-current'); });
   const nb=document.getElementById('nb-'+p); if(nb){ nb.classList.add('on'); nb.setAttribute('aria-current','page'); }
   document.querySelectorAll('.mob-nb').forEach(x=>{ x.classList.remove('on'); x.removeAttribute('aria-current'); });
@@ -2222,16 +2233,16 @@ function _fxOpcoesEmpresa(){
   if(s.perfil==='tecnico'){
     if(!podeAcessarGrupo('aquamotor')) return [];
     return [
-      {tipo:'tec', id:'forthemp', nome:'Fortemp', sub:'Vistorias da Fortemp'},
-      {tipo:'tec', id:'aquamotor', nome:'Aquamotor', sub:'Vistorias da Aquamotor'}
+      {tipo:'tec', id:'forthemp', nome:_rotuloFortemp(), sub:'Vistorias da '+_rotuloFortemp()},
+      {tipo:'tec', id:'aquamotor', nome:getLojaNome('aquamotor'), sub:'Vistorias da '+getLojaNome('aquamotor')}
     ];
   }
   if(!(typeof isMainGestor==='function' && isMainGestor())) return [];
   const principais=LOJAS.filter(l=>GRUPO_FORTHEMP.includes(l.id));
   const outros=LOJAS.filter(l=>!GRUPO_FORTHEMP.includes(l.id) && podeAcessarGrupo(l.grupo));
-  return [{tipo:'loja', id:'', nome:(LOJAS.filter(l=>GRUPO_FORTHEMP.includes(l.id)).length>1 ? (FLUXA_CONFIG.todasLabel||'Todas as unidades') : 'Fortemp'), sub:(LOJAS.filter(l=>GRUPO_FORTHEMP.includes(l.id)).length>1?'Visão do grupo':'')}]
+  return [{tipo:'loja', id:'', nome:(LOJAS.filter(l=>GRUPO_FORTHEMP.includes(l.id)).length>1 ? (FLUXA_CONFIG.todasLabel||'Todas as unidades') : _rotuloFortemp()), sub:(LOJAS.filter(l=>GRUPO_FORTHEMP.includes(l.id)).length>1?'Visão do grupo':'')}]
     .concat(principais.length>1 ? principais.map(l=>({tipo:'loja', id:l.id, nome:l.nome, sub:''})) : [])
-    .concat(outros.map(l=>({tipo:'loja', id:l.id, nome:l.nome, sub:'Empresa separada'})));
+    .concat(outros.map(l=>({tipo:'loja', id:l.id, nome:_nomeLoja(l), sub:'Empresa separada'})));
 }
 function _fxEmpresaAtualId(){
   const s=getSessao();
@@ -5720,6 +5731,17 @@ function _corParaBadge(cor){
 // Extraído de renderPainelHoje() em 2026-08-13 pra ser reaproveitado pela
 // central de notificações (sino do cabeçalho) sem duplicar o cálculo — só a
 // parte pura, sem tocar em DOM.
+// Resumo da vistoria interrompida (rascunho local, até 12 h). null se não houver.
+function _vistoriaEmAndamentoResumo(){
+  try{
+    const d=JSON.parse(localStorage.getItem(LS_VIS_DRAFT)||'null');
+    if(!d||!d.t||Date.now()-d.t>12*60*60*1000) return null;
+    const cliente=((d.campos||{})['vis-cli']||'').trim(); if(!cliente) return null;
+    const ids=[...(d.custom||[]).map(e=>e.id), ...(d.sel||[])];
+    const total=new Set(ids).size; const feitos=[...new Set(ids)].filter(i=>{ const st=(d.dados||{})[i]?.status; return st&&st!=='na'; }).length;
+    return {cliente, feitos, total};
+  }catch(e){ return null; }
+}
 function _itensPainelHoje(){
   const itens=[];
 
@@ -5758,7 +5780,10 @@ function _itensPainelHoje(){
   // 8a), reaproveitado aqui pra virar item acionável no painel diário em vez
   // de só um KPI que só quem abre Ordens de Serviço vê.
   const _hojeOS=_hojeLocal();
-  const osSemTec=filtrarPorLoja(todosOS||[]).filter(o=>o.status==='agendado' && !(o.tecnico||'').trim());
+  // OS "de plano" (agendamento_id 'ag_plano…') são os marcadores mensais das vistorias
+  // recorrentes, não serviço a atribuir: contá-las gerava "60 OS sem técnico, 30
+  // atrasadas" falso (inclusive com datas futuras).
+  const osSemTec=filtrarPorLoja(todosOS||[]).filter(o=>o.status==='agendado' && !(o.tecnico||'').trim() && !String(o.agendamento_id||'').startsWith('ag_plano'));
   if(osSemTec.length){
     const atrasadasOS=osSemTec.filter(o=>o.data_servico && o.data_servico<_hojeOS);
     // Só ordena quem TEM data (Tarefa 3e.2, achado em teste): sem esse
@@ -5780,19 +5805,23 @@ function _itensPainelHoje(){
     sub: rup.slice(0,3).map(r=>esc((produtoById(r.produto_id)||{}).nome||'—')).join(' · ')+(rup.length>3?` +${rup.length-3}`:''),
     acao:'Comprar', fn:"go('estoque')"});
 
-  // 3. Despesa fixa não lançada — sem ela o resultado do mês fica otimista
-  const dp=(typeof _despRecorrentesPendentes==='function'? _despRecorrentesPendentes() : []);
+  // 3. Despesa fixa não lançada — só se o módulo de despesas é USADO (já há despesa
+  // lançada). Com zero despesas desde sempre, o aviso era permanente e inútil.
+  const dp=((todasDesp||[]).length && typeof _despRecorrentesPendentes==='function') ? _despRecorrentesPendentes() : [];
   if(dp.length) itens.push({id:'despesa-fixa', cor:'var(--yellow)', icone:'🧾',
     titulo:`${dp.length} despesa${dp.length!==1?'s':''} fixa${dp.length!==1?'s':''} não lançada${dp.length!==1?'s':''}`,
     sub:'Sem elas o resultado do mês parece maior do que é',
     acao:'Lançar', fn:"go('despesas')"});
 
-  // 4. Orçamentos sem identidade de cliente — trava LTV e recompra
-  const semId=filtrarPorLoja(todosOrc||[]).filter(o=>!o.cliente_id && (o.cliente||'').trim());
-  if(semId.length>=10) itens.push({id:'orc-sem-id', cor:'var(--gray)', icone:'🪪',
-    titulo:`${semId.length} orçamentos sem cliente identificado`,
-    sub:'Não entram no histórico do cliente',
-    acao:'Revisar', fn:"go('identidade')"});
+  // 4. (removido 28/10) "N orçamentos sem cliente identificado": ninguém resolvia e o número só
+  // crescia (108). A tela Clientes → Identidade segue disponível, sem aviso permanente.
+
+  // 5. Vistoria em andamento (a única pendência de CAMPO: ela some do radar ao trocar de tela)
+  const va=_vistoriaEmAndamentoResumo();
+  if(va) itens.unshift({id:'vistoria-andamento', campo:true, cor:'var(--c1)', icone:'🔍',
+    titulo:'Vistoria em andamento — '+va.cliente, // titulo já é escapado na renderização
+    sub:va.feitos+' de '+va.total+' equipamentos vistoriados · toque para continuar de onde parou',
+    acao:'Continuar', fn:"go('visitas')"});
 
   return itens;
 }
@@ -5846,13 +5875,8 @@ function getNotificacoes(){
   // ninguém nunca dispensou um aviso — viravam contagem fixa ("126 clientes na
   // fila") que só acumulava. Continuam na fila "Precisa de você hoje" do Insights,
   // que mostra os casos com nome e valor em vez de um número.
-  try{
-    const neg=_estoqueNegativos().filter(n=>!n.inativo);
-    if(neg.length) out.push({id:'estoque-negativo', cor:'var(--red)', icone:'⚠️',
-      titulo:`${neg.length} produto${neg.length!==1?'s':''} com saldo negativo`,
-      sub:'A contagem física não bate com o sistema',
-      acao:'Ver', fn:"go('estoque')"});
-  }catch(e){ console.warn('[notif:estoqueneg]', e?.message||e); }
+  // "Saldo negativo" saiu daqui (28/10): eram os MESMOS produtos de "produtos em falta" (7 e 7),
+  // contados duas vezes. O selo "!" do Estoque continua marcando o problema.
   // Aviso que fica ligado há semanas sem ninguém agir deixa de contar no selo e de
   // empilhar no sino: vai pra uma seção recolhida. Sai de lá sozinho quando a
   // condição some, e volta a contar se sumir e reaparecer.
@@ -5866,7 +5890,11 @@ function getNotificacoes(){
   });
   Object.keys(desde).forEach(id=>{ if((agora-desde[id].ult)>NOTIF_GRACA_MS){ delete desde[id]; mudouDesde=true; } });
   if(mudouDesde) _notifDesdeSalvar(desde);
-  return out.filter(n=>n.id && !_notifDismissAtivo(n.id));
+  // CELULAR: o sino é só de campo (vistoria em andamento). Cobrança, estoque e
+  // cadastro são decisões de escritório — ficam no "Hoje" do computador, sem selo,
+  // sem aviso e sem sino no bolso de quem está na casa de máquinas.
+  const lista=_fxCelular() ? out.filter(n=>n.campo) : out;
+  return lista.filter(n=>n.id && !_notifDismissAtivo(n.id));
 }
 let _notifCache=[];
 let _notifTabAtiva='pendentes';
@@ -5938,6 +5966,7 @@ async function renderNotificacoes(){
   _notifCache=notifs;
 
   const recentes=notifs.filter(n=>!n.antiga), antigas=notifs.filter(n=>n.antiga);
+  { const w=document.getElementById('notif-wrap'); if(w && eGestor()) w.style.display = (_fxCelular() && !notifs.length) ? 'none' : ''; }
   const badge=document.getElementById('notif-badge');
   if(badge){
     if(recentes.length){ badge.textContent = recentes.length>9?'9+':String(recentes.length); badge.style.display='flex'; }
@@ -5953,7 +5982,7 @@ async function renderNotificacoes(){
   // seu e, no boot, apareciam 7 avisos empilhados (e voltavam a cada recarga
   // quando o localStorage estava cheio e o "já vi" não gravava).
   const novas=recentes.filter(n=>!seen[n.id]);
-  if(novas.length && typeof toast==='function'){
+  if(novas.length && typeof toast==='function' && !_fxCelular()){
     toast(novas.length===1 ? `${novas[0].icone} ${novas[0].titulo}` : `🔔 ${novas.length} pendências novas — abra o sino para ver`);
   }
   novas.forEach(n=>{ seen[n.id]=true; mudou=true; });
@@ -6020,12 +6049,13 @@ function _acaoWA(orcId){
   abrirCrmContato(orcId);
 }
 const ACAO_TETO=7;
+const _acaoTeto=()=>_fxCelular()?4:ACAO_TETO; // no celular a fila é curta: só o que importa agora
 function _acaoQueue(){
   const out=[];
 
   // Sistema: dinheiro parado, estoque travado, despesa não lançada — já vem
   // pronto do painel de hoje (_itensPainelHoje), urgência alta por padrão.
-  try{ _itensPainelHoje().forEach(i=>out.push({...i, urgencia:88, tipo:'sistema'})); }
+  try{ _itensPainelHoje().forEach(i=>out.push({...i, urgencia:i.id==='vistoria-andamento'?99:88, tipo:'sistema'})); }
   catch(e){ console.warn('[acaoQueue:sistema]', e?.message||e); }
 
   // Fila de follow-up: usa o score que crmCandidatos() já pondera pela
@@ -6034,7 +6064,7 @@ function _acaoQueue(){
     const {equipamento=[], servico=[]}=crmCandidatos();
     let cands=[...equipamento, ...servico];
     if(_crmFaixaFiltro) cands=cands.filter(c=>_crmFaixaDe(c.dias)===_crmFaixaFiltro);
-    cands.slice(0,10).forEach(c=>{
+    cands.slice(0,_fxCelular()?2:5).forEach(c=>{
       const tel=(c.orc.tel_cliente||'').replace(/\D/g,'');
       // Ligar mantém o href tel: (preserva o comportamento nativo do link —
       // copiar número, preview no desktop) e GANHA um onclick que também abre
@@ -6167,7 +6197,7 @@ function renderAcaoQueue(){
     if(linkEl) linkEl.textContent='';
     return;
   }
-  const visiveis=fila.slice(0,ACAO_TETO);
+  const visiveis=fila.slice(0,_acaoTeto());
   el.innerHTML=visiveis.map((it,i)=>_acaoItemHTML(it,i===0)).join('');
   if(linkEl) linkEl.textContent = fila.length>visiveis.length ? `ver ${fila.length}` : `${fila.length}`;
 }
@@ -6181,7 +6211,8 @@ function _insSetPeriodo(p){
   renderInsightsChart();
 }
 function renderInsightsChart(){
-  const canvas=document.getElementById('ins-chart'); if(!canvas||typeof Chart==='undefined') return;
+  const canvas=document.getElementById('ins-chart'); if(!canvas) return;
+  if(typeof Chart==='undefined'){ if(!window._chartFalhou) _carregarLib('libs/chart.umd.min.js').then(()=>renderInsightsChart()).catch(e=>{ window._chartFalhou=true; console.warn('[chart]',e?.message||e); }); return; }
   const hoje=new Date();
   const qtd = _insPeriodo==='12'?12 : _insPeriodo==='ano'?(hoje.getMonth()+1) : 6;
   const meses=[]; for(let i=qtd-1;i>=0;i--){ const d=new Date(hoje.getFullYear(),hoje.getMonth()-i,1); meses.push({y:d.getFullYear(),m:d.getMonth()}); }
@@ -6214,7 +6245,7 @@ function renderInsightsChart(){
   const footerEl=document.getElementById('ins-fat-footer');
   const despCard=document.getElementById('ins-desp-vazia-card');
   if(footerEl) footerEl.style.display = despMesAtual>0 ? '' : 'none';
-  if(despCard) despCard.style.display = despMesAtual>0 ? 'none' : '';
+  if(despCard) despCard.style.display = (despMesAtual>0 || !(todasDesp||[]).length) ? 'none' : ''; // módulo nunca usado: sem aviso permanente
   if(despMesAtual>0){
     set('ins-fat-receita', brl(totRec));
     set('ins-fat-despesas', brl(totDesp));
@@ -6301,7 +6332,7 @@ function renderPainelInsights(){
   const hojeStr=new Date().toLocaleDateString('pt-BR',{weekday:undefined,day:'numeric',month:'long'});
   set('ins-titulo','Hoje, '+hojeStr);
   const agoraStr=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
-  set('ins-atualizado','Atualizado às '+agoraStr+' · '+(lojaAtiva?esc(getLojaNome(lojaAtiva)):(CFG.todasLabel||'todas as unidades')));
+  set('ins-atualizado','Atualizado às '+agoraStr+' · '+(lojaAtiva?esc(getLojaNome(lojaAtiva)):(GRUPO_FORTHEMP.length>1?(FLUXA_CONFIG.todasLabel||'todas as unidades'):esc(_rotuloFortemp()))));
 
   set('ins-d-pipe', brl(s.pipeAtivoValor));
   set('ins-d-pipe-q', s.pipeAtivoQtd+' orçamento(s) ativos'+(s.friosQtd?' · +'+brl(s.friosValor)+' parados há +90 dias ('+s.friosQtd+')':' · ticket '+(s.pipeAtivoQtd?brl(s.pipeAtivoValor/s.pipeAtivoQtd):'—')));
@@ -6554,7 +6585,7 @@ function _orcData(o){
 
 function renderGraficoDash(){
   const canvas=document.getElementById('dash-chart'); if(!canvas) return;
-  if(typeof Chart==='undefined') return;
+  if(typeof Chart==='undefined'){ if(!window._chartFalhou) _carregarLib('libs/chart.umd.min.js').then(()=>renderGraficoDash()).catch(e=>{ window._chartFalhou=true; console.warn('[chart]',e?.message||e); }); return; }
   const tipo=(document.getElementById('dash-chart-tipo')||{value:'aprovado'}).value;
   const periodo=(document.getElementById('dash-chart-periodo')||{value:'6'}).value;
   const hoje=new Date();
@@ -10400,7 +10431,7 @@ function confirmar(a, cbSim, titulo, cbNao, labelNao, labelSim){
     detEl.classList.toggle('destrutivo', destrutivo);
     detEl.innerHTML=o.detalhe.map(d=>`<div class="rd-modal-detail-row"><span>${esc(d.k)}</span><span>${esc(d.v)}</span></div>`).join('');
   } else { detEl.style.display='none'; detEl.innerHTML=''; }
-  if(destrutivo){
+  if(destrutivo && !_fxCelular()){ // dica de teclado (Enter) não faz sentido no celular
     hintEl.style.display='';
     hintEl.textContent=`O foco começa em "${naoBtn.textContent}" — Enter não confirma.`;
   } else { hintEl.style.display='none'; }
@@ -14788,12 +14819,14 @@ function vxAbrir(id){
   _vxAtual=id;
   const t=document.getElementById('vx-tela'); if(!t) return;
   t.classList.add('on'); document.body.classList.add('vx-aberto');
+  try{ _fluxaSincronizarBannerComScroll(); }catch(e){}
   const ck=document.getElementById('vx-auto'); if(ck) ck.checked=_vxAuto;
   _vxRenderTela(true);
 }
 function vxFechar(){
   const id=_vxAtual; _vxAtual=null;
   document.getElementById('vx-tela')?.classList.remove('on'); document.body.classList.remove('vx-aberto');
+  try{ _fluxaSincronizarBannerComScroll(); }catch(e){}
   try{ _salvarRascunhoVis(); }catch(e){}
   renderVisEquipGrid(); // atualiza a lista (status/contadores) com o que foi preenchido
   if(id) document.getElementById('vx-row-'+id)?.scrollIntoView({block:'center'});
@@ -15045,6 +15078,8 @@ function _restaurarRascunhoVis(){
     },1000);
   }
   visTab('nova');
+  // Celular: recolhe "Dados da Visita" (já preenchidos) pra a lista de equipamentos aparecer logo
+  if(_fxCelular()){ const b=document.getElementById('vis-dados-body'), t=document.getElementById('vis-dados-toggle'); if(b) b.style.display='none'; if(t) t.textContent='▼ expandir'; }
   toast('🔄 Vistoria em andamento restaurada — pode continuar de onde parou');
   return true;
 }
@@ -15143,6 +15178,17 @@ function visRemoverFoto(id, idx){
   _salvarRascunhoVis();
 }
 
+// Bibliotecas pesadas carregadas SÓ quando usadas (28/10): html2pdf (885 KB, só no e-mail
+// de vistoria) e Chart.js (200 KB, só nos gráficos) abriam junto com o app e pesavam em
+// celular com sinal ruim. Continuam no cache offline do service worker.
+const _libPend={};
+function _carregarLib(src){
+  if(_libPend[src]) return _libPend[src];
+  return _libPend[src]=new Promise((ok,erro)=>{
+    const sc=document.createElement('script'); sc.src=src; sc.onload=()=>ok(); sc.onerror=()=>{ delete _libPend[src]; erro(new Error('falha ao carregar '+src)); };
+    document.head.appendChild(sc);
+  });
+}
 // Faz upload de uma foto (base64) para o Supabase Storage e retorna a URL pública.
 // Retorna null se falhar (a foto base64 original fica preservada localmente).
 // Tenta 2x — rede instável dentro de casa de máquinas/subsolo é comum durante a vistoria.
@@ -15164,6 +15210,19 @@ async function _uploadFotoStorage(base64, path, _tentativa=1, bucket='vistorias-
     });
     if(!res.ok){
       console.warn('[uploadFoto] HTTP', res.status, await res.text());
+      // 400/403 = o arquivo JÁ existe nesse caminho (o bucket não deixa sobrescrever). Foi o que
+      // deixou os orçamentos #691/#692 com foto presa no banco, falhando 8x a cada abertura:
+      // se o arquivo existente tem o mesmo tamanho, é a mesma foto → só usa a URL; senão sobe
+      // com um nome novo.
+      if(res.status===400 || res.status===403 || res.status===409){
+        const url=`${sbUrl}/storage/v1/object/public/${bucket}/${path}`;
+        try{
+          const h=await fetch(url,{method:'HEAD'});
+          if(h.ok && +h.headers.get('content-length')===blob.size) return url;
+        }catch(e){}
+        if(!/_r\d+\.jpg$/.test(path)) return _uploadFotoStorage(base64, path.replace(/\.jpg$/,'_r'+Date.now()+'.jpg'), 1, bucket);
+        return null;
+      }
       if(_tentativa<2){ await new Promise(r=>setTimeout(r,1500)); return _uploadFotoStorage(base64, path, _tentativa+1, bucket); }
       return null;
     }
@@ -15719,7 +15778,7 @@ function descartarVistoriaEmAndamento(){
     labelNao: 'Continuar preenchendo',
     labelSim: emEdicao?'Descartar edição':'Descartar tudo',
     onSim: ()=>{
-      const voltaPra = emEdicao ? 'hist' : 'nova';
+      const voltaPra = emEdicao ? 'hist' : (_fxCelular() ? 'locais' : 'nova'); // celular: volta pra lista de visitas
       _limparFormVistoria();
       toast(emEdicao ? '↩️ Edição descartada' : '🗑️ Vistoria descartada');
       visTab(voltaPra);
@@ -16656,6 +16715,7 @@ function initEmailJS(){
 // e-mail segue só com o texto. Nunca lança.
 let _pdfStorageOk = null; // null=desconhecido, true=bucket ok, false=bucket/policy faltando (não gerar PDF à toa)
 async function gerarEUploadPDFVistoria(vis){
+  if(typeof html2pdf === 'undefined'){ try{ await _carregarLib('libs/html2pdf.bundle.min.js'); }catch(e){ console.warn('[html2pdf]',e?.message||e); } }
   if(typeof html2pdf === 'undefined' || !db) return null;
   if(_pdfStorageOk === false) return null; // já sabemos que o Storage não está pronto — evita gerar PDF em vão
   const element = document.getElementById('pdoc-visita');
@@ -18670,7 +18730,7 @@ function _vbAbrir(){
   _vendaRenderCarrinho();
   const s=getSessao();
   const lojaEl=document.getElementById('vb-topbar-loja');
-  if(lojaEl) lojaEl.textContent = lojaAtiva ? getLojaNome(lojaAtiva) : (CFG.todasLabel||'Todas as unidades');
+  if(lojaEl) lojaEl.textContent = lojaAtiva ? getLojaNome(lojaAtiva) : (GRUPO_FORTHEMP.length>1 ? (FLUXA_CONFIG.todasLabel||'Todas as unidades') : _rotuloFortemp());
   const avEl=document.getElementById('vb-topbar-avatar');
   if(avEl) avEl.textContent = (s?.nome||'').trim().split(/\s+/).slice(0,2).map(p=>p[0]).join('').toUpperCase()||'—';
   setTimeout(()=>document.getElementById('venda-busca')?.focus(), 80);

@@ -2228,3 +2228,29 @@
       .vx-add{display:block;width:100%;min-height:54px;margin:12px 0 4px;border:2px dashed var(--c1);border-radius:12px;background:var(--c1-light);color:var(--c1);font-size:15px;font-weight:800;font-family:'Instrument Sans',sans-serif;cursor:pointer}
       .vx-corpo .vis-eq-edit input{font-size:16px!important;min-height:46px}
     }
+
+    /* ══ Celular: limpeza e toque (28/10) — só ≤680px ══ */
+    @media(max-width:680px){
+      /* números de "pendente" nos menus (186 orçamentos, 84 a receber…) viravam ruído permanente */
+      .sbadge{display:none!important}
+      /* alvos de toque: o recomendado é ~44 px; vários botões tinham 27–36 px */
+      .rd-btn{min-height:44px}
+      .rd-btn.rd-btn-sm,.rd-btn-sm{min-height:40px}
+      .rd-chip{min-height:40px;display:inline-flex;align-items:center}
+      .tb{min-height:40px}
+      .btn-voltar,.snb,.mob-nb{min-height:44px}
+      .btn-voltar{padding:8px 12px}
+      .rd-field-box:not(textarea){min-height:44px;font-size:16px}
+      /* Agendamentos: chips + "Novo" estouravam a largura e criavam rolagem lateral */
+      #page-agendamentos .novo-orc-topbar{flex-wrap:wrap}
+      #page-agendamentos .novo-orc-topbar>div{flex-wrap:wrap;max-width:100%}
+      #page-agendamentos .rd-btn{max-width:100%;white-space:normal}
+      /* Agendamentos: a linha do calendário (‹ mês › + técnico + Reorganizar) passava da borda */
+      .cal-nav{flex-wrap:wrap;gap:8px;row-gap:8px}
+      .cal-nav select{margin-left:0!important;flex:1 1 140px;min-width:0}
+      .cal-nav .rd-btn{flex:0 0 auto}
+      .cal-nav button:not(.rd-btn){min-width:44px;min-height:44px}
+      .ins-period button,.of-tab,.ag-tab{min-height:36px}
+      /* KPIs do Hoje: rótulo em 2 linhas desalinhava o número */
+      .ins-kpis .rd-card-lbl,.ins-kpis .rd-kpi-lbl{min-height:2.4em}
+    }

@@ -36,10 +36,19 @@ function _fluxaBannerPertoDoFim(){
   const doc = document.documentElement;
   return (window.scrollY + window.innerHeight) >= (doc.scrollHeight - _FLUXA_BANNER_SCROLL_MARGEM);
 }
+// Telas de trabalho em campo, com barra de ações própria (Finalizar/Descartar, Próximo,
+// Salvar…): o aviso de instalar NUNCA fica por cima — achado no teste em Android real
+// (28/10): ele cobria o "Finalizar Vistoria" e os botões de foto/Próximo.
+function _fluxaBannerDeveSair(){
+  const pg = document.querySelector('.page.on')?.id || '';
+  return document.body.classList.contains('vx-aberto')
+    || ['page-visitas','page-os','page-form','page-venda-balcao','page-oficina-recepcao'].includes(pg)
+    || !!document.getElementById('sidebar')?.classList.contains('mob-open');
+}
 function _fluxaSincronizarBannerComScroll(){
   const el = document.getElementById('pwa-install-banner');
   if (!el || !el.classList.contains('on')) return;
-  el.classList.toggle('pwa-banner-escondido-scroll', _fluxaBannerPertoDoFim());
+  el.classList.toggle('pwa-banner-escondido-scroll', _fluxaBannerPertoDoFim() || _fluxaBannerDeveSair());
 }
 window.addEventListener('scroll', _fluxaSincronizarBannerComScroll, { passive: true });
 (function _fluxaObservarBannerInstalar(){

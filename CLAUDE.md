@@ -2,6 +2,37 @@
 
 ---
 
+## 🧹 Rodada "corrigir tudo" do emulador Android + limpeza de avisos no celular (28/10)
+
+Achados do teste no emulador (Android 14) e o pedido do Marcos: no celular o sino/avisos
+apareciam o tempo todo, com pendências que a equipe não usa. Regra: **celular = só o que serve
+ao dia a dia da vistoria; desktop continua com tudo** (filtro por `_fxCelular()`).
+
+- **Avisos no celular:** `getNotificacoes()` devolve só itens com `campo` (hoje: "vistoria em
+  andamento" — `_vistoriaEmAndamentoResumo`, rascunho local/nuvem <12 h). Sem toast de pendências
+  no boot, sem selos numéricos nos menus (`.sbadge{display:none}` ≤680px), fila de ação do Hoje
+  limitada a 4 (`_acaoTeto`). Desktop: sino, selos e fila como antes.
+- **Alertas removidos de vez (inúteis medidos):** orçamentos sem cliente vinculado, "despesas não
+  lançadas" quando o módulo não é usado, saldo negativo duplicado, falsas "OS sem técnico"
+  (placeholders `ag_plano` de vistoria mensal não contam).
+- **Nomes de unidade:** helpers `_nomeLoja/_rotuloFortemp/getLojaNome/getLojaBadge` usam o nome
+  configurado (hoje "Forthemp"/"Acquamotor"), evitando "Fortemp" x "Forthemp" misturados.
+- **Foto no Storage:** `_uploadFotoStorage` trata 400/403/409 (caminho já existe) apontando para a
+  URL existente em vez de falhar.
+- **Peso do app:** `html2pdf` e `Chart.js` saíram do `<script>` do `index.html` e carregam sob demanda
+  (`_carregarLib`); continuam no precache do `sw.js`.
+- **Banner de instalar (native.js):** some quando a página está perto do fim (`_fluxaBannerDeveSair`)
+  e respeita a dispensa de 7 dias.
+- **Barra inferior (celular):** Hoje, Vistorias, Minhas OS, Orçamento, OS, Balcão, Mais (ordem nova).
+- **Agendamentos** deixou de estourar a largura (`.cal-nav` quebra linha; medido 412 = 412 px).
+- **Alvos de toque** ≥ 40–44 px nos botões/chips/campos (só celular).
+- Pendente de conferir em produção: fotos das OS #691/#692 sobem pela varredura na próxima sessão.
+  Ainda há um usuário com PIN legado em texto puro (aviso "PIN legado detectado") — redefinir em Usuários.
+
+sw.js: fluxa-v269 → fluxa-v270.
+
+---
+
 ## 🏢 "Qual empresa?": só Fortemp e Aquamotor (28/10)
 
 Visto no emulador Android: o login do gestor ainda mostrava 3 opções ("Todas as unidades", "Fortemp"
