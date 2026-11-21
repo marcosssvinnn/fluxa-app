@@ -17225,7 +17225,36 @@ function renderIndicadoresEstoque(){
       para o ano.</div>`;
 }
 
-function _lojaParaMovimento(){ return lojaAtiva || (Array.isArray(LOJAS)&&LOJAS.length===1 ? LOJAS[0].id : ''); }
+// "Todas"/lojaAtiva vazio só é ambíguo de verdade quando o GRUPO que essa visão
+// agrega (GRUPO_FORTHEMP) tem mais de 1 unidade. Desde que a Camboriú encerrou
+// (28/10), esse grupo tem 1 unidade só — e o seletor do topo (populaLojaSelect)
+// nem oferece mais uma opção específica pra ela, só o valor "Todas" (''); exigir
+// "selecione a unidade" travava TODO movimento de estoque da Fortemp sem
+// nenhuma saída possível na tela (achado real, 21/11).
+// `produtoId` (opcional, 2ª linha de defesa pra um grupo que volte a ter 2+
+// lojas): lançamento AVULSO (entrada/saída/baixa — sem comparar com saldo de
+// ninguém) cai na loja de CADASTRO do produto em vez de travar. Quem chama uma
+// correção que compara com saldo (ajuste/reserva/balanço — risco real de
+// diferença errada numa loja que não foi contada, achado de 06/08) chama SEM
+// produtoId, continua exigindo escolha nesse cenário multi-loja.
+function _lojaParaMovimento(produtoId){
+  if(lojaAtiva) return lojaAtiva;
+  if(Array.isArray(LOJAS)&&LOJAS.length===1) return LOJAS[0].id;
+  if(Array.isArray(GRUPO_FORTHEMP)&&GRUPO_FORTHEMP.length<=1&&GRUPO_FORTHEMP[0]) return GRUPO_FORTHEMP[0];
+  const p=produtoId?produtoById(produtoId):null;
+  return (p&&p.loja_id) || '';
+}
+// Disponível (física − reservada) de UMA loja só — para quando _lojaParaMovimento
+// resolve pelo produto (fallback de "Todas"): disponivelProduto() ainda filtra
+// pelo lojaAtiva global (que continua '' = Todas nesse caso), então mostraria o
+// total do GRUPO, não o da loja em que o movimento vai cair de verdade.
+function _disponivelProdutoNaLoja(produtoId, loja){
+  let reservado=0;
+  (todosMovEstoque||[]).forEach(m=>{
+    if(m.produto_id===produtoId && (m.loja_id||'')===loja && _TIPOS_RESERVA.includes(m.tipo)) reservado+=parseFloat(m.quantidade)||0;
+  });
+  return _fisicaProdutoNaLoja(produtoId, loja)-reservado;
+}
 function _fisicaProdutoNaLoja(produtoId, loja){
   return (todosMovEstoque||[])
     .filter(m=>m.produto_id===produtoId && (m.loja_id||'')===loja && _TIPOS_FISICOS.includes(m.tipo))
@@ -18599,9 +18628,12 @@ function abrirMovModal(produtoId, tipo){
   document.getElementById('mov-modal-titulo').textContent=cfg.titulo;
   // Deixa explícito em QUAL unidade o movimento vai cair e qual saldo está sendo
   // comparado — no ajuste, contar contra o saldo de outra loja lança diferença errada.
-  const _lm=_lojaParaMovimento();
+  // Entrada/saída não comparam com saldo nenhum (só somam/subtraem), então com
+  // "Todas" selecionado caem na loja de cadastro do produto (_lojaParaMovimento
+  // com produtoId) em vez de travar — só o ajuste exige escolha explícita no topo.
+  const _lm=_lojaParaMovimento(tipo==='ajuste'?undefined:produtoId);
   const _saldoTxt = _lm
-    ? `${fmtQtd(tipo==='ajuste'?_fisicaProdutoNaLoja(produtoId,_lm):disponivelProduto(produtoId))} ${esc(p.unidade||'un')} em ${esc(getLojaNome(_lm)||_lm)}`
+    ? `${fmtQtd(tipo==='ajuste'?_fisicaProdutoNaLoja(produtoId,_lm):_disponivelProdutoNaLoja(produtoId,_lm))} ${esc(p.unidade||'un')} em ${esc(getLojaNome(_lm)||_lm)}`
     : '<span style="color:var(--red)">selecione a unidade no topo</span>';
   document.getElementById('mov-saldo-atual').innerHTML=
     `<strong style="color:var(--c2)">${esc(p.nome)}</strong><br>`+
@@ -18677,7 +18709,11 @@ function baixaBuscar(termo){
 function _baixaSelecionar(pid){
   const p=produtoById(pid); if(!p) return;
   _baixaProdId=pid;
-  const disp=disponivelProduto(pid);
+  // Com "Todas" selecionado a baixa cai na loja do produto (_lojaParaMovimento)
+  // — mostra o disponível DAQUELA loja, não o agregado do grupo, senão o número
+  // aqui não bate com o que vira saldo depois de confirmar.
+  const _lb=_lojaParaMovimento(pid);
+  const disp=_lb?_disponivelProdutoNaLoja(pid,_lb):disponivelProduto(pid);
   document.getElementById('baixa-selecionado').innerHTML=
     `<strong style="color:var(--c2)">${esc(p.nome)}</strong><br>
      <span style="color:var(--gray)">Disponível agora: <strong>${fmtQtd(disp)} ${esc(p.unidade||'un')}</strong>${p.custo>0?` · custo ${brl(parseFloat(p.custo))}`:''}</span>`;
@@ -18719,7 +18755,8 @@ function baixaAtualizarResumo(){
   const el=document.getElementById('baixa-resumo'); if(!el) return;
   const p=produtoById(_baixaProdId); if(!p){ el.textContent=''; return; }
   const qtd=parseFloat((gV('baixa-qtd')||'').replace(',','.'))||0;
-  const disp=disponivelProduto(_baixaProdId);
+  const _lb=_lojaParaMovimento(_baixaProdId);
+  const disp=_lb?_disponivelProdutoNaLoja(_baixaProdId,_lb):disponivelProduto(_baixaProdId);
   const cfg=BAIXA_MOTIVOS.find(m=>m.id===_baixaMotivo);
   let txt='';
   if(qtd>0){
@@ -18742,7 +18779,9 @@ function confirmarBaixaRapida(){
   if(!p){ toast('⚠️ Escolha o produto'); return; }
   const qtd=parseFloat((gV('baixa-qtd')||'').replace(',','.'))||0;
   if(qtd<=0){ toast('⚠️ Informe a quantidade'); document.getElementById('baixa-qtd')?.focus(); return; }
-  const loja=_lojaParaMovimento();
+  // Saída avulsa — mesmo raciocínio do confirmarMovimento: sem comparar com
+  // saldo de ninguém, cai na loja de cadastro do produto com "Todas" selecionado.
+  const loja=_lojaParaMovimento(_baixaProdId);
   if(!loja){ toast('⚠️ Selecione a unidade no topo da tela'); return; }
   const cfg=BAIXA_MOTIVOS.find(m=>m.id===_baixaMotivo)||BAIXA_MOTIVOS[0];
   const ref=(gV('baixa-ref')||'').trim();
@@ -19178,9 +19217,11 @@ function confirmarMovimento(){
   const val=parseFloat((gV('mov-qtd')||'').replace(',','.'));
   if(isNaN(val)){ toast('⚠️ Informe a quantidade'); return; }
   const motivo=(gV('mov-motivo')||'').trim();
-  // Unidade explícita: sem isso o movimento cai na loja de CADASTRO do produto,
-  // que pode não ser a loja onde a pessoa contou/recebeu (ver _lojaParaMovimento).
-  const lojaAlvo=_lojaParaMovimento();
+  // Entrada/saída não comparam com saldo de ninguém — com "Todas" selecionado,
+  // cai na loja de CADASTRO do produto em vez de travar a tela. Ajuste compara
+  // com o saldo de uma loja específica (achado de 06/08: contar contra o saldo
+  // errado lança diferença errada), por isso exige escolha explícita no topo.
+  const lojaAlvo=_lojaParaMovimento(_movTipo==='ajuste'?undefined:_movProdId);
   if(!lojaAlvo){ toast('⚠️ Selecione a unidade no topo antes de movimentar o estoque'); return; }
   if(_movTipo==='entrada'){
     const custo=parseFloat((gV('mov-custo')||'').replace(',','.'));

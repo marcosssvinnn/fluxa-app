@@ -2,6 +2,60 @@
 
 ---
 
+## 🔴 Estoque da Fortemp travado inteiro — "selecione a unidade no topo" sem nenhuma unidade pra selecionar (21/11)
+
+Marcos: ao dar entrada de estoque (Cloro Genco), o modal mostrava "Em estoque
+agora: selecione a unidade no topo" em vermelho e travava o "Confirmar" — e
+notou corretamente que **a Fortemp não tem mais de uma unidade** (a Camboriú
+encerrou em 28/10 — ver o commit `bb035a8`/entrada "Fluxo de OS" logo abaixo,
+que já tinha mexido no rótulo do seletor por causa disso).
+
+**Causa raiz real**: `_lojaParaMovimento()` (criada em 06/08) só considerava
+resolvido um movimento de estoque de duas formas — unidade específica escolhida
+no topo (`lojaAtiva`), ou `LOJAS.length===1` (array inteiro com 1 loja só). Com
+a consolidação de 28/10, `LOJAS` passou a ter `fortemp-itapema` + `aquamotor` —
+**2** entradas — então esse atalho nunca disparava. E o `populaLojaSelect()`
+corrigido no mesmo commit de 28/10 (`principais.length>1 ? ... : ''`) parou de
+oferecer uma opção específica pra Fortemp no seletor — só sobrou "Fortemp"
+(valor `''`, a antiga "Todas"). Resultado: **não existe mais nenhum jeito de
+satisfazer essa trava pra Fortemp pela UI** — todo movimento de estoque dela
+(entrada, saída, ajuste, baixa rápida, correção de reserva, balanço de
+inventário, venda de balcão) ficou bloqueado sem saída, desde 28/10.
+
+**Corrigido**: `_lojaParaMovimento()` ganhou um 3º critério, ANTES de qualquer
+outro — resolve sozinho quando o grupo que a visão "Todas" agrega
+(`GRUPO_FORTHEMP`) tem **1 unidade só**, que é o estado real desde a Camboriú
+fechar. Isso não é só conveniência: o achado de 06/08 (que criou a trava) era
+especificamente sobre contar a diferença de UMA loja contra o saldo AGREGADO de
+duas — com o grupo tendo 1 membro só, agregado e saldo daquela loja são a
+mesma coisa, então não existe mais o risco que a trava evitava. Resolve os 6
+fluxos de estoque de uma vez (`confirmarMovimento`, `confirmarBaixaRapida`,
+`abrirResvModal`, `confirmarBalanco`/`_atualizarResumoBalanco`,
+`confirmarVendaBalcao`), porque todos chamam essa mesma função.
+
+**Camada extra, pro dia em que a Fortemp (ou a Aquamotor) voltar a ter 2+
+unidades**: `_lojaParaMovimento(produtoId)` ganhou um parâmetro opcional — se o
+grupo genuinamente tiver mais de uma loja e "Todas" estiver selecionado, um
+lançamento AVULSO de 1 produto só (entrada/saída/baixa — que não compara com
+saldo de ninguém, só soma/subtrai) cai na loja de CADASTRO do produto em vez de
+travar; `confirmarMovimento`/`abrirMovModal` passam o produto nos ramos
+entrada/saída (não no `ajuste`), `confirmarBaixaRapida` idem. Ajuste solo,
+correção de reserva, balanço em lote e venda de balcão continuam chamando SEM
+produto — correção que compara saldo, ou carrinho com produtos de lojas
+possivelmente diferentes, segue exigindo loja explícita quando há de verdade
+mais de uma opção. Nova `_disponivelProdutoNaLoja(produtoId,loja)` faz o
+preview de saldo (modal de movimento e resumo da baixa rápida) mostrar o
+disponível DAQUELA loja resolvida, não o agregado do grupo inteiro — sem isso
+o número na tela não bateria com o que o movimento realmente grava.
+
+Testado por leitura de código + `node --check app.js` (sintaxe ok); não
+validado no Browser pane nesta sessão (ambiente sem acesso de rede ao
+Supabase/GitHub Pages de produção).
+
+sw.js: fluxa-v271 → fluxa-v272.
+
+---
+
 ## 🔧 Fluxo de OS do técnico: "Minhas OS" + assumir de propósito (28/10)
 
 Pedido do Marcos: ver se o fluxo gestor → técnico → OS funciona de verdade ("nunca funcionou direito").
